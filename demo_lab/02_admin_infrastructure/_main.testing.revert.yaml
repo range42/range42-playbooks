@@ -1,0 +1,133 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+# TEST FILE  - issue #10
+
+- name: configure firewall - r42.admin-wazuh
+  become: true
+  hosts: r42.admin-wazuh
+  roles:
+    - software.configure.firewalls
+  vars_files:
+    - "../secrets/px-testing.cr42_tailscale.yaml"
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+      - ip: "all"
+        port: 443
+        protocol: "tcp"
+      - ip: "all"
+        port: 1515
+        protocol: "tcp"
+      - ip: "all"
+        port: 1514
+        protocol: "tcp"
+
+- name: configure firewall - r42.testing-wazuh-client
+  become: true
+  hosts: r42.testing-wazuh-client
+  roles:
+    - software.configure.firewalls
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: r42.admin-wazuh
+  become: yes
+  become_user: root
+  roles:
+    - role: software.install.wazuh-indexer
+    - role: software.install.wazuh-dashboard
+
+  vars_files:
+    - "../secrets/px-testing.cr42_tailscale.yaml"
+
+  vars:
+    local_certs_path: "/tmp/certificates/"
+    WAZUH_SERVER_IP: 192.168.42.100 # MOVE TO VAULT ?
+    single_node: true
+    indexer_network_host: "{{ WAZUH_SERVER_IP }}"
+    indexer_cluster_nodes:
+      - "{{ WAZUH_SERVER_IP }}"
+    ansible_shell_allow_world_readable_temp: true
+    instances:
+      node1:
+        name: node-1
+        ip: "{{ WAZUH_SERVER_IP }}"
+        role: indexer
+
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: r42.admin-wazuh
+  become: yes
+  vars_files:
+    - "../secrets/px-testing.cr42_tailscale.yaml"
+  vars:
+    WAZUH_SERVER_IP: 192.168.42.100 # MOVE TO VAULT ?
+    local_certs_path: "/tmp/certificates/"
+
+  roles:
+    - role: software.install.wazuh-manager
+    - role: software.install.wazuh-filebeat-oss
+      filebeat_node_name: node-1
+      filebeat_output_indexer_hosts:
+        - "{{ WAZUH_SERVER_IP }}:9200"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: EXEC wazuh-passwords-tool.sh - if CHANGE_WAZUH_PASSWORD is true
+  hosts: r42.admin-wazuh
+  become: yes
+  become_user: root
+  vars_files:
+    - "../secrets/px-testing.cr42_tailscale.yaml"
+
+  vars:
+    CHANGE_WAZUH_PASSWORD: true
+    WAZUH_ANSIBLE_HOSTNAME: "r42.admin-wazuh" ######### IF NOT IN TAILSCALE !
+    # WAZUH_ANSIBLE_HOSTNAME: "xxx.yyyy.zzzz.edge.wazuh" # IF TAILSCALE !
+    # WAZUH_ANSIBLE_HOSTNAME: "192.168.99.11"
+
+    #### MOVED TO VAULT ::
+    ####
+    # WAZUH_PASSWORD: "***********" # moved to vault !
+  tasks:
+    - name: Run wazuh-passwords-tool.sh
+      ansible.builtin.shell: >
+        /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh
+        -u admin -p "{{ WAZUH_PASSWORD }}"
+      register: password_output
+      delegate_to: "{{ WAZUH_ANSIBLE_HOSTNAME }}"
+      when: CHANGE_WAZUH_PASSWORD
+      # no_log: true
+      no_log: false
+
+###############################
+# wazuh deploy agent
+
+- hosts: r42.testing-wazuh-client
+  become: yes
+  become_user: root
+  roles:
+    - software.install.wazuh-agent
+
+  vars:
+    WAZUH_SERVER_IP: 192.168.42.100 # MOVE TO VAULT !!
+    wazuh_managers:
+      - address: "{{ WAZUH_SERVER_IP }}"
+        port: 1514
+        protocol: tcp
+        api_port: 55000
+        api_proto: "https"
+        api_user: wazuh
+        max_retries: 5
+        retry_interval: 5
+#
+###############################
