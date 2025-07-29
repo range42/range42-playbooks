@@ -1,4 +1,10 @@
 
+
+
+##
+## ISSUE - 3
+##
+
 - import_playbook: ./00-template-vm-nano.yaml
 - import_playbook: ./01-template-vm-micro-01-2g-24g.yaml
 - import_playbook: ./01-template-vm-micro-02-2g-24g.yaml
