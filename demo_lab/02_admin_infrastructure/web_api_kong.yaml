@@ -94,6 +94,10 @@
   gather_facts: false
 
   tasks:
+    ##
+    ## ISSUE - 7
+    ##
+
     #### THE FOLLOWING WILL NOT WORK  FOR  PROXYJUMP HOSTS
     ####
 
@@ -154,6 +158,10 @@
   become: true
 
   tasks:
+    ##
+    ## ISSUE - 7
+    ##
+
     - name: CLOUD INIT - WAIT END OF SETUP
       wait_for:
         path: /var/lib/cloud/instance/boot-finished
