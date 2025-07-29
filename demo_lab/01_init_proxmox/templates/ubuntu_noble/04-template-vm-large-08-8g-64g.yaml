@@ -14,9 +14,6 @@
 ## ISSUE - 3
 ##
 
-
-
-
 - hosts: px-testing
   gather_facts: false
   vars_files:
