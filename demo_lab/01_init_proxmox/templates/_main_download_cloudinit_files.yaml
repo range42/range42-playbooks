@@ -1,0 +1,42 @@
+##
+## ISSUE - 4
+##
+
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# PROMOX INIT - download cloud init files
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: px-testing
+  gather_facts: false
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yaml"
+
+  tasks:
+    - name: PROMOX INIT - DOWNLOAD - CLOUD INIT images
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "storage_download_iso"
+        proxmox_node: "px-testing"
+        proxmox_storage: "local"
+        iso_file_content_type: "iso"
+        iso_url: "{{ item.iso_url }}"
+        iso_file_name: "{{ item.iso_file_name }}"
+
+      loop:
+        - {
+            iso_url: "https://cloud-images.ubuntu.com/minimal/daily/noble/current/noble-minimal-cloudimg-amd64.img",
+            iso_file_name: "noble-minimal-cloudimg-amd64.img",
+          }
+        - {
+            iso_url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img",
+            iso_file_name: "noble-server-cloudimg-amd64.img",
+          }
+        - {
+            iso_url: "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.raw",
+            iso_file_name: "debian-12-genericcloud-amd64.img",
+          }
