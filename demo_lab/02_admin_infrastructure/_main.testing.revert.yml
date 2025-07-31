@@ -8,7 +8,7 @@
   roles:
     - software.configure.firewalls
   vars_files:
-    - "../secrets/px-testing.cr42_tailscale.yaml"
+    - "../secrets/px-testing.cr42_tailscale.yml"
   vars:
     firewall_rules:
       - ip: "all"
@@ -45,7 +45,7 @@
     - role: software.install.wazuh-dashboard
 
   vars_files:
-    - "../secrets/px-testing.cr42_tailscale.yaml"
+    - "../secrets/px-testing.cr42_tailscale.yml"
 
   vars:
     local_certs_path: "/tmp/certificates/"
@@ -68,7 +68,7 @@
 - hosts: r42.admin-wazuh
   become: yes
   vars_files:
-    - "../secrets/px-testing.cr42_tailscale.yaml"
+    - "../secrets/px-testing.cr42_tailscale.yml"
   vars:
     WAZUH_SERVER_IP: 192.168.42.100 # MOVE TO VAULT ?
     local_certs_path: "/tmp/certificates/"
@@ -87,7 +87,7 @@
   become: yes
   become_user: root
   vars_files:
-    - "../secrets/px-testing.cr42_tailscale.yaml"
+    - "../secrets/px-testing.cr42_tailscale.yml"
 
   vars:
     CHANGE_WAZUH_PASSWORD: true

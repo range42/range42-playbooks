@@ -6,7 +6,7 @@
 
 # TEST FILE  - issue #10
 
-- import_playbook: ./testing/wazuh_client_01.yaml
+- import_playbook: ./testing/wazuh_client_01.yml
 
   vars:
     global_vm_name: "testing-wazuh-client"
@@ -24,7 +24,7 @@
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./mon_wazuh.yaml
+- import_playbook: ./mon_wazuh.yml
 
   vars:
     global_vm_name: "admin-wazuh"
@@ -109,7 +109,7 @@
   become: true
 
   vars_files:
-    - "../secrets/px-testing.cr42_tailscale.yaml"
+    - "../secrets/px-testing.cr42_tailscale.yml"
 
   vars:
     tailscale_authkey: "{{ vault_tailscale_authkey }}"
