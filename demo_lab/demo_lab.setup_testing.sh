@@ -35,11 +35,11 @@ done
 proxmox_vm.list.to.jsons.sh | grep -vi template | grep -vi group | grep -iE "(admin-)|(testing-)" | jq -c | proxmox_vm.vm_id.stop_force.to.jsons.sh
 proxmox_vm.list.to.jsons.sh | grep -vi template | grep -vi group | grep -iE "(admin-)|(testing-)" | jq -c | proxmox_vm.vm_id.delete.to.jsons.sh
 
-ANSIBLE_STDOUT_CALLBACK=skippy ansible-playbook -i ./inventory/off_cr_42.yaml \
+ANSIBLE_STDOUT_CALLBACK=skippy ansible-playbook -i ./inventory/off_cr_42.yml \
     -l "all" \
-    "./demo_lab.testing.yaml" --vault-password-file /tmp/vault/vault_pass.txt
+    "./demo_lab.testing.yml" --vault-password-file /tmp/vault/vault_pass.txt
 
-# ANSIBLE_STDOUT_CALLBACK=skippy ansible-playbook -i ./inventory/off_cr_42.yaml \
+# ANSIBLE_STDOUT_CALLBACK=skippy ansible-playbook -i ./inventory/off_cr_42.yml \
 #     -l "all" \
     
 

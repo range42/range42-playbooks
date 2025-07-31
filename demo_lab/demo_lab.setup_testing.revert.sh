@@ -33,6 +33,6 @@
 
 # sleep 5
 
-ansible-playbook -i ./inventory/off_cr_42.yaml \
+ansible-playbook -i ./inventory/off_cr_42.yml \
     -l "r42.testing-wazuh-client,r42.admin-wazuh" \
-    "./demo_lab.testing.revert.yaml" --vault-password-file /tmp/vault/vault_pass.txt
+    "./demo_lab.testing.revert.yml" --vault-password-file /tmp/vault/vault_pass.txt
