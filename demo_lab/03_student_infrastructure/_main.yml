@@ -1,0 +1,62 @@
+##
+## ISSUE 12
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+- import_playbook: ./stage_00/student_box_01.yml
+
+  vars:
+    global_vm_name: "student-box-01"
+    global_vm_ssh_name: "r42.student-box-01"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 3001
+    global_vm_description: "student jump box "
+    global_vm_tag_name: "student"
+    global_vm_ci_ip: "192.168.42.160"
+    #
+    global_template_vm_id: 9211
+    global_template_name: "01-template-vm-micro-01-2g-24g - id 9211" # debug
+    #
+    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# #
+
+- import_playbook: ./stage_01/r42_student_box_group.yml
+  vars:
+    OPERATOR_USER: alice
+
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "NO"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "NO"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "NO"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+    # #
+
+    INSTALL_TAILSCALE: "YES"
+
+    # SPECIFIC_PACKAGES_CLEANING: "NO"
+
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# - import_playbook: ./stage_01/r42_student_box_group.yml
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
