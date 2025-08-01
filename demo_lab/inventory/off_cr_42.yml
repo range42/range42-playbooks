@@ -33,15 +33,22 @@ all:
             r42.admin-web-builder-api: # should be rename to web-deployer-api
             r42.admin-web-emp:
             r42.admin-web-deployer-ui:
+
         ####
 
-        trainee:
+        r42_student_box_group:
           hosts:
-            off.green.edge.r42.trainee.group_01.box_01:
-            off.green.edge.r42.trainee.group_01.box_02:
-            off.green.edge.r42.trainee.group_01.box_03:
-            off.green.edge.r42.trainee.group_01.box_04:
-            off.green.edge.r42.trainee.group_01.box_05:
+            r42.student-box-01:
+
+        ####
+
+        r42_vuln_box_group:
+          hosts:
+            r42.vuln-box-00:
+            r42.vuln-box-01:
+            r42.vuln-box-02:
+            r42.vuln-box-03:
+            r42.vuln-box-04:
 
         ####
 
