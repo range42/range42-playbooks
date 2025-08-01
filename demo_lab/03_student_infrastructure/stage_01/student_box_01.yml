@@ -2,12 +2,16 @@
 ## ISSUE 12
 ##
 
-# - name: install basics packages
-#   hosts: r42_students_box
-#   become: true
-#   roles:
-#     - software.install.warmup.basic_packages
+## place holder
 
-#   #
-#   # variables defined in _main.yml
-#   #
+- name: configure firewall - all
+  become: true
+  hosts: student-box-01
+  roles:
+    - software.configure.firewalls
+
+  vars:
+
+  #
+  # variables defined in _main.yml
+  #
