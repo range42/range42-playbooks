@@ -69,7 +69,6 @@
   become: true
   vars_files:
     - "../../secrets/px-testing.cr42_tailscale.yml"
-
   vars:
     #
     # variables defined in vault
@@ -77,12 +76,11 @@
     tailscale_authkey: "{{ vault_tailscale_authkey }}"
     INSTALL_TAILSCALE: "YES" # variables defined in main
 
-  roles:
-    - role: software.install.tailscale
-      when: INSTALL_TAILSCALE == "YES"
+  tasks:
+    - block:
+        - include_role:
+            name: software.install.tailscale
+        - include_role:
+            name: software.configure.tailscale_disable_nftables
 
-- hosts: r42_student_box_group
-  become: true
-  roles:
-    - software.configure.tailscale_disable_nftables
-  vars:
+      when: INSTALL_TAILSCALE == "YES"
