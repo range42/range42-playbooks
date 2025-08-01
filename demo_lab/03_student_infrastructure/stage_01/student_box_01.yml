@@ -1,0 +1,13 @@
+##
+## ISSUE 12
+##
+
+# - name: install basics packages
+#   hosts: r42_students_box
+#   become: true
+#   roles:
+#     - software.install.warmup.basic_packages
+
+#   #
+#   # variables defined in _main.yml
+#   #
