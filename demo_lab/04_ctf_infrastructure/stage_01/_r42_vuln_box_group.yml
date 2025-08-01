@@ -51,6 +51,8 @@
       - "vuln-box-03"
       - "vuln-box-04"
 
+    INSTALL_TAILSCALE: "YES" # variables defined in main
+
     requested_tasks:
       - delete/tailscale_client.yml
   #
@@ -63,7 +65,7 @@
       loop: "{{ tailscale_hostnames }}"
       loop_control:
         loop_var: tailscale_hostname
-  when: INSTALL_TAILSCALE == "YES"
+      when: INSTALL_TAILSCALE == "YES"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 

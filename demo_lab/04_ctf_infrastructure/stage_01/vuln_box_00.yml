@@ -1,3 +1,17 @@
 ##
 ## ISSUE 13
 ##
+
+## place holder
+
+- name: configure firewall - all
+  become: true
+  hosts: vuln-box-00
+  roles:
+    - software.configure.firewalls
+
+  vars:
+
+  #
+  # variables defined in _main.yml
+  #
