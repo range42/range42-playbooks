@@ -24,7 +24,7 @@
 
   vars:
     #
-    # variables definied in _main.yml
+    # variables defined in _main.yml
     #
     # global_vm_id: 1021
     # global_vm_name: "admin-web-builder-api"
