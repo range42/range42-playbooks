@@ -1,0 +1,110 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# PROMOX INIT INFRASTRUCTURE - VULN-BOX
+#
+#   hostname : vuln-box-00
+#   vm_id    : 4000
+#   cpu core : 1
+#   ram      : 4g
+#   disk     : 32g
+#   ip       :
+#
+#   template : template-vm-small-01-4g-32g - id : 9221
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+#
+## ISSUE 13
+##
+
+- hosts: px-testing
+  gather_facts: false
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+
+  vars:
+
+    #
+    # variables defined in _main.yml
+    #
+
+  tasks:
+    #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+    - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - "{{ global_template_name }}"
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "vm_clone"
+        vm_id: "{{ global_template_vm_id }}" # TEMPLATE VM_ID - vars should be rename to vm_id_src / vm_id_dst
+        vm_new_id: "{{ global_vm_id }}"
+        vm_name: "{{ global_vm_name }}"
+        vm_description: "{{ global_vm_description }}"
+
+    #
+    - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROMOX TAG
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "vm_set_tag"
+        vm_id: "{{ global_vm_id }}"
+        vm_tag_name: "{{ global_vm_tag_name }}"
+
+    #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+    - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET CLOUD DEFAULT INIT VARIABLE
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "cloudinit_set_variables"
+
+        vm_id: "{{ global_vm_id }}"
+        vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
+        vm_ci_password: "{{ default_admin_vm_ci_password | default('supersecret') }}"
+        vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key  }}"
+        vm_ci_namerserver_ips: "1.1.1.1"
+        vm_ci_ip: "{{ global_vm_ci_ip }}"
+        vm_ci_netmask: "24"
+        vm_ci_ip_gw: "192.168.42.1"
+
+    #
+    - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - START VM
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "vm_start"
+        vm_id: "{{ global_vm_id }}"
+
+    # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: "{{ global_vm_ssh_name }}"
+  gather_facts: false
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+
+  vars:
+    # ARG_global_operator_ssh_config_known_hosts: "{{ global_operator_ssh_config_known_hosts }}"
+    # ARG_global_vm_ssh_name: "{{ global_vm_ssh_name }}"
+    # ARG_global_operator_ssh_config_known_hosts: "{{ global_operator_ssh_config_known_hosts }}"
+    # ARG_global_vm_ssh_name: "{{ global_vm_ssh_name }}"
+
+    ARG_operator_ssh_config_known_hosts: "{{ VAULT_operator_ssh_config_known_hosts }}"
+    ARG_vm_ssh_name: "{{ global_vm_ssh_name }}"
+
+    requested_tasks:
+      - wait/openssh_server/is_reachable.yml
+      - wait/cloudinit/is_boot_finished.yml
+  tasks:
+    #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+    - name: TASK DYNAMIC INCLUDE FROM ansible.utils
+      include_role:
+        name: ansible.utils

@@ -1,0 +1,140 @@
+##
+## issue 13
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+- import_playbook: ./stage_00/vuln_box_00.yml
+
+  vars:
+    global_vm_name: "vuln-box-00"
+    global_vm_ssh_name: "r42.vuln-box-00"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 4001
+    global_vm_description: "demo - vuln-box-00"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.170"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_00/vuln_box_01.yml
+
+  vars:
+    global_vm_name: "vuln-box-01"
+    global_vm_ssh_name: "r42.vuln-box-01"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 4001
+    global_vm_description: "demo - vuln-box-01"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.171"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_00/vuln_box_02.yml
+
+  vars:
+    global_vm_name: "vuln-box-02"
+    global_vm_ssh_name: "r42.vuln-box-02"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 4001
+    global_vm_description: "demo - vuln-box-02"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.172"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_00/vuln_box_03.yml
+
+  vars:
+    global_vm_name: "vuln-box-03"
+    global_vm_ssh_name: "r42.vuln-box-03"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 4001
+    global_vm_description: "demo - vuln-box-03"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.173"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_00/vuln_box_04.yml
+
+  vars:
+    global_vm_name: "vuln-box-04"
+    global_vm_ssh_name: "r42.vuln-box-04"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 4001
+    global_vm_description: "demo - vuln-box-04"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.174"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+- import_playbook: ./stage_01/_r42_vuln_box_group.yml
+  vars:
+    OPERATOR_USER: alice
+
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "NO"
+    INSTALL_PACKAGES_UTILS_NETWORK: "NO"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+    # #
+
+    INSTALL_TAILSCALE: "YES"
+
+    # SPECIFIC_PACKAGES_CLEANING: "NO"
+
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# - import_playbook: ./stage_01/_r42_vuln_box_group.yml
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 02  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+#
+# - import_playbook: ./stage_02/_vuln_box.yml

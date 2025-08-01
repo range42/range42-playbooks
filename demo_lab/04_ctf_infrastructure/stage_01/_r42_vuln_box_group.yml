@@ -1,0 +1,94 @@
+##
+## issue 13
+##
+
+- name: install basics packages
+  hosts: r42_vuln_box
+  become: true
+  roles:
+    - software.install.warmup.basic_packages
+
+  #
+  # variables defined in _main.yml
+  #
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: install dot files
+  hosts: r42_vuln_box
+  become: true
+  roles:
+    - software.install.warmup.dot_files
+
+  vars:
+    #
+    # variables defined in _main.yml
+    #
+
+- name: configure firewall - all
+  become: true
+  hosts: r42_vuln_box
+  roles:
+    - software.configure.firewalls
+
+  vars:
+  #
+  # variables defined in _main.yml
+  #
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: r42.admin-wazuh
+  gather_facts: false
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+
+  vars:
+    tailscale_hostnames:
+      - "vuln-box-00"
+      - "vuln-box-01"
+      - "vuln-box-02"
+      - "vuln-box-03"
+      - "vuln-box-04"
+
+    requested_tasks:
+      - delete/tailscale_client.yml
+  #
+  tasks:
+    #
+    #
+    - name: TASK DYNAMIC INCLUDE FROM ansible.utils
+      include_role:
+        name: ansible.utils
+      loop: "{{ tailscale_hostnames }}"
+      loop_control:
+        loop_var: tailscale_hostname
+  when: INSTALL_TAILSCALE == "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+##
+## issue 11
+##
+
+- hosts: r42_vuln_box
+  become: true
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+
+  vars:
+    #
+    # variables defined in vault
+    #
+    tailscale_authkey: "{{ vault_tailscale_authkey }}"
+    INSTALL_TAILSCALE: "YES" # variables defined in main
+
+  roles:
+    - role: software.install.tailscale
+      when: INSTALL_TAILSCALE == "YES"
+
+- hosts: r42_vuln_box
+  become: true
+  roles:
+    - software.configure.tailscale_disable_nftables
+  vars:
