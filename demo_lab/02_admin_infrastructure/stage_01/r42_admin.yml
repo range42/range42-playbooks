@@ -9,7 +9,7 @@
     - software.install.warmup.basic_packages
 
   #
-  # variables definied in _main.yml
+  # variables defined in _main.yml
   #
   # vars:
   #   INSTALL_PACKAGES_BASICS: "YES"
@@ -36,7 +36,7 @@
 
   vars:
     #
-    # variables definied in _main.yml
+    # variables defined in _main.yml
     #
     # OPERATOR_USER: alice
     # INSTALL_VIM_DOTFILES: "YES"
@@ -49,16 +49,51 @@
     - software.configure.firewalls
 
   #
-  # variables definied in _main.yml
-  #
-  # vars:
-  #   firewall_rules:
-  #     - ip: "all"
-  #       port: 22
-  #       protocol: "tcp"
+  # variables defined in _main.yml
+
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
+
+##
+## ISSUE 11
+##
+
+- hosts: r42.admin-wazuh
+  gather_facts: false
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+
+  vars:
+    tailscale_hostnames:
+      - "admin-wazuh"
+      - "admin-builder-api-devkit"
+      - "admin-builder-docker-registry"
+      - "admin-web-api-kong"
+      - "admin-web-builder-api"
+      - "admin-web-deployer-ui"
+      - "admin-web-emp"
+      - "testing-wazuh-client"
+
+    requested_tasks:
+      - delete/tailscale_client.yml
+  #
+  tasks:
+    #
+    #
+    - name: TASK DYNAMIC INCLUDE FROM ansible.utils
+      include_role:
+        name: ansible.utils
+      loop: "{{ tailscale_hostnames }}"
+      loop_control:
+        loop_var: tailscale_hostname
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - hosts: r42_admin
   become: true
@@ -67,9 +102,10 @@
 
   vars:
     #
-    # variables definied in vault
+    # variables defined in vault
     #
     tailscale_authkey: "{{ vault_tailscale_authkey }}"
+    INSTALL_TAILSCALE: "YES" # variables defined in main
 
   roles:
     - role: software.install.tailscale
