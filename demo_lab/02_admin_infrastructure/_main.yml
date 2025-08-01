@@ -19,10 +19,9 @@
     #
     global_template_vm_id: 9211
     global_template_name: "01-template-vm-micro-01-2g-24g - id 9211" # debug
-    #
     # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - import_playbook: ./stage_00/mon_wazuh.yml
 
@@ -38,10 +37,9 @@
     #
     global_template_vm_id: 9232
     global_template_name: "03-template-vm-medium-02-8g-64g - 9232" # debug
-
     # global_operator_ssh_config_known_hosts: "global_operator_ssh_config_known_hosts" # move this one to vault !
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - import_playbook: ./stage_00/builder_docker_registry.yml
 
@@ -57,10 +55,9 @@
     #
     global_template_vm_id: 9232
     global_template_name: "03-template-vm-medium-02-8g-64g - 9232" # debug
-
     # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - import_playbook: ./stage_00/builder_api_devkit.yml
 
@@ -75,10 +72,9 @@
     #
     global_template_vm_id: 9232
     global_template_name: "01-template-vm-micro-01-2g-24g - id 9232" # debug
-
     # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - import_playbook: ./stage_00/web_api_kong.yml
 
@@ -93,10 +89,9 @@
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
-
     # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - import_playbook: ./stage_00/web_builder_api.yml
 
@@ -111,10 +106,9 @@
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
-
     # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - import_playbook: ./stage_00/web_emp.yml
 
@@ -129,10 +123,7 @@
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
-
     # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
-
-#
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -158,7 +149,7 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 # #
 
-- import_playbook: ./stage_01/r42_admin.yml
+- import_playbook: ./stage_01/_r42_admin.yml
   vars:
     OPERATOR_USER: alice
 
@@ -186,10 +177,16 @@
         port: 22
         protocol: "tcp"
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - import_playbook: ./stage_01/web_deployer_ui.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
 - import_playbook: ./stage_01/web_emp.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
 - import_playbook: ./stage_01/mon_wazuh.yml
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
