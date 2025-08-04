@@ -2,16 +2,78 @@
 ## ISSUE 13
 ##
 
-## place holder
+# ## place holder
 
-- name: configure firewall - all
+# - name: configure firewall - all
+#   become: true
+#   hosts: vuln-box-00
+#   roles:
+#     - software.configure.firewalls
+
+#   vars:
+
+#
+# variables will be overwrited by values  in _main.yml
+#
+
+# - name: DOCKER Docker Hello World
+#   hosts: r42.vuln-box-00
+#   become: true
+#   roles:
+#     - software.configure.docker-compose
+#   vars_files:
+#     - "../../secrets/px-testing.cr42_tailscale.yml"
+#   vars:
+#     # docker_compose_src_path: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/hello/"
+#     # docker_compose_dst_path: "/tmp/deploy"
+
+#     # LOCAL_CODE_PATH: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-deployer-ui/"
+
+#     LABEL_PROJECT_TYPE: "TESTING"
+#     LABEL_PROJET_NAME: "hello-world"
+#     #
+#     LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/hello/"
+#     REMOTE_PROJECT_DIR: "/tmp/deploy-hello"
+#     #
+#     OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+#     #
+#     CLEAN_UP_DEPLOY_DIR: "NO"
+#     SEND_POC_DIR: "NO"
+
+# - name: DOCKER Docker Hello World
+#   hosts: r42.vuln-box-00
+#   become: true
+#   roles:
+#     - software.configure.docker-compose
+#   vars_files:
+#     - "../../secrets/px-testing.cr42_tailscale.yml"
+#   vars:
+#     LABEL_PROJECT_TYPE: "CTF"
+#     LABEL_PROJET_NAME: "uwsg_php_2.0.16"
+#     #
+#     LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/uwsg_php_2.0.16/"
+#     REMOTE_PROJECT_DIR: "/tmp/deploy"
+#     #
+#     OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+#     #
+#     CLEAN_UP_DEPLOY_DIR: "NO"
+#     SEND_POC_DIR: "YES"
+
+- name: DOCKER Docker Hello World
+  hosts: r42.vuln-box-00
   become: true
-  hosts: vuln-box-00
   roles:
-    - software.configure.firewalls
-
+    - software.configure.docker-compose
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
   vars:
-
-  #
-  # variables defined in _main.yml
-  #
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "ftp_anon_server"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/misconfiguration/network/vsftpd/ftp_anon_server/"
+    REMOTE_PROJECT_DIR: "/tmp/deploy"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"
