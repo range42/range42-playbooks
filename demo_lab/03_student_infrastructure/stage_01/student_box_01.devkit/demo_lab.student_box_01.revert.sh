@@ -4,5 +4,7 @@
 ## ISSUE - 14
 ##
 
-echo '{"proxmox_node":"px-testing","vm_id":3001 }' | proxmox_snapshot_vm.vm_id.revert_snapshot.to.jsons.sh
-echo '{"proxmox_node":"px-testing","vm_id":3001 }' | proxmox_vm.vm_id.start.to.jsons.sh
+# vm_id 3001
+
+proxmox_vm.list.to.jsons.sh | grep -i "student-box-01" | proxmox_snapshot_vm.vm_id.revert_snapshot.to.jsons.sh
+proxmox_vm.list.to.jsons.sh | grep -i "student-box-01" | proxmox_vm.vm_id.start.to.jsons.sh
