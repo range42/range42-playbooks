@@ -6,12 +6,15 @@
 
 - name: configure firewall - all
   become: true
-  hosts: student-box-01
+  hosts: r42.student-box-01
   roles:
     - software.configure.firewalls
 
   vars:
-
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
   #
-  # variables defined in _main.yml
+  # variables will be overwrited by values  in _main.yml
   #

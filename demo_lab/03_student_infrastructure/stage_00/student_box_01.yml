@@ -2,7 +2,7 @@
 #
 # PROMOX INIT INFRASTRUCTURE - STUDENT
 #
-#   hostname : student-box-01 
+#   hostname : student-box-01
 #   vm_id    : 3000
 #   cpu core : 1
 #   ram      : 4g
@@ -12,7 +12,6 @@
 #   template : template-vm-small-01-4g-32g - id : 9221
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
 
 ##
 ## ISSUE 12
@@ -25,14 +24,13 @@
 
   vars:
     #
-    # variables defined in _main.yml
+    # variables will be overwrited by values  in _main.yml
     #
-    
 
   tasks:
     #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-    - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - "{{ global_template_name }}"
+    - name: TRAINEE INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - "{{ global_template_name }}"
 
       include_role:
         name: range42-ansible_roles-proxmox_controller
@@ -45,7 +43,7 @@
         vm_description: "{{ global_vm_description }}"
 
     #
-    - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROMOX TAG
+    - name: TRAINEE INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROMOX TAG
 
       include_role:
         name: range42-ansible_roles-proxmox_controller
@@ -57,7 +55,7 @@
 
     #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-    - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET CLOUD DEFAULT INIT VARIABLE
+    - name: TRAINEE INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET CLOUD DEFAULT INIT VARIABLE
 
       include_role:
         name: range42-ansible_roles-proxmox_controller
@@ -75,7 +73,7 @@
         vm_ci_ip_gw: "192.168.42.1"
 
     #
-    - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - START VM
+    - name: TRAINEE INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - START VM
 
       include_role:
         name: range42-ansible_roles-proxmox_controller
