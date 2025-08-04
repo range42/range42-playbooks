@@ -24,7 +24,7 @@
 
   vars:
     #
-    # variables defined in _main.yml
+    # variables will be overwrited by values  in _main.yml
     #
     # global_vm_id: 1020
     # global_vm_name: "admin-web-api-kong"
