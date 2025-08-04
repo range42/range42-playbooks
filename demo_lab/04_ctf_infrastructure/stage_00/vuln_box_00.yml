@@ -25,7 +25,7 @@
   vars:
   
     #
-    # variables defined in _main.yml
+    # variables will be overwrited by values  in _main.yml
     #
 
   tasks:

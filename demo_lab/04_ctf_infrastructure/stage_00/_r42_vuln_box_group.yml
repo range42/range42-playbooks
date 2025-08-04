@@ -1,13 +1,13 @@
-##
-## issue 13
-##
-
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 00  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 
-- import_playbook: ./stage_00/vuln_box_00.yml
+##
+## ISSUE 13
+##
+
+- import_playbook: ./vuln_box_00.yml
 
   vars:
     global_vm_name: "vuln-box-00"
@@ -24,7 +24,7 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./stage_00/vuln_box_01.yml
+- import_playbook: ./vuln_box_01.yml
 
   vars:
     global_vm_name: "vuln-box-01"
@@ -41,7 +41,7 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./stage_00/vuln_box_02.yml
+- import_playbook: ./vuln_box_02.yml
 
   vars:
     global_vm_name: "vuln-box-02"
@@ -58,7 +58,7 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./stage_00/vuln_box_03.yml
+- import_playbook: ./vuln_box_03.yml
 
   vars:
     global_vm_name: "vuln-box-03"
@@ -75,7 +75,7 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./stage_00/vuln_box_04.yml
+- import_playbook: ./vuln_box_04.yml
 
   vars:
     global_vm_name: "vuln-box-04"
@@ -89,71 +89,3 @@
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
     # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-#
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#
-
-- import_playbook: ./stage_01/_r42_vuln_box_group.yml
-
-  vars:
-    OPERATOR_USER: alice
-
-    INSTALL_VIM_DOTFILES: "YES"
-    INSTALL_ZSH_DOTFILES: "YES"
-
-    INSTALL_PACKAGES_BASICS: "YES"
-    INSTALL_PACKAGES_FIREWALLS: "YES"
-    #
-    INSTALL_PACKAGES_DOCKER: "YES"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
-    #
-    INSTALL_PACKAGES_UTILS_JSON: "NO"
-    INSTALL_PACKAGES_UTILS_NETWORK: "NO"
-
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
-    # #
-
-    INSTALL_TAILSCALE: "NO"
-
-    # SPECIFIC_PACKAGES_CLEANING: "NO"
-
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# - import_playbook: ./stage_01/vuln_box_00.yml
-# vars:
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-# - import_playbook: ./stage_01/vuln_box_01.yml
-#   vars:
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-# - import_playbook: ./stage_01/vuln_box_02.yml
-#   vars:
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-# - import_playbook: ./stage_01/vuln_box_03.yml
-#   vars:
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-# - import_playbook: ./stage_01/vuln_box_04.yml
-#   vars:
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-#
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### STAGE 02  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#
-#
-# - import_playbook: ./stage_02/_vuln_box.yml
