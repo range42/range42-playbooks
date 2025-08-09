@@ -33,39 +33,39 @@
     - software.install.warmup.dot_files
 
   vars:
-    # OPERATOR_USER: alice
+    OPERATOR_USER: alice
 
-    # INSTALL_VIM_DOTFILES: "YES"
-    # INSTALL_ZSH_DOTFILES: "YES"
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
 
 - name: configure firewall - all
   become: true
   hosts: r42_admin
   roles:
     - software.configure.firewalls
-  # vars:
-  #   firewall_rules:
-  #     - ip: "all"
-  #       port: 22
-  #       protocol: "tcp"
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 
-- hosts: r42_admin
-  become: true
+# - hosts: r42_admin
+#   become: true
 
-  vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+#   vars_files:
+#     - "../../secrets/px-testing.cr42_tailscale.yml"
 
-  vars:
-    tailscale_authkey: "{{ vault_tailscale_authkey }}"
+#   vars:
+#     tailscale_authkey: "{{ vault_tailscale_authkey }}"
 
-  roles:
-    - software.install.tailscale
+#   roles:
+#     - software.install.tailscale
 
-- hosts: r42_admin
-  become: true
-  roles:
-    - software.configure.tailscale_disable_nftables
-  vars:
+# - hosts: r42_admin
+#   become: true
+#   roles:
+#     - software.configure.tailscale_disable_nftables
+#   vars:
