@@ -248,7 +248,30 @@
 # #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: DEPLOY - vite-cve-2022-44615
+# - name: DEPLOY - vite-cve-2022-44615
+#   hosts: r42.vuln-box-01
+#   become: true
+#   roles:
+#     - software.configure.docker-compose
+
+#   vars_files:
+#     - "../../secrets/px-testing.cr42_tailscale.yml"
+#   vars:
+#     LABEL_PROJECT_TYPE: "CTF"
+#     LABEL_PROJET_NAME: "vite-cve-2022-44615"
+#     #
+
+#     LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/vite/CVE-2022-44615"
+#     REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+#     #
+#     OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+#     #
+#     CLEAN_UP_DEPLOY_DIR: "NO"
+#     SEND_POC_DIR: "YES"
+# #
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - erlang-ssh-CVE-2025-32433
   hosts: r42.vuln-box-01
   become: true
   roles:
@@ -258,10 +281,10 @@
     - "../../secrets/px-testing.cr42_tailscale.yml"
   vars:
     LABEL_PROJECT_TYPE: "CTF"
-    LABEL_PROJET_NAME: "vite-cve-2022-44615"
+    LABEL_PROJET_NAME: "erlang-ssh-CVE-2025-32433"
     #
 
-    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/vite/CVE-2022-44615"
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/network/erlang-ssh/CVE-2025-32433"
     REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
     #
     OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
