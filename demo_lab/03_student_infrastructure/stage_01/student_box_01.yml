@@ -4,17 +4,49 @@
 
 ## place holder
 
-- name: configure firewall - all
-  become: true
-  hosts: r42.student-box-01
-  roles:
-    - software.configure.firewalls
+# - name: configure firewall - all
+#   become: true
+#   hosts: r42.student-box-01
+#   roles:
+#     - software.configure.firewalls
 
-  vars:
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
+#   vars:
+#     firewall_rules:
+#       - ip: "all"
+#         port: 22
+#         protocol: "tcp"
+
+
   #
   # variables will be overwrited by values  in _main.yml
   #
+
+
+
+
+- name: install basics packages
+  hosts: r42.student-box-01
+  become: true
+  roles:
+    - software.install.warmup.basic_packages
+
+  #
+  # variables will be overwrited by values  in _main.yml
+  #
+  vars:
+    INSTALL_PACKAGES_BASICS: "NO"
+    INSTALL_PACKAGES_FIREWALLS: "NO"
+    #
+    INSTALL_PACKAGES_DOCKER: "NO"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "NO"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "NO"
+    INSTALL_PACKAGES_UTILS_NETWORK: "NO"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "NO"
+
+    SPECIFIC_PACKAGES_CLEANING: "NO"
+    SYMLINKS_FARM_PENETEST: "YES"
+    SYMLINKS_FARM_STUDENT_HOME_DIR: "/home/alice/"
+    SYMLINKS_FARM_STUDENT_TOOL_DIR: "/home/alice/_tools/"
+
