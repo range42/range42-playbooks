@@ -16,38 +16,58 @@
 #         port: 22
 #         protocol: "tcp"
 
+#
+# WARNING : variables will be overwrited by values  in _main.yml
+#
 
-  #
-  # variables will be overwrited by values  in _main.yml
-  #
+# - name: install basics packages
+#   hosts: r42.student-box-01
+#   become: true
+#   roles:
+#     - software.install.warmup.basic_packages
 
+#   #
+#   # WARNING : variables will be overwrited by values  in _main.yml
+#   #
+#   vars:
+#     INSTALL_PACKAGES_BASICS: "NO"
+#     INSTALL_PACKAGES_FIREWALLS: "NO"
+#     #
+#     INSTALL_PACKAGES_DOCKER: "NO"
+#     INSTALL_PACKAGES_DOCKER_COMPOSE: "NO"
+#     #
+#     INSTALL_PACKAGES_UTILS_JSON: "NO"
+#     INSTALL_PACKAGES_UTILS_NETWORK: "NO"
 
+#     INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "NO"
 
+#     SPECIFIC_PACKAGES_CLEANING: "NO"
 
-- name: install basics packages
+#     # SYMLINKS_FARM_PENETEST: "YES"
+#     # STUDENT_USERNAME: "alice"
+#     # SYMLINKS_FARM_STUDENT_HOME_DIR: "/home/alice/"
+#     # SYMLINKS_FARM_STUDENT_TOOL_DIR: "/home/alice/_tools/"
+
+#   # vars_files:
+#   #   - vars/tools/osint.yml
+#   #   - vars/tools/cli.yml
+
+- name: INSTALL - SYMLINKS_FARM_PENTEST
   hosts: r42.student-box-01
   become: true
   roles:
-    - software.install.warmup.basic_packages
+    - software.install.symlinks_farm
 
   #
-  # variables will be overwrited by values  in _main.yml
+  # WARNING : variables will be overwrited by values  in _main.yml
   #
   vars:
-    INSTALL_PACKAGES_BASICS: "NO"
-    INSTALL_PACKAGES_FIREWALLS: "NO"
-    #
-    INSTALL_PACKAGES_DOCKER: "NO"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "NO"
-    #
-    INSTALL_PACKAGES_UTILS_JSON: "NO"
-    INSTALL_PACKAGES_UTILS_NETWORK: "NO"
-
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "NO"
-
     SPECIFIC_PACKAGES_CLEANING: "NO"
     SYMLINKS_FARM_PENETEST: "YES"
     STUDENT_USERNAME: "alice"
     SYMLINKS_FARM_STUDENT_HOME_DIR: "/home/alice/"
     SYMLINKS_FARM_STUDENT_TOOL_DIR: "/home/alice/_tools/"
 
+  # vars_files:
+  #   - vars/tools/osint.yml
+  #   - vars/tools/cli.yml
