@@ -271,7 +271,52 @@
 # #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: DEPLOY - erlang-ssh-CVE-2025-32433
+# - name: DEPLOY - erlang-ssh-CVE-2025-32433
+#   hosts: r42.vuln-box-01
+#   become: true
+#   roles:
+#     - software.configure.docker-compose
+
+#   vars_files:
+#     - "../../secrets/px-testing.cr42_tailscale.yml"
+#   vars:
+#     LABEL_PROJECT_TYPE: "CTF"
+#     LABEL_PROJET_NAME: "erlang-ssh-CVE-2025-32433"
+#     #
+
+#     LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/network/erlang-ssh/CVE-2025-32433"
+#     REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+#     #
+#     OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+#     #
+#     CLEAN_UP_DEPLOY_DIR: "NO"
+#     SEND_POC_DIR: "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+# - name: DEPLOY - openssh-cve-2024-6387
+#   hosts: r42.vuln-box-01
+#   become: true
+#   roles:
+#     - software.configure.docker-compose
+
+#   vars_files:
+#     - "../../secrets/px-testing.cr42_tailscale.yml"
+#   vars:
+#     LABEL_PROJECT_TYPE: "CTF"
+#     LABEL_PROJET_NAME: "openssh-cve-2024-6387"
+#     #
+#     LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/network/openssh/CVE-2024-6387"
+#     REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+#     #
+#     OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+#     #
+#     CLEAN_UP_DEPLOY_DIR: "NO"
+#     SEND_POC_DIR: "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - php-CVE-2019-11043
   hosts: r42.vuln-box-01
   become: true
   roles:
@@ -281,10 +326,9 @@
     - "../../secrets/px-testing.cr42_tailscale.yml"
   vars:
     LABEL_PROJECT_TYPE: "CTF"
-    LABEL_PROJET_NAME: "erlang-ssh-CVE-2025-32433"
+    LABEL_PROJET_NAME: "php-cve-2019-11043"
     #
-
-    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/network/erlang-ssh/CVE-2025-32433"
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/php/CVE-2019-11043"
     REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
     #
     OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
