@@ -1,0 +1,16 @@
+
+- name: add user 
+  hosts: all
+  become: true
+  roles:
+    - systems.configure.add_user 
+
+  vars:
+    #
+    # variables will be overwrited by values coming from API 
+    #
+    TARGET_USER: student 
+    TARGET_PASSWORD: "boj6q-uien3-ieda-h3Yiesi-li-uYi" # test password - will not be use in production. 
+    CHANGE_PWD_AT_LOGON: false
+    TARGET_SHELL_PATH: "/bin/sh"
+
