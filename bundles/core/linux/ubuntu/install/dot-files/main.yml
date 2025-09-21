@@ -1,0 +1,17 @@
+#
+
+- name: install dot files
+  hosts: all
+  become: true
+  roles:
+    - software.install.warmup.dot_files
+
+  vars:
+    #
+    # variables will be overwrited by values coming from API
+    #
+    OPERATOR_USER: jane
+    INSTALL_VIM_DOTFILES: "NO" # accept also true false
+    INSTALL_ZSH_DOTFILES: "NO" # accept also true false
+    #
+    APPLY_FOR_ROOT: "NO" # accept also true false
