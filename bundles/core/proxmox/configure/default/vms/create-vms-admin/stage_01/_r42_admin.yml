@@ -1,0 +1,124 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+##
+## ISSUE 15
+##
+
+- name: install basics packages
+  hosts: r42_admin
+  become: true
+  roles:
+    - software.install.warmup.basic_packages
+
+  #
+  # variables will be overwrited by values  in _main.yml
+  #
+
+  vars:
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "NO"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "NO"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "NO"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+    #
+    # SPECIFIC_PACKAGES_CLEANING: "NO"
+# #
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# #
+
+- name: install dot files
+  hosts: r42_admin
+  become: true
+  roles:
+    - software.install.warmup.dot_files
+
+  vars:
+    #
+    # variables will be overwrited by values  in _main.yml
+    #
+    OPERATOR_USER: alice
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+- name: configure firewall - all
+  become: true
+  hosts: r42_admin
+  roles:
+    - software.configure.firewalls
+
+  #
+  # variables will be overwrited by values  in _main.yml
+
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+##
+## ISSUE 11
+##
+
+- hosts: r42.admin-wazuh
+  gather_facts: false
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+
+  vars:
+    tailscale_hostnames:
+      - "admin-wazuh"
+      - "admin-web-api-kong"
+      - "admin-web-builder-api"
+      - "admin-web-deployer-ui"
+      - "admin-web-emp"
+      # - "admin-builder-api-devkit"
+      # - "admin-builder-docker-registry"
+      # - "testing-wazuh-client"
+
+    requested_tasks:
+      - delete/tailscale_client.yml
+  #
+  tasks:
+    #
+    #
+    - name: TASK DYNAMIC INCLUDE FROM ansible.utils
+      include_role:
+        name: ansible.utils
+      loop: "{{ tailscale_hostnames }}"
+      loop_control:
+        loop_var: tailscale_hostname
+      when: INSTALL_TAILSCALE == "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: r42_admin
+  become: true
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    #
+    # variables defined in vault
+    #
+    tailscale_authkey: "{{ vault_tailscale_authkey }}"
+    INSTALL_TAILSCALE: "YES" # variables defined in main
+
+  tasks:
+    - block:
+        - include_role:
+            name: software.install.tailscale
+        - include_role:
+            name: software.configure.tailscale_disable_nftables
+
+      when: INSTALL_TAILSCALE == "YES"

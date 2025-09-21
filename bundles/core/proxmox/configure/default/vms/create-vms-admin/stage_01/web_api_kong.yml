@@ -1,0 +1,71 @@
+##
+##
+##
+
+- name: install basics packages
+  hosts: r42_admin
+  become: true
+  roles:
+    - software.install.warmup.basic_packages
+
+  vars:
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "NO"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+    # #
+
+    # SPECIFIC_PACKAGES_CLEANING: "NO"
+# #
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# #
+
+- name: install dot files
+  hosts: r42_admin
+  become: true
+  roles:
+    - software.install.warmup.dot_files
+
+  vars:
+    OPERATOR_USER: alice
+
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+- name: configure firewall - all
+  become: true
+  hosts: r42_admin
+  roles:
+    - software.configure.firewalls
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+# - hosts: r42_admin
+#   become: true
+
+#   vars_files:
+#     - "../../secrets/px-testing.cr42_tailscale.yml"
+
+#   vars:
+#     tailscale_authkey: "{{ vault_tailscale_authkey }}"
+
+#   roles:
+#     - software.install.tailscale
+
+# - hosts: r42_admin
+#   become: true
+#   roles:
+#     - software.configure.tailscale_disable_nftables
+#   vars:

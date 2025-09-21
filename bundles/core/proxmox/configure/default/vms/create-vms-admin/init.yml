@@ -1,0 +1,97 @@
+#
+# ISSUE - 15
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 00  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_00/mon_wazuh.yml
+  tags: ["admin-wazuh"]
+  # do not remove this tags ! :)
+
+  vars:
+    global_vm_name: "admin-wazuh"
+    global_vm_ssh_name: "r42.admin-wazuh"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+
+    global_vm_id: 1000
+    global_vm_description: ""
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.100"
+    #
+    global_template_vm_id: 9232
+    global_template_name: "03-template-vm-medium-02-8g-64g - 9232" # debug
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/web_api_kong.yml
+  tags:
+    ["admin-web-api-kong"]
+    # do not remove this tags ! :)
+
+  vars:
+    global_vm_name: "admin-web-api-kong"
+    global_vm_ssh_name: "r42.admin-web-api-kong"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 1020
+    global_vm_description: "API gateway"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.120"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/web_builder_api.yml
+  tags: ["admin-web-builder-api"]
+  # do not remove this tags ! :)
+
+  vars:
+    global_vm_name: "admin-web-builder-api"
+    global_vm_ssh_name: "r42.admin-web-builder-api"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 1021
+    global_vm_description: "www - backend API  "
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.121"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/web_deployer_ui.yml
+  tags: ["admin-web-deployer-ui"]
+  # do not remove this tags ! :)
+
+  vars:
+    global_vm_name: "admin-web-deployer-ui"
+    global_vm_ssh_name: "r42.admin-web-deployer-ui"
+
+    global_vm_id: 1023
+    global_vm_description: "www - front end - r42 - deployer -ui  "
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.123"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/web_emp.yml
+  tags: ["admin-web-emp"]
+  # do not remove this tags ! :)
+
+  vars:
+    global_vm_name: "admin-web-emp"
+    global_vm_ssh_name: "r42.admin-web-emp"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 1022
+    global_vm_description: "www - front end - r42 - EMP "
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.122"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+

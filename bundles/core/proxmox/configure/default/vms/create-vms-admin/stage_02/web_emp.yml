@@ -1,0 +1,23 @@
+#   vars:
+#     tailscale_hostnames:
+#       - "admin-wazuh"
+#       - "admin-builder-api-devkit"
+#       - "admin-builder-docker-registry"
+#       - "admin-web-api-kong"
+#       - "admin-web-builder-api"
+#       - "admin-web-deployer-ui"
+#       - "admin-web-emp"
+#       - "testing-wazuh-client"
+
+#     requested_tasks:
+#       - delete/tailscale_client.yml
+#   #
+#   tasks:
+#     #
+#     #
+#     - name: TASK DYNAMIC INCLUDE FROM ansible.utils
+#       include_role:
+#         name: ansible.utils
+#       loop: "{{ tailscale_hostnames }}"
+#       loop_control:
+#         loop_var: tailscale_hostname
