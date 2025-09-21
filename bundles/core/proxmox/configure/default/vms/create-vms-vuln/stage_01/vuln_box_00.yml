@@ -1,0 +1,64 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: configure firewall - all
+  become: true
+  hosts: vuln-box-00
+  roles:
+    - software.configure.firewalls
+
+  vars:
+    # variables will be overwrited by values  in _main.yml
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+      - ip: "all"
+        port: 21
+        protocol: "tcp"
+      - ip: "all"
+        port: 8080
+        protocol: "tcp"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DOCKER - uwsgi-php-cve-2018-7490
+  hosts: r42.vuln-box-00
+  become: true
+  roles:
+    - software.configure.docker-compose
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "uwsgi-php-cve-2018-7490"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/uwsg_php/CVE-2018-7490/"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DOCKER FTP ANONYMOUS SERVER
+  hosts: r42.vuln-box-00
+  become: true
+  roles:
+    - software.configure.docker-compose
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "ftp_anon_server"
+
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/misconfiguration/network/vsftpd/ftp_anon_server/"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"

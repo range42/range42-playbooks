@@ -1,0 +1,88 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 00  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+#
+# uncomment only to tests purpose with devkit
+#
+
+- import_playbook: ./vuln_box_00.yml
+
+  vars:
+    global_vm_name: "vuln-box-00"
+    global_vm_ssh_name: "r42.vuln-box-00"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 4000
+    global_vm_description: "demo - vuln-box-00"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.170"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./vuln_box_01.yml
+
+  vars:
+    global_vm_name: "vuln-box-01"
+    global_vm_ssh_name: "r42.vuln-box-01"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 4001
+    global_vm_description: "demo - vuln-box-01"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.171"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./vuln_box_02.yml
+
+  vars:
+    global_vm_name: "vuln-box-02"
+    global_vm_ssh_name: "r42.vuln-box-02"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 4002
+    global_vm_description: "demo - vuln-box-02"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.172"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./vuln_box_03.yml
+
+  vars:
+    global_vm_name: "vuln-box-03"
+    global_vm_ssh_name: "r42.vuln-box-03"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 4003
+    global_vm_description: "demo - vuln-box-03"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.173"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./vuln_box_04.yml
+
+  vars:
+    global_vm_name: "vuln-box-04"
+    global_vm_ssh_name: "r42.vuln-box-04"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 4004
+    global_vm_description: "demo - vuln-box-04"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.42.174"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+
