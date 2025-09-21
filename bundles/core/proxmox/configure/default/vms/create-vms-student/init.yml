@@ -1,0 +1,21 @@
+#
+# ISSUE - 15
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 00  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_00/student_box_01.yml
+  tags: ["student-box-01"]
+  vars:
+    global_vm_name: "student-box-01"
+    global_vm_ssh_name: "r42.student-box-01"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 3001
+    global_vm_description: "student jump box "
+    global_vm_tag_name: "student"
+    global_vm_ci_ip: "192.168.42.160"
+    #
+    global_template_vm_id: 9211
+    global_template_name: "01-template-vm-micro-01-2g-24g - id 9211" # debug
+    #
