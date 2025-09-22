@@ -1,0 +1,7 @@
+
+- name: debug - ping targeted host/group
+  hosts: all
+  gather_facts: false
+  tasks:
+    - ansible.builtin.ping:
+
