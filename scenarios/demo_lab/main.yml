@@ -1,0 +1,15 @@
+---
+##
+## ISSUE - 6
+##
+
+- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
+- import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+
+#### 
+
+- import_playbook: ./02_admin_infrastructure/_main.yml
+
+#- import_playbook: ./03_student_infrastructure/_main.yml
+
+- import_playbook: ./04_ctf_infrastructure/_main.yml

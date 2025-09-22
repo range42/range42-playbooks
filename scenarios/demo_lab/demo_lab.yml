@@ -10,6 +10,6 @@
 
 - import_playbook: ./02_admin_infrastructure/_main.yml
 
-- import_playbook: ./03_student_infrastructure/_main.yml
+#- import_playbook: ./03_student_infrastructure/_main.yml
 
 - import_playbook: ./04_ctf_infrastructure/_main.yml
