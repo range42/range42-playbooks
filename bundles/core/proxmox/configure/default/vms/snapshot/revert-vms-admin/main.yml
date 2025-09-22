@@ -1,0 +1,51 @@
+#
+
+- name: actions on virtual machines
+  # hosts: "{{ proxmox_node }}"
+  hosts: px-testing # should be rename to px-api
+  gather_facts: false
+
+  vars_files:
+    - "../../../../../../../scenarios/demo_lab/secrets/px-testing.cr42_tailscale.yml"
+
+  vars:
+    PROXMOX_NODE: "px-testing"
+    VMS:
+      - ID: 1000
+        NAME: "admin-wazuh"
+
+      - ID: 1020
+        NAME: "admin-web-api-kong"
+        VM_SNAPSHOT_NAME:
+
+      - ID: 1021
+        NAME: "admin-web-builder-api"
+
+      - ID: 1022
+        NAME: "admin-web-emp"
+
+      - ID: 1023
+        NAME: "admin-web-deployer-ui"
+
+      # - { id: 4001, name: "vm-lab-4001" }
+      # - { id: 4002, name: "vm-lab-4002" }
+
+  tasks:
+    - name: "actions - snapshot - virtual machine"
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        vm_id: "{{ item.ID}}"
+        vm_name: "{{ item.NAME }}" # required for the role - used to generate json reply
+        proxmox_node: "{{ PROXMOX_NODE }}"
+        vm_snapshot_name: "{{ VM_SNAPSHOT_NAME }}"
+
+        #
+        # vm_snapshot_name: "default-snapshot-from-API-{{ '%d%m%y-%H%M%S' | strftime }}"
+        # vm_snapshot_description: "default - snapshot from API"
+        proxmox_vm_action: "snapshot_vm_revert"
+
+      loop: "{{ VMS }}"
+      loop_control:
+        label: "vm_id={{ item.ID }} vm_name={{ item.NAME }}"
