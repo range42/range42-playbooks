@@ -1,16 +1,19 @@
 #
 
 - name: actions on virtual machines
-  # hosts: "{{ proxmox_node }}"
   hosts: px-testing
   gather_facts: false
 
   vars_files:
-    - "../../../secret/px-testing.cr42_tailscale.yaml"
+    - "../../../../../../../scenarios/demo_lab/secrets/px-testing.cr42_tailscale.yml"
 
   vars:
-    proxmox_node: "px-testing"
-    vm_ids:
+    PROXMOX_VM_ACTION: "vm_pause"
+    # PROXMOX_VM_ACTION: "vm_stop"
+    # PROXMOX_VM_ACTION: "vm_start"
+    # PROXMOX_VM_ACTION: "vm_resume"
+    PROXMODE_NODE: "px-testing"
+    VM_IDS:
       - 4000
       - 4001
       - 4002
@@ -18,16 +21,16 @@
       - 4004
 
   tasks:
-    - name: "actions :: {{ proxmox_vm_action}} - all virtual machine"
+    - name: "actions - {{ PROXMOX_VM_ACTION }} all virtual machine"
 
       include_role:
         name: range42-ansible_roles-proxmox_controller
 
       vars:
         vm_id: "{{ item }}"
-        proxmox_node: "{{ proxmox_node }}"
-        proxmox_vm_action: "{{ proxmox_vm_action}}"
+        proxmox_node: "{{ PROXMODE_NODE }}"
+        proxmox_vm_action: "{{ PROXMOX_VM_ACTION }}"
 
-      loop: "{{ vm_ids }}"
+      loop: "{{ VM_IDS }}"
       loop_control:
         label: "vm_id={{ item }}"
