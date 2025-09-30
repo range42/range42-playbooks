@@ -19,10 +19,25 @@
       - ip: "all"
         port: 21
         protocol: "tcp"
+      - ip: "all"
+        port: 8888
+        protocol: "tcp"
+      - ip: "all"
+        port: 8080
+        protocol: "tcp"
+      - ip: "all"
+        port: 8081
+        protocol: "tcp"
+      - ip: "all"
+        port: 8082
+        protocol: "tcp"
+      - ip: "all"
+        port: 4444
+        protocol: "tcp"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: DOCKER FTP ANONYMOUS SERVER
+- name: DOCKER FTP ANONYMOUS SERVER - exposed_port:21
   hosts: r42.vuln-box-02
   become: true
   roles:
@@ -42,3 +57,114 @@
     #
     CLEAN_UP_DEPLOY_DIR: "NO"
     SEND_POC_DIR: "NO"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - apache-cve-2021-42013 - exposed_port:8888
+  hosts: r42.vuln-box-02
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "apache-cve-2021-42013"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/apache/CVE-2021-42013/"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - pdfjs-cve-2024-4367 - exposed_port:4444
+  hosts: r42.vuln-box-02
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "pdfjs-cve-2024-4367"
+    #
+
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/pdfjs/CVE-2024-4367"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - tomcat-cve-2025-24813 - exposed_port:8081
+  hosts: r42.vuln-box-02
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "tomcat-cve-2025-24813"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/tomcat/CVE-2025-24813/"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DOCKER - uwsgi-php-cve-2018-7490 - exposed_port:8080
+  hosts: r42.vuln-box-02
+  become: true
+  roles:
+    - software.configure.docker-compose
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "uwsgi-php-cve-2018-7490"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/uwsg_php/CVE-2018-7490/"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+# - name: DEPLOY - php-CVE-2019-11043 - 8082
+#   hosts: r42.vuln-box-02
+#   become: true
+#   roles:
+#     - software.configure.docker-compose
+
+#   vars_files:
+#     - "../../secrets/px-testing.cr42_tailscale.yml"
+#   vars:
+#     LABEL_PROJECT_TYPE: "CTF"
+#     LABEL_PROJET_NAME: "php-cve-2019-11043"
+#     #
+#     LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/php/CVE-2019-11043"
+#     REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+#     #
+#     OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+#     #
+#     CLEAN_UP_DEPLOY_DIR: "NO"
+#     SEND_POC_DIR: "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

@@ -25,7 +25,7 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: DOCKER - uwsgi-php-cve-2018-7490
+- name: DOCKER - uwsgi-php-cve-2018-7490 - exposed_port:8080
   hosts: r42.vuln-box-00
   become: true
   roles:
@@ -42,11 +42,11 @@
     OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
     #
     CLEAN_UP_DEPLOY_DIR: "NO"
-    SEND_POC_DIR: "YES"
+    SEND_POC_DIR: "NO"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: DOCKER FTP ANONYMOUS SERVER
+- name: DOCKER FTP ANONYMOUS SERVER - exposed_port:21
   hosts: r42.vuln-box-00
   become: true
   roles:

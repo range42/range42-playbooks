@@ -2,21 +2,21 @@
 ## ISSUE 13
 ##
 
-# - name: configure firewall - all
-#   become: true
-#   hosts: r42.vuln-box-02
-#   roles:
-#     - software.configure.firewalls
+- name: configure firewall - all
+  become: true
+  hosts: r42.vuln-box-03
+  roles:
+    - software.configure.firewalls
 
-#   vars:
-#     # variables will be overwrited by values  in _main.yml
-#     firewall_rules:
-#       - ip: "all"
-#         port: 22
-#         protocol: "tcp"
-#       - ip: "all"
-#         port: 21
-#         protocol: "tcp"
+  vars:
+    # variables will be overwrited by values  in _main.yml
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+      - ip: "all"
+        port: 443
+        protocol: "tcp"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -40,3 +40,140 @@
     #
     CLEAN_UP_DEPLOY_DIR: "NO"
     SEND_POC_DIR: "NO"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - sudo-cve-2025-32463 exposed_port:1113
+  hosts: r42.vuln-box-03
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "sudo-cve-2025-32463"
+    #
+    # LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/system/sudo/CVE-2025-32463"
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/system/sudo/CVE-2025-32463"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - sudo-cve-2025-32462 exposed_port:1112
+  hosts: r42.vuln-box-03
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "sudo-cve-2025-32462"
+    #
+
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/system/sudo/CVE-2025-32462"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - sudo-cve-2023-22809 exposed_port:1111
+  hosts: r42.vuln-box-03
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "sudo-cve-2023-22809"
+    #
+
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/system/sudo/CVE-2023-22809"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - vite-cve-2025-30208 - exposed_port:7001
+  hosts: r42.vuln-box-03
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "vite-cve-2025-30208"
+    #
+
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/vite/CVE-2025-30208"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - vite-cve-2022-44615 - exposed_port:7000
+  hosts: r42.vuln-box-03
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "vite-cve-2022-44615"
+    #
+
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/vite/CVE-2022-44615"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - php-CVE-2019-11043 - 8082
+  hosts: r42.vuln-box-03
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "php-cve-2019-11043"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/php/CVE-2019-11043"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
