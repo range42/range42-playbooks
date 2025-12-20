@@ -6,7 +6,7 @@
 
 - name: configure firewall - all
   become: true
-  hosts: vuln-box-01
+  hosts: r42.vuln-box-01
   roles:
     - software.configure.firewalls
 

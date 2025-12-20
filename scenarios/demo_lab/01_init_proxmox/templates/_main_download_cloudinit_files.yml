@@ -21,7 +21,7 @@
 
       vars:
         proxmox_vm_action: "storage_download_iso"
-        proxmox_node: "px-testing"
+        # proxmox_node: "px-testing"
         proxmox_storage: "local"
         iso_file_content_type: "iso"
         iso_url: "{{ item.iso_url }}"

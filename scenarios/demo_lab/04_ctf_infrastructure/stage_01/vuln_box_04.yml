@@ -4,23 +4,49 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: configure firewall - all
-  become: true
-  hosts: vuln-box-04
-  roles:
-    - software.configure.firewalls
+# - name: configure firewall - all
+#   become: true
+#   hosts: r42.vuln-box-04
+#   roles:
+#     - software.configure.firewalls
 
-  vars:
-    # variables will be overwrited by values  in _main.yml
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
-      - ip: "all"
-        port: 443
-        protocol: "tcp"
+#   vars:
+#     # variables will be overwrited by values  in _main.yml
+#     firewall_rules:
+#       - ip: "all"
+#         port: 22
+#         protocol: "tcp"
+#       - ip: "all"
+#         port: 443
+#         protocol: "tcp"
+#       - ip: "all"
+#         port: 8082 # php cve-2019-11043
+#         protocol: "tcp"
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
+- name: DEPLOY - cve/web/php/CVE-2019-11043/
+  hosts: r42.vuln-box-04
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/px-testing.cr42_tailscale.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "php-cve-2019-11043"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/web/php/CVE-2019-11043/"
+    # REMOTE_PROJECT_DIR: "/tmp/deploy"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+#
+#
+#
 # - name: DEPLOY - cve/crypto/openssl/CVE-2014-0160/"
 #   hosts: r42.vuln-box-04
 #   become: true

@@ -50,7 +50,13 @@
         vm_name: "{{ global_vm_name }}"
         vm_description: "{{ global_vm_description }}"
 
-    #
+    ####
+    - name: INFRASTRUCTURE INIT - WAITING FOR PROXMOX UNLOCK TO CLEAR (slow setup)
+      ansible.builtin.pause:
+        seconds: 20
+        prompt: "Waiting for 20 seconds during clone..."
+    ####
+
     - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROMOX TAG
 
       include_role:
