@@ -112,20 +112,20 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: ./web_emp.yml
+# - import_playbook: ./web_emp.yml
 
-  vars:
-    global_vm_name: "admin-web-emp"
-    global_vm_ssh_name: "r42.admin-web-emp"
-    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
-    global_vm_id: 1022
-    global_vm_description: "www - front end - r42 - EMP "
-    global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.42.122"
-    #
-    global_template_vm_id: 9221
-    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
-    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+#   vars:
+#     global_vm_name: "admin-web-emp"
+#     global_vm_ssh_name: "r42.admin-web-emp"
+#     # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+#     global_vm_id: 1022
+#     global_vm_description: "www - front end - r42 - EMP "
+#     global_vm_tag_name: "admin"
+#     global_vm_ci_ip: "192.168.42.122"
+#     #
+#     global_template_vm_id: 9221
+#     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+#     # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 

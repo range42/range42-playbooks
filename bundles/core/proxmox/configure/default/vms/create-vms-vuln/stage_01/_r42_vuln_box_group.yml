@@ -58,7 +58,7 @@
 - hosts: r42.admin-wazuh
   gather_facts: false
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
 
   vars:
     tailscale_hostnames:
@@ -93,12 +93,12 @@
 - hosts: r42_vuln_box_group
   become: true
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     #
     # variables defined in vault
     #
-    tailscale_authkey: "{{ vault_tailscale_authkey }}"
+    tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
     INSTALL_TAILSCALE: "NO" # variables defined in main
 
   tasks:

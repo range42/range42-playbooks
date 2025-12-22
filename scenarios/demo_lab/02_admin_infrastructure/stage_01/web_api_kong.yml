@@ -56,10 +56,10 @@
 #   become: true
 
 #   vars_files:
-#     - "../../secrets/px-testing.cr42_tailscale.yml"
+#     - "../../secrets/default_vault.yml"
 
 #   vars:
-#     tailscale_authkey: "{{ vault_tailscale_authkey }}"
+#     tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
 
 #   roles:
 #     - software.install.tailscale

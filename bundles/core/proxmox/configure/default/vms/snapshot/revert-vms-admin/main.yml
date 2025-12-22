@@ -2,11 +2,11 @@
 
 - name: actions on virtual machines
   # hosts: "{{ proxmox_node }}"
-  hosts: px-testing # should be rename to px-api
+  hosts: proxmox # should be rename to px-api
   gather_facts: false
 
   vars_files:
-    - "../../../../../../../scenarios/demo_lab/secrets/px-testing.cr42_tailscale.yml"
+    - "../../../../../../../scenarios/demo_lab/secrets/default_vault.yml"
 
   vars:
     PROXMOX_NODE: "px-testing"

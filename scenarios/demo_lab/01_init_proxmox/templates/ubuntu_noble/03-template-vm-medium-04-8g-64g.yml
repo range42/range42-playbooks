@@ -14,10 +14,10 @@
 ## ISSUE - 3
 ##
 
-- hosts: px-testing
+- hosts: proxmox
   gather_facts: false
   vars_files:
-    - "../../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../../secrets/default_vault.yml"
 
   tasks:
     #
@@ -46,10 +46,10 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- hosts: px-testing-cli
+- hosts: proxmox-cli
   gather_facts: false
   vars_files:
-    - "../../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../../secrets/default_vault.yml"
 
   tasks:
     #
@@ -62,14 +62,14 @@
         cloudinit_image_full_path: "/var/lib/vz/template/iso/noble-minimal-cloudimg-amd64.img"
         vm_id: 9234
         vm_disk_size: "64g"
-        dest_proxmox_storage: "local-lvm"
+        proxmox_dest_vm_storage_name: "local-lvm"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- hosts: px-testing
+- hosts: proxmox
   gather_facts: false
   vars_files:
-    - "../../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../../secrets/default_vault.yml"
 
   tasks:
     #

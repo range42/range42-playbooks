@@ -9,10 +9,10 @@
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- hosts: px-testing
+- hosts: proxmox
   gather_facts: false
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
 
   tasks:
     - name: PROMOX INIT - DOWNLOAD - CLOUD INIT images

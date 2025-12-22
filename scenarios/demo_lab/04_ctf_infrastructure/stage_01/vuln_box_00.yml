@@ -31,7 +31,7 @@
   roles:
     - software.configure.docker-compose
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     LABEL_PROJECT_TYPE: "CTF"
     LABEL_PROJET_NAME: "uwsgi-php-cve-2018-7490"
@@ -52,7 +52,7 @@
   roles:
     - software.configure.docker-compose
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     LABEL_PROJECT_TYPE: "CTF"
     LABEL_PROJET_NAME: "ftp_anon_server"

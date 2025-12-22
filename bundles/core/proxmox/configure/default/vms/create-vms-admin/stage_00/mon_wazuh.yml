@@ -17,10 +17,10 @@
 ## ISSUE - 6
 ##
 
-- hosts: px-testing
+- hosts: proxmox
   gather_facts: false
   vars_files:
-      - "../../secrets/px-testing.cr42_tailscale.yml"
+      - "../../secrets/default_vault.yml"
 
   vars:
     #
@@ -95,7 +95,7 @@
 - hosts: "{{ global_vm_ssh_name }}"
   gather_facts: false
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
 
   vars:
     # ARG_global_operator_ssh_config_known_hosts: "{{ global_operator_ssh_config_known_hosts }}"
@@ -103,7 +103,7 @@
     # ARG_global_operator_ssh_config_known_hosts: "{{ global_operator_ssh_config_known_hosts }}"
     # ARG_global_vm_ssh_name: "{{ global_vm_ssh_name }}"
 
-    ARG_operator_ssh_config_known_hosts: "{{ VAULT_operator_ssh_config_known_hosts }}"
+    deployer_cli_user_ssh_known_hosts: "{{ deployer_cli_user_ssh_known_hosts }}"
     ARG_vm_ssh_name: "{{ global_vm_ssh_name }}"
 
     requested_tasks:

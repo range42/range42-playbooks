@@ -5,7 +5,7 @@
   roles:
     - software.configure.firewalls
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     firewall_rules:
       - ip: "all"
@@ -42,7 +42,7 @@
     - role: software.install.wazuh-dashboard
 
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
 
   vars:
     local_certs_path: "/tmp/certificates/"
@@ -65,7 +65,7 @@
 - hosts: r42.admin-wazuh
   become: yes
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     WAZUH_SERVER_IP: 192.168.42.100 # MOVE TO VAULT ?
     local_certs_path: "/tmp/certificates/"
@@ -84,7 +84,7 @@
   become: yes
   become_user: root
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
 
   vars:
     CHANGE_WAZUH_PASSWORD: true
@@ -99,7 +99,7 @@
     - name: Run wazuh-passwords-tool.sh
       ansible.builtin.shell: >
         /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh
-        -u admin -p "{{ WAZUH_PASSWORD }}"
+        -u admin -p "{{ infrastructure_wazuh_admin_password }}"
       register: password_output
       delegate_to: "{{ WAZUH_ANSIBLE_HOSTNAME }}"
       when: CHANGE_WAZUH_PASSWORD

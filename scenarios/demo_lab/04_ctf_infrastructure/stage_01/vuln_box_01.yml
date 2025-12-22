@@ -41,7 +41,7 @@
     - software.configure.docker-compose
 
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     LABEL_PROJECT_TYPE: "CTF"
     LABEL_PROJET_NAME: "crypto-openssl-cve-2014-0160"
@@ -64,7 +64,7 @@
     - software.configure.docker-compose
 
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     LABEL_PROJECT_TYPE: "CTF"
     LABEL_PROJET_NAME: "crypto-openssl-cve-2022-0778"
@@ -86,7 +86,7 @@
     - software.configure.docker-compose
 
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     LABEL_PROJECT_TYPE: "CTF"
     LABEL_PROJET_NAME: "erlang-ssh-CVE-2025-32433"
@@ -109,7 +109,7 @@
     - software.configure.docker-compose
 
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     LABEL_PROJECT_TYPE: "CTF"
     LABEL_PROJET_NAME: "openssh-cve-2018-15473"
@@ -131,7 +131,7 @@
     - software.configure.docker-compose
 
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     LABEL_PROJECT_TYPE: "CTF"
     LABEL_PROJET_NAME: "openssh-cve-2024-6387"

@@ -1,11 +1,11 @@
 #
 
 - name: actions on virtual machines
-  hosts: px-testing
+  hosts: proxmox
   gather_facts: false
 
   vars_files:
-    - "../../../../../../../scenarios/demo_lab/secrets/px-testing.cr42_tailscale.yml"
+    - "../../../../../../../scenarios/demo_lab/secrets/default_vault.yml"
 
   vars:
     PROXMOX_VM_ACTION: "vm_pause"

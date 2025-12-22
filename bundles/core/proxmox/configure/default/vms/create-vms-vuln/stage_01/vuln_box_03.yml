@@ -22,7 +22,7 @@
   roles:
     - software.configure.docker-compose
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     LABEL_PROJECT_TYPE: "CTF"
     LABEL_PROJET_NAME: "lpe-01"

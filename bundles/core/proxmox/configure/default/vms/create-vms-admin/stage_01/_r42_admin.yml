@@ -74,7 +74,7 @@
 - hosts: r42.admin-wazuh
   gather_facts: false
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
 
   vars:
     tailscale_hostnames:
@@ -82,7 +82,7 @@
       - "admin-web-api-kong"
       - "admin-web-builder-api"
       - "admin-web-deployer-ui"
-      - "admin-web-emp"
+      # - "admin-web-emp"
       # - "admin-builder-api-devkit"
       # - "admin-builder-docker-registry"
       # - "testing-wazuh-client"
@@ -106,12 +106,12 @@
 - hosts: r42_admin
   become: true
   vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
+    - "../../secrets/default_vault.yml"
   vars:
     #
     # variables defined in vault
     #
-    tailscale_authkey: "{{ vault_tailscale_authkey }}"
+    tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
     INSTALL_TAILSCALE: "YES" # variables defined in main
 
   tasks:

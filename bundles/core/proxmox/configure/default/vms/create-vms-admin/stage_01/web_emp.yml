@@ -2,28 +2,28 @@
 #
 #
 
-- name: deploy emp app
-  become: true
-  hosts: r42.admin-web-emp
-  roles:
-    - software.install.nodejs_app_systemd
-  vars_files:
-    - "../../secrets/px-testing.cr42_tailscale.yml"
-  vars:
-    #
-    NODE_VERSION: "22"
-    #
-    LOCAL_CODE_PATH: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-emp-mockup/"
+# - name: deploy emp app
+#   become: true
+#   hosts: r42.admin-web-emp
+#   roles:
+#     - software.install.nodejs_app_systemd
+#   vars_files:
+#     - "../../secrets/default_vault.yml"
+#   vars:
+#     #
+#     NODE_VERSION: "22"
+#     #
+#     LOCAL_CODE_PATH: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-emp-mockup/"
 
-    REMOTE_PROJECT_DIR: /var/www/range42_emp_mockup
-    #
-    NPM_COMMAND: dev
-    #
-    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
-    #
-    APP_USER: webapp_user
-    APP_USER_SHELL: "/usr/sbin/nologin"
-    APP_NAME_SYSTEMD: range42_deployer
+#     REMOTE_PROJECT_DIR: /var/www/range42_emp_mockup
+#     #
+#     NPM_COMMAND: dev
+#     #
+#     OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+#     #
+#     APP_USER: webapp_user
+#     APP_USER_SHELL: "/usr/sbin/nologin"
+#     APP_NAME_SYSTEMD: range42_deployer
 
-    # # to avoid home dir warning in case of no login user
-    # ansible_remote_tmp: "/tmp/.ansible-{{ APP_USER }}/tmp"
+#     # # to avoid home dir warning in case of no login user
+#     # ansible_remote_tmp: "/tmp/.ansible-{{ APP_USER }}/tmp"
