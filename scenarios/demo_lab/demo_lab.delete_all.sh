@@ -27,7 +27,7 @@ ADMIN_INFRASTRUCTURE_IP=(
 
 for ip in "${ADMIN_INFRASTRUCTURE_IP[@]}"; do
     echo ":: REMOVE SSH KEY FOR : $ip"
-    ssh-keygen -f "/home/grml/.ssh/known_hosts" -R "$ip"
+    ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
 done
  
 

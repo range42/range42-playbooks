@@ -10,7 +10,7 @@
 
 ## proxmox_vm.list.to.jsons.sh | grep -i template | jq -c | proxmox_vm.vm_id.stop_force.to.jsons.sh
 ## proxmox_vm.list.to.jsons.sh | grep -i template | jq -c | proxmox_vm.vm_id.delete.to.jsons.sh
-# 
+#
 # ADMIN_INFRASTRUCTURE_IP=(
 #     "192.168.42.111" # testing-wazuh-client
 #     #
@@ -30,24 +30,24 @@
 #     "192.168.42.173" # vuln-box-03
 #     "192.168.42.174" # vuln-box-04
 # )
-# 
+#
 # for ip in "${ADMIN_INFRASTRUCTURE_IP[@]}"; do
 #     echo ":: REMOVE SSH KEY FOR : $ip"
-#     ssh-keygen -f "/home/grml/.ssh/known_hosts" -R "$ip"
+#     ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
 # done
-# 
+#
 # # proxmox_vm.list.to.jsons.sh | grep -vi template | grep -vi group | grep -iE "(admin-)|(testing-)" | jq -c | proxmox_vm.vm_id.stop_force.to.jsons.sh
 # # proxmox_vm.list.to.jsons.sh | grep -vi template | grep -vi group | grep -iE "(admin-)|(testing-)" | jq -c | proxmox_vm.vm_id.delete.to.jsons.sh
-# 
+#
 # proxmox_vm.list.to.jsons.sh | grep -vi template | grep -vi group | grep -iE "(admin-)|(testing-)" | jq -c | proxmox_vm.vm_id.stop_force.to.jsons.sh
 # proxmox_vm.list.to.jsons.sh | grep -vi template | grep -vi group | grep -iE "(admin-)|(testing-)" | jq -c | proxmox_vm.vm_id.delete.to.jsons.sh
-# 
+#
 # proxmox_vm.list.to.jsons.sh | grep -vi template | grep -vi group | grep -iE "(student-)|(vuln-)" | jq -c | proxmox_vm.vm_id.stop_force.to.jsons.sh
 # proxmox_vm.list.to.jsons.sh | grep -vi template | grep -vi group | grep -iE "(student-)|(vuln-)" | jq -c | proxmox_vm.vm_id.delete.to.jsons.sh
 #
-#ANSIBLE_STDOUT_CALLBACK=skippy 
+#ANSIBLE_STDOUT_CALLBACK=skippy
 
-ansible-playbook -i ./inventory/inventory_default.yml \
-    -l "all" \
-    "./demo_lab.yml" --vault-password-file /tmp/vault/vault_pass.txt
+ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \
+	-l "all" \
+	"./demo_lab.yml" --vault-password-file /tmp/vault/vault_pass.txt
 # "./demo_lab.yml" --ask-vault-pass

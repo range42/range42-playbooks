@@ -21,7 +21,7 @@
     #
     global_template_vm_id: 9211
     global_template_name: "01-template-vm-micro-01-2g-24g - id 9211" # debug
-    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+    #
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -57,7 +57,7 @@
     #
     global_template_vm_id: 9232
     global_template_name: "03-template-vm-medium-02-8g-64g - 9232" # debug
-    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+    #
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -74,7 +74,7 @@
     #
     global_template_vm_id: 9232
     global_template_name: "01-template-vm-micro-01-2g-24g - id 9232" # debug
-    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+    #
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -91,7 +91,7 @@
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
-    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+    #
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -108,7 +108,7 @@
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
-    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+    #
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -125,7 +125,7 @@
 #     #
 #     global_template_vm_id: 9221
 #     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
-#     # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+#     #
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -144,4 +144,4 @@
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
 
 
-    # global_operator_ssh_config_known_hosts: "/home/grml/.ssh/known_hosts" # move this one to vault !
+    #
