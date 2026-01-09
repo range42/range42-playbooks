@@ -1,0 +1,4 @@
+---
+###
+
+- import_playbook: ./templates/ubuntu_noble/_main_ubuntu_noble.yml # create ubuntu nobles templates

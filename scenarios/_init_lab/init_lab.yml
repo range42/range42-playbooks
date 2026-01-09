@@ -1,0 +1,15 @@
+---
+##
+## INIT_LAB INFRASTRUCTURE MAIN FILE
+##
+
+#### MAIN_STEP 01
+
+# - import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
+# - import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+
+- import_playbook: ./01_init_proxmox/_main.yml
+
+#### MAIN_STEP 02
+
+- import_playbook: ./02_init_infrastructure/_main.yml

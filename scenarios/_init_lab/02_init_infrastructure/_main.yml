@@ -1,0 +1,122 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 00  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+- import_playbook: ./stage_00/_r42_init_vm_group.yml
+
+  vars:
+    global_vm_name: "init-vm-00"
+    global_vm_ssh_name: "r42.init-vm-00"
+    global_vm_id: 1000
+    global_vm_description: ""
+    global_vm_tag_name: "init-vm-00"
+    global_vm_ci_ip: "192.168.142.120"
+    global_vm_ci_netmask: "24"
+    global_vm_ci_gw: "192.168.142.1"
+    #
+    global_template_vm_id: 9222
+    global_template_name: "02-template-vm-small-02-4g-32g - 9222" # debug notes
+
+- import_playbook: ./stage_00/_r42_init_vm_group.yml
+
+  vars:
+    global_vm_name: "init-vm-01"
+    global_vm_ssh_name: "r42.init-vm-01"
+    global_vm_id: 1001
+    global_vm_description: ""
+    global_vm_tag_name: "init-vm-01"
+    global_vm_ci_ip: "192.168.142.121"
+    global_vm_ci_netmask: "24"
+    global_vm_ci_gw: "192.168.142.1"
+
+    #
+    global_template_vm_id: 9222
+    global_template_name: "02-template-vm-small-02-4g-32g - 9222" # debug notes
+
+- import_playbook: ./stage_00/_r42_init_vm_group.yml
+
+  vars:
+    global_vm_name: "init-vm-02"
+    global_vm_ssh_name: "r42.init-vm-02"
+    global_vm_id: 1002
+    global_vm_description: ""
+    global_vm_tag_name: "init-vm-02"
+    global_vm_ci_ip: "192.168.142.122"
+    global_vm_ci_netmask: "24"
+    global_vm_ci_gw: "192.168.142.1"
+    #
+    global_template_vm_id: 9222
+    global_template_name: "02-template-vm-small-02-4g-32g - 9222" # debug notes
+
+- import_playbook: ./stage_00/_r42_init_vm_group.yml
+
+  vars:
+    global_vm_name: "init-vm-03"
+    global_vm_ssh_name: "r42.init-vm-03"
+    global_vm_id: 1003
+    global_vm_description: ""
+    global_vm_tag_name: "init-vm-03"
+    global_vm_ci_ip: "192.168.142.123"
+    global_vm_ci_netmask: "24"
+    global_vm_ci_gw: "192.168.142.1"
+    #
+    global_template_vm_id: 9222
+    global_template_name: "02-template-vm-small-02-4g-32g - 9222" # debug notes
+
+- import_playbook: ./stage_00/_r42_init_vm_group.yml
+
+  vars:
+    global_vm_name: "init-vm-04"
+    global_vm_ssh_name: "r42.init-vm-04"
+    global_vm_id: 1004
+    global_vm_description: ""
+    global_vm_tag_name: "init-vm-04"
+    global_vm_ci_ip: "192.168.142.124"
+    global_vm_ci_netmask: "24"
+    global_vm_ci_gw: "192.168.142.1"
+    #
+    global_template_vm_id: 9222
+    global_template_name: "02-template-vm-small-02-4g-32g - 9222" # debug notes
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# #
+
+- import_playbook: ./stage_01/_r42_init_vm_group.yml
+  vars:
+    OPERATOR_USER: alice
+
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "NO"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "NO"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "NO"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+    # #
+
+    INSTALL_TAILSCALE: "NO"
+
+    # SPECIFIC_PACKAGES_CLEANING: "NO"
+
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+# - import_playbook: ./stage_01/init_vm_00.yml
+# - import_playbook: ./stage_01/init_vm_01.yml
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

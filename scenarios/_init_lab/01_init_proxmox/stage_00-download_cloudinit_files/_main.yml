@@ -1,0 +1,7 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# PROMOX INIT - download cloud init files
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./cloudinit_ubuntu_noble.yml # download ubuntu noble cloud img files
