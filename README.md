@@ -1,104 +1,198 @@
-# Table of Contents
+# range42-playbooks
 
-- [Project Overview](#Project-Overview)
-- [Repository Content](#Repository-Content)
-- [Contributing](#Contributing)
-- [License](#License)
+Ansible playbooks and scenarios for deploying cyber range environments on Proxmox.
+Part of the [range42](https://github.com/range42/range42) platform.
 
 ---
 
-# Project Overview
+## How it works
 
-**RANGE42** is a modular cyber range platform designed for real-world readiness.
-We build, deploy, and document offensive, defensive, and hybrid cyber training environments using reproducible, infrastructure-as-code methodologies.
+A **scenario** is a complete lab environment — it defines which VMs to create,
+what software to install on each, and how to configure them. You deploy a scenario
+with one command, iterate on individual VMs during development, and tear it all
+down when you're done.
 
-## What we build
+```
+scenario (demo_lab)
+├── 01_init_proxmox         ← create VM templates (cloud-init)
+├── 02_admin_infrastructure ← deploy admin VMs (wazuh, kong, docker, UI/API)
+│   ├── stage_00            ← create VMs (Proxmox API + cloud-init)
+│   ├── stage_01            ← install software (Ansible roles from catalog)
+│   └── stage_02            ← post-install configuration (optional)
+├── 03_student_infrastructure ← deploy student workstations
+│   ├── stage_00
+│   └── stage_01
+└── 04_ctf_infrastructure   ← deploy vulnerable boxes (CTF targets)
+    ├── stage_00
+    └── stage_01
+```
 
-- Proxmox-based cyber ranges with dynamic catalog 
-- Ansible roles for automated deployments (Wazuh, Kong, Docker, etc.)
-- Private APIs for range orchestration and telemetry
-- Developer and testing toolkits and JSON transformers for automation pipelines
-- ...
+**Stages** are ordered deployment phases within each infrastructure section.
+They separate concerns and allow partial re-runs — you can replay stage_01
+(software install) without recreating the VM from stage_00.
 
-## Repository Overview
-
-- **RANGE42 deployer UI** : A web interface to visually design infrastructure schemas and trigger deployments.
-- **RANGE42 deployer backend API** : Orchestrates deployments by executing playbooks and bundles from the catalog.
-- **RANGE42 catalog** : A collection of Ansible roles and Docker/Docker Compose stacks, forming deployable bundles.
-- **RANGE42 playbooks** : Centralized playbooks that can be invoked by the backend or CLI.
-- **RANGE42 proxmox role** : An Ansible role for controlling Proxmox nodes via the Proxmox API.
-- **RANGE42 devkit** : Helper scripts for testing, debugging, and development workflows.
-- **RANGE42 kong API gateway** : A network service in front of the backend API, handling authentication, ACLs, and access control policies.
-- **RANGE42 swagger API spec** : OpenAPI/Swagger JSON definition of the backend API.
-
-### Putting it all together
-
-These repositories provide a modular and extensible platform to design, manage and deploy infrastructures automatically  either from the UI (coming soon) or from the CLI through the playbooks repository.
+Each stage contains:
+- `*.yml` — Ansible playbooks (executed by the scenario's `_main.yml`)
+- `*.devkit/` — Per-VM shell scripts for manual testing (install, snapshot, revert)
 
 ---
 
-# Repository Content
+## First-time setup
 
-This repository contains Ansible playbooks used by the backend API or CLI to deploy infrastructure bundles and full scenarios from the catalog.
+Before using any scenario, you need to initialize the infrastructure once.
+This generates SSH keys, passwords, vault secrets, configures Proxmox access,
+and sets up the deployer-cli workspace.
+
+```bash
+# Interactive wizard (recommended)
+python3 range42-init.py
+
+# Or manually
+ansible-playbook site.yml -i inventories/<your-infra>/ -e scenario=demo_lab -k
+```
+
+See the [range42](https://github.com/range42/range42) README for full setup instructions.
+
+---
+
+## Daily workflow
+
+### 1. Deploy the full scenario
+
+```bash
+range42-context use <codename> <scenario>
+range42-context deploy          # full deploy (templates + VMs + software)
+range42-context deploy-vms      # VMs only (skip templates — fast redeploy)
+```
+
+### 2. Work on a single VM
+
+Each VM in each stage has its own `*.devkit/` directory with helper scripts.
+This is the fastest way to iterate without replaying the full scenario:
+
+```bash
+cd scenarios/demo_lab/02_admin_infrastructure/stage_01/mon_wazuh.devkit/
+
+./demo_lab.mon_wazuh.install.sh     # (re)install software on this VM only
+./demo_lab.mon_wazuh.snapshot.sh    # snapshot before a risky change
+./demo_lab.mon_wazuh.revert.sh      # something broke? revert to last snapshot
+```
+
+Every VM has `install.sh`. VMs that support it also have `snapshot.sh` and `revert.sh`.
+
+### 3. Tear down
+
+```bash
+range42-context delete          # destroy everything
+range42-context delete-vms      # destroy VMs only (keep templates)
+```
+
+Or use the shell scripts directly:
+
+```bash
+cd ~/range42/range42-playbooks/scenarios/demo_lab/
+./demo_lab.setup.sh             # full deploy
+./demo_lab.setup_vms_only.sh    # fast redeploy (skip templates)
+./demo_lab.delete_all.sh        # destroy everything + clean SSH known_hosts
+./demo_lab.delete_vms_only.sh   # destroy VMs only
+./demo_lab.reset.setup.sh       # delete all + redeploy from scratch
+./demo_lab.reset.ssh_keys.sh    # reset SSH keys only
+```
+
+---
+
+## Available scenarios
+
+| Scenario | Status | Description |
+|----------|--------|-------------|
+| `demo_lab` | **functional** | Full cyber range — admin, student, CTF infrastructure |
+| `forensics_lab` | placeholder | Forensics training (not yet implemented) |
+| `kunai_lab` | placeholder | Kunai-based detection lab (not yet implemented) |
+| `misp_lab` | placeholder | MISP threat intel lab (not yet implemented) |
+
+---
+
+## Bundles (work in progress)
+
+Bundles are **reusable, atomic actions** — the building blocks that the
+[backend API](https://github.com/range42/range42-backend-api) and
+[deployer UI](https://github.com/range42/range42-deployer-ui) will use
+to trigger deployments from the web interface.
+
+Instead of running a full scenario from the CLI, the UI will pick
+individual bundles (create VMs, install software, snapshot, revert)
+and compose them on the fly.
+
+> Bundles are under active development. Scenarios currently contain
+> their own playbooks directly. Once bundles are stable, scenarios
+> will reference them instead of duplicating logic.
+
+Bundles follow the same stage convention as scenarios.
+Each bundle contains:
+- `main.yml` — Entry point (callable by the API or standalone)
+- `test.sh` — Manual test script
+- `stage_*/` — Staged sub-tasks
+- `*.devkit/` — Per-VM helper scripts (install, snapshot, revert)
+
+### Current bundle structure
+
+```text
+bundles/
+├── core/
+│   ├── proxmox/configure/default/vms/
+│   │   ├── create-vms-admin/              # Create admin VMs (stage_00 → stage_02)
+│   │   ├── create-vms-student/            # Create student VMs
+│   │   ├── create-vms-vuln/               # Create vulnerable VMs
+│   │   ├── delete-vms-admin/              # Delete + clean SSH keys
+│   │   ├── delete-vms-student/
+│   │   ├── delete-vms-vuln/
+│   │   ├── start-stop-pause-resume-vms-admin/
+│   │   ├── start-stop-pause-resume-vms-student/
+│   │   ├── start-stop-pause-resume-vms-vuln/
+│   │   └── snapshot/
+│   │       ├── create-vms-{admin,student,vuln}/
+│   │       └── revert-vms-{admin,student,vuln}/
+│   └── linux/ubuntu/
+│       ├── configure/add-user/
+│       └── install/{basic-packages,docker,docker-compose,dot-files}/
+└── ping/                                  # Connectivity test
+```
+
+---
 
 ## Repository Structure
 
 ```text
-playbooks/
-├─ scenarios/                 # Complete scenarios (entrypoints)
-│  ├─ demo_lab.yml
-│  ├─ forensics_lab.yml
-│  └─ ...
-│
-└─ bundles/                   # Reusable unit bundles actions
-   ├─ ping.yml
-   ├─ software/
-   │  ├─ configure/
-   │  │  └─ firewalls.yml
-   │  └─ install/
-   │     └─ docker_compose.yml
-   └─ ...
+scenarios/
+├── demo_lab/                          # Reference scenario (functional)
+│   ├── main.yml                       # Full deploy entry point
+│   ├── main_vms_only.yml              # Fast redeploy (skip templates)
+│   ├── 01_init_proxmox/              # VM templates (cloud-init)
+│   ├── 02_admin_infrastructure/       # Admin VMs — stage_00, stage_01, stage_02
+│   ├── 03_student_infrastructure/     # Student VMs — stage_00, stage_01
+│   ├── 04_ctf_infrastructure/         # CTF VMs — stage_00, stage_01
+│   ├── inventory/                     # Scenario-specific inventory
+│   ├── secrets/                       # Symlink → workspace secrets (gitignored)
+│   └── demo_lab.*.sh                 # Deploy, delete, reset scripts
+├── forensics_lab/                     # Placeholder
+├── kunai_lab/                         # Placeholder
+├── misp_lab/                          # Placeholder
+└── _init_lab/                         # Shared init playbooks
+
+bundles/                               # Reusable actions (work in progress)
+├── core/proxmox/                      # VM lifecycle bundles
+├── core/linux/ubuntu/                 # OS-level bundles
+└── ping/                              # Connectivity test
 ```
 
-### `scenarios/`
+## Secrets
 
-- Contains top-level playbooks executed directly.  
-- Each scenario chains multiple bundles to deploy a complete lab or environment.  
-
-To run scenario from CLI : 
-
-### `bundles/`
-- Contains atomic, reusable bundles actions.  
-- Each bundles actions represents one clear intent (install, configure, verify, list, …).  
-- Organized by domain, for example:  
-  - `ping.yml` → connectivity test  
-  - `software/configure/firewalls.yml` → firewall configuration  
-  - `software/install/docker_compose.yml` → docker-compose installation  
-
-Scenarios import these bundles actions via `import_playbook`.
+The `secrets/` directory in each scenario is a symlink to the workspace secrets
+(`~/range42.config/<codename>-<scenario>/secrets/`). It contains vault files
+and is gitignored — never committed.
 
 ---
-
-## Naming Conventions
-- Use `snake_case` for files (`docker_compose.yml`, `firewalls.yml`).  
-- Use `verb_object` for bundle actions:  
-  - `install_docker_compose.yml`  
-  - `configure_firewalls.yml`  
-  - `ping.yml`  
-- Use descriptive names for scenarios that reflect the lab’s purpose:  
-  - `demo_lab.yml`  
-  - `forensics_lab.yml`  
-
----
-
 
 ## Contributing
 
-This is a collaborative initiative, developed for applied security training, community integration, and internal capability building.
-We use centralized community health files in Range42 community health.
-
-## License
-
-- GPL-3.0 license
-
-
+GPL-3.0 license
