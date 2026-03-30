@@ -83,7 +83,7 @@
         vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
         vm_ci_password: "{{ default_trainee_vm_ci_password | default('supersecret') }}"
         vm_ci_ssh_key: "{{ default_trainee_vm_ci_ssh_key  }}"
-        vm_ci_namerserver_ips: "1.1.1.1"
+        vm_ci_dns_ips: "1.1.1.1"
         vm_ci_ip: "192.168.42.212"
         vm_ci_netmask: "24"
         vm_ci_ip_gw: "192.168.42.1"
