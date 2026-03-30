@@ -1,0 +1,13 @@
+---
+##
+## deploy VMs only — skip template download and creation
+## use after: demo_lab.delete_vms_only.sh
+##
+
+#### skip 01_init_proxmox (templates already exist)
+
+- import_playbook: ./02_admin_infrastructure/_main.yml
+
+#- import_playbook: ./03_student_infrastructure/_main.yml
+
+- import_playbook: ./04_ctf_infrastructure/_main.yml
