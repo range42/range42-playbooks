@@ -4,7 +4,6 @@
 #
 
 ##
-## ISSUE 13
 ##
 
 - import_playbook: ./vuln_box_00.yml

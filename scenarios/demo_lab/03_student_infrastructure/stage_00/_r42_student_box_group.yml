@@ -4,7 +4,6 @@
 #
 
 ##
-## ISSUE 12
 ##
 
 - import_playbook: ./student_box_01.yml

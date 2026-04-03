@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ##
-## ISSUE - 14
 ##
 
 ./stage_00/r42_vuln_box_group.devkit/demo_lab.vuln_box_01.delete.sh

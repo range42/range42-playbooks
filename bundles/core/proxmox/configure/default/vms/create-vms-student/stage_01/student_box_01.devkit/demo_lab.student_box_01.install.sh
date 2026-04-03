@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ##
-## ISSUE - 14
 ##
 
 # ansible-playbook -i ../../../inventory/inventory_default.yml \

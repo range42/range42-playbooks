@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ##
-## ISSUE - 14
 ##
 
 ssh-keygen -f "/$HOME/.ssh/known_hosts" -R '192.168.143.160'

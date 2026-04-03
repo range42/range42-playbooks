@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ##
-## ISSUE - 
 ##
 
 echo '{"proxmox_node":"px-testing","vm_id":1023 }' | proxmox_snapshot_vm.vm_id.revert_snapshot.to.jsons.sh

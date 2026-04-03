@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ##
-## ISSUE - 14
 ##
 
 ansible-playbook -i "$TMP_RANGE42_ANSIBLE_INVENTORY_DIR/inventory_default.yml" \

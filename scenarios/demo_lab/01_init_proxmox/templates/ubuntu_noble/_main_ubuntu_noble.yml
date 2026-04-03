@@ -1,5 +1,4 @@
 ##
-## ISSUE - 3
 ##
 
 - import_playbook: ./00-template-vm-nano.yml

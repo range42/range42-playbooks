@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ##
-## ISSUE - 
 ##
 
 # proxmox_vm.list.to.jsons.sh |

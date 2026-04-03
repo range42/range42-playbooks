@@ -1,6 +1,5 @@
 ---
 ##
-## ISSUE - 6
 ##
 
 - import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml

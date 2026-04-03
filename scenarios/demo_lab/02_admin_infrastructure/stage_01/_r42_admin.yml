@@ -5,7 +5,6 @@
 #
 
 ##
-## ISSUE 6
 ##
 
 - name: install basics packages
@@ -68,7 +67,6 @@
 #
 
 ##
-## ISSUE 11
 ##
 
 - hosts: r42.admin-wazuh
