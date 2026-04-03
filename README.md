@@ -103,12 +103,16 @@ cd ~/range42/range42-playbooks/scenarios/demo_lab/
 
 ## Available scenarios
 
-| Scenario | Status | Description |
-|----------|--------|-------------|
-| `demo_lab` | **functional** | Full cyber range — admin, student, CTF infrastructure |
-| `forensics_lab` | placeholder | Forensics training (not yet implemented) |
-| `kunai_lab` | placeholder | Kunai-based detection lab (not yet implemented) |
-| `misp_lab` | placeholder | MISP threat intel lab (not yet implemented) |
+| Scenario | Status | Description | Details |
+|----------|--------|-------------|---------|
+| `demo_lab` | **functional** | Full cyber range — admin, student, CTF infrastructure | [README](scenarios/demo_lab/README.md) |
+| `_init_lab` | **functional** | Shared init — VM templates + init VMs | [README](scenarios/_init_lab/README.md) |
+| `forensics_lab` | coming soon | Forensics training | |
+| `kunai_lab` | coming soon | Kunai-based detection lab | |
+| `misp_lab` | coming soon | MISP threat intel lab | |
+
+Other scenario directories are placeholders — new scenarios are actively being developed.
+Each scenario will get its own README with deployment details once available.
 
 ---
 
