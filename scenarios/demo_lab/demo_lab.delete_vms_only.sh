@@ -21,13 +21,13 @@ INFRASTRUCTURE_IP=(
     "192.168.142.122" # admin-web-emp
     "192.168.142.123" # admin-web-deployer-ui
     #
-    "192.168.142.160" # student-box-01
+    "192.168.143.160" # student-box-01
     #
-    "192.168.142.170" # vuln-box-00
-    "192.168.142.171" # vuln-box-01
-    "192.168.142.172" # vuln-box-02
-    "192.168.142.173" # vuln-box-03
-    "192.168.142.174" # vuln-box-04
+    "192.168.144.170" # vuln-box-00
+    "192.168.144.171" # vuln-box-01
+    "192.168.144.172" # vuln-box-02
+    "192.168.144.173" # vuln-box-03
+    "192.168.144.174" # vuln-box-04
 )
 
 for ip in "${INFRASTRUCTURE_IP[@]}"; do

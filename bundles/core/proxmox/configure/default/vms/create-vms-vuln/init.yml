@@ -18,7 +18,7 @@
     global_vm_id: 4000
     global_vm_description: "demo - vuln-box-00"
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.142.170"
+    global_vm_ci_ip: "192.168.144.170"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -36,7 +36,7 @@
     global_vm_id: 4001
     global_vm_description: "demo - vuln-box-01"
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.142.171"
+    global_vm_ci_ip: "192.168.144.171"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -54,7 +54,7 @@
     global_vm_id: 4002
     global_vm_description: "demo - vuln-box-02"
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.142.172"
+    global_vm_ci_ip: "192.168.144.172"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -72,7 +72,7 @@
     global_vm_id: 4003
     global_vm_description: "demo - vuln-box-03"
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.142.173"
+    global_vm_ci_ip: "192.168.144.173"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -90,7 +90,7 @@
     global_vm_id: 4004
     global_vm_description: "demo - vuln-box-04"
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.142.174"
+    global_vm_ci_ip: "192.168.144.174"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug

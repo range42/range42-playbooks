@@ -21,16 +21,17 @@
         port: 1514
         protocol: "tcp"
 
-- name: configure firewall - r42.testing-wazuh-client
-  become: true
-  hosts: r42.testing-wazuh-client
-  roles:
-    - software.configure.firewalls
-  vars:
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
+# disabled — testing-wazuh-client, re-enable when wazuh config is validated
+# - name: configure firewall - r42.testing-wazuh-client
+#   become: true
+#   hosts: r42.testing-wazuh-client
+#   roles:
+#     - software.configure.firewalls
+#   vars:
+#     firewall_rules:
+#       - ip: "all"
+#         port: 22
+#         protocol: "tcp"
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 

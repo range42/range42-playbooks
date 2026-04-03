@@ -77,8 +77,8 @@
         vm_ci_dns_ips: "1.1.1.1"
         vm_ci_ip: "{{ global_vm_ci_ip }}"
         vm_ci_netmask: "24"
-        vm_ci_ip_gw: "192.168.142.1"
-        vm_net_virtio_bridge: "vmbr142"
+        vm_ci_ip_gw: "192.168.144.1"
+        vm_net_virtio_bridge: "vmbr144"
 
     #
     - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - START VM

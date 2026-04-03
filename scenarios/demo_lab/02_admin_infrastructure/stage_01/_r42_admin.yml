@@ -83,9 +83,9 @@
       - "admin-builder-docker-registry"
       - "admin-web-api-kong"
       - "admin-web-builder-api"
-      - "admin-web-deployer-ui"
-      - "admin-web-emp"
-      - "testing-wazuh-client"
+      # - "admin-web-deployer-ui"   # disabled — re-enable when frontend is ready
+      # - "admin-web-emp"           # disabled
+      # - "testing-wazuh-client"    # disabled — re-enable when wazuh config is validated
 
     requested_tasks:
       - delete/tailscale_client.yml

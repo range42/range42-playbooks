@@ -6,20 +6,18 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 
-- import_playbook: ./stage_00/_testing/wazuh_client_01.yml
-
-  vars:
-    global_vm_name: "testing-wazuh-client"
-    global_vm_ssh_name: "r42.testing-wazuh-client"
-    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
-    global_vm_id: 1111
-    global_vm_description: "wazuh - client test"
-    global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.142.111"
-    #
-    global_template_vm_id: 9211
-    global_template_name: "01-template-vm-micro-01-2g-24g - id 9211" # debug
-    #
+# disabled — wazuh client test VM, re-enable when wazuh config is validated
+# - import_playbook: ./stage_00/_testing/wazuh_client_01.yml
+#
+#   vars:
+#     global_vm_name: "testing-wazuh-client"
+#     global_vm_ssh_name: "r42.testing-wazuh-client"
+#     global_vm_id: 1111
+#     global_vm_description: "wazuh - client test"
+#     global_vm_tag_name: "admin"
+#     global_vm_ci_ip: "192.168.142.111"
+#     global_template_vm_id: 9211
+#     global_template_name: "01-template-vm-micro-01-2g-24g - id 9211"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -127,21 +125,18 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./stage_00/web_deployer_ui.yml
-
-  vars:
-    global_vm_name: "admin-web-deployer-ui"
-    global_vm_ssh_name: "r42.admin-web-deployer-ui"
-
-    global_vm_id: 1023
-    global_vm_description: "www - front end - r42 - deployer -ui  "
-    global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.142.123"
-    #
-    global_template_vm_id: 9221
-    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
-
-    #
+# disabled — deployer-ui, re-enable when frontend is ready
+# - import_playbook: ./stage_00/web_deployer_ui.yml
+#
+#   vars:
+#     global_vm_name: "admin-web-deployer-ui"
+#     global_vm_ssh_name: "r42.admin-web-deployer-ui"
+#     global_vm_id: 1023
+#     global_vm_description: "www - front end - r42 - deployer -ui"
+#     global_vm_tag_name: "admin"
+#     global_vm_ci_ip: "192.168.142.123"
+#     global_template_vm_id: 9221
+#     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -179,7 +174,8 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: ./stage_01/web_deployer_ui.yml
+# disabled — deployer-ui stage_01, re-enable when frontend is ready
+# - import_playbook: ./stage_01/web_deployer_ui.yml
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 

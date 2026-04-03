@@ -17,7 +17,7 @@
 #     global_vm_id: 3001
 #     global_vm_description: "student jump box "
 #     global_vm_tag_name: "student"
-#     global_vm_ci_ip: "192.168.142.160"
+#     global_vm_ci_ip: "192.168.143.160"
 #     #
 #     global_template_vm_id: 9211
 #     global_template_name: "01-template-vm-micro-01-2g-24g - id 9211" # debug
