@@ -1,7 +1,7 @@
 #!/bin/bash
 
 VULN_BOX=(
-    "192.168.42.180" # student-box-01
+    "192.168.142.180" # student-box-01
 )
 
 for ip in "${VULN_BOX[@]}"; do

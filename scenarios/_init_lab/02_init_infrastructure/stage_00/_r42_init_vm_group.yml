@@ -7,7 +7,7 @@
 #   cpu core : 1
 #   ram      : 2g
 #   disk     : 24g
-#   ip       : 192.168.42.100
+#   ip       : 192.168.142.100
 #
 #   template : 03-template-vm-medium-02-8g-64g - 9232
 #
@@ -26,7 +26,7 @@
     # global_vm_name: "admin-wazuh"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
-    # global_vm_ci_ip: "192.168.42.100"
+    # global_vm_ci_ip: "192.168.142.100"
     # #
     # global_template_vm_id: 9232
     # global_template_name: "03-template-vm-medium-02-8g-64g - 9232" # debug
@@ -81,6 +81,7 @@
         vm_ci_ip: "{{ global_vm_ci_ip }}"
         vm_ci_netmask: "{{ global_vm_ci_netmask }}"
         vm_ci_ip_gw: "{{ global_vm_ci_gw }}"
+        vm_net_virtio_bridge: "vmbr142"
 
     #
     - name: INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - START VM

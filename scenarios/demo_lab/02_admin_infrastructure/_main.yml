@@ -15,7 +15,7 @@
     global_vm_id: 1111
     global_vm_description: "wazuh - client test"
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.42.111"
+    global_vm_ci_ip: "192.168.142.111"
     #
     global_template_vm_id: 9211
     global_template_name: "01-template-vm-micro-01-2g-24g - id 9211" # debug
@@ -33,7 +33,7 @@
     global_vm_id: 1000
     global_vm_description: ""
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.42.100"
+    global_vm_ci_ip: "192.168.142.100"
     #
     global_template_vm_id: 9232
     global_template_name: "03-template-vm-medium-02-8g-64g - 9232" # debug
@@ -51,7 +51,7 @@
     global_vm_id: 1001
     global_vm_description: "docker registry"
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.42.101"
+    global_vm_ci_ip: "192.168.142.101"
     #
     global_template_vm_id: 9232
     global_template_name: "03-template-vm-medium-02-8g-64g - 9232" # debug
@@ -68,7 +68,7 @@
     global_vm_id: 1002
     global_vm_description: "devkit tooling"
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.42.102"
+    global_vm_ci_ip: "192.168.142.102"
     #
     global_template_vm_id: 9232
     global_template_name: "01-template-vm-micro-01-2g-24g - id 9232" # debug
@@ -85,7 +85,7 @@
     global_vm_id: 1020
     global_vm_description: "API gateway"
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.42.120"
+    global_vm_ci_ip: "192.168.142.120"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -102,7 +102,7 @@
     global_vm_id: 1021
     global_vm_description: "www - backend API  "
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.42.121"
+    global_vm_ci_ip: "192.168.142.121"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -119,7 +119,7 @@
 #     global_vm_id: 1022
 #     global_vm_description: "www - front end - r42 - EMP "
 #     global_vm_tag_name: "admin"
-#     global_vm_ci_ip: "192.168.42.122"
+#     global_vm_ci_ip: "192.168.142.122"
 #     #
 #     global_template_vm_id: 9221
 #     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -136,7 +136,7 @@
     global_vm_id: 1023
     global_vm_description: "www - front end - r42 - deployer -ui  "
     global_vm_tag_name: "admin"
-    global_vm_ci_ip: "192.168.42.123"
+    global_vm_ci_ip: "192.168.142.123"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug

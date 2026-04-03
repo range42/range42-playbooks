@@ -7,7 +7,7 @@
 #   cpu core : 1
 #   ram      : 4g
 #   disk     : 32g
-#   ip       : 192.168.42.122
+#   ip       : 192.168.142.122
 #
 #   template : template-vm-small-01-4g-32g - id : 9221
 #
@@ -30,7 +30,7 @@
     # global_vm_name: "admin-web-emp"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
-    # global_vm_ci_ip: "192.168.42.122"
+    # global_vm_ci_ip: "192.168.142.122"
     # #
     # global_template_vm_id: 9221
     # global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -78,7 +78,7 @@
         vm_ci_namerserver_ips: "1.1.1.1"
         vm_ci_ip: "{{ global_vm_ci_ip }}"
         vm_ci_netmask: "24"
-        vm_ci_ip_gw: "192.168.42.1"
+        vm_ci_ip_gw: "192.168.142.1"
 
     #
     - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - START VM

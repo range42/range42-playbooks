@@ -7,7 +7,7 @@
 #   cpu core : 1
 #   ram      : 2g
 #   disk     : 24g
-#   ip       : 192.168.42.102
+#   ip       : 192.168.142.102
 #
 #   template : 01-template-vm-micro-01-2g-24g - id 9232
 #
@@ -30,7 +30,7 @@
     # global_vm_name: "admin-builder-api-devkit"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
-    # global_vm_ci_ip: "192.168.42.102"
+    # global_vm_ci_ip: "192.168.142.102"
     # #
     # global_template_vm_id: 9232
     # global_template_name: "01-template-vm-micro-01-2g-24g - id 9232" # debug
@@ -78,7 +78,7 @@
         vm_ci_namerserver_ips: "1.1.1.1"
         vm_ci_ip: "{{ global_vm_ci_ip }}"
         vm_ci_netmask: "24"
-        vm_ci_ip_gw: "192.168.42.1"
+        vm_ci_ip_gw: "192.168.142.1"
 
     #
     - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - START VM

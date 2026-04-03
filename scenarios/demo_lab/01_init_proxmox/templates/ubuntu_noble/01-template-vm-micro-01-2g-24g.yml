@@ -6,7 +6,7 @@
 #   cpu core : 1
 #   ram      : 2g
 #   disk     : 24g
-#   ip       : 192.168.42.211
+#   ip       : 192.168.142.211
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -33,6 +33,7 @@
         vm_cores: 1
         vm_sockets: 1
         vm_memory: 2048
+        vm_net_virtio_bridge: "vmbr140"
 
     #
     - name: PROMOX INIT - TEMPLATES - CONVERT VM TO TEMPLATE - template-vm-micro-01-2g-24g
@@ -84,9 +85,9 @@
         vm_ci_password: "{{ default_trainee_vm_ci_password | default('supersecret') }}"
         vm_ci_ssh_key: "{{ default_trainee_vm_ci_ssh_key  }}"
         vm_ci_dns_ips: "1.1.1.1"
-        vm_ci_ip: "192.168.42.211"
+        vm_ci_ip: "192.168.142.211"
         vm_ci_netmask: "24"
-        vm_ci_ip_gw: "192.168.42.1"
+        vm_ci_ip_gw: "192.168.142.1"
 
     #
     - name: PROMOX INIT - TEMPLATES - SET PROMOX TAG - template-vm-micro-01-2g-24g

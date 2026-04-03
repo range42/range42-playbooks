@@ -69,7 +69,7 @@
         vm_ci_namerserver_ips: "1.1.1.1"
         vm_ci_ip: "{{ global_vm_ci_ip }}"
         vm_ci_netmask: "24"
-        vm_ci_ip_gw: "192.168.42.1"
+        vm_ci_ip_gw: "192.168.142.1"
 
     #
     - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - START VM
