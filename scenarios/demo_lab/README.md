@@ -1,48 +1,58 @@
 # demo_lab
 
-Full cyber range lab with admin infrastructure, student workstations, and CTF vulnerable targets.
+Default scenario — deploys admin services (wazuh, deployer API/UI) and CTF vulnerable boxes.
 
-## Network segmentation
+> **Work in progress** — the deployer UI and backend API are not yet configured on their VMs.
+> Docker registry, student infrastructure, and additional services will be added later.
 
-| Segment | Bridge | Subnet | Gateway |
-|---------|--------|--------|---------|
-| Templates (ephemeral) | vmbr140 | 192.168.140.0/24 | 192.168.140.1 |
-| Admin infrastructure | vmbr142 | 192.168.142.0/24 | 192.168.142.1 |
-| Student infrastructure | vmbr143 | 192.168.143.0/24 | 192.168.143.1 |
-| CTF / vulnerable boxes | vmbr144 | 192.168.144.0/24 | 192.168.144.1 |
+## Network architecture
 
-Inter-bridge routing works via Proxmox (ip_forward=1).
-Wazuh agents on student/ctf bridges reach the wazuh server on 192.168.142.100 through the Proxmox gateway.
+```
+                            ┌───────────────────────────┐
+                            │       Proxmox Host        │
+                            │      (ip_forward=1)       │
+                            └──┬───────┬───────┬─────┬──┘
+                               │       │       │     │
+                      vmbr140  │ vmbr142│ vmbr143 vmbr144
+                   ┌───────────┘       │       │     └──────────────┐
+                   │                   │       │                    │
+    ┌──────────────┴──────────┐  ┌─────┴───────────────┐  ┌────────┴──────────────────┐
+    │  Templates (ephemeral)  │  │  Admin               │  │  CTF / Vuln               │
+    │  192.168.140.0/24       │  │  192.168.142.0/24    │  │  192.168.144.0/24         │
+    │                         │  │                      │  │                           │
+    │  clone source for       │  │  wazuh          .100 │  │  vuln-box-00        .170  │
+    │  all VMs                │  │  api-gateway    .120 │  │  vuln-box-01        .171  │
+    │                         │  │  api-backend    .121 │  │  vuln-box-02        .172  │
+    │                         │  │  deployer-ui    .123 │  │  vuln-box-03        .173  │
+    │                         │  │                      │  │  vuln-box-04        .174  │
+    └─────────────────────────┘  └──────────────────────┘  └───────────────────────────┘
+
+    Student bridge (vmbr143, 192.168.143.0/24) — disabled, not deployed
+    Planned: student-box-01 (.160), more student boxes TBD
+```
+
+Wazuh agents on student/ctf bridges reach the wazuh server (192.168.142.100) through the Proxmox gateway.
 
 ## Deployed VMs
 
 ### 02_admin_infrastructure (vmbr142)
 
-| VM | VM ID | IP | Status |
-|----|-------|----|--------|
-| admin-wazuh | 1000 | 192.168.142.100 | active |
-| admin-builder-docker-registry | 1001 | 192.168.142.101 | active |
-| admin-builder-api-devkit | 1002 | 192.168.142.102 | active |
-| admin-deployer-api-gateway | 1020 | 192.168.142.120 | active |
-| admin-deployer-api-backend | 1021 | 192.168.142.121 | active |
-| admin-deployer-ui | 1023 | 192.168.142.123 | disabled |
-| testing-wazuh-client | 1111 | 192.168.142.111 | disabled |
-
-### 03_student_infrastructure (vmbr143)
-
-| VM | VM ID | IP | Status |
-|----|-------|----|--------|
-| student-box-01 | 3001 | 192.168.143.160 | active (commented in main.yml) |
+| VM | VM ID | IP |
+|----|-------|----|
+| admin-wazuh | 1000 | 192.168.142.100 |
+| admin-deployer-api-gateway | 1020 | 192.168.142.120 |
+| admin-deployer-api-backend | 1021 | 192.168.142.121 |
+| admin-deployer-ui | 1023 | 192.168.142.123 |
 
 ### 04_ctf_infrastructure (vmbr144)
 
-| VM | VM ID | IP | Status |
-|----|-------|----|--------|
-| vuln-box-00 | 4000 | 192.168.144.170 | active |
-| vuln-box-01 | 4001 | 192.168.144.171 | active |
-| vuln-box-02 | 4002 | 192.168.144.172 | active |
-| vuln-box-03 | 4003 | 192.168.144.173 | active |
-| vuln-box-04 | 4004 | 192.168.144.174 | active |
+| VM | VM ID | IP |
+|----|-------|----|
+| vuln-box-00 | 4000 | 192.168.144.170 |
+| vuln-box-01 | 4001 | 192.168.144.171 |
+| vuln-box-02 | 4002 | 192.168.144.172 |
+| vuln-box-03 | 4003 | 192.168.144.173 |
+| vuln-box-04 | 4004 | 192.168.144.174 |
 
 ## Stages
 
