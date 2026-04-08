@@ -77,12 +77,10 @@
   vars:
     tailscale_hostnames:
       - "admin-wazuh"
-      - "admin-builder-api-devkit"
-      - "admin-builder-docker-registry"
-      - "admin-web-api-kong"
-      - "admin-web-builder-api"
-      # - "admin-web-deployer-ui"   # disabled — re-enable when frontend is ready
-      # - "admin-web-emp"           # disabled
+      # - "admin-builder-docker-registry"  # disabled — re-enable when needed
+      - "admin-deployer-api-gateway"
+      - "admin-deployer-api-backend"
+      - "admin-deployer-ui"
       # - "testing-wazuh-client"    # disabled — re-enable when wazuh config is validated
 
     requested_tasks:

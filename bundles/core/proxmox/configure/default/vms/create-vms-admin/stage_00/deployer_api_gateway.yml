@@ -2,12 +2,12 @@
 #
 # PROMOX INIT INFRASTRUCTURE - ADMIN
 #
-#   hostname : admin-web-emp
-#   vm_id    : 1022
+#   hostname : admin-deployer-api-gateway
+#   vm_id    : 1020
 #   cpu core : 1
 #   ram      : 4g
 #   disk     : 32g
-#   ip       : 192.168.142.122
+#   ip       : 192.168.142.120
 #
 #   template : template-vm-small-01-4g-32g - id : 9221
 #
@@ -25,11 +25,11 @@
     #
     # variables will be overwrited by values  in _main.yml
     #
-    # global_vm_id: 1023
-    # global_vm_name: "admin-web-deployer-ui"
+    # global_vm_id: 1020
+    # global_vm_name: "admin-deployer-api-gateway"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
-    # global_vm_ci_ip: "192.168.142.123"
+    # global_vm_ci_ip: "192.168.142.120"
     # #
     # global_template_vm_id: 9221
     # global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -49,13 +49,7 @@
         vm_name: "{{ global_vm_name }}"
         vm_description: "{{ global_vm_description }}"
 
-    ####
-    - name: INFRASTRUCTURE INIT - WAITING FOR PROXMOX UNLOCK TO CLEAR (slow setup)
-      ansible.builtin.pause:
-        seconds: 20
-        prompt: "Waiting for 20 seconds during clone..."
-    ####
-
+    #
     - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROMOX TAG
 
       include_role:
@@ -80,11 +74,10 @@
         vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
         vm_ci_password: "{{ default_admin_vm_ci_password | default('supersecret') }}"
         vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key  }}"
-        vm_ci_dns_ips: "1.1.1.1"
+        vm_ci_namerserver_ips: "1.1.1.1"
         vm_ci_ip: "{{ global_vm_ci_ip }}"
         vm_ci_netmask: "24"
         vm_ci_ip_gw: "192.168.142.1"
-        vm_net_virtio_bridge: "vmbr142"
 
     #
     - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - START VM
@@ -104,6 +97,11 @@
     - "../../secrets/default_vault.yml"
 
   vars:
+    # ARG_global_operator_ssh_config_known_hosts: "{{ global_operator_ssh_config_known_hosts }}"
+    # ARG_global_vm_ssh_name: "{{ global_vm_ssh_name }}"
+    # ARG_global_operator_ssh_config_known_hosts: "{{ global_operator_ssh_config_known_hosts }}"
+    # ARG_global_vm_ssh_name: "{{ global_vm_ssh_name }}"
+
     deployer_cli_user_ssh_known_hosts: "{{ deployer_cli_user_ssh_known_hosts }}"
     ARG_vm_ssh_name: "{{ global_vm_ssh_name }}"
 

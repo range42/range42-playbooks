@@ -23,14 +23,14 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: ./stage_00/web_api_kong.yml
+- import_playbook: ./stage_00/deployer_api_gateway.yml
   tags:
-    ["admin-web-api-kong"]
+    ["admin-deployer-api-gateway"]
     # do not remove this tags ! :)
 
   vars:
-    global_vm_name: "admin-web-api-kong"
-    global_vm_ssh_name: "r42.admin-web-api-kong"
+    global_vm_name: "admin-deployer-api-gateway"
+    global_vm_ssh_name: "r42.admin-deployer-api-gateway"
     # global_vm_ssh_name: "r42.{{ global_vm_name }}"
     global_vm_id: 1020
     global_vm_description: "API gateway"
@@ -42,13 +42,13 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: ./stage_00/web_builder_api.yml
-  tags: ["admin-web-builder-api"]
+- import_playbook: ./stage_00/deployer_api_backend.yml
+  tags: ["admin-deployer-api-backend"]
   # do not remove this tags ! :)
 
   vars:
-    global_vm_name: "admin-web-builder-api"
-    global_vm_ssh_name: "r42.admin-web-builder-api"
+    global_vm_name: "admin-deployer-api-backend"
+    global_vm_ssh_name: "r42.admin-deployer-api-backend"
     # global_vm_ssh_name: "r42.{{ global_vm_name }}"
     global_vm_id: 1021
     global_vm_description: "www - backend API  "
@@ -60,13 +60,13 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: ./stage_00/web_deployer_ui.yml
-  tags: ["admin-web-deployer-ui"]
+- import_playbook: ./stage_00/deployer_ui.yml
+  tags: ["admin-deployer-ui"]
   # do not remove this tags ! :)
 
   vars:
-    global_vm_name: "admin-web-deployer-ui"
-    global_vm_ssh_name: "r42.admin-web-deployer-ui"
+    global_vm_name: "admin-deployer-ui"
+    global_vm_ssh_name: "r42.admin-deployer-ui"
 
     global_vm_id: 1023
     global_vm_description: "www - front end - r42 - deployer -ui  "
@@ -78,19 +78,4 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# - import_playbook: ./stage_00/web_emp.yml
-#   tags: ["admin-web-emp"]
-#   # do not remove this tags ! :)
-
-#   vars:
-#     global_vm_name: "admin-web-emp"
-#     global_vm_ssh_name: "r42.admin-web-emp"
-#     # global_vm_ssh_name: "r42.{{ global_vm_name }}"
-#     global_vm_id: 1022
-#     global_vm_description: "www - front end - r42 - EMP "
-#     global_vm_tag_name: "admin"
-#     global_vm_ci_ip: "192.168.142.122"
-#     #
-#     global_template_vm_id: 9221
-#     global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
 

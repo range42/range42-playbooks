@@ -9,10 +9,9 @@ ADMIN_INFRASTRUCTURE_IP=(
     "192.168.142.102" # admin-builder-api-devkit
     "192.168.142.101" # admin-builder-docker-registry
     "192.168.142.100" # admin-wazuh
-    "192.168.142.120" # admin-web-api-kong
-    "192.168.142.121" # admin-web-builder-api
-    "192.168.142.122" # admin-web-emp
-    "192.168.142.123" # admin-web-deployer-ui
+    "192.168.142.120" # admin-deployer-api-gateway
+    "192.168.142.121" # admin-deployer-api-backend
+    "192.168.142.123" # admin-deployer-ui
     #
     "192.168.143.160" # student-box-01
     #

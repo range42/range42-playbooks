@@ -77,10 +77,9 @@
   vars:
     tailscale_hostnames:
       - "admin-wazuh"
-      - "admin-web-api-kong"
-      - "admin-web-builder-api"
-      - "admin-web-deployer-ui"
-      # - "admin-web-emp"
+      - "admin-deployer-api-gateway"
+      - "admin-deployer-api-backend"
+      - "admin-deployer-ui"
       # - "admin-builder-api-devkit"
       # - "admin-builder-docker-registry"
       # - "testing-wazuh-client"

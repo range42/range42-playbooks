@@ -4,7 +4,7 @@
 
 - name:
   become: true
-  hosts: r42.admin-web-deployer-ui
+  hosts: r42.admin-deployer-ui
   roles:
     - software.install.nodejs_app_systemd
   vars_files:

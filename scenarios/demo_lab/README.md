@@ -23,10 +23,9 @@ Wazuh agents on student/ctf bridges reach the wazuh server on 192.168.142.100 th
 | admin-wazuh | 1000 | 192.168.142.100 | active |
 | admin-builder-docker-registry | 1001 | 192.168.142.101 | active |
 | admin-builder-api-devkit | 1002 | 192.168.142.102 | active |
-| admin-web-api-kong | 1020 | 192.168.142.120 | active |
-| admin-web-builder-api | 1021 | 192.168.142.121 | active |
-| admin-web-emp | 1022 | 192.168.142.122 | disabled |
-| admin-web-deployer-ui | 1023 | 192.168.142.123 | disabled |
+| admin-deployer-api-gateway | 1020 | 192.168.142.120 | active |
+| admin-deployer-api-backend | 1021 | 192.168.142.121 | active |
+| admin-deployer-ui | 1023 | 192.168.142.123 | disabled |
 | testing-wazuh-client | 1111 | 192.168.142.111 | disabled |
 
 ### 03_student_infrastructure (vmbr143)

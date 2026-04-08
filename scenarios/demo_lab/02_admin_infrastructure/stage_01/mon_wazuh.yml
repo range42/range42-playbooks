@@ -35,11 +35,51 @@
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- hosts: r42.admin-wazuh
+- name: Install wazuh-indexer
+  hosts: r42.admin-wazuh
   become: yes
   become_user: root
   roles:
     - role: software.install.wazuh-indexer
+
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  vars:
+    local_certs_path: "/tmp/certificates/"
+    WAZUH_SERVER_IP: 192.168.142.100 # MOVE TO VAULT ?
+    single_node: true
+    indexer_network_host: "{{ WAZUH_SERVER_IP }}"
+    indexer_cluster_nodes:
+      - "{{ WAZUH_SERVER_IP }}"
+    indexer_jvm_xms: 4096
+    ansible_shell_allow_world_readable_temp: true
+    instances:
+      node1:
+        name: node-1
+        ip: "{{ WAZUH_SERVER_IP }}"
+        role: indexer
+
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: Wait for wazuh-indexer to be ready
+  hosts: r42.admin-wazuh
+  become: yes
+  tasks:
+    - name: Wait for wazuh-indexer API on port 9200
+      ansible.builtin.wait_for:
+        port: 9200
+        host: 192.168.142.100
+        delay: 5
+        timeout: 120
+
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: Install wazuh-dashboard
+  hosts: r42.admin-wazuh
+  become: yes
+  become_user: root
+  roles:
     - role: software.install.wazuh-dashboard
 
   vars_files:
@@ -59,9 +99,7 @@
         ip: "{{ WAZUH_SERVER_IP }}"
         role: indexer
 
-# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - hosts: r42.admin-wazuh
   become: yes
@@ -79,6 +117,28 @@
         - "{{ WAZUH_SERVER_IP }}:9200"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: Wait for wazuh-manager API before password change
+  hosts: r42.admin-wazuh
+  become: yes
+  tasks:
+    - name: Wait for wazuh-manager API on port 55000
+      ansible.builtin.wait_for:
+        port: 55000
+        host: 127.0.0.1
+        delay: 10
+        timeout: 120
+
+    - name: Wait for wazuh-manager daemons to be ready
+      ansible.builtin.command: /var/ossec/bin/wazuh-control status
+      register: _wazuh_status
+      failed_when: "'wazuh-modulesd is running' not in _wazuh_status.stdout"
+      until: "'wazuh-modulesd is running' in _wazuh_status.stdout"
+      retries: 12
+      delay: 10
+      changed_when: false
+
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: EXEC wazuh-passwords-tool.sh - if CHANGE_WAZUH_PASSWORD is true
   hosts: r42.admin-wazuh
@@ -104,6 +164,9 @@
       register: password_output
       delegate_to: "{{ WAZUH_ANSIBLE_HOSTNAME }}"
       when: CHANGE_WAZUH_PASSWORD
+      retries: 2
+      delay: 15
+      until: password_output.rc == 0
       # no_log: true
       no_log: false
 

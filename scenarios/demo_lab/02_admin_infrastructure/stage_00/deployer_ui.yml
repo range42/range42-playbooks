@@ -2,12 +2,12 @@
 #
 # PROMOX INIT INFRASTRUCTURE - ADMIN
 #
-#   hostname : admin-web-api-kong
-#   vm_id    : 1020
+#   hostname : admin-deployer-ui
+#   vm_id    : 1023
 #   cpu core : 1
 #   ram      : 4g
 #   disk     : 32g
-#   ip       : 192.168.142.120
+#   ip       : 192.168.142.122
 #
 #   template : template-vm-small-01-4g-32g - id : 9221
 #
@@ -25,11 +25,11 @@
     #
     # variables will be overwrited by values  in _main.yml
     #
-    # global_vm_id: 1020
-    # global_vm_name: "admin-web-api-kong"
+    # global_vm_id: 1023
+    # global_vm_name: "admin-deployer-ui"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
-    # global_vm_ci_ip: "192.168.142.120"
+    # global_vm_ci_ip: "192.168.142.123"
     # #
     # global_template_vm_id: 9221
     # global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -104,11 +104,6 @@
     - "../../secrets/default_vault.yml"
 
   vars:
-    # ARG_global_operator_ssh_config_known_hosts: "{{ global_operator_ssh_config_known_hosts }}"
-    # ARG_global_vm_ssh_name: "{{ global_vm_ssh_name }}"
-    # ARG_global_operator_ssh_config_known_hosts: "{{ global_operator_ssh_config_known_hosts }}"
-    # ARG_global_vm_ssh_name: "{{ global_vm_ssh_name }}"
-
     deployer_cli_user_ssh_known_hosts: "{{ deployer_cli_user_ssh_known_hosts }}"
     ARG_vm_ssh_name: "{{ global_vm_ssh_name }}"
 

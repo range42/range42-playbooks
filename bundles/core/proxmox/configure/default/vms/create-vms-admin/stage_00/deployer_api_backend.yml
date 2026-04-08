@@ -2,7 +2,7 @@
 #
 # PROMOX INIT INFRASTRUCTURE - ADMIN
 #
-#   hostname : admin-web-builder-api
+#   hostname : admin-deployer-api-backend
 #   vm_id    : 1021
 #   cpu core : 1
 #   ram      : 4g
@@ -26,7 +26,7 @@
     # variables will be overwrited by values  in _main.yml
     #
     # global_vm_id: 1021
-    # global_vm_name: "admin-web-builder-api"
+    # global_vm_name: "admin-deployer-api-backend"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
     # global_vm_ci_ip: "192.168.142.121"

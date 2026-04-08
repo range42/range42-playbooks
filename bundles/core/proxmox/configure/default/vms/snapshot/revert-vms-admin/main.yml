@@ -15,17 +15,14 @@
         NAME: "admin-wazuh"
 
       - ID: 1020
-        NAME: "admin-web-api-kong"
+        NAME: "admin-deployer-api-gateway"
         VM_SNAPSHOT_NAME:
 
       - ID: 1021
-        NAME: "admin-web-builder-api"
-
-      - ID: 1022
-        NAME: "admin-web-emp"
+        NAME: "admin-deployer-api-backend"
 
       - ID: 1023
-        NAME: "admin-web-deployer-ui"
+        NAME: "admin-deployer-ui"
 
       # - { id: 4001, name: "vm-lab-4001" }
       # - { id: 4002, name: "vm-lab-4002" }
