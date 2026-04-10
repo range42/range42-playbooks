@@ -1,0 +1,323 @@
+##
+## blank_scenario_4_subnets — 4 subnets, 4 VMs each
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 00  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+# --- subnet 143 (vmbr143) ---
+
+- import_playbook: ./stage_00/bs4_team_143_01.yml
+
+  vars:
+    global_vm_name: "bs4-team-143-01"
+    global_vm_ssh_name: "r42.bs4-team-143-01"
+    global_vm_id: 6001
+    global_vm_description: "blank - team 143 - box 01"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.143.210"
+    global_vm_ci_ip_gw: "192.168.143.1"
+    global_vm_net_bridge: "vmbr143"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_143_02.yml
+
+  vars:
+    global_vm_name: "bs4-team-143-02"
+    global_vm_ssh_name: "r42.bs4-team-143-02"
+    global_vm_id: 6002
+    global_vm_description: "blank - team 143 - box 02"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.143.211"
+    global_vm_ci_ip_gw: "192.168.143.1"
+    global_vm_net_bridge: "vmbr143"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_143_03.yml
+
+  vars:
+    global_vm_name: "bs4-team-143-03"
+    global_vm_ssh_name: "r42.bs4-team-143-03"
+    global_vm_id: 6003
+    global_vm_description: "blank - team 143 - box 03"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.143.212"
+    global_vm_ci_ip_gw: "192.168.143.1"
+    global_vm_net_bridge: "vmbr143"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_143_04.yml
+
+  vars:
+    global_vm_name: "bs4-team-143-04"
+    global_vm_ssh_name: "r42.bs4-team-143-04"
+    global_vm_id: 6004
+    global_vm_description: "blank - team 143 - box 04"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.143.213"
+    global_vm_ci_ip_gw: "192.168.143.1"
+    global_vm_net_bridge: "vmbr143"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+
+# --- subnet 144 (vmbr144) ---
+
+- import_playbook: ./stage_00/bs4_team_144_01.yml
+
+  vars:
+    global_vm_name: "bs4-team-144-01"
+    global_vm_ssh_name: "r42.bs4-team-144-01"
+    global_vm_id: 6005
+    global_vm_description: "blank - team 144 - box 01"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.144.210"
+    global_vm_ci_ip_gw: "192.168.144.1"
+    global_vm_net_bridge: "vmbr144"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_144_02.yml
+
+  vars:
+    global_vm_name: "bs4-team-144-02"
+    global_vm_ssh_name: "r42.bs4-team-144-02"
+    global_vm_id: 6006
+    global_vm_description: "blank - team 144 - box 02"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.144.211"
+    global_vm_ci_ip_gw: "192.168.144.1"
+    global_vm_net_bridge: "vmbr144"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_144_03.yml
+
+  vars:
+    global_vm_name: "bs4-team-144-03"
+    global_vm_ssh_name: "r42.bs4-team-144-03"
+    global_vm_id: 6007
+    global_vm_description: "blank - team 144 - box 03"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.144.212"
+    global_vm_ci_ip_gw: "192.168.144.1"
+    global_vm_net_bridge: "vmbr144"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_144_04.yml
+
+  vars:
+    global_vm_name: "bs4-team-144-04"
+    global_vm_ssh_name: "r42.bs4-team-144-04"
+    global_vm_id: 6008
+    global_vm_description: "blank - team 144 - box 04"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.144.213"
+    global_vm_ci_ip_gw: "192.168.144.1"
+    global_vm_net_bridge: "vmbr144"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+
+# --- subnet 145 (vmbr145) ---
+
+- import_playbook: ./stage_00/bs4_team_145_01.yml
+
+  vars:
+    global_vm_name: "bs4-team-145-01"
+    global_vm_ssh_name: "r42.bs4-team-145-01"
+    global_vm_id: 6009
+    global_vm_description: "blank - team 145 - box 01"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.145.210"
+    global_vm_ci_ip_gw: "192.168.145.1"
+    global_vm_net_bridge: "vmbr145"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_145_02.yml
+
+  vars:
+    global_vm_name: "bs4-team-145-02"
+    global_vm_ssh_name: "r42.bs4-team-145-02"
+    global_vm_id: 6010
+    global_vm_description: "blank - team 145 - box 02"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.145.211"
+    global_vm_ci_ip_gw: "192.168.145.1"
+    global_vm_net_bridge: "vmbr145"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_145_03.yml
+
+  vars:
+    global_vm_name: "bs4-team-145-03"
+    global_vm_ssh_name: "r42.bs4-team-145-03"
+    global_vm_id: 6011
+    global_vm_description: "blank - team 145 - box 03"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.145.212"
+    global_vm_ci_ip_gw: "192.168.145.1"
+    global_vm_net_bridge: "vmbr145"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_145_04.yml
+
+  vars:
+    global_vm_name: "bs4-team-145-04"
+    global_vm_ssh_name: "r42.bs4-team-145-04"
+    global_vm_id: 6012
+    global_vm_description: "blank - team 145 - box 04"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.145.213"
+    global_vm_ci_ip_gw: "192.168.145.1"
+    global_vm_net_bridge: "vmbr145"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+
+# --- subnet 146 (vmbr146) ---
+
+- import_playbook: ./stage_00/bs4_team_146_01.yml
+
+  vars:
+    global_vm_name: "bs4-team-146-01"
+    global_vm_ssh_name: "r42.bs4-team-146-01"
+    global_vm_id: 6013
+    global_vm_description: "blank - team 146 - box 01"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.146.210"
+    global_vm_ci_ip_gw: "192.168.146.1"
+    global_vm_net_bridge: "vmbr146"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_146_02.yml
+
+  vars:
+    global_vm_name: "bs4-team-146-02"
+    global_vm_ssh_name: "r42.bs4-team-146-02"
+    global_vm_id: 6014
+    global_vm_description: "blank - team 146 - box 02"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.146.211"
+    global_vm_ci_ip_gw: "192.168.146.1"
+    global_vm_net_bridge: "vmbr146"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_146_03.yml
+
+  vars:
+    global_vm_name: "bs4-team-146-03"
+    global_vm_ssh_name: "r42.bs4-team-146-03"
+    global_vm_id: 6015
+    global_vm_description: "blank - team 146 - box 03"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.146.212"
+    global_vm_ci_ip_gw: "192.168.146.1"
+    global_vm_net_bridge: "vmbr146"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/bs4_team_146_04.yml
+
+  vars:
+    global_vm_name: "bs4-team-146-04"
+    global_vm_ssh_name: "r42.bs4-team-146-04"
+    global_vm_id: 6016
+    global_vm_description: "blank - team 146 - box 04"
+    global_vm_tag_name: "blank"
+    global_vm_ci_ip: "192.168.146.213"
+    global_vm_ci_ip_gw: "192.168.146.1"
+    global_vm_net_bridge: "vmbr146"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+- import_playbook: ./stage_01/_r42_blank_group.yml
+
+  vars:
+    OPERATOR_USER: alice
+
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "NO"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "NO"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "NO"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+
+    INSTALL_TAILSCALE: "NO"
+
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"

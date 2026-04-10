@@ -1,0 +1,17 @@
+---
+##
+## blank_scenario_4_subnets — 4 team subnets + admin subnet (optional)
+##
+
+- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
+- import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+
+####
+
+# admin infrastructure (optional) — uncomment to deploy wazuh + deployer platform
+# DEPLOY_ADMIN_INFRASTRUCTURE: "NO"
+# - import_playbook: ./01_admin_infrastructure/_main.yml
+
+####
+
+- import_playbook: ./02_network_lab/_main.yml
