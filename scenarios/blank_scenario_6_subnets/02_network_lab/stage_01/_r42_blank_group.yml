@@ -1,0 +1,38 @@
+##
+## blank_scenario_6_subnets — stage_01: install basics on all VMs
+##
+
+- name: install basics packages
+  hosts: r42_blank_group
+  become: true
+  roles:
+    - software.install.warmup.basic_packages
+  vars:
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    INSTALL_PACKAGES_DOCKER: "NO"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "NO"
+    INSTALL_PACKAGES_UTILS_JSON: "NO"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+
+- name: install dot files
+  hosts: r42_blank_group
+  become: true
+  roles:
+    - software.install.warmup.dot_files
+  vars:
+    OPERATOR_USER: alice
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+- name: configure firewall
+  become: true
+  hosts: r42_blank_group
+  roles:
+    - software.configure.firewalls
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"

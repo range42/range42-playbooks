@@ -1,0 +1,88 @@
+##
+## blank_scenario_6_subnets — admin infrastructure (optional)
+##
+## Set DEPLOY_ADMIN_INFRASTRUCTURE to YES in your inventory to enable.
+## Default: NO — all admin VMs are commented out.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 00  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+# --- admin subnet 142 (vmbr142) — wazuh + deployer platform ---
+
+# - import_playbook: ./stage_00/mon_wazuh.yml
+#
+#   vars:
+#     global_vm_name: "admin-wazuh"
+#     global_vm_ssh_name: "r42.admin-wazuh"
+#     global_vm_id: 7100
+#     global_vm_description: "wazuh server"
+#     global_vm_tag_name: "admin"
+#     global_vm_ci_ip: "192.168.142.100"
+#     global_vm_ci_ip_gw: "192.168.142.1"
+#     global_vm_net_bridge: "vmbr142"
+#     global_template_vm_id: 9232
+#     global_template_name: "03-template-vm-medium-02-8g-64g - 9232"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+# - import_playbook: ./stage_00/deployer_api_gateway.yml
+#
+#   vars:
+#     global_vm_name: "admin-deployer-api-gateway"
+#     global_vm_ssh_name: "r42.admin-deployer-api-gateway"
+#     global_vm_id: 7101
+#     global_vm_description: "API gateway"
+#     global_vm_tag_name: "admin"
+#     global_vm_ci_ip: "192.168.142.120"
+#     global_vm_ci_ip_gw: "192.168.142.1"
+#     global_vm_net_bridge: "vmbr142"
+#     global_template_vm_id: 9221
+#     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+# - import_playbook: ./stage_00/deployer_api_backend.yml
+#
+#   vars:
+#     global_vm_name: "admin-deployer-api-backend"
+#     global_vm_ssh_name: "r42.admin-deployer-api-backend"
+#     global_vm_id: 7102
+#     global_vm_description: "backend API"
+#     global_vm_tag_name: "admin"
+#     global_vm_ci_ip: "192.168.142.121"
+#     global_vm_ci_ip_gw: "192.168.142.1"
+#     global_vm_net_bridge: "vmbr142"
+#     global_template_vm_id: 9221
+#     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+# - import_playbook: ./stage_00/deployer_ui.yml
+#
+#   vars:
+#     global_vm_name: "admin-deployer-ui"
+#     global_vm_ssh_name: "r42.admin-deployer-ui"
+#     global_vm_id: 7103
+#     global_vm_description: "deployer UI"
+#     global_vm_tag_name: "admin"
+#     global_vm_ci_ip: "192.168.142.123"
+#     global_vm_ci_ip_gw: "192.168.142.1"
+#     global_vm_net_bridge: "vmbr142"
+#     global_template_vm_id: 9221
+#     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+# - import_playbook: ./stage_01/mon_wazuh.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+# wazuh agents — deploy on all team VMs when admin infra is enabled
+# - import_playbook: ./stage_01/_r42_wazuh_agents.yml
