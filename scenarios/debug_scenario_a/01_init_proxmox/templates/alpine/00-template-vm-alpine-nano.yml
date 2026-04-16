@@ -1,0 +1,95 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# PROMOX INIT - create alpine 3.21 template :
+#
+#   vm_id    : 9903
+#   cpu core : 1
+#   ram      : 512m
+#   disk     : 4g
+#   ip       : 192.168.142.203
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+##
+##
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "../../../secrets/default_vault.yml"
+
+  tasks:
+    #
+    - name: PROMOX INIT - TEMPLATES - CREATE TEMPLATE - template-vm-alpine-nano
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "vm_create"
+        vm_id: 9903
+        vm_name: "template-vm-alpine-nano"
+        vm_cpu: "host"
+        vm_cores: 1
+        vm_sockets: 1
+        vm_memory: 512
+        vm_net_virtio_bridge: "vmbr140"
+
+    #
+    - name: PROMOX INIT - TEMPLATES - CONVERT VM TO TEMPLATE - template-vm-alpine-nano
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "template_convert_vm_to_template"
+        proxmox_storage: "local"
+        vm_id: 9903
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: proxmox-cli
+  gather_facts: false
+  vars_files:
+    - "../../../secrets/default_vault.yml"
+
+  tasks:
+    #
+    - name: PROMOX INIT - TEMPLATES - IMPORT CLOUD INIT DISK - template-vm-alpine-nano
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "template_cloudinit_import_disk"
+        proxmox_node: "px-testing-cli"
+        cloudinit_image_full_path: "/var/lib/vz/template/iso/nocloud_alpine-3.21.0-x86_64-bios-cloudinit-r0.img"
+        vm_id: 9903
+        vm_disk_size: "4g"
+        proxmox_dest_vm_storage_name: "local-lvm"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "../../../secrets/default_vault.yml"
+
+  tasks:
+    #
+    - name: PROMOX INIT - TEMPLATES - SET CLOUD DEFAULT INIT VARIABLE - template-vm-alpine-nano
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "cloudinit_set_variables"
+        vm_id: 9903
+        vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
+        vm_ci_password: "{{ default_trainee_vm_ci_password | default('supersecret') }}"
+        vm_ci_ssh_key: "{{ default_trainee_vm_ci_ssh_key  }}"
+        vm_ci_dns_ips: "1.1.1.1"
+        vm_ci_ip: "192.168.142.203"
+        vm_ci_netmask: "24"
+        vm_ci_ip_gw: "192.168.142.1"
+
+    #
+    - name: PROMOX INIT - TEMPLATES - SET PROMOX TAG
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "vm_set_tag"
+        vm_id: 9903
+        vm_tag_name: "template"

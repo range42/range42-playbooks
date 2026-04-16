@@ -1,0 +1,5 @@
+##
+## debug_scenario_a — ubuntu nano template (DISABLED — using debian instead)
+##
+
+# - import_playbook: ./00-template-vm-nano.yml

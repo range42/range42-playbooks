@@ -1,0 +1,5 @@
+##
+## debug_scenario_b — alpine nano template only (fastest)
+##
+
+- import_playbook: ./00-template-vm-alpine-nano.yml

@@ -1,0 +1,5 @@
+##
+## debug_scenario_a — debian nano template only (fast)
+##
+
+- import_playbook: ./00-template-vm-debian-nano.yml

@@ -1,0 +1,13 @@
+---
+##
+## debug_scenario_b — 1 VM on vmbr148 (minimal debug/dev scenario)
+##
+
+- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
+# - import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+# - import_playbook: ./01_init_proxmox/templates/debian/_main_debian.yml
+- import_playbook: ./01_init_proxmox/templates/alpine/_main_alpine.yml
+
+####
+
+- import_playbook: ./02_network_lab/_main.yml

@@ -1,0 +1,12 @@
+##
+## debug_scenario_b — stage_01: placeholder (nothing to install on alpine debug)
+##
+
+- name: debug scenario b - stage 01 (no-op)
+  hosts: r42_debug_group
+  gather_facts: false
+
+  tasks:
+    - name: Alpine debug VM ready
+      ansible.builtin.debug:
+        msg: "VM is up and reachable — no software to install"
