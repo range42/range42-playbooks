@@ -4,12 +4,18 @@ all:
       children:
         ####
 
-        # r42_admin:  # uncomment when DEPLOY_ADMIN_INFRASTRUCTURE: YES
-        #   hosts:
-        #     r42.admin-wazuh:
-        #     r42.admin-deployer-api-gateway:
-        #     r42.admin-deployer-api-backend:
-        #     r42.admin-deployer-ui:
+        r42_admin:
+          hosts:
+            r42.bs2-admin-wazuh:
+            r42.bs2-admin-deployer-api-gateway:
+            r42.bs2-admin-deployer-api-backend:
+            r42.bs2-admin-deployer-ui:
+
+        r42_admin_wazuh_clients:
+          hosts:
+            r42.bs2-admin-deployer-api-gateway:
+            r42.bs2-admin-deployer-api-backend:
+            r42.bs2-admin-deployer-ui:
 
         r42_blank_group:
           hosts:

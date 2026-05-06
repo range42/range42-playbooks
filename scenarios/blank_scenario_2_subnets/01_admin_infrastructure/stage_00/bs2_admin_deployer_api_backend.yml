@@ -2,12 +2,12 @@
 #
 # PROMOX INIT INFRASTRUCTURE - ADMIN
 #
-#   hostname : admin-deployer-api-gateway
-#   vm_id    : 1020
+#   hostname : bs2-admin-deployer-api-backend
+#   vm_id    : 1021
 #   cpu core : 1
 #   ram      : 4g
 #   disk     : 32g
-#   ip       : 192.168.142.120
+#   ip       : 192.168.142.121
 #
 #   template : template-vm-small-01-4g-32g - id : 9221
 #
@@ -25,11 +25,11 @@
     #
     # variables will be overwrited by values  in _main.yml
     #
-    # global_vm_id: 1020
-    # global_vm_name: "admin-deployer-api-gateway"
+    # global_vm_id: 1021
+    # global_vm_name: "bs2-admin-deployer-api-backend"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
-    # global_vm_ci_ip: "192.168.142.120"
+    # global_vm_ci_ip: "192.168.142.121"
     # #
     # global_template_vm_id: 9221
     # global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -50,10 +50,15 @@
         vm_description: "{{ global_vm_description }}"
 
     ####
-    - name: INFRASTRUCTURE INIT - WAITING FOR PROXMOX UNLOCK TO CLEAR (slow setup)
-      ansible.builtin.pause:
-        seconds: 20
-        prompt: "Waiting for 20 seconds during clone..."
+    - name: INFRASTRUCTURE INIT - WAIT for clone to finish (lock-aware, replaces 20s pause)
+      ansible.builtin.shell: qm config {{ global_vm_id }} | grep -q '^lock:'
+      register: clone_lock_check
+      until: clone_lock_check.rc != 0
+      retries: 60                # 60 × 5s = 5 min max safety
+      delay: 5
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
     ####
 
     - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROMOX TAG
@@ -104,11 +109,6 @@
     - "../../secrets/default_vault.yml"
 
   vars:
-    # ARG_global_operator_ssh_config_known_hosts: "{{ global_operator_ssh_config_known_hosts }}"
-    # ARG_global_vm_ssh_name: "{{ global_vm_ssh_name }}"
-    # ARG_global_operator_ssh_config_known_hosts: "{{ global_operator_ssh_config_known_hosts }}"
-    # ARG_global_vm_ssh_name: "{{ global_vm_ssh_name }}"
-
     deployer_cli_user_ssh_known_hosts: "{{ deployer_cli_user_ssh_known_hosts }}"
     ARG_vm_ssh_name: "{{ global_vm_ssh_name }}"
 

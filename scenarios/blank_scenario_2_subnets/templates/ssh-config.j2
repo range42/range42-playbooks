@@ -37,6 +37,28 @@ Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
     Port 22
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      ADMIN SUBNET 142 (vmbr142)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host r42.bs2-admin-wazuh
+    Hostname 192.168.142.100
+
+Host r42.bs2-admin-deployer-api-gateway
+    Hostname 192.168.142.120
+
+Host r42.bs2-admin-deployer-api-backend
+    Hostname 192.168.142.121
+
+Host r42.bs2-admin-deployer-ui
+    Hostname 192.168.142.123
+
+Host r42.bs2-admin-*
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
+    Port 22
+    ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #                                      SUBNET 143 (vmbr143)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
