@@ -2,7 +2,7 @@
 #
 # PROMOX INIT INFRASTRUCTURE - ADMIN
 #
-#   hostname : admin-deployer-ui
+#   hostname : bs2-admin-deployer-ui
 #   vm_id    : 1023
 #   cpu core : 1
 #   ram      : 4g
@@ -26,7 +26,7 @@
     # variables will be overwrited by values  in _main.yml
     #
     # global_vm_id: 1023
-    # global_vm_name: "admin-deployer-ui"
+    # global_vm_name: "bs2-admin-deployer-ui"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
     # global_vm_ci_ip: "192.168.142.123"
@@ -50,10 +50,15 @@
         vm_description: "{{ global_vm_description }}"
 
     ####
-    - name: INFRASTRUCTURE INIT - WAITING FOR PROXMOX UNLOCK TO CLEAR (slow setup)
-      ansible.builtin.pause:
-        seconds: 20
-        prompt: "Waiting for 20 seconds during clone..."
+    - name: INFRASTRUCTURE INIT - WAIT for clone to finish (lock-aware, replaces 20s pause)
+      ansible.builtin.shell: qm config {{ global_vm_id }} | grep -q '^lock:'
+      register: clone_lock_check
+      until: clone_lock_check.rc != 0
+      retries: 60                # 60 × 5s = 5 min max safety
+      delay: 5
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
     ####
 
     - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROMOX TAG

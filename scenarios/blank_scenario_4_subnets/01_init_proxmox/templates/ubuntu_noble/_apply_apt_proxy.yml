@@ -1,0 +1,67 @@
+##
+## blank_scenario_2_subnets — apt proxy via cloud-init cicustom (optional)
+##
+## Attaches /var/lib/vz/snippets/range42-apt-proxy.yaml as cloud-init vendor-data
+## to every template VM. All VMs cloned from these templates inherit the apt
+## proxy automatically via cloud-init at first boot.
+##
+## The snippet itself is created by proxmox.init/04_apt_proxy_snippet.yml
+## during the wizard's playbook 02 run.
+##
+## Skipped (no-op) if apt_proxy_url is empty/unset.
+## Idempotent — re-running is safe.
+##
+
+- hosts: proxmox-cli
+  gather_facts: false
+  vars_files:
+    - "../../../secrets/default_vault.yml"
+
+  vars:
+    bs2_template_vm_ids:
+      - 9901   # nano
+      - 9211   # micro-01-2g-24g
+      - 9212   # micro-02-2g-24g
+      - 9221   # small-01-4g-32g       (used by admin-deployer-api-gateway / api-backend / ui)
+      - 9222   # small-02-4g-32g
+      - 9224   # small-04-4g-32g
+      - 9232   # medium-02-8g-64g      (used by admin-wazuh)
+      - 9234   # medium-04-8g-64g
+      - 9236   # medium-06-8g-64g
+      - 9244   # large-04-8g-64g
+      - 9246   # large-06-8g-64g
+      - 9248   # large-08-8g-64g
+
+  tasks:
+    - name: APT-PROXY - SKIP (apt_proxy_url is empty)
+      ansible.builtin.debug:
+        msg: "apt_proxy_url is empty — cloud-init cicustom not applied to templates"
+      when: apt_proxy_url is not defined or (apt_proxy_url | length) == 0
+
+    - name: APT-PROXY - ATTACH cicustom vendor TO TEMPLATES
+      ansible.builtin.command:
+        cmd: qm set {{ item }} --cicustom "vendor=local:snippets/range42-apt-proxy.yaml"
+      loop: "{{ bs2_template_vm_ids }}"
+      register: qm_result
+      changed_when: qm_result.rc == 0
+      failed_when:
+        - qm_result.rc != 0
+        - "'does not exist' not in qm_result.stderr"   # skip silently if template doesn't exist yet
+      when: apt_proxy_url is defined and (apt_proxy_url | length) > 0
+
+    - name: APT-PROXY - DETACH cicustom vendor FROM TEMPLATES (apt_proxy_url unset)
+      ansible.builtin.command:
+        cmd: qm set {{ item }} --delete cicustom
+      loop: "{{ bs2_template_vm_ids }}"
+      register: qm_unset
+      changed_when: qm_unset.rc == 0
+      failed_when:
+        - qm_unset.rc != 0
+        - "'does not exist' not in qm_unset.stderr"
+      when: apt_proxy_url is not defined or (apt_proxy_url | length) == 0
+
+    - name: APT-PROXY - DISPLAY STATUS
+      ansible.builtin.debug:
+        msg: |
+          apt proxy: {{ apt_proxy_url if (apt_proxy_url is defined and (apt_proxy_url | length) > 0) else 'DISABLED' }}
+          cicustom : {{ 'attached to ' + (bs2_template_vm_ids | length | string) + ' templates' if (apt_proxy_url is defined and (apt_proxy_url | length) > 0) else 'detached from templates' }}

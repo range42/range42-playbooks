@@ -1,6 +1,6 @@
 ---
 ##
-## blank_scenario_2_subnets — 2 team subnets + admin subnet (optional)
+## blank_scenario_2_subnets — 2 team subnets + admin subnet (wazuh + deployer platform)
 ##
 
 - import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
@@ -8,9 +8,8 @@
 
 ####
 
-# admin infrastructure (optional) — uncomment to deploy wazuh + deployer platform
-# DEPLOY_ADMIN_INFRASTRUCTURE: "NO"
-# - import_playbook: ./01_admin_infrastructure/_main.yml
+# admin infrastructure — wazuh + full deployer platform
+- import_playbook: ./01_admin_infrastructure/_main.yml
 
 ####
 

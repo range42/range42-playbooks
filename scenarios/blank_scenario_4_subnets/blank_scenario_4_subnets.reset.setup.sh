@@ -1,29 +1,26 @@
 #!/bin/bash
 
-proxmox_vm.list.to.jsons.sh | jq -c | proxmox_vm.vm_id.stop_force.to.jsons.sh
-proxmox_vm.list.to.jsons.sh | jq -c | proxmox_vm.vm_id.delete.to.jsons.sh
+##
+## reset — delete this scenario's VMs (filter by vm_id from manifest) then re-deploy
+##
 
-INFRASTRUCTURE_IP=(
-    "192.168.143.210" # bs4-team-143-01
-    "192.168.143.211" # bs4-team-143-02
-    "192.168.143.212" # bs4-team-143-03
-    "192.168.143.213" # bs4-team-143-04
-    #
-    "192.168.144.210" # bs4-team-144-01
-    "192.168.144.211" # bs4-team-144-02
-    "192.168.144.212" # bs4-team-144-03
-    "192.168.144.213" # bs4-team-144-04
-    #
-    "192.168.145.210" # bs4-team-145-01
-    "192.168.145.211" # bs4-team-145-02
-    "192.168.145.212" # bs4-team-145-03
-    "192.168.145.213" # bs4-team-145-04
-    #
-    "192.168.146.210" # bs4-team-146-01
-    "192.168.146.211" # bs4-team-146-02
-    "192.168.146.212" # bs4-team-146-03
-    "192.168.146.213" # bs4-team-146-04
-)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
+
+if [[ ! -f "$MANIFEST" ]]; then
+    echo "ERROR: manifest not found: $MANIFEST" >&2
+    exit 1
+fi
+
+mapfile -t SCENARIO_VM_IDS  < <(jq -r '.vms[].vm_id' "$MANIFEST")
+mapfile -t INFRASTRUCTURE_IP < <(jq -r '.vms[].ip'   "$MANIFEST")
+
+ID_REGEX=$(printf '|%s' "${SCENARIO_VM_IDS[@]}" | sed 's/^|//')
+
+echo ":: stopping and deleting scenario VMs (vm_ids: ${SCENARIO_VM_IDS[*]})..."
+
+proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
+proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
 
 for ip in "${INFRASTRUCTURE_IP[@]}"; do
     echo ":: REMOVE SSH KEY FOR : $ip"

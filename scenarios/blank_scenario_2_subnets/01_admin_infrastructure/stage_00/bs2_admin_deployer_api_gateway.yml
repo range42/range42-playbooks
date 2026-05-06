@@ -2,14 +2,14 @@
 #
 # PROMOX INIT INFRASTRUCTURE - ADMIN
 #
-#   hostname : admin-wazuh
-#   vm_id    : 1000
+#   hostname : bs2-admin-deployer-api-gateway
+#   vm_id    : 1020
 #   cpu core : 1
-#   ram      : 2g
-#   disk     : 24g
-#   ip       : 192.168.142.100
+#   ram      : 4g
+#   disk     : 32g
+#   ip       : 192.168.142.120
 #
-#   template : 03-template-vm-medium-02-8g-64g - 9232
+#   template : template-vm-small-01-4g-32g - id : 9221
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -25,14 +25,14 @@
     #
     # variables will be overwrited by values  in _main.yml
     #
-    # global_vm_id: 1000
-    # global_vm_name: "admin-wazuh"
+    # global_vm_id: 1020
+    # global_vm_name: "bs2-admin-deployer-api-gateway"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
-    # global_vm_ci_ip: "192.168.142.100"
+    # global_vm_ci_ip: "192.168.142.120"
     # #
-    # global_template_vm_id: 9232
-    # global_template_name: "03-template-vm-medium-02-8g-64g - 9232" # debug
+    # global_template_vm_id: 9221
+    # global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
 
   tasks:
     #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -50,10 +50,15 @@
         vm_description: "{{ global_vm_description }}"
 
     ####
-    - name: INFRASTRUCTURE INIT - WAITING FOR PROXMOX UNLOCK TO CLEAR (slow setup)
-      ansible.builtin.pause:
-        seconds: 20
-        prompt: "Waiting for 20 seconds during clone..."
+    - name: INFRASTRUCTURE INIT - WAIT for clone to finish (lock-aware, replaces 20s pause)
+      ansible.builtin.shell: qm config {{ global_vm_id }} | grep -q '^lock:'
+      register: clone_lock_check
+      until: clone_lock_check.rc != 0
+      retries: 60                # 60 × 5s = 5 min max safety
+      delay: 5
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
     ####
 
     - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROMOX TAG

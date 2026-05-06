@@ -1,7 +1,7 @@
 
-- name: configure firewall - r42.admin-wazuh
+- name: configure firewall - r42.bs2-admin-wazuh
   become: true
-  hosts: r42.admin-wazuh
+  hosts: r42.bs2-admin-wazuh
   roles:
     - software.configure.firewalls
   vars_files:
@@ -36,7 +36,7 @@
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: Install wazuh-indexer
-  hosts: r42.admin-wazuh
+  hosts: r42.bs2-admin-wazuh
   become: yes
   become_user: root
   roles:
@@ -63,7 +63,7 @@
 # # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: Wait for wazuh-indexer to be ready
-  hosts: r42.admin-wazuh
+  hosts: r42.bs2-admin-wazuh
   become: yes
   tasks:
     - name: Wait for wazuh-indexer API on port 9200
@@ -76,7 +76,7 @@
 # # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: Install wazuh-dashboard
-  hosts: r42.admin-wazuh
+  hosts: r42.bs2-admin-wazuh
   become: yes
   become_user: root
   roles:
@@ -101,7 +101,7 @@
 
 # # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- hosts: r42.admin-wazuh
+- hosts: r42.bs2-admin-wazuh
   become: yes
   vars_files:
     - "../../secrets/default_vault.yml"
@@ -119,7 +119,7 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: Wait for wazuh-manager API before password change
-  hosts: r42.admin-wazuh
+  hosts: r42.bs2-admin-wazuh
   become: yes
   tasks:
     - name: Wait for wazuh-manager API on port 55000
@@ -141,7 +141,7 @@
 # # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: EXEC wazuh-passwords-tool.sh - if CHANGE_WAZUH_PASSWORD is true
-  hosts: r42.admin-wazuh
+  hosts: r42.bs2-admin-wazuh
   become: yes
   become_user: root
   vars_files:
@@ -149,7 +149,7 @@
 
   vars:
     CHANGE_WAZUH_PASSWORD: true
-    WAZUH_ANSIBLE_HOSTNAME: "r42.admin-wazuh" ######### IF NOT IN TAILSCALE !
+    WAZUH_ANSIBLE_HOSTNAME: "r42.bs2-admin-wazuh" ######### IF NOT IN TAILSCALE !
     # WAZUH_ANSIBLE_HOSTNAME: "xxx.yyyy.zzzz.edge.wazuh" # IF TAILSCALE !
     # WAZUH_ANSIBLE_HOSTNAME: "192.168.99.11"
 

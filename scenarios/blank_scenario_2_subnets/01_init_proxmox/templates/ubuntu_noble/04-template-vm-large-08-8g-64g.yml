@@ -6,12 +6,12 @@
 #   cpu core : 8
 #   ram      : 16g
 #   disk     : 100g
-#   ip       : 192.168.142.248
+#   ip       : 192.168.140.248
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-  ##
-  ##
+##
+##
 
 - hosts: proxmox
   gather_facts: false
@@ -19,8 +19,40 @@
     - "../../../secrets/default_vault.yml"
 
   tasks:
-    #
-    - name: PROMOX INIT - TEMPLATES - CREATE TEMPLATE - template-vm-large-08-16g-100g
+    #### #### IDEMPOTENCE — skip everything if VM is already finalized as template ####
+    - name: TEMPLATE 9248 - CHECK if already finalized as template
+      ansible.builtin.shell: qm config 9248 2>/dev/null | grep -q '^template:'
+      register: tpl_9248_is_template
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+
+    - name: TEMPLATE 9248 - WAIT for unlock if a parallel deploy holds the VM
+      ansible.builtin.shell: qm config 9248 | grep -q '^lock:'
+      register: tpl_9248_lock
+      until: tpl_9248_lock.rc != 0
+      retries: 30
+      delay: 10
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+      when: tpl_9248_is_template.rc != 0
+
+    - name: TEMPLATE 9248 - SKIP all (already finalized as template)
+      ansible.builtin.debug:
+        msg: "Template 9248 is already a template — skipping. Run delete-everything to recreate."
+      when: tpl_9248_is_template.rc == 0
+
+    #### #### vm_create idempotence: separate "exists" check (skip vm_create only) ####
+    - name: TEMPLATE 9248 - CHECK if VM exists (vm_create idempotence)
+      ansible.builtin.shell: qm config 9248 2>/dev/null
+      register: tpl_9248_exists
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+      when: tpl_9248_is_template.rc != 0
+
+    - name: PROMOX INIT - TEMPLATES - CREATE TEMPLATE - template-vm-large-06-16g-100g
       include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
@@ -33,16 +65,24 @@
         vm_sockets: 1
         vm_memory: 16384
         vm_net_virtio_bridge: "vmbr140"
+      when:
+        - tpl_9248_is_template.rc != 0
+        - tpl_9248_exists.rc != 0
 
-    #
-    - name: PROMOX INIT - TEMPLATES - CONVERT VM TO TEMPLATE - template-vm-large-08-16g-100g
-      include_role:
-        name: range42-ansible_roles-proxmox_controller
-      vars:
-        proxmox_vm_action: "template_convert_vm_to_template"
-        # proxmox_node: "px-testing"
-        proxmox_storage: "local"
-        vm_id: 9248
+    ####
+    - name: PROMOX INIT - TEMPLATES - WAIT for vm_create to finish (lock-aware, replaces 20s pause)
+      ansible.builtin.shell: qm config 9248 | grep -q '^lock:'
+      register: tpl_9248_post_create_lock
+      until: tpl_9248_post_create_lock.rc != 0
+      retries: 60                # 60 × 5s = 5 min max safety
+      delay: 5
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+      when:
+        - tpl_9248_is_template.rc != 0
+        - tpl_9248_exists.rc != 0
+    ####
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -52,8 +92,14 @@
     - "../../../secrets/default_vault.yml"
 
   tasks:
+    - name: TEMPLATE 9248 - CHECK if already template (proxmox-cli play)
+      ansible.builtin.shell: qm config 9248 2>/dev/null | grep -q '^template:'
+      register: tpl_9248_is_template
+      failed_when: false
+      changed_when: false
+
     #
-    - name: PROMOX INIT - TEMPLATES - IMPORT CLOUD INIT DISK - template-vm-large-08-16g-100g
+    - name: PROMOX INIT - TEMPLATES - IMPORT CLOUD INIT DISK - template-vm-large-06-16g-100g
       include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
@@ -63,6 +109,7 @@
         vm_id: 9248
         vm_disk_size: "100g"
         proxmox_dest_vm_storage_name: "local-lvm"
+      when: tpl_9248_is_template.rc != 0
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -72,8 +119,15 @@
     - "../../../secrets/default_vault.yml"
 
   tasks:
+    - name: TEMPLATE 9248 - CHECK if already template (third play)
+      ansible.builtin.shell: qm config 9248 2>/dev/null | grep -q '^template:'
+      register: tpl_9248_is_template
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+
     #
-    - name: PROMOX INIT - TEMPLATES - SET CLOUD DEFAULT INIT VARIABLE - template-vm-large-08-16g-100g
+    - name: PROMOX INIT - TEMPLATES - SET CLOUD DEFAULT INIT VARIABLE - template-vm-large-06-16g-100g
       include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
@@ -84,12 +138,13 @@
         vm_ci_password: "{{ default_trainee_vm_ci_password | default('supersecret') }}"
         vm_ci_ssh_key: "{{ default_trainee_vm_ci_ssh_key  }}"
         vm_ci_dns_ips: "1.1.1.1"
-        vm_ci_ip: "192.168.142.248"
+        vm_ci_ip: "192.168.140.248"
         vm_ci_netmask: "24"
-        vm_ci_ip_gw: "192.168.142.1"
+        vm_ci_ip_gw: "192.168.140.1"
+      when: tpl_9248_is_template.rc != 0
 
     #
-    - name: PROMOX INIT - TEMPLATES - SET PROMOX TAG - template-vm-large-08-16g-100g
+    - name: PROMOX INIT - TEMPLATES - SET PROMOX TAG
       include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
@@ -97,3 +152,4 @@
         # proxmox_node: "px-testing"
         vm_id: 9248
         vm_tag_name: "template"
+      when: tpl_9248_is_template.rc != 0

@@ -13,3 +13,10 @@
 - import_playbook: ./04-template-vm-large-04-8g-64g.yml
 - import_playbook: ./04-template-vm-large-06-8g-64g.yml
 - import_playbook: ./04-template-vm-large-08-8g-64g.yml
+
+# apt proxy cicustom — applied to all templates above (no-op if apt_proxy_url empty)
+- import_playbook: ./_apply_apt_proxy.yml
+
+# pre-update : start each VM, run apt update + dist-upgrade via cloud-init poweroff,
+# then convert to template. Templates are clean and up-to-date for future clones.
+- import_playbook: ./_update_templates.yml
