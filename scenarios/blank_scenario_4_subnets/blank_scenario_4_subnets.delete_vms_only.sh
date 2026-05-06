@@ -1,35 +1,36 @@
 #!/bin/bash
 
 ##
-## delete VMs only — keep templates
+## delete VMs only — scenario VMs (filter by vm_id), keep templates
+##
+## VM IDs and IPs are read from the scenario manifest:
+##   manifest/scenario_vms.json
+##
+## Companions:
+##   - blank_scenario_4_subnets.delete_vms_only.sh (this) — VMs only, keep templates
+##   - blank_scenario_4_subnets.delete_all.sh             — VMs + this scenario's templates
 ##
 
-echo ":: stopping and deleting VMs (keeping templates)..."
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
 
-proxmox_vm.list.to.jsons.sh | jq -c | grep -vi "template-vm" | grep -vi '"vm_template":1' | proxmox_vm.vm_id.stop_force.to.jsons.sh
-proxmox_vm.list.to.jsons.sh | jq -c | grep -vi "template-vm" | grep -vi '"vm_template":1' | proxmox_vm.vm_id.delete.to.jsons.sh
+if [[ ! -f "$MANIFEST" ]]; then
+    echo "ERROR: manifest not found: $MANIFEST" >&2
+    exit 1
+fi
 
-INFRASTRUCTURE_IP=(
-    "192.168.143.210" # bs4-team-143-01
-    "192.168.143.211" # bs4-team-143-02
-    "192.168.143.212" # bs4-team-143-03
-    "192.168.143.213" # bs4-team-143-04
-    #
-    "192.168.144.210" # bs4-team-144-01
-    "192.168.144.211" # bs4-team-144-02
-    "192.168.144.212" # bs4-team-144-03
-    "192.168.144.213" # bs4-team-144-04
-    #
-    "192.168.145.210" # bs4-team-145-01
-    "192.168.145.211" # bs4-team-145-02
-    "192.168.145.212" # bs4-team-145-03
-    "192.168.145.213" # bs4-team-145-04
-    #
-    "192.168.146.210" # bs4-team-146-01
-    "192.168.146.211" # bs4-team-146-02
-    "192.168.146.212" # bs4-team-146-03
-    "192.168.146.213" # bs4-team-146-04
-)
+# extract VM IDs + IPs from the manifest (templates kept untouched)
+mapfile -t SCENARIO_VM_IDS  < <(jq -r '.vms[].vm_id' "$MANIFEST")
+mapfile -t INFRASTRUCTURE_IP < <(jq -r '.vms[].ip'   "$MANIFEST")
+
+ID_REGEX=$(printf '|%s' "${SCENARIO_VM_IDS[@]}" | sed 's/^|//')
+
+echo ":: stopping and deleting scenario VMs (keeping templates)..."
+echo ":: scenario VMs: ${SCENARIO_VM_IDS[*]}"
+echo ""
+
+proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
+proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
 
 for ip in "${INFRASTRUCTURE_IP[@]}"; do
     echo ":: REMOVE SSH KEY FOR : $ip"
