@@ -1,0 +1,289 @@
+{
+  "scenario": "blank_scenario_6_subnets",
+  "version": 1,
+  "description": "6 team subnets (192.168.143-148.0/24) + admin subnet (192.168.142.0/24, decaled .140-.143 for parallel deploy with bs2/bs4). 24 team VMs + 4 admin VMs (wazuh server + deployer platform).",
+  "vms": [
+    {
+      "vm_id": 7001,
+      "vm_name": "bs6-team-143-01",
+      "ip": "192.168.143.220",
+      "role": "team",
+      "bridge": "vmbr143"
+    },
+    {
+      "vm_id": 7002,
+      "vm_name": "bs6-team-143-02",
+      "ip": "192.168.143.221",
+      "role": "team",
+      "bridge": "vmbr143"
+    },
+    {
+      "vm_id": 7003,
+      "vm_name": "bs6-team-143-03",
+      "ip": "192.168.143.222",
+      "role": "team",
+      "bridge": "vmbr143"
+    },
+    {
+      "vm_id": 7004,
+      "vm_name": "bs6-team-143-04",
+      "ip": "192.168.143.223",
+      "role": "team",
+      "bridge": "vmbr143"
+    },
+    {
+      "vm_id": 7005,
+      "vm_name": "bs6-team-144-01",
+      "ip": "192.168.144.220",
+      "role": "team",
+      "bridge": "vmbr144"
+    },
+    {
+      "vm_id": 7006,
+      "vm_name": "bs6-team-144-02",
+      "ip": "192.168.144.221",
+      "role": "team",
+      "bridge": "vmbr144"
+    },
+    {
+      "vm_id": 7007,
+      "vm_name": "bs6-team-144-03",
+      "ip": "192.168.144.222",
+      "role": "team",
+      "bridge": "vmbr144"
+    },
+    {
+      "vm_id": 7008,
+      "vm_name": "bs6-team-144-04",
+      "ip": "192.168.144.223",
+      "role": "team",
+      "bridge": "vmbr144"
+    },
+    {
+      "vm_id": 7009,
+      "vm_name": "bs6-team-145-01",
+      "ip": "192.168.145.220",
+      "role": "team",
+      "bridge": "vmbr145"
+    },
+    {
+      "vm_id": 7010,
+      "vm_name": "bs6-team-145-02",
+      "ip": "192.168.145.221",
+      "role": "team",
+      "bridge": "vmbr145"
+    },
+    {
+      "vm_id": 7011,
+      "vm_name": "bs6-team-145-03",
+      "ip": "192.168.145.222",
+      "role": "team",
+      "bridge": "vmbr145"
+    },
+    {
+      "vm_id": 7012,
+      "vm_name": "bs6-team-145-04",
+      "ip": "192.168.145.223",
+      "role": "team",
+      "bridge": "vmbr145"
+    },
+    {
+      "vm_id": 7013,
+      "vm_name": "bs6-team-146-01",
+      "ip": "192.168.146.220",
+      "role": "team",
+      "bridge": "vmbr146"
+    },
+    {
+      "vm_id": 7014,
+      "vm_name": "bs6-team-146-02",
+      "ip": "192.168.146.221",
+      "role": "team",
+      "bridge": "vmbr146"
+    },
+    {
+      "vm_id": 7015,
+      "vm_name": "bs6-team-146-03",
+      "ip": "192.168.146.222",
+      "role": "team",
+      "bridge": "vmbr146"
+    },
+    {
+      "vm_id": 7016,
+      "vm_name": "bs6-team-146-04",
+      "ip": "192.168.146.223",
+      "role": "team",
+      "bridge": "vmbr146"
+    },
+    {
+      "vm_id": 7017,
+      "vm_name": "bs6-team-147-01",
+      "ip": "192.168.147.220",
+      "role": "team",
+      "bridge": "vmbr147"
+    },
+    {
+      "vm_id": 7018,
+      "vm_name": "bs6-team-147-02",
+      "ip": "192.168.147.221",
+      "role": "team",
+      "bridge": "vmbr147"
+    },
+    {
+      "vm_id": 7019,
+      "vm_name": "bs6-team-147-03",
+      "ip": "192.168.147.222",
+      "role": "team",
+      "bridge": "vmbr147"
+    },
+    {
+      "vm_id": 7020,
+      "vm_name": "bs6-team-147-04",
+      "ip": "192.168.147.223",
+      "role": "team",
+      "bridge": "vmbr147"
+    },
+    {
+      "vm_id": 7021,
+      "vm_name": "bs6-team-148-01",
+      "ip": "192.168.148.220",
+      "role": "team",
+      "bridge": "vmbr148"
+    },
+    {
+      "vm_id": 7022,
+      "vm_name": "bs6-team-148-02",
+      "ip": "192.168.148.221",
+      "role": "team",
+      "bridge": "vmbr148"
+    },
+    {
+      "vm_id": 7023,
+      "vm_name": "bs6-team-148-03",
+      "ip": "192.168.148.222",
+      "role": "team",
+      "bridge": "vmbr148"
+    },
+    {
+      "vm_id": 7024,
+      "vm_name": "bs6-team-148-04",
+      "ip": "192.168.148.223",
+      "role": "team",
+      "bridge": "vmbr148"
+    },
+    {
+      "vm_id": 7100,
+      "vm_name": "bs6-admin-wazuh",
+      "ip": "192.168.142.140",
+      "role": "admin",
+      "bridge": "vmbr142"
+    },
+    {
+      "vm_id": 7101,
+      "vm_name": "bs6-admin-deployer-api-gateway",
+      "ip": "192.168.142.141",
+      "role": "admin",
+      "bridge": "vmbr142"
+    },
+    {
+      "vm_id": 7102,
+      "vm_name": "bs6-admin-deployer-api-backend",
+      "ip": "192.168.142.142",
+      "role": "admin",
+      "bridge": "vmbr142"
+    },
+    {
+      "vm_id": 7103,
+      "vm_name": "bs6-admin-deployer-ui",
+      "ip": "192.168.142.143",
+      "role": "admin",
+      "bridge": "vmbr142"
+    }
+  ],
+  "templates": [
+    {
+      "vm_id": 9901,
+      "vm_name": "template-vm-nano",
+      "spec": "1cpu/1gb/16gb",
+      "ip": "192.168.140.201",
+      "bridge": "vmbr140"
+    },
+    {
+      "vm_id": 9211,
+      "vm_name": "template-vm-micro-01-2g-24g",
+      "spec": "1cpu/2gb/24gb",
+      "ip": "192.168.140.211",
+      "bridge": "vmbr140"
+    },
+    {
+      "vm_id": 9212,
+      "vm_name": "template-vm-micro-02-2g-24g",
+      "spec": "1cpu/2gb/24gb",
+      "ip": "192.168.140.212",
+      "bridge": "vmbr140"
+    },
+    {
+      "vm_id": 9221,
+      "vm_name": "template-vm-small-01-4g-32g",
+      "spec": "1cpu/4gb/32gb",
+      "ip": "192.168.140.221",
+      "bridge": "vmbr140"
+    },
+    {
+      "vm_id": 9222,
+      "vm_name": "template-vm-small-02-4g-32g",
+      "spec": "1cpu/4gb/32gb",
+      "ip": "192.168.140.222",
+      "bridge": "vmbr140"
+    },
+    {
+      "vm_id": 9224,
+      "vm_name": "template-vm-small-04-4g-32g",
+      "spec": "1cpu/4gb/32gb",
+      "ip": "192.168.140.224",
+      "bridge": "vmbr140"
+    },
+    {
+      "vm_id": 9232,
+      "vm_name": "template-vm-medium-02-8g-64g",
+      "spec": "2cpu/8gb/64gb",
+      "ip": "192.168.140.232",
+      "bridge": "vmbr140"
+    },
+    {
+      "vm_id": 9234,
+      "vm_name": "template-vm-medium-04-8g-64g",
+      "spec": "4cpu/8gb/64gb",
+      "ip": "192.168.140.234",
+      "bridge": "vmbr140"
+    },
+    {
+      "vm_id": 9236,
+      "vm_name": "template-vm-medium-06-8g-64g",
+      "spec": "6cpu/8gb/64gb",
+      "ip": "192.168.140.236",
+      "bridge": "vmbr140"
+    },
+    {
+      "vm_id": 9244,
+      "vm_name": "template-vm-large-04-8g-64g",
+      "spec": "4cpu/8gb/64gb",
+      "ip": "192.168.140.244",
+      "bridge": "vmbr140"
+    },
+    {
+      "vm_id": 9246,
+      "vm_name": "template-vm-large-06-8g-64g",
+      "spec": "6cpu/8gb/64gb",
+      "ip": "192.168.140.246",
+      "bridge": "vmbr140"
+    },
+    {
+      "vm_id": 9248,
+      "vm_name": "template-vm-large-08-8g-64g",
+      "spec": "8cpu/8gb/64gb",
+      "ip": "192.168.140.248",
+      "bridge": "vmbr140"
+    }
+  ]
+}

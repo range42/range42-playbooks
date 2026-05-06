@@ -1,39 +1,26 @@
 #!/bin/bash
-proxmox_vm.list.to.jsons.sh | jq -c | proxmox_vm.vm_id.stop_force.to.jsons.sh
-proxmox_vm.list.to.jsons.sh | jq -c | proxmox_vm.vm_id.delete.to.jsons.sh
 
-INFRASTRUCTURE_IP=(
-    "192.168.143.220" # bs6-team-143-01
-    "192.168.143.221" # bs6-team-143-02
-    "192.168.143.222" # bs6-team-143-03
-    "192.168.143.223" # bs6-team-143-04
-    #
-    "192.168.144.220" # bs6-team-144-01
-    "192.168.144.221" # bs6-team-144-02
-    "192.168.144.222" # bs6-team-144-03
-    "192.168.144.223" # bs6-team-144-04
-    #
-    "192.168.145.220" # bs6-team-145-01
-    "192.168.145.221" # bs6-team-145-02
-    "192.168.145.222" # bs6-team-145-03
-    "192.168.145.223" # bs6-team-145-04
-    #
-    "192.168.146.220" # bs6-team-146-01
-    "192.168.146.221" # bs6-team-146-02
-    "192.168.146.222" # bs6-team-146-03
-    "192.168.146.223" # bs6-team-146-04
-    #
-    "192.168.147.220" # bs6-team-147-01
-    "192.168.147.221" # bs6-team-147-02
-    "192.168.147.222" # bs6-team-147-03
-    "192.168.147.223" # bs6-team-147-04
-    #
-    "192.168.148.220" # bs6-team-148-01
-    "192.168.148.221" # bs6-team-148-02
-    "192.168.148.222" # bs6-team-148-03
-    "192.168.148.223" # bs6-team-148-04
-    #
-)
+##
+## reset — delete this scenario's VMs (filter by vm_id from manifest) then re-deploy
+##
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
+
+if [[ ! -f "$MANIFEST" ]]; then
+    echo "ERROR: manifest not found: $MANIFEST" >&2
+    exit 1
+fi
+
+mapfile -t SCENARIO_VM_IDS  < <(jq -r '.vms[].vm_id' "$MANIFEST")
+mapfile -t INFRASTRUCTURE_IP < <(jq -r '.vms[].ip'   "$MANIFEST")
+
+ID_REGEX=$(printf '|%s' "${SCENARIO_VM_IDS[@]}" | sed 's/^|//')
+
+echo ":: stopping and deleting scenario VMs (vm_ids: ${SCENARIO_VM_IDS[*]})..."
+
+proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
+proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
 
 for ip in "${INFRASTRUCTURE_IP[@]}"; do
     echo ":: REMOVE SSH KEY FOR : $ip"

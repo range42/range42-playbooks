@@ -3,4 +3,6 @@
 ## blank_scenario_6_subnets — VMs only (skip template creation)
 ##
 
+- import_playbook: ./01_admin_infrastructure/_main.yml
+
 - import_playbook: ./02_network_lab/_main.yml

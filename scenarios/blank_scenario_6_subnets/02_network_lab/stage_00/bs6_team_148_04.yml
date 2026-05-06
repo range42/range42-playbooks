@@ -27,10 +27,15 @@
         vm_name: "{{ global_vm_name }}"
         vm_description: "{{ global_vm_description }}"
 
-    - name: WAITING FOR PROXMOX UNLOCK TO CLEAR
-      ansible.builtin.pause:
-        seconds: 20
-        prompt: "Waiting for 20 seconds during clone..."
+    - name: WAIT for clone to finish (lock-aware, replaces 20s pause)
+      ansible.builtin.shell: qm config {{ global_vm_id }} | grep -q '^lock:'
+      register: clone_lock_check
+      until: clone_lock_check.rc != 0
+      retries: 60                # 60 × 5s = 5 min max safety
+      delay: 5
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
 
     - name: SET TAG - "{{ global_vm_name }}"
       include_role:

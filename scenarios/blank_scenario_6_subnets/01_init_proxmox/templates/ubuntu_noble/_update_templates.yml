@@ -1,0 +1,173 @@
+##
+## blank_scenario_2_subnets — pre-update ubuntu_noble templates
+##
+## After all templates are created (but BEFORE convert to template), this playbook:
+##   1. renders a temporary bootstrap snippet directly on the Proxmox host
+##      (apt update + apt dist-upgrade + cloud-init clean + auto-poweroff)
+##   2. attaches it as cicustom vendor on each template VM
+##   3. starts all templates
+##   4. polls qm status until each VM is stopped (cloud-init auto-poweroff signals end)
+##   5. detaches the bootstrap snippet, re-attaches the persistent apt-proxy snippet
+##   6. converts each VM to a template (qm template <id>)
+##
+## Reads VM IDs from the scenario manifest (manifest/scenario_vms.json).
+## Runs entirely on `proxmox-cli` (= the Proxmox host itself), no SSH involved.
+##
+
+- hosts: proxmox-cli
+  gather_facts: false
+  vars_files:
+    - "../../../secrets/default_vault.yml"
+
+  vars:
+    manifest_path: "{{ playbook_dir }}/../../../manifest/scenario_vms.json"
+    bootstrap_snippet_template: "{{ playbook_dir }}/range42-template-bootstrap.yaml.j2"
+    bootstrap_snippet_path: "/var/lib/vz/snippets/range42-template-bootstrap.yaml"
+
+  tasks:
+
+    #### #### #### debug apt_proxy_url visibility — fully safe vs undefined #### #### ####
+
+    - name: TEMPLATES UPDATE - DEBUG apt_proxy_url visibility
+      ansible.builtin.debug:
+        msg: |
+          apt_proxy_url defined  : {{ apt_proxy_url is defined }}
+          apt_proxy_url value    : {{ apt_proxy_url | default('(undefined)') }}
+          apt_proxy_url length   : {{ (apt_proxy_url | default('')) | length }}
+          → snippet WILL include apt section : {{ (apt_proxy_url | default('')) | length > 0 }}
+
+    #### #### #### load manifest #### #### ####
+
+    - name: TEMPLATES UPDATE - LOAD MANIFEST
+      ansible.builtin.set_fact:
+        templates: "{{ (lookup('file', manifest_path) | from_json).templates }}"
+
+    #### #### #### IDEMPOTENCE — probe each template's current state #### #### ####
+    # 3 possible states per VM ID :
+    #   - "template" : already converted, skip update entirely
+    #   - "vm"       : exists as a regular VM, needs update + convert
+    #   - "missing"  : VM doesn't exist on Proxmox, skip (templates not created yet)
+    # Only "vm" state proceeds through the start/update/shutdown/convert pipeline.
+
+    - name: TEMPLATES UPDATE - PROBE state of each template VM
+      ansible.builtin.shell: |
+        if qm config {{ item.vm_id }} 2>/dev/null | grep -q '^template:'; then
+          echo "template"
+        elif qm config {{ item.vm_id }} >/dev/null 2>&1; then
+          echo "vm"
+        else
+          echo "missing"
+        fi
+      register: tpl_state
+      loop: "{{ templates }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+      changed_when: false
+
+    - name: TEMPLATES UPDATE - BUILD list of templates needing update (state == 'vm')
+      ansible.builtin.set_fact:
+        templates_to_update: >-
+          {{ templates | zip(tpl_state.results)
+                       | selectattr('1.stdout', 'eq', 'vm')
+                       | map(attribute='0') | list }}
+
+    - name: TEMPLATES UPDATE - DISPLAY PLAN
+      ansible.builtin.debug:
+        msg: |
+          total templates in manifest : {{ templates | length }}
+          already converted (skip)     : {{ tpl_state.results | selectattr('stdout', 'eq', 'template') | list | length }}
+          missing (skip)               : {{ tpl_state.results | selectattr('stdout', 'eq', 'missing') | list | length }}
+          to update + convert          : {{ templates_to_update | length }}
+          {% if templates_to_update | length > 0 %}
+          targets :
+          {% for t in templates_to_update %}  - {{ t.vm_id }}  {{ t.vm_name }}  ({{ t.ip }})
+          {% endfor %}
+          {% endif %}
+
+    - name: TEMPLATES UPDATE - SHORT-CIRCUIT if nothing to update
+      ansible.builtin.meta: end_play
+      when: templates_to_update | length == 0
+
+    #### #### #### render bootstrap snippet directly on the Proxmox host #### #### ####
+
+    - name: TEMPLATES UPDATE - RENDER BOOTSTRAP SNIPPET ON PROXMOX
+      ansible.builtin.template:
+        src: "{{ bootstrap_snippet_template }}"
+        dest: "{{ bootstrap_snippet_path }}"
+        mode: "0644"
+
+    #### #### #### attach bootstrap snippet on every template #### #### ####
+
+    - name: TEMPLATES UPDATE - ATTACH bootstrap cicustom
+      ansible.builtin.command:
+        cmd: qm set {{ item.vm_id }} --cicustom "vendor=local:snippets/range42-template-bootstrap.yaml"
+      loop: "{{ templates_to_update }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+
+    #### #### #### start all templates #### #### ####
+
+    - name: TEMPLATES UPDATE - START all templates
+      ansible.builtin.command:
+        cmd: qm start {{ item.vm_id }}
+      register: start_result
+      failed_when:
+        - start_result.rc != 0
+        - "'already running' not in start_result.stderr"
+      changed_when: start_result.rc == 0
+      loop: "{{ templates_to_update }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+
+    #### #### #### wait until each VM auto-poweroffs (cloud-init done) #### #### ####
+    # the loop is sequential per-vm, but since all started in parallel above,
+    # total time is bounded by the slowest template (~3-15 min depending on cache)
+
+    - name: TEMPLATES UPDATE - WAIT for cloud-init to auto-poweroff
+      ansible.builtin.shell: |
+        qm status {{ item.vm_id }} | grep -q 'status: stopped'
+      register: stop_check
+      retries: 360                # safety cap : 360 × 5s = 30 min max per VM
+      delay: 5
+      until: stop_check.rc == 0
+      loop: "{{ templates_to_update }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+      changed_when: false
+
+    #### #### #### detach bootstrap, re-attach apt-proxy, convert to template #### #### ####
+
+    - name: TEMPLATES UPDATE - DETACH bootstrap cicustom
+      ansible.builtin.command:
+        cmd: qm set {{ item.vm_id }} --delete cicustom
+      loop: "{{ templates_to_update }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+
+    - name: TEMPLATES UPDATE - RE-ATTACH apt-proxy cicustom (persistent for clones)
+      ansible.builtin.command:
+        cmd: qm set {{ item.vm_id }} --cicustom "vendor=local:snippets/range42-apt-proxy.yaml"
+      loop: "{{ templates_to_update }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+      when: (apt_proxy_url | default('')) | length > 0
+
+    - name: TEMPLATES UPDATE - CONVERT VM to template
+      ansible.builtin.command:
+        cmd: qm template {{ item.vm_id }}
+      loop: "{{ templates_to_update }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+
+    #### #### #### cleanup #### #### ####
+
+    - name: TEMPLATES UPDATE - REMOVE BOOTSTRAP SNIPPET FROM PROXMOX
+      ansible.builtin.file:
+        path: "{{ bootstrap_snippet_path }}"
+        state: absent
+
+    - name: TEMPLATES UPDATE - DISPLAY DONE
+      ansible.builtin.debug:
+        msg: |
+          ✓ {{ templates | length }} templates updated and converted
+          ✓ apt-proxy cicustom re-attached (if apt_proxy_url set)
