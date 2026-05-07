@@ -29,7 +29,7 @@
         vm_id: 9246
         vm_name: "template-vm-large-06-16g-100g"
         vm_cpu: "host"
-        vm_cores: 6
+        vm_cores: 4
         vm_sockets: 1
         vm_memory: 16384
         vm_net_virtio_bridge: "vmbr140"        

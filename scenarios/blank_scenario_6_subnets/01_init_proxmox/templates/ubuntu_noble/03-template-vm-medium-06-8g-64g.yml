@@ -61,7 +61,7 @@
         vm_id: 9236
         vm_name: "template-vm-medium-06-8g-64g"
         vm_cpu: "host"
-        vm_cores: 6
+        vm_cores: 4
         vm_sockets: 1
         vm_memory: 8192
         vm_net_virtio_bridge: "vmbr140"
