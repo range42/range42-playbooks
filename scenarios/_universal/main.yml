@@ -1,45 +1,106 @@
 ---
-# Range42 universal playbook (stub).
-# Real implementation lands in Plan B.
-# Plan A only needs this file to exist so resolve_scenarios_playbook() can return
-# a path to it; the runner would invoke it and find a no-op playbook today.
+# Range42 universal scenario.
+# Reads topology.json from r42_topology_path, expands per-team replication,
+# provisions Proxmox resources idempotently, then dispatches attachments.
 #
-# Inputs (extravars set by start_attempt for scenario_label="_universal"):
-#   - r42_topology_path: absolute path to topology.json (in workspace/project/)
-#   - r42_inventory_dir: absolute path to workspace/inventory/ (already populated)
-#   - r42_playbook_path: this file
-#   - r42_deployment_id, r42_attempt_id, r42_scope, r42_team_id
-#
-# Plan B will replace this stub with the actual universal-deploy logic
-# (load topology, expand per-team, dispatch attachments, etc.).
+# Caller (backend deploy_trigger via DetachedRunner) must set extravars:
+#   r42_topology_path: absolute path to topology.json (in workspace/project/)
+#   r42_inventory_dir: absolute path to workspace/inventory/ (already populated)
+#   r42_playbook_path: absolute path to this file
+#   r42_deployment_id, r42_attempt_id, r42_scope, r42_team_id (or null)
+#   team_count: integer (default 1)
+#   default_admin_vm_ci_ssh_key: vault-resolved SSH key for cloud-init
 
-- name: range42 _universal stub (Plan A)
+- name: "Universal: load topology + validate"
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Confirm topology.json was provided
+    - name: Load topology document
+      ansible.builtin.set_fact:
+        topology: "{{ lookup('file', r42_topology_path) | from_json }}"
+        team_count: "{{ team_count | default(1) | int }}"
+
+    - name: Validate topology has required fields
       ansible.builtin.assert:
         that:
-          - r42_topology_path is defined
-          - r42_topology_path | length > 0
-        fail_msg: "r42_topology_path extravar must be set for _universal scenario"
+          - topology.nodes is defined
+          - topology.naming_prefix is defined
+        fail_msg: |
+          topology.json missing required fields.
+          Required: nodes (array), naming_prefix (string).
+          Got: {{ topology.keys() | list }}
 
-    - name: Stat the topology file
-      ansible.builtin.stat:
-        path: "{{ r42_topology_path }}"
-      register: _topology_stat
+- name: "Universal: cache Proxmox node state"
+  hosts: proxmox-cli
+  gather_facts: false
+  pre_tasks:
+    - name: VMID guard (Ansible-layer mirror of backend vmid_guard)
+      ansible.builtin.import_tasks: "{{ playbook_dir }}/../../../range42-deployment/ansible/overlays/proxmox_vmid_guard.yml"
+      when: vm_id is defined
+  tasks:
+    - name: List existing VMs (cached for idempotency wrappers)
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "vm_list"
 
-    - name: Assert topology.json exists
-      ansible.builtin.assert:
-        that:
-          - _topology_stat.stat.exists
-          - _topology_stat.stat.isreg
-        fail_msg: "r42_topology_path does not point to a regular file: {{ r42_topology_path }}"
+    - name: Cache VM list as a play-wide fact
+      ansible.builtin.set_fact:
+        vm_existing_ids: "{{ vm_list | default([]) }}"
 
-    - name: Log that this is a stub
-      ansible.builtin.debug:
-        msg: |
-          Range42 _universal scenario reached. This is the Plan A stub.
-          Topology: {{ r42_topology_path }}
-          Inventory: {{ r42_inventory_dir | default('not provided') }}
-          Plan B will replace this with the actual deploy logic.
+    - name: List node-level network interfaces
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_interfaces_node"
+
+    - name: Cache bridge list as a play-wide fact
+      ansible.builtin.set_fact:
+        existing_bridges: "{{ network_list | default([]) | map(attribute='iface') | list }}"
+
+- name: "Universal: provision per-team networks (assert presence)"
+  hosts: proxmox-cli
+  tasks:
+    - name: Network presence check (loop)
+      include_tasks: tasks/network_create_idempotent.yml
+      loop: "{{ topology.nodes | selectattr('kind', 'equalto', 'network') | list | r42_expand_per_team(team_count | int) }}"
+      loop_control:
+        loop_var: net_item
+        index_var: outer_idx
+        label: "team={{ net_item.team_id | default('shared') }} net={{ net_item.item.id }}"
+
+- name: "Universal: provision per-team VMs (clone + cloudinit + start)"
+  hosts: proxmox-cli
+  tasks:
+    - name: VM provision (loop)
+      include_tasks: tasks/vm_provision.yml
+      loop: "{{ topology.nodes | selectattr('kind', 'in', ['vm', 'lxc']) | list | r42_expand_per_team(team_count | int) }}"
+      loop_control:
+        loop_var: vm_item
+        index_var: outer_idx
+        label: "team={{ vm_item.team_id | default('shared') }} vm={{ vm_item.item.id }}"
+
+- name: "Universal: wait for SSH on all provisioned hosts"
+  hosts: r42_admin:r42_blank_group
+  gather_facts: false
+  any_errors_fatal: false
+  tasks:
+    - name: Wait for SSH connection
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+        delay: 5
+
+- name: "Universal: gather facts (post-SSH)"
+  hosts: r42_admin:r42_blank_group
+  gather_facts: true
+
+- name: "Universal: dispatch attachments per node"
+  hosts: r42_admin:r42_blank_group
+  any_errors_fatal: false
+  tasks:
+    - name: Dispatch each attachment
+      include_tasks: tasks/dispatch_attachment.yml
+      loop: "{{ hostvars[inventory_hostname]['topology'] | default(topology) | r42_attachments_for(inventory_hostname) }}"
+      loop_control:
+        loop_var: attachment
+        label: "{{ inventory_hostname }} -> {{ attachment.source.kind }}:{{ attachment.source.ref | default(attachment.source.path) | default(attachment.source.url) | default('inline') }}"
