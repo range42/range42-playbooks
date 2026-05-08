@@ -1,0 +1,17 @@
+---
+# Run a catalog container challenge via its meta.json setup_cmd.
+# attachment.source.ref is the catalog path
+# (e.g. "03_container_layer/docker/_ctf/cve/system/sudo/CVE-2023-22809").
+# Backend-side preflight has validated meta.json exists at that ref.
+
+- name: "catalog_container: derive paths from {{ attachment.source.ref }}"
+  ansible.builtin.set_fact:
+    _container_dir: "{{ attachment.source.ref }}"
+    _setup_cmd: "{{ attachment.setup_cmd | default('make up') }}"
+
+- name: "catalog_container: run setup_cmd in container dir"
+  ansible.builtin.command:
+    cmd: "{{ _setup_cmd }}"
+    chdir: "{{ _container_dir }}"
+  register: _container_setup
+  changed_when: _container_setup.rc == 0

@@ -1,0 +1,24 @@
+---
+# Fetch + execute a playbook from a registered Source's git repo.
+#
+# v1 SECURITY: backend preflight (check_topology_assets) restricts external_git
+# to URLs whose host matches a registered Source's base_url. The runtime here
+# trusts the URL because preflight already validated it.
+
+- name: "external_git: shallow clone {{ attachment.source.url }}"
+  ansible.builtin.git:
+    repo: "{{ attachment.source.url }}"
+    dest: "/tmp/r42-extgit-{{ attachment.source.url | hash('sha256') | truncate(12, True, '') }}"
+    version: "{{ attachment.source.ref | default('HEAD') }}"
+    depth: 1
+    update: true
+  register: _ext_git_clone
+
+- name: "external_git: include the playbook task file"
+  include_tasks: "{{ _ext_git_clone.after }}/{{ attachment.source.sub_path | default('main.yml') }}"
+  vars: "{{ attachment.vars | default({}) }}"
+
+- name: "external_git: cleanup checkout"
+  ansible.builtin.file:
+    path: "{{ _ext_git_clone.after | default('/tmp/r42-extgit-nonexistent') }}"
+    state: absent

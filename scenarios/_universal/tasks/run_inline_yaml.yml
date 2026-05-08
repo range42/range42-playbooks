@@ -1,0 +1,19 @@
+---
+# Execute user-authored YAML content from attachment.source.content.
+# no_log set at dispatcher level; this body sees the content directly.
+
+- name: "inline_yaml: write content to temp file"
+  ansible.builtin.copy:
+    content: "{{ attachment.source.content }}"
+    dest: "/tmp/r42-inline-{{ attachment.source.content | hash('sha256') | truncate(12, True, '') }}.yml"
+    mode: "0600"
+  register: _inline_temp
+
+- name: "inline_yaml: include the rendered tasks"
+  include_tasks: "{{ _inline_temp.dest }}"
+  vars: "{{ attachment.vars | default({}) }}"
+
+- name: "inline_yaml: cleanup temp file"
+  ansible.builtin.file:
+    path: "{{ _inline_temp.dest }}"
+    state: absent

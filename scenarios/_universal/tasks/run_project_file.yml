@@ -1,0 +1,21 @@
+---
+# Include an Ansible task file from the project repo (already cloned by backend
+# at workspace/project/, available via r42_topology_path's parent).
+
+- name: "file_upload: resolve path from project repo"
+  ansible.builtin.set_fact:
+    _project_file: "{{ (r42_topology_path | dirname) }}/{{ attachment.source.path }}"
+
+- name: "file_upload: stat the project file"
+  ansible.builtin.stat:
+    path: "{{ _project_file }}"
+  register: _project_file_stat
+
+- name: "file_upload: fail if missing (preflight should have caught this)"
+  ansible.builtin.fail:
+    msg: "Project file {{ attachment.source.path }} not found at {{ _project_file }}"
+  when: not _project_file_stat.stat.exists
+
+- name: "file_upload: include the project file"
+  include_tasks: "{{ _project_file }}"
+  vars: "{{ attachment.vars | default({}) }}"

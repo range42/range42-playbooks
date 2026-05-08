@@ -1,0 +1,8 @@
+---
+# Run a catalog Ansible role by reference (e.g. "software.install.wazuh").
+# Roles resolve via ansible.cfg roles_path (sibling repo layout).
+
+- name: "catalog_role: include {{ attachment.source.ref }}"
+  include_role:
+    name: "{{ attachment.source.ref }}"
+  vars: "{{ attachment.vars | default({}) }}"

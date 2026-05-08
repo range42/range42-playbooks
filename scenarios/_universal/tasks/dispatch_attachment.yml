@@ -1,0 +1,31 @@
+---
+# Dispatch one attachment by source.kind.
+# Caller passes `attachment` (the attachment dict from topology).
+#
+# Default no_log: true on user-authored kinds (inline_yaml, file_upload, external_git)
+# per spec §5.6 — debug/secret leaks via stdout are caught by the redaction layer
+# but no_log keeps user-authored content out of the event stream entirely.
+# Catalog kinds (well-known content) are not no_log unless caller sets it.
+
+- name: "Dispatch: catalog_role"
+  include_tasks: run_catalog_role.yml
+  when: attachment.source.kind == "catalog_role"
+
+- name: "Dispatch: catalog_container"
+  include_tasks: run_catalog_container.yml
+  when: attachment.source.kind == "catalog_container"
+
+- name: "Dispatch: inline_yaml"
+  include_tasks: run_inline_yaml.yml
+  no_log: "{{ not (attachment.verbose | default(false)) }}"
+  when: attachment.source.kind == "inline_yaml"
+
+- name: "Dispatch: file_upload"
+  include_tasks: run_project_file.yml
+  no_log: "{{ not (attachment.verbose | default(false)) }}"
+  when: attachment.source.kind == "file_upload"
+
+- name: "Dispatch: external_git"
+  include_tasks: run_external_git.yml
+  no_log: "{{ not (attachment.verbose | default(false)) }}"
+  when: attachment.source.kind == "external_git"
