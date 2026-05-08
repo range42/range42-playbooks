@@ -1,0 +1,32 @@
+---
+# Network presence check for the universal scenario.
+#
+# v1 limitation (per spec §10.3): bridges (vmbr{bridge_base + team_id}) must
+# pre-exist on the Proxmox host. The universal playbook attaches VMs to existing
+# bridges; it does NOT auto-create them via SDN.
+#
+# Caller must have set:
+#   topology: dict             — the loaded topology document
+#   existing_bridges: list[str] — bridge names on the Proxmox node, cached at play start
+#
+# Inputs (per loop iteration):
+#   net_item:
+#     team_id: int | None
+#     item: <topology network node dict>
+
+- name: "Network: compute expected bridge name for this scope"
+  ansible.builtin.set_fact:
+    _expected_bridge: >-
+      {{ (topology.bridge_base | default(140)) | r42_bridge_for_team(net_item.team_id | default(0)) }}
+
+- name: "Network: assert expected bridge exists on Proxmox node"
+  ansible.builtin.assert:
+    that:
+      - _expected_bridge in (existing_bridges | default([]))
+    fail_msg: |
+      Bridge {{ _expected_bridge }} not found on Proxmox node.
+      Operator must pre-create bridges
+        vmbr{{ topology.bridge_base | default(140) }}
+        through vmbr{{ (topology.bridge_base | default(140) | int) + (team_count | int) }}
+      before deploying this _universal topology.
+      v1 limitation per spec §10.3.
