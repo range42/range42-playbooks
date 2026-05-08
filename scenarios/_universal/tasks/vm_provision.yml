@@ -1,0 +1,94 @@
+---
+# Idempotent VM provisioning for the universal scenario.
+#
+# Inputs (per loop iteration):
+#   vm_item:
+#     team_id: int | None     # None for shared scope
+#     item:                   # the topology vm/lxc node dict
+#       id: str               # node id
+#       template_vmid: int
+#       config: dict
+#
+# Caller must have set:
+#   vm_existing_ids: list of {vmid, name, tags, ...} — Proxmox VM list cached at play start
+#   topology: dict             # the loaded topology document
+#   team_count: int
+#   r42_attempt_id: str        # for the per-attempt forensics tag
+#   default_admin_vm_ci_ssh_key: str  # SSH key from vault for cloud-init
+#
+# Idempotency: VMs tagged r42-deployed are skipped. Otherwise (re-)run the
+# clone+cloudinit+start sequence; cloudinit_set_variables is overwrite-safe.
+
+- name: "VM provision: compute target VMID and node name"
+  ansible.builtin.set_fact:
+    _per_team_vms: >-
+      {{ topology.nodes
+         | selectattr('kind', 'in', ['vm', 'lxc'])
+         | selectattr('replication.scope', 'equalto', 'per_team')
+         | list }}
+    _vmid_base: "{{ vm_item.item.vmid_base | default(vm_item.item.template_vmid) | default(0) }}"
+
+- name: "VM provision: compute final VMID"
+  ansible.builtin.set_fact:
+    _target_vmid: >-
+      {{ (_vmid_base | int)
+         + ((vm_item.team_id | default(0) | int) * (_per_team_vms | length))
+         + (loop.index0 if vm_item.team_id is none else (loop.index0 % (_per_team_vms | length))) }}
+    _vm_name_full: >-
+      {{ topology.naming_prefix }}-{{ vm_item.team_id | default('shared') }}-{{ vm_item.item.id }}
+
+- name: "VM provision: locate existing VM (if any)"
+  ansible.builtin.set_fact:
+    _existing_vm: >-
+      {{ vm_existing_ids
+         | selectattr('vmid', 'equalto', (_target_vmid | int))
+         | list | first | default({}) }}
+
+- name: "VM provision: skip if already deployed (r42-deployed tag present)"
+  ansible.builtin.debug:
+    msg: "VM {{ _target_vmid }} already deployed (tags: {{ _existing_vm.tags | default('') }}); skipping"
+  when: (_existing_vm.tags | default('')) is search('r42-deployed')
+
+- name: "VM provision: clone template (when VM doesn't exist)"
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "vm_clone"
+    vm_id: "{{ vm_item.item.template_vmid | int }}"
+    vm_new_id: "{{ _target_vmid | int }}"
+    vm_name: "{{ _vm_name_full }}"
+    vm_description: "Range42 _universal {{ vm_item.item.id }} (team {{ vm_item.team_id | default('shared') }})"
+  when: not _existing_vm
+
+- name: "VM provision: set cloud-init variables"
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "cloudinit_set_variables"
+    vm_id: "{{ _target_vmid | int }}"
+    vm_ci_user: "{{ vm_item.item.config.cloudinit_user | default('alice') }}"
+    vm_ci_password: "{{ vm_item.item.config.cloudinit_password | default(default_trainee_vm_ci_password | default('')) }}"
+    vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key | default('') }}"
+    vm_ci_ip: "{{ topology.bridge_base | default(140) | r42_ip_for_node(vm_item.team_id, loop.index0) }}"
+    vm_ci_netmask: "24"
+    vm_ci_ip_gw: "192.168.{{ (topology.bridge_base | default(140) | int) + (vm_item.team_id | default(0) | int) }}.1"
+    vm_net_virtio_bridge: "{{ (topology.bridge_base | default(140)) | r42_bridge_for_team(vm_item.team_id | default(0)) }}"
+  when: not (_existing_vm.tags | default('')) is search('r42-deployed')
+  no_log: true  # cloudinit_password is sensitive
+
+- name: "VM provision: start VM"
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "vm_start"
+    vm_id: "{{ _target_vmid | int }}"
+  when: not (_existing_vm.tags | default('')) is search('r42-deployed')
+
+- name: "VM provision: tag r42-deployed (success marker)"
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "vm_set_tag"
+    vm_id: "{{ _target_vmid | int }}"
+    vm_tag_name: "r42-deployed,r42-attempt-{{ r42_attempt_id }}"
+  when: not (_existing_vm.tags | default('')) is search('r42-deployed')
