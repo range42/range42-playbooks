@@ -1,0 +1,45 @@
+---
+# Range42 universal playbook (stub).
+# Real implementation lands in Plan B.
+# Plan A only needs this file to exist so resolve_scenarios_playbook() can return
+# a path to it; the runner would invoke it and find a no-op playbook today.
+#
+# Inputs (extravars set by start_attempt for scenario_label="_universal"):
+#   - r42_topology_path: absolute path to topology.json (in workspace/project/)
+#   - r42_inventory_dir: absolute path to workspace/inventory/ (already populated)
+#   - r42_playbook_path: this file
+#   - r42_deployment_id, r42_attempt_id, r42_scope, r42_team_id
+#
+# Plan B will replace this stub with the actual universal-deploy logic
+# (load topology, expand per-team, dispatch attachments, etc.).
+
+- name: range42 _universal stub (Plan A)
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Confirm topology.json was provided
+      ansible.builtin.assert:
+        that:
+          - r42_topology_path is defined
+          - r42_topology_path | length > 0
+        fail_msg: "r42_topology_path extravar must be set for _universal scenario"
+
+    - name: Stat the topology file
+      ansible.builtin.stat:
+        path: "{{ r42_topology_path }}"
+      register: _topology_stat
+
+    - name: Assert topology.json exists
+      ansible.builtin.assert:
+        that:
+          - _topology_stat.stat.exists
+          - _topology_stat.stat.isreg
+        fail_msg: "r42_topology_path does not point to a regular file: {{ r42_topology_path }}"
+
+    - name: Log that this is a stub
+      ansible.builtin.debug:
+        msg: |
+          Range42 _universal scenario reached. This is the Plan A stub.
+          Topology: {{ r42_topology_path }}
+          Inventory: {{ r42_inventory_dir | default('not provided') }}
+          Plan B will replace this with the actual deploy logic.
