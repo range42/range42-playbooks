@@ -9,8 +9,14 @@ ID_REGEX=$(printf '|%s' "${SCENARIO_VM_IDS[@]}" | sed 's/^|//')
 
 echo ":: stopping and deleting scenario VMs (vm_ids: ${SCENARIO_VM_IDS[*]})..."
 
-proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
-proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
+VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1)
+if ! echo "$VM_LIST_JSON" | jq -e . >/dev/null 2>&1; then
+    echo "ERROR: proxmox_vm.list.to.jsons.sh returned invalid JSON — aborting" >&2
+    printf "output: %.200s\n" "$VM_LIST_JSON" >&2
+    exit 1
+fi
+echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
+echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
 
 INFRASTRUCTURE_IP=(
     # team — vmbr143
