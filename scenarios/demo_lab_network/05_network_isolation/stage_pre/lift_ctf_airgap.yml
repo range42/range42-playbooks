@@ -44,6 +44,22 @@
         state: absent
       ignore_errors: true
 
+    - name: NETWORK ISOLATION - Lift CTF air-gap (DROP variant — second pass, handles duplicates)
+      ansible.builtin.iptables:
+        chain: FORWARD
+        in_interface: "{{ ctf_bridge }}"
+        out_interface: "{{ wan_interface }}"
+        jump: DROP
+        comment: "r42: ctf air-gap"
+        state: absent
+      ignore_errors: true
+
+    - name: NETWORK ISOLATION - Lift CTF air-gap (fallback — flush any remaining DROP on ctf→wan by interface)
+      ansible.builtin.shell: |
+        while iptables -D FORWARD -i {{ ctf_bridge }} -o {{ wan_interface }} -j DROP 2>/dev/null; do :; done
+        exit 0
+      changed_when: false
+
     - name: NETWORK ISOLATION - Persist (air-gap lifted)
       ansible.builtin.command: netfilter-persistent save
       changed_when: true
