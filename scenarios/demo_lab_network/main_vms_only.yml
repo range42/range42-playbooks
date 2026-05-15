@@ -1,0 +1,19 @@
+---
+##
+## demo_lab_network — VMs + isolation only (skip template creation)
+## Use when templates already exist from a prior full deploy.
+##
+
+- import_playbook: ./02_admin_infrastructure/_main.yml
+
+####
+
+#- import_playbook: ./03_student_infrastructure/_main.yml
+
+# Lift air-gap so CTF VMs can reach the internet during cloud-init + package install
+- import_playbook: ./05_network_isolation/stage_pre/lift_ctf_airgap.yml
+
+- import_playbook: ./04_ctf_infrastructure/_main.yml
+
+# Restore air-gap after CTF setup is complete
+- import_playbook: ./05_network_isolation/_main.yml

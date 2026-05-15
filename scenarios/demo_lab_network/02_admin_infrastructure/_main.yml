@@ -1,0 +1,148 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 00  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+# disabled — wazuh client test VM, re-enable when wazuh config is validated
+# - import_playbook: ./stage_00/_testing/wazuh_client_01.yml
+#
+#   vars:
+#     global_vm_name: "testing-wazuh-client"
+#     global_vm_ssh_name: "r42.testing-wazuh-client"
+#     global_vm_id: 1111
+#     global_vm_description: "wazuh - client test"
+#     global_vm_tag_name: "admin"
+#     global_vm_ci_ip: "192.168.142.111"
+#     global_template_vm_id: 9211
+#     global_template_name: "01-template-vm-micro-01-2g-24g - id 9211"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/mon_wazuh.yml
+
+  vars:
+    global_vm_name: "admin-wazuh"
+    global_vm_ssh_name: "r42.admin-wazuh"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+
+    global_vm_id: 1000
+    global_vm_description: ""
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.142.100"
+    #
+    global_template_vm_id: 9232
+    global_template_name: "03-template-vm-medium-02-8g-64g - 9232" # debug
+    # global_operator_ssh_config_known_hosts: "global_operator_ssh_config_known_hosts" # move this one to vault !
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+# disabled — docker registry, re-enable when needed
+# - import_playbook: ./stage_00/builder_docker_registry.yml
+#
+#   vars:
+#     global_vm_name: "admin-builder-docker-registry"
+#     global_vm_ssh_name: "r42.admin-builder-docker-registry"
+#     global_vm_id: 1001
+#     global_vm_description: "docker registry"
+#     global_vm_tag_name: "admin"
+#     global_vm_ci_ip: "192.168.142.101"
+#     global_template_vm_id: 9232
+#     global_template_name: "03-template-vm-medium-02-8g-64g - 9232"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/deployer_api_gateway.yml
+
+  vars:
+    global_vm_name: "admin-deployer-api-gateway"
+    global_vm_ssh_name: "r42.admin-deployer-api-gateway"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 1020
+    global_vm_description: "API gateway"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.142.120"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+    #
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_00/deployer_api_backend.yml
+
+  vars:
+    global_vm_name: "admin-deployer-api-backend"
+    global_vm_ssh_name: "r42.admin-deployer-api-backend"
+    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
+    global_vm_id: 1021
+    global_vm_description: "www - backend API  "
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.142.121"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+    #
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_00/deployer_ui.yml
+
+  vars:
+    global_vm_name: "admin-deployer-ui"
+    global_vm_ssh_name: "r42.admin-deployer-ui"
+    global_vm_id: 1023
+    global_vm_description: "www - front end - r42 - deployer -ui"
+    global_vm_tag_name: "admin"
+    global_vm_ci_ip: "192.168.142.123"
+    #
+    global_template_vm_id: 9221
+    global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
+
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# #
+
+- import_playbook: ./stage_01/_r42_admin.yml
+  vars:
+    OPERATOR_USER: alice
+
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "NO"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "NO"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "NO"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+    # #
+
+    INSTALL_TAILSCALE: "NO"
+
+    # SPECIFIC_PACKAGES_CLEANING: "NO"
+
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01/deployer_ui.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01/mon_wazuh.yml
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

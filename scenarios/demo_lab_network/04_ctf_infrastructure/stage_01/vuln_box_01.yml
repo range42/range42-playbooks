@@ -1,0 +1,145 @@
+##
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: configure firewall - all
+  become: true
+  hosts: r42.vuln-box-01
+  roles:
+    - software.configure.firewalls
+
+  vars:
+    # variables will be overwrited by values  in _main.yml
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+      - ip: "all"
+        port: 8443
+        protocol: "tcp"
+      - ip: "all"
+        port: 9443
+        protocol: "tcp"
+      - ip: "all"
+        port: 2218
+        protocol: "tcp"
+      - ip: "all"
+        port: 2224
+        protocol: "tcp"
+      - ip: "all"
+        port: 2225
+        protocol: "tcp"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - cve/crypto/openssl/CVE-2014-0160/" - exposed_port:8443
+  hosts: r42.vuln-box-01
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/default_vault.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "crypto-openssl-cve-2014-0160"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/crypto/openssl/CVE-2014-0160/"
+    # REMOTE_PROJECT_DIR: "/tmp/deploy"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+# ### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - crypto-openssl-cve-2022-0778 - exposed_port:9443
+  hosts: r42.vuln-box-01
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/default_vault.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "crypto-openssl-cve-2022-0778"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/crypto/openssl/CVE-2022-0778/"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+# ### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - erlang-ssh-CVE-2025-32433 - exposed_port:2225
+  hosts: r42.vuln-box-01
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/default_vault.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "erlang-ssh-CVE-2025-32433"
+    #
+
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/network/erlang-ssh/CVE-2025-32433"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - openssh-cve-2018-15473 - exposed_port:2218
+  hosts: r42.vuln-box-01
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/default_vault.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "openssh-cve-2018-15473"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/network/openssh/CVE-2018-15473"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: DEPLOY - openssh-cve-2024-6387 - exposed_port:2224
+  hosts: r42.vuln-box-01
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars_files:
+    - "../../secrets/default_vault.yml"
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "openssh-cve-2024-6387"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/network/openssh/CVE-2024-6387"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
+    #
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "YES"
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
