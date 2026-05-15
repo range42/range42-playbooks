@@ -1,0 +1,8 @@
+##
+## demo_lab_network — 05_network_isolation
+##
+## Apply FORWARD chain iptables rules on the Proxmox host to enforce
+## zone isolation between the admin (vmbr142) and CTF (vmbr144) bridges.
+##
+
+- import_playbook: ./stage_00/proxmox_forward_rules.yml
