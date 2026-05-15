@@ -12,7 +12,7 @@
 #     ctf   (vmbr144)      → wazuh :1514 ACCEPT (agent event reporting)
 #     ctf   (vmbr144)      → wazuh :1515 ACCEPT (agent enrollment)
 #     ctf   (vmbr144)      → admin    DROP     (zone isolation)
-#     ctf   (vmbr144)      → WAN      DROP     (air-gap — no internet from vuln boxes)
+#     ctf   (vmbr144)      → WAN      DROP     (air-gap — no internet from vuln boxes during lab)
 #
 #   Rules are persisted via iptables-persistent / netfilter-persistent.
 #   Re-running this playbook is idempotent (ansible.builtin.iptables checks

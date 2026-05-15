@@ -1,0 +1,49 @@
+##
+## demo_lab_network — lift CTF air-gap before setup
+##
+## Removes the CTF (vmbr144) → WAN FORWARD blocking rule so CTF VMs can
+## reach the internet during cloud-init and package installation.
+##
+## Called at the start of the CTF infrastructure deployment.
+## The full air-gap is restored afterwards by 05_network_isolation/_main.yml.
+##
+## Idempotent: uses state=absent — no-op if the rule is not present.
+##
+
+- hosts: proxmox-cli
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  vars:
+    ctf_bridge: "vmbr144"
+    wan_interface: "{{ infrastructure_proxmox_default_network_card_interface | default('vmbr0') }}"
+
+  tasks:
+
+    - name: NETWORK ISOLATION - Lift CTF air-gap (REJECT variant)
+      ansible.builtin.iptables:
+        chain: FORWARD
+        in_interface: "{{ ctf_bridge }}"
+        out_interface: "{{ wan_interface }}"
+        jump: REJECT
+        reject_with: icmp-net-unreachable
+        comment: "r42: ctf air-gap"
+        state: absent
+      ignore_errors: true
+
+    - name: NETWORK ISOLATION - Lift CTF air-gap (DROP variant — legacy)
+      ansible.builtin.iptables:
+        chain: FORWARD
+        in_interface: "{{ ctf_bridge }}"
+        out_interface: "{{ wan_interface }}"
+        jump: DROP
+        comment: "r42: ctf air-gap"
+        state: absent
+      ignore_errors: true
+
+    - name: NETWORK ISOLATION - Persist (air-gap lifted)
+      ansible.builtin.command: netfilter-persistent save
+      changed_when: true

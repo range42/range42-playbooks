@@ -24,8 +24,10 @@
 
 #- import_playbook: ./03_student_infrastructure/_main.yml
 
+# Lift air-gap so CTF VMs can reach the internet during cloud-init + package install
+- import_playbook: ./05_network_isolation/stage_pre/lift_ctf_airgap.yml
+
 - import_playbook: ./04_ctf_infrastructure/_main.yml
 
-####
-
+# Restore air-gap after CTF setup is complete
 - import_playbook: ./05_network_isolation/_main.yml
