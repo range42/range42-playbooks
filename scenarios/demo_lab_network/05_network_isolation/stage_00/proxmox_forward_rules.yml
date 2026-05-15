@@ -3,7 +3,7 @@
 # NETWORK ISOLATION — PROXMOX HOST FORWARD RULES
 #
 #   Enforces zone isolation between the admin and CTF bridges by installing
-#   iptables FORWARD chain rules directly on the Proxmox host.
+#   iptables FORWARD chain rules directly on the Proxmox host via SSH (proxmox-cli).
 #
 #   Rule table (evaluated in order):
 #
@@ -20,7 +20,7 @@
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- hosts: proxmox
+- hosts: proxmox-cli
   gather_facts: false
   vars_files:
     - "../../secrets/default_vault.yml"
