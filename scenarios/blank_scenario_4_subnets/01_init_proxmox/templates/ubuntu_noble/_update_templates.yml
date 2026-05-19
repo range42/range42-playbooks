@@ -114,10 +114,36 @@
       failed_when:
         - start_result.rc != 0
         - "'already running' not in start_result.stderr"
+        - "'MAX' not in start_result.stderr"
       changed_when: start_result.rc == 0
       loop: "{{ templates_to_update }}"
       loop_control:
         label: "vm_id={{ item.vm_id }}"
+
+    # VMs that failed with "MAX X vcpus" couldn't start — exclude them from
+    # the wait/convert pipeline but keep the play running for the others.
+    - name: TEMPLATES UPDATE - BUILD started list (exclude CPU-limited VMs)
+      ansible.builtin.set_fact:
+        templates_started: >-
+          {{ templates_to_update | zip(start_result.results)
+                                 | rejectattr('1.stderr', 'search', 'MAX')
+                                 | map(attribute='0') | list }}
+        templates_skipped_cpu: >-
+          {{ templates_to_update | zip(start_result.results)
+                                 | selectattr('1.stderr', 'search', 'MAX')
+                                 | map(attribute='0') | list }}
+
+    - name: TEMPLATES UPDATE - WARN skipped templates (host CPU limit)
+      ansible.builtin.debug:
+        msg: |
+          WARNING: {{ templates_skipped_cpu | length }} template(s) skipped — host CPU limit:
+          {% for t in templates_skipped_cpu %}
+            - {{ t.vm_id }}  {{ t.vm_name }}  (spec: {{ t.spec }})
+          {% endfor %}
+          These templates require more vCPUs than this host provides.
+          They will NOT be converted. Run on a host with enough physical
+          CPUs, or lower vm_cores in the template playbook if intentional.
+      when: templates_skipped_cpu | length > 0
 
     #### #### #### wait until each VM auto-poweroffs (cloud-init done) #### #### ####
     # the loop is sequential per-vm, but since all started in parallel above,
@@ -130,7 +156,7 @@
       retries: 360                # safety cap : 360 × 5s = 30 min max per VM
       delay: 5
       until: stop_check.rc == 0
-      loop: "{{ templates_to_update }}"
+      loop: "{{ templates_started }}"
       loop_control:
         label: "vm_id={{ item.vm_id }}"
       changed_when: false
@@ -140,14 +166,14 @@
     - name: TEMPLATES UPDATE - DETACH bootstrap cicustom
       ansible.builtin.command:
         cmd: qm set {{ item.vm_id }} --delete cicustom
-      loop: "{{ templates_to_update }}"
+      loop: "{{ templates_started }}"
       loop_control:
         label: "vm_id={{ item.vm_id }}"
 
     - name: TEMPLATES UPDATE - RE-ATTACH apt-proxy cicustom (persistent for clones)
       ansible.builtin.command:
         cmd: qm set {{ item.vm_id }} --cicustom "vendor=local:snippets/range42-apt-proxy.yaml"
-      loop: "{{ templates_to_update }}"
+      loop: "{{ templates_started }}"
       loop_control:
         label: "vm_id={{ item.vm_id }}"
       when: (apt_proxy_url | default('')) | length > 0
@@ -155,7 +181,7 @@
     - name: TEMPLATES UPDATE - CONVERT VM to template
       ansible.builtin.command:
         cmd: qm template {{ item.vm_id }}
-      loop: "{{ templates_to_update }}"
+      loop: "{{ templates_started }}"
       loop_control:
         label: "vm_id={{ item.vm_id }}"
 
@@ -169,5 +195,8 @@
     - name: TEMPLATES UPDATE - DISPLAY DONE
       ansible.builtin.debug:
         msg: |
-          ✓ {{ templates | length }} templates updated and converted
+          ✓ {{ templates_started | length }} templates updated and converted
           ✓ apt-proxy cicustom re-attached (if apt_proxy_url set)
+          {% if templates_skipped_cpu | length > 0 %}
+          ⚠  {{ templates_skipped_cpu | length }} skipped (host CPU limit) — see warning above
+          {% endif %}
