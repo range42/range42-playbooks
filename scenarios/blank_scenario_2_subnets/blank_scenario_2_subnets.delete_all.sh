@@ -38,12 +38,14 @@ echo ":: scenario VMs: ${SCENARIO_VM_IDS[*]}"
 echo ":: templates   : ${TEMPLATE_VM_IDS[*]}"
 echo ""
 
-# the [WARNING] / jq parse error noise that may appear here comes from
-# proxmox_vm.list.to.jsons.sh (Ansible warnings leaking to stdout) — non-fatal,
-# the grep filter still catches the JSON lines properly. tracked separately.
-
-proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
-proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
+VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
+if [ -z "$VM_LIST_JSON" ]; then
+    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) — aborting" >&2
+    printf "output: %.200s\n" "$VM_LIST_JSON" >&2
+    exit 1
+fi
+echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
+echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
 
 for ip in "${INFRASTRUCTURE_IP[@]}"; do
     echo ":: REMOVE SSH KEY FOR : $ip"
