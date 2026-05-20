@@ -1,0 +1,6 @@
+---
+- name: Deploy local APT mirror server
+  hosts: apt_mirror
+  become: true
+  roles:
+    - software.install.apt_mirror_server

@@ -4,6 +4,7 @@
   hosts: all
   become: true
   roles:
+    - software.configure.apt_mirror_client
     # - software.install.warmup.dot_files
     - software.install.warmup.basic_packages
 
