@@ -29,9 +29,9 @@ echo ":: stopping and deleting scenario VMs (keeping templates)..."
 echo ":: scenario VMs: ${SCENARIO_VM_IDS[*]}"
 echo ""
 
-VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1)
-if ! echo "$VM_LIST_JSON" | jq -e . >/dev/null 2>&1; then
-    echo "ERROR: proxmox_vm.list.to.jsons.sh returned invalid JSON — aborting" >&2
+VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
+if [ -z "$VM_LIST_JSON" ]; then
+    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) — aborting" >&2
     printf "output: %.200s\n" "$VM_LIST_JSON" >&2
     exit 1
 fi
