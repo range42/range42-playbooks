@@ -1,10 +1,32 @@
 #!/bin/bash
 
 ##
-## delete VMs only — keep templates
+## delete VMs only — scenario VMs (filter by vm_id), keep template
+##
+## VM IDs are read from the scenario manifest:
+##   manifest/scenario_vms.json
+##
+## Companions:
+##   - debug_scenario_a.delete_vms_only.sh (this) — VMs only, keep template
+##   - debug_scenario_a.delete_all.sh             — VMs + this scenario's template
 ##
 
-echo ":: stopping and deleting VMs (keeping templates)..."
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
+
+if [[ ! -f "$MANIFEST" ]]; then
+    echo "ERROR: manifest not found: $MANIFEST" >&2
+    exit 1
+fi
+
+# extract VM IDs + IPs from the manifest (template kept untouched)
+mapfile -t SCENARIO_VM_IDS  < <(jq -r '.vms[].vm_id' "$MANIFEST")
+mapfile -t INFRASTRUCTURE_IP < <(jq -r '.vms[].ip'   "$MANIFEST")
+ID_REGEX=$(printf '|%s' "${SCENARIO_VM_IDS[@]}" | sed 's/^|//')
+
+echo ":: stopping and deleting scenario VMs (keeping template)..."
+echo ":: scenario VMs: ${SCENARIO_VM_IDS[*]}"
+echo ""
 
 VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
 if [ -z "$VM_LIST_JSON" ]; then
@@ -12,12 +34,8 @@ if [ -z "$VM_LIST_JSON" ]; then
     printf "output: %.200s\n" "$VM_LIST_JSON" >&2
     exit 1
 fi
-echo "$VM_LIST_JSON" | jq -c | grep -vi "template-vm" | grep -vi '"vm_template":1' | proxmox_vm.vm_id.stop_force.to.jsons.sh
-echo "$VM_LIST_JSON" | jq -c | grep -vi "template-vm" | grep -vi '"vm_template":1' | proxmox_vm.vm_id.delete.to.jsons.sh
-
-INFRASTRUCTURE_IP=(
-    "192.168.147.250" # dsa-vm-01
-)
+echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
+echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
 
 for ip in "${INFRASTRUCTURE_IP[@]}"; do
     echo ":: REMOVE SSH KEY FOR : $ip"
@@ -25,6 +43,6 @@ for ip in "${INFRASTRUCTURE_IP[@]}"; do
 done
 
 echo ""
-echo ":: done — templates preserved"
+echo ":: done — template preserved"
 echo ":: redeploy with: range42-context deploy"
 echo ""
