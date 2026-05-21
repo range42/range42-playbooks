@@ -108,8 +108,8 @@ if [ -n "$inconsistent_templates" ]; then
 fi
 
 # 6. CROSS : vm_id collision between a template and a VM
-template_vmids=$(jq -r 'select(.role == "template") | .vm_id' "$OUT" | sort -un)
-vm_vmids=$(jq -r 'select(.role != "template") | .vm_id' "$OUT" | sort -un)
+template_vmids=$(jq -r 'select(.role == "template") | .vm_id' "$OUT" | sort -u)
+vm_vmids=$(jq -r 'select(.role != "template") | .vm_id' "$OUT" | sort -u)
 cross_vmid=$(comm -12 <(echo "$template_vmids") <(echo "$vm_vmids"))
 if [ -n "$cross_vmid" ]; then
     printf '%sFAIL:%s vm_id collision(s) between a template and a VM (cross-role):\n\n' "$RED" "$RESET"
