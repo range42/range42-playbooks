@@ -3,4 +3,4 @@
 ##
 ##
 
-echo '{"proxmox_node":"px-testing","vm_id":5100,"vm_snapshot_description":"base"}' | proxmox_snapshot_vm.vm_id.create_snapshot.to.jsons.sh
+echo '{"proxmox_node":"px-testing","vm_id":2120,"vm_snapshot_description":"base"}' | proxmox_snapshot_vm.vm_id.create_snapshot.to.jsons.sh

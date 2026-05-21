@@ -3,5 +3,5 @@
 ##
 ##
 
-echo '{"proxmox_node":"px-testing","vm_id":5100 }' | proxmox_snapshot_vm.vm_id.revert_snapshot.to.jsons.sh
-echo '{"proxmox_node":"px-testing","vm_id":5100 }' | proxmox_vm.vm_id.start.to.jsons.sh
+echo '{"proxmox_node":"px-testing","vm_id":2120 }' | proxmox_snapshot_vm.vm_id.revert_snapshot.to.jsons.sh
+echo '{"proxmox_node":"px-testing","vm_id":2120 }' | proxmox_vm.vm_id.start.to.jsons.sh
