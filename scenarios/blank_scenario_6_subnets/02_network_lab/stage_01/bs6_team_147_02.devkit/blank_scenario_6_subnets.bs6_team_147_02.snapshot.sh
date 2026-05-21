@@ -1,2 +1,2 @@
 #!/bin/bash
-echo '{"proxmox_node":"px-testing","vm_id":7018,"vm_snapshot_description":"base"}' | proxmox_snapshot_vm.vm_id.create_snapshot.to.jsons.sh
+echo '{"proxmox_node":"px-testing","vm_id":6018,"vm_snapshot_description":"base"}' | proxmox_snapshot_vm.vm_id.create_snapshot.to.jsons.sh
