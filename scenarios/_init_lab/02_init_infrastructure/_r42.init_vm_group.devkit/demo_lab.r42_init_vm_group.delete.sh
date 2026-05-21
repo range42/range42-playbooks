@@ -1,16 +1,10 @@
 #!/bin/bash
 
-VM_INFRASTRUCTURE_IP=(
-	"192.168.142.90" # init_vm_00
-	"192.168.142.91" # init_vm_01
-	"192.168.142.92" # init_vm_02
-	"192.168.142.93" # init_vm_03
-	#
-)
-for ip in "${VM_INFRASTRUCTURE_IP[@]}"; do
+while IFS= read -r line; do
+	ip="${line%% *}"
 	echo ":: REMOVE SSH KEY FOR : $ip"
 	ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
-done
+done < <(devkit_manifest.find_ips_by_role.to.text.sh "$0" "init")
 
 proxmox_vm.list.to.jsons.sh | grep -i -E "(init-vm)" | jq -c "." | proxmox_vm.vm_id.stop.to.jsons.sh
 proxmox_vm.list.to.jsons.sh | grep -i -E "(init-vm)" | proxmox_vm.vm_id.delete.to.jsons.sh

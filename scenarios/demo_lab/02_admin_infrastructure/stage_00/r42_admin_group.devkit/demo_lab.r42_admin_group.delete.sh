@@ -3,23 +3,11 @@
 ##
 ##
 
-VULN_BOX=(
-
-    "192.168.142.111" # testing-wazuh-client
-    #
-    "192.168.142.102" # admin-builder-api-devkit
-    "192.168.142.101" # admin-builder-docker-registry
-    "192.168.142.100" # admin-wazuh
-    "192.168.142.101" # admin-deployer-api-gateway
-    "192.168.142.102" # admin-deployer-api-backend
-    "192.168.142.103" # admin-deployer-ui
-    #
-)
-
-for ip in "${VULN_BOX[@]}"; do
+while IFS= read -r line; do
+    ip="${line%% *}"
     echo ":: REMOVE SSH KEY FOR : $ip"
     ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
-done
+done < <(devkit_manifest.find_ips_by_role.to.text.sh "$0" "admin")
 
 for line in $(proxmox_vm.list.to.jsons.sh | grep -i -E "(admin|testing-wazuh)" |
     jq -c "."); do
