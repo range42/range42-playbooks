@@ -39,20 +39,20 @@ Wazuh agents on student/ctf bridges reach the wazuh server (192.168.142.100) thr
 
 | VM | VM ID | IP |
 |----|-------|----|
-| admin-wazuh | 1000 | 192.168.142.100 |
-| admin-deployer-api-gateway | 1020 | 192.168.142.120 |
-| admin-deployer-api-backend | 1021 | 192.168.142.121 |
-| admin-deployer-ui | 1023 | 192.168.142.123 |
+| admin-wazuh | 1100 | 192.168.142.100 |
+| admin-deployer-api-gateway | 1101 | 192.168.142.101 |
+| admin-deployer-api-backend | 1102 | 192.168.142.102 |
+| admin-deployer-ui | 1103 | 192.168.142.103 |
 
 ### 04_ctf_infrastructure (vmbr144)
 
 | VM | VM ID | IP |
 |----|-------|----|
-| vuln-box-00 | 4000 | 192.168.144.170 |
-| vuln-box-01 | 4001 | 192.168.144.171 |
-| vuln-box-02 | 4002 | 192.168.144.172 |
-| vuln-box-03 | 4003 | 192.168.144.173 |
-| vuln-box-04 | 4004 | 192.168.144.174 |
+| vuln-box-00 | 1170 | 192.168.144.170 |
+| vuln-box-01 | 1171 | 192.168.144.171 |
+| vuln-box-02 | 1172 | 192.168.144.172 |
+| vuln-box-03 | 1173 | 192.168.144.173 |
+| vuln-box-04 | 1174 | 192.168.144.174 |
 
 ## Stages
 
