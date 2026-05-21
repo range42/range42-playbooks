@@ -2,9 +2,10 @@
 
 Network lab — 6 team subnets (4 VMs each) + admin subnet (wazuh + deployer platform). Total: 28 VMs.
 
-> Admin subnet uses **decaled IPs** `.140-.143` on `192.168.142.0/24` (vs bs2's `.100/.120-.123`
-> and bs4's `.130-.133`) so this scenario can be deployed **in parallel with bs2 and bs4**
-> on the same Proxmox host without collision.
+> Admin subnet uses dense IPs `.140-.143` on `192.168.142.0/24` (vs bs2's `.120-.123`
+> and bs4's `.130-.133`, and `demo_lab` admin on `.100-.103`) so this scenario can be
+> deployed **in parallel with bs2 / bs4 / demo_lab** on the same Proxmox host without
+> collision.
 
 ## How to deploy
 
@@ -54,21 +55,21 @@ range42-context deploy
 
 | Subnet | VMs | VM IDs | IPs |
 |--------|-----|--------|-----|
-| vmbr143 | bs6-team-143-{01..04} | 7001-7004 | 192.168.143.{220..223} |
-| vmbr144 | bs6-team-144-{01..04} | 7005-7008 | 192.168.144.{220..223} |
-| vmbr145 | bs6-team-145-{01..04} | 7009-7012 | 192.168.145.{220..223} |
-| vmbr146 | bs6-team-146-{01..04} | 7013-7016 | 192.168.146.{220..223} |
-| vmbr147 | bs6-team-147-{01..04} | 7017-7020 | 192.168.147.{220..223} |
-| vmbr148 | bs6-team-148-{01..04} | 7021-7024 | 192.168.148.{220..223} |
+| vmbr143 | bs6-team-143-{01..04} | 6001-6004 | 192.168.143.{220..223} |
+| vmbr144 | bs6-team-144-{01..04} | 6005-6008 | 192.168.144.{220..223} |
+| vmbr145 | bs6-team-145-{01..04} | 6009-6012 | 192.168.145.{220..223} |
+| vmbr146 | bs6-team-146-{01..04} | 6013-6016 | 192.168.146.{220..223} |
+| vmbr147 | bs6-team-147-{01..04} | 6017-6020 | 192.168.147.{220..223} |
+| vmbr148 | bs6-team-148-{01..04} | 6021-6024 | 192.168.148.{220..223} |
 
 ## Admin VMs
 
 | VM | VM ID | IP | Bridge |
 |----|-------|----|--------|
-| bs6-admin-wazuh | 7100 | 192.168.142.140 | vmbr142 |
-| bs6-admin-deployer-api-gateway | 7101 | 192.168.142.141 | vmbr142 |
-| bs6-admin-deployer-api-backend | 7102 | 192.168.142.142 | vmbr142 |
-| bs6-admin-deployer-ui | 7103 | 192.168.142.143 | vmbr142 |
+| bs6-admin-wazuh | 6140 | 192.168.142.140 | vmbr142 |
+| bs6-admin-deployer-api-gateway | 6141 | 192.168.142.141 | vmbr142 |
+| bs6-admin-deployer-api-backend | 6142 | 192.168.142.142 | vmbr142 |
+| bs6-admin-deployer-ui | 6143 | 192.168.142.143 | vmbr142 |
 
 Source of truth for VM IDs/IPs/bridges : [`manifest/scenario_vms.json`](manifest/scenario_vms.json).
 
