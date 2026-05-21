@@ -11,11 +11,11 @@ echo "$VM_LIST_JSON" | jq -c | proxmox_vm.vm_id.delete.to.jsons.sh
 
 
 VM_INFRASTRUCTURE_IP=(
-    "192.168.142.120" # init_vm_00
-    "192.168.142.121" # init_vm_01
-    "192.168.142.122" # init_vm_02
-    "192.168.142.123" # init_vm_03
-    "192.168.142.124" # init_vm_03
+    "192.168.142.90" # init_vm_00
+    "192.168.142.91" # init_vm_01
+    "192.168.142.92" # init_vm_02
+    "192.168.142.93" # init_vm_03
+    "192.168.142.94" # init_vm_03
     "192.168.142.125" # init_vm_03
     # 
 )

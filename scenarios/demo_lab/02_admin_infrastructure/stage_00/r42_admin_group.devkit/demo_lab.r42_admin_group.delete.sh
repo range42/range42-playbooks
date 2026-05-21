@@ -10,9 +10,9 @@ VULN_BOX=(
     "192.168.142.102" # admin-builder-api-devkit
     "192.168.142.101" # admin-builder-docker-registry
     "192.168.142.100" # admin-wazuh
-    "192.168.142.120" # admin-deployer-api-gateway
-    "192.168.142.121" # admin-deployer-api-backend
-    "192.168.142.123" # admin-deployer-ui
+    "192.168.142.101" # admin-deployer-api-gateway
+    "192.168.142.102" # admin-deployer-api-backend
+    "192.168.142.103" # admin-deployer-ui
     #
 )
 

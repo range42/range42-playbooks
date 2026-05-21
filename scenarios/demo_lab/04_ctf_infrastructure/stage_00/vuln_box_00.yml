@@ -3,7 +3,7 @@
 # PROMOX INIT INFRASTRUCTURE - VULN-BOX
 #
 #   hostname : vuln-box-00
-#   vm_id    : 4000
+#   vm_id    : 1170
 #   cpu core : 1
 #   ram      : 4g
 #   disk     : 32g

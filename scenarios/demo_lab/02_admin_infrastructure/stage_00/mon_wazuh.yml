@@ -3,7 +3,7 @@
 # PROMOX INIT INFRASTRUCTURE - ADMIN
 #
 #   hostname : admin-wazuh
-#   vm_id    : 1000
+#   vm_id    : 1100
 #   cpu core : 1
 #   ram      : 2g
 #   disk     : 24g
@@ -25,7 +25,7 @@
     #
     # variables will be overwrited by values  in _main.yml
     #
-    # global_vm_id: 1000
+    # global_vm_id: 1100
     # global_vm_name: "admin-wazuh"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"

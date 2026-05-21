@@ -1,17 +1,18 @@
 {
   "scenario": "demo_lab",
-  "version": 1,
-  "description": "Reference demo lab — 1 admin subnet (192.168.142.0/24) + 1 CTF subnet (192.168.144.0/24). Deploys 4 admin VMs (wazuh + deployer platform: api-gateway, api-backend, ui) + 5 vuln boxes. Student infrastructure import is currently disabled in main.yml — re-enable and update this manifest accordingly if you uncomment it.",
+  "version": 2,
+  "description": "Reference demo lab — admin subnet (192.168.142.0/24, dense .100-.103) + student subnet (192.168.143.0/24, .160) + CTF subnet (192.168.144.0/24, .170-.174). Deploys 4 admin VMs (wazuh + deployer platform: api-gateway, api-backend, ui), 1 student VM, and 5 vuln boxes. vm_id range: 1xxx (1100-1103 admin, 1160 student, 1170-1174 ctf), aligned with project rule `vm_id last 3 digits = IP last octet` for single-subnet VMs. Student infrastructure import in main.yml may be commented out — the manifest still lists student-box-01 because the vm_id and IP slot is reserved.",
   "vms": [
-    {"vm_id": 1000, "vm_name": "admin-wazuh",                   "ip": "192.168.142.100", "role": "admin", "bridge": "vmbr142"},
-    {"vm_id": 1020, "vm_name": "admin-deployer-api-gateway",    "ip": "192.168.142.120", "role": "admin", "bridge": "vmbr142"},
-    {"vm_id": 1021, "vm_name": "admin-deployer-api-backend",    "ip": "192.168.142.121", "role": "admin", "bridge": "vmbr142"},
-    {"vm_id": 1023, "vm_name": "admin-deployer-ui",             "ip": "192.168.142.123", "role": "admin", "bridge": "vmbr142"},
-    {"vm_id": 4000, "vm_name": "vuln-box-00",                   "ip": "192.168.144.170", "role": "ctf",   "bridge": "vmbr144"},
-    {"vm_id": 4001, "vm_name": "vuln-box-01",                   "ip": "192.168.144.171", "role": "ctf",   "bridge": "vmbr144"},
-    {"vm_id": 4002, "vm_name": "vuln-box-02",                   "ip": "192.168.144.172", "role": "ctf",   "bridge": "vmbr144"},
-    {"vm_id": 4003, "vm_name": "vuln-box-03",                   "ip": "192.168.144.173", "role": "ctf",   "bridge": "vmbr144"},
-    {"vm_id": 4004, "vm_name": "vuln-box-04",                   "ip": "192.168.144.174", "role": "ctf",   "bridge": "vmbr144"}
+    {"vm_id": 1100, "vm_name": "admin-wazuh",                "ip": "192.168.142.100", "role": "admin",   "bridge": "vmbr142"},
+    {"vm_id": 1101, "vm_name": "admin-deployer-api-gateway", "ip": "192.168.142.101", "role": "admin",   "bridge": "vmbr142"},
+    {"vm_id": 1102, "vm_name": "admin-deployer-api-backend", "ip": "192.168.142.102", "role": "admin",   "bridge": "vmbr142"},
+    {"vm_id": 1103, "vm_name": "admin-deployer-ui",          "ip": "192.168.142.103", "role": "admin",   "bridge": "vmbr142"},
+    {"vm_id": 1160, "vm_name": "student-box-01",             "ip": "192.168.143.160", "role": "student", "bridge": "vmbr143"},
+    {"vm_id": 1170, "vm_name": "vuln-box-00",                "ip": "192.168.144.170", "role": "ctf",     "bridge": "vmbr144"},
+    {"vm_id": 1171, "vm_name": "vuln-box-01",                "ip": "192.168.144.171", "role": "ctf",     "bridge": "vmbr144"},
+    {"vm_id": 1172, "vm_name": "vuln-box-02",                "ip": "192.168.144.172", "role": "ctf",     "bridge": "vmbr144"},
+    {"vm_id": 1173, "vm_name": "vuln-box-03",                "ip": "192.168.144.173", "role": "ctf",     "bridge": "vmbr144"},
+    {"vm_id": 1174, "vm_name": "vuln-box-04",                "ip": "192.168.144.174", "role": "ctf",     "bridge": "vmbr144"}
   ],
   "templates": [
     {"vm_id": 9901, "vm_name": "template-vm-nano",                  "spec": "1cpu/1gb/16gb",  "ip": "192.168.140.201", "bridge": "vmbr140"},

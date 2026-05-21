@@ -1,13 +1,13 @@
 {
   "scenario": "_init_lab",
-  "version": 1,
-  "description": "Bootstrap scenario that creates the ubuntu_noble template family and brings up small init VMs (1000-1004) on the admin subnet (192.168.142.0/24) to verify the templates work end-to-end before real scenarios are deployed. Init VMs are ephemeral and intended to be deleted after the bootstrap completes.",
+  "version": 2,
+  "description": "Bootstrap scenario that creates the ubuntu_noble template family and brings up 5 small init VMs (900-904) on the admin subnet (192.168.142.0/24, dense .90-.94) to verify the templates work end-to-end before real scenarios are deployed. Init VMs are ephemeral and intended to be deleted after the bootstrap completes. vm_id range: 900-999, aligned with project rule `vm_id last 2 digits = IP last 2 digits` for these small 2-digit IPs.",
   "vms": [
-    {"vm_id": 1000, "vm_name": "init-vm-00", "ip": "192.168.142.120", "role": "init", "bridge": "vmbr142"},
-    {"vm_id": 1001, "vm_name": "init-vm-01", "ip": "192.168.142.121", "role": "init", "bridge": "vmbr142"},
-    {"vm_id": 1002, "vm_name": "init-vm-02", "ip": "192.168.142.122", "role": "init", "bridge": "vmbr142"},
-    {"vm_id": 1003, "vm_name": "init-vm-03", "ip": "192.168.142.123", "role": "init", "bridge": "vmbr142"},
-    {"vm_id": 1004, "vm_name": "init-vm-04", "ip": "192.168.142.124", "role": "init", "bridge": "vmbr142"}
+    {"vm_id": 900, "vm_name": "init-vm-00", "ip": "192.168.142.90", "role": "init", "bridge": "vmbr142"},
+    {"vm_id": 901, "vm_name": "init-vm-01", "ip": "192.168.142.91", "role": "init", "bridge": "vmbr142"},
+    {"vm_id": 902, "vm_name": "init-vm-02", "ip": "192.168.142.92", "role": "init", "bridge": "vmbr142"},
+    {"vm_id": 903, "vm_name": "init-vm-03", "ip": "192.168.142.93", "role": "init", "bridge": "vmbr142"},
+    {"vm_id": 904, "vm_name": "init-vm-04", "ip": "192.168.142.94", "role": "init", "bridge": "vmbr142"}
   ],
   "templates": [
     {"vm_id": 9901, "vm_name": "template-vm-nano",                  "spec": "1cpu/1gb/16gb",  "ip": "192.168.140.201", "bridge": "vmbr140"},

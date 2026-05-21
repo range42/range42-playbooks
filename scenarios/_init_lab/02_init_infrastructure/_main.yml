@@ -11,10 +11,10 @@
   vars:
     global_vm_name: "init-vm-00"
     global_vm_ssh_name: "r42.init-vm-00"
-    global_vm_id: 1000
+    global_vm_id: 900
     global_vm_description: ""
     global_vm_tag_name: "init-vm-00"
-    global_vm_ci_ip: "192.168.142.120"
+    global_vm_ci_ip: "192.168.142.90"
     global_vm_ci_netmask: "24"
     global_vm_ci_gw: "192.168.142.1"
     #
@@ -26,10 +26,10 @@
   vars:
     global_vm_name: "init-vm-01"
     global_vm_ssh_name: "r42.init-vm-01"
-    global_vm_id: 1001
+    global_vm_id: 901
     global_vm_description: ""
     global_vm_tag_name: "init-vm-01"
-    global_vm_ci_ip: "192.168.142.121"
+    global_vm_ci_ip: "192.168.142.91"
     global_vm_ci_netmask: "24"
     global_vm_ci_gw: "192.168.142.1"
 
@@ -42,10 +42,10 @@
   vars:
     global_vm_name: "init-vm-02"
     global_vm_ssh_name: "r42.init-vm-02"
-    global_vm_id: 1002
+    global_vm_id: 902
     global_vm_description: ""
     global_vm_tag_name: "init-vm-02"
-    global_vm_ci_ip: "192.168.142.122"
+    global_vm_ci_ip: "192.168.142.92"
     global_vm_ci_netmask: "24"
     global_vm_ci_gw: "192.168.142.1"
     #
@@ -57,10 +57,10 @@
   vars:
     global_vm_name: "init-vm-03"
     global_vm_ssh_name: "r42.init-vm-03"
-    global_vm_id: 1003
+    global_vm_id: 903
     global_vm_description: ""
     global_vm_tag_name: "init-vm-03"
-    global_vm_ci_ip: "192.168.142.123"
+    global_vm_ci_ip: "192.168.142.93"
     global_vm_ci_netmask: "24"
     global_vm_ci_gw: "192.168.142.1"
     #
@@ -72,10 +72,10 @@
   vars:
     global_vm_name: "init-vm-04"
     global_vm_ssh_name: "r42.init-vm-04"
-    global_vm_id: 1004
+    global_vm_id: 904
     global_vm_description: ""
     global_vm_tag_name: "init-vm-04"
-    global_vm_ci_ip: "192.168.142.124"
+    global_vm_ci_ip: "192.168.142.94"
     global_vm_ci_netmask: "24"
     global_vm_ci_gw: "192.168.142.1"
     #
