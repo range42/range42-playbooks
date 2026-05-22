@@ -3,7 +3,7 @@
 # BLANK SCENARIO — NETWORK LAB
 #
 #   hostname : bs6-team-148-04
-#   vm_id    : 7024
+#   vm_id    : 6024
 #   ip       : 192.168.148.223
 #   bridge   : vmbr148
 #   template : template-vm-small-01-4g-32g - id : 9221

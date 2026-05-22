@@ -13,7 +13,7 @@
     global_vm_name: "vuln-box-00"
     global_vm_ssh_name: "r42.vuln-box-00"
     # global_vm_ssh_name: "r42.{{ global_vm_name }}"
-    global_vm_id: 4000
+    global_vm_id: 1170
     global_vm_description: "demo - vuln-box-00"
     global_vm_tag_name: "admin"
     global_vm_ci_ip: "192.168.144.170"
@@ -30,7 +30,7 @@
     global_vm_name: "vuln-box-01"
     global_vm_ssh_name: "r42.vuln-box-01"
     # global_vm_ssh_name: "r42.{{ global_vm_name }}"
-    global_vm_id: 4001
+    global_vm_id: 1171
     global_vm_description: "demo - vuln-box-01"
     global_vm_tag_name: "admin"
     global_vm_ci_ip: "192.168.144.171"
@@ -47,7 +47,7 @@
     global_vm_name: "vuln-box-02"
     global_vm_ssh_name: "r42.vuln-box-02"
     # global_vm_ssh_name: "r42.{{ global_vm_name }}"
-    global_vm_id: 4002
+    global_vm_id: 1172
     global_vm_description: "demo - vuln-box-02"
     global_vm_tag_name: "admin"
     global_vm_ci_ip: "192.168.144.172"
@@ -64,7 +64,7 @@
     global_vm_name: "vuln-box-03"
     global_vm_ssh_name: "r42.vuln-box-03"
     # global_vm_ssh_name: "r42.{{ global_vm_name }}"
-    global_vm_id: 4003
+    global_vm_id: 1173
     global_vm_description: "demo - vuln-box-03"
     global_vm_tag_name: "admin"
     global_vm_ci_ip: "192.168.144.173"
@@ -81,7 +81,7 @@
     global_vm_name: "vuln-box-04"
     global_vm_ssh_name: "r42.vuln-box-04"
     # global_vm_ssh_name: "r42.{{ global_vm_name }}"
-    global_vm_id: 4004
+    global_vm_id: 1174
     global_vm_description: "demo - vuln-box-04"
     global_vm_tag_name: "admin"
     global_vm_ci_ip: "192.168.144.174"
