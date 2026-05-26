@@ -86,13 +86,13 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- hosts: proxmox-cli
+- hosts: proxmox_cli
   gather_facts: false
   vars_files:
     - "../../../secrets/default_vault.yml"
 
   tasks:
-    - name: TEMPLATE 9212 - CHECK if already template (proxmox-cli play)
+    - name: TEMPLATE 9212 - CHECK if already template (proxmox_cli play)
       ansible.builtin.shell: qm config 9212 2>/dev/null | grep -q '^template:'
       register: tpl_9212_is_template
       failed_when: false

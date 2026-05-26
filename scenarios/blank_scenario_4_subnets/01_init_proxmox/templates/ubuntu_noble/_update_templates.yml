@@ -11,10 +11,10 @@
 ##   6. converts each VM to a template (qm template <id>)
 ##
 ## Reads VM IDs from the scenario manifest (manifest/scenario_vms.json).
-## Runs entirely on `proxmox-cli` (= the Proxmox host itself), no SSH involved.
+## Runs entirely on `proxmox_cli` (= the Proxmox host itself), no SSH involved.
 ##
 
-- hosts: proxmox-cli
+- hosts: proxmox_cli
   gather_facts: false
   vars_files:
     - "../../../secrets/default_vault.yml"
