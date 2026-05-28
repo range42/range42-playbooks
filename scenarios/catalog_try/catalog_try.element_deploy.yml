@@ -115,21 +115,33 @@
         - catalog_try_mode == 'service'
         - catalog_try_port | default('') | length > 0
 
-    # L1 fallback - docker ps shows at least one container
-    - name: smoke check - L1 fallback (docker ps)
+    # L1 fallback - oneshot mode (no exit_signature) : check container ran via
+    # `docker ps -a` (includes exited containers ; hello-world exits in <1s so
+    # plain `docker ps` would already be empty by smoke time).
+    - name: smoke check - L1 oneshot fallback (docker ps -a)
+      become: true
+      ansible.builtin.shell: "docker ps -a --format '{{ '{{' }}.Names{{ '}}' }} {{ '{{' }}.Status{{ '}}' }}'"
+      register: smoke_l1_oneshot
+      changed_when: false
+      failed_when: smoke_l1_oneshot.stdout | length == 0
+      when:
+        - catalog_try_mode == 'oneshot'
+        - catalog_try_exit_signature | default('') | length == 0
+
+    # L1 fallback - service mode (no port) : check container is still running
+    # via `docker ps` (running only - dead service = failure).
+    - name: smoke check - L1 service fallback (docker ps)
       become: true
       ansible.builtin.shell: "docker ps --format '{{ '{{' }}.Names{{ '}}' }} {{ '{{' }}.Status{{ '}}' }}'"
-      register: smoke_l1
+      register: smoke_l1_service
       changed_when: false
-      failed_when: smoke_l1.stdout | length == 0
+      failed_when: smoke_l1_service.stdout | length == 0
       when:
-        - (catalog_try_mode == 'oneshot' and (catalog_try_exit_signature | default('') | length == 0)) or
-          (catalog_try_mode == 'service' and (catalog_try_port | default('') | length == 0))
+        - catalog_try_mode == 'service'
+        - catalog_try_port | default('') | length == 0
 
-    - name: smoke L1 - display container list
+    - name: smoke L1 - display container list (whichever ran)
       ansible.builtin.debug:
-        msg: "{{ smoke_l1.stdout_lines }}"
-      when:
-        - smoke_l1 is defined
-        - smoke_l1.stdout is defined
-        - smoke_l1.stdout | length > 0
+        msg: "{{ (smoke_l1_oneshot.stdout_lines if smoke_l1_oneshot.stdout is defined else smoke_l1_service.stdout_lines) | default([]) }}"
+      when: (smoke_l1_oneshot.stdout is defined and smoke_l1_oneshot.stdout | length > 0) or
+            (smoke_l1_service.stdout is defined and smoke_l1_service.stdout | length > 0)
