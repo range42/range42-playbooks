@@ -1,0 +1,135 @@
+---
+##
+## catalog_try - element deploy (copy + run + smoke check)
+##
+## Invoked by `range42-context catalog-try <path>` after the test VM is up.
+## Replaces the ssh / scp / docker shell calls previously done in
+## _r42_catalog_try (range42-context.sh).
+##
+## All docker operations use become:true (passwordless sudo on alice). The
+## file copy stays as alice (no become) so the catalog files are user-owned
+## and inspectable via `range42-context ssh r42.catalog-try-vm-docker`.
+##
+## Required extra-vars :
+##   catalog_try_element_src      : absolute path to the catalog element dir
+##   catalog_try_mode             : "oneshot" | "service"
+##   catalog_try_use_makefile     : "true" | "false"
+##   vm_ip                        : VM IP (used by HTTP smoke check)
+##
+## Optional extra-vars :
+##   catalog_try_exit_signature   : string (oneshot mode)
+##   catalog_try_port             : int    (service mode)
+##   catalog_try_endpoint         : string (service mode, default "/")
+##   catalog_try_init_timeout     : int seconds (default 60, max 600)
+##
+
+- hosts: r42_catalog_try_group
+  gather_facts: false
+  become: false
+
+  vars:
+    catalog_try_remote_dir: "/home/alice/catalog-try-element"
+    _ct_endpoint: "{{ catalog_try_endpoint | default('/') }}"
+    _ct_timeout: "{{ [(catalog_try_init_timeout | default(60) | int), 600] | min }}"
+    _ct_retries: "{{ ((_ct_timeout | int) / 5) | int }}"
+    _ct_use_make: "{{ catalog_try_use_makefile | default(false) | bool }}"
+
+  pre_tasks:
+    - name: assert required vars
+      ansible.builtin.assert:
+        that:
+          - catalog_try_element_src is defined
+          - catalog_try_element_src | length > 0
+          - catalog_try_mode is defined
+          - catalog_try_mode in ['oneshot', 'service']
+
+  tasks:
+
+    # ===== COPY =====
+
+    - name: ensure remote element dir exists
+      ansible.builtin.file:
+        path: "{{ catalog_try_remote_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: copy catalog element to test VM
+      ansible.builtin.copy:
+        src: "{{ catalog_try_element_src }}/"
+        dest: "{{ catalog_try_remote_dir }}/"
+        mode: preserve
+
+    # ===== RUN =====
+
+    - name: run element - Makefile detected
+      become: true
+      ansible.builtin.shell: make up
+      args:
+        chdir: "{{ catalog_try_remote_dir }}"
+      when: _ct_use_make | bool
+
+    - name: run element - docker compose (oneshot, foreground)
+      become: true
+      ansible.builtin.shell: docker compose up --abort-on-container-exit
+      args:
+        chdir: "{{ catalog_try_remote_dir }}"
+      when:
+        - not (_ct_use_make | bool)
+        - catalog_try_mode == 'oneshot'
+
+    - name: run element - docker compose (service, detached)
+      become: true
+      ansible.builtin.shell: docker compose up -d
+      args:
+        chdir: "{{ catalog_try_remote_dir }}"
+      when:
+        - not (_ct_use_make | bool)
+        - catalog_try_mode == 'service'
+
+    # ===== SMOKE CHECK =====
+
+    # L2 oneshot - grep exit_signature in container logs
+    - name: smoke check - oneshot exit_signature
+      become: true
+      ansible.builtin.shell: "docker compose logs 2>&1 | grep -F -- '{{ catalog_try_exit_signature }}'"
+      args:
+        chdir: "{{ catalog_try_remote_dir }}"
+      register: smoke_signature
+      changed_when: false
+      when:
+        - catalog_try_mode == 'oneshot'
+        - catalog_try_exit_signature | default('') | length > 0
+
+    # L2 service - poll HTTP endpoint from deployer-cli with retries
+    - name: smoke check - service HTTP polling
+      ansible.builtin.uri:
+        url: "http://{{ vm_ip }}:{{ catalog_try_port }}{{ _ct_endpoint }}"
+        status_code: 200
+        timeout: 5
+      register: smoke_http
+      retries: "{{ _ct_retries | int }}"
+      delay: 5
+      until: smoke_http.status == 200
+      delegate_to: localhost
+      when:
+        - catalog_try_mode == 'service'
+        - catalog_try_port | default('') | length > 0
+
+    # L1 fallback - docker ps shows at least one container
+    - name: smoke check - L1 fallback (docker ps)
+      become: true
+      ansible.builtin.shell: "docker ps --format '{{ '{{' }}.Names{{ '}}' }} {{ '{{' }}.Status{{ '}}' }}'"
+      register: smoke_l1
+      changed_when: false
+      failed_when: smoke_l1.stdout | length == 0
+      when:
+        - (catalog_try_mode == 'oneshot' and (catalog_try_exit_signature | default('') | length == 0)) or
+          (catalog_try_mode == 'service' and (catalog_try_port | default('') | length == 0))
+
+    - name: smoke L1 - display container list
+      ansible.builtin.debug:
+        msg: "{{ smoke_l1.stdout_lines }}"
+      when:
+        - smoke_l1 is defined
+        - smoke_l1.stdout is defined
+        - smoke_l1.stdout | length > 0
