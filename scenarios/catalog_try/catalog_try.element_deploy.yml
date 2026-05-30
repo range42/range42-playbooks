@@ -59,6 +59,37 @@
         dest: "{{ catalog_try_remote_dir }}/"
         mode: preserve
 
+    # ===== ENV SEED =====
+    # If the element ships a `.env.example` (standard Docker pattern, used by
+    # docker-compose `${VAR:?...}` or `${VAR:-...}` interpolation) and no `.env`
+    # is already present, seed `.env` from `.env.example`. Compose then picks
+    # up the operator-intended defaults without the operator having to
+    # `cp .env.example .env` by hand on the catalog-try VM.
+    #
+    # `.env` always wins over `.env.example` : if the contributor shipped a
+    # real `.env` (rare), the copy step above already placed it on the VM
+    # and this seed task skips.
+
+    - name: detect .env.example on remote
+      ansible.builtin.stat:
+        path: "{{ catalog_try_remote_dir }}/.env.example"
+      register: _ct_env_example
+
+    - name: detect existing .env on remote
+      ansible.builtin.stat:
+        path: "{{ catalog_try_remote_dir }}/.env"
+      register: _ct_env_existing
+
+    - name: seed .env from .env.example (when present and .env absent)
+      ansible.builtin.copy:
+        src: "{{ catalog_try_remote_dir }}/.env.example"
+        dest: "{{ catalog_try_remote_dir }}/.env"
+        remote_src: true
+        mode: '0644'
+      when:
+        - _ct_env_example.stat.exists
+        - not _ct_env_existing.stat.exists
+
     # ===== RUN =====
 
     - name: run element - Makefile detected
