@@ -43,6 +43,31 @@
           - catalog_try_mode is defined
           - catalog_try_mode in ['oneshot', 'service']
 
+    # Load catalog_try.yml directly via Ansible's native YAML parser (handles
+    # int, list, nested, anything) instead of relying on the shell-side
+    # grep/sed parser in range42-context.sh which can only extract scalar
+    # inline values. Loaded into the `_ct_yml` namespace to avoid clashing
+    # with the extra-vars passed by the shell (those have higher precedence
+    # than include_vars per Ansible's variable precedence rules).
+    - name: load catalog_try.yml from element source (controller-side)
+      ansible.builtin.include_vars:
+        file: "{{ catalog_try_element_src }}/catalog_try.yml"
+        name: _ct_yml
+      delegate_to: localhost
+      when: catalog_try_element_src is defined
+
+    # Normalise `_ct_yml.catalog_try_port` to a list. The element-side
+    # `catalog_try.yml` may use single int (legacy : `catalog_try_port: 3000`)
+    # OR list syntax (future-friendly : `catalog_try_port: [3000, 2222]`). Both
+    # supported transparently. `set_fact` preserves native types (the value
+    # stored in `_ct_ports` is an actual Python list, iterable by `loop:`).
+    - name: compute _ct_ports (normalised port list from catalog_try.yml)
+      ansible.builtin.set_fact:
+        _ct_ports: >-
+          {{ [_ct_yml.catalog_try_port]
+             if (_ct_yml is defined and _ct_yml.catalog_try_port is defined and _ct_yml.catalog_try_port is integer)
+             else (_ct_yml.catalog_try_port if (_ct_yml is defined and _ct_yml.catalog_try_port is defined) else []) }}
+
   tasks:
 
     # ===== COPY =====
@@ -125,14 +150,15 @@
     # the smoke check fires. Rule persists for the lifetime of the disposable
     # VM (no cleanup needed - the VM is destroyed on next catalog-try run).
 
-    - name: firewall - allow catalog_try_port through UFW (service mode)
+    - name: firewall - allow catalog_try ports through UFW (service mode)
       become: true
-      ansible.builtin.command: "ufw allow {{ catalog_try_port }}/tcp"
+      ansible.builtin.command: "ufw allow {{ item }}/tcp"
       register: _ct_ufw_result
       changed_when: "'Rules updated' in (_ct_ufw_result.stdout | default(''))"
+      loop: "{{ _ct_ports }}"
       when:
         - catalog_try_mode == 'service'
-        - catalog_try_port | default('') | length > 0
+        - _ct_ports | length > 0
 
     # ===== SMOKE CHECK =====
 
@@ -148,20 +174,37 @@
         - catalog_try_mode == 'oneshot'
         - catalog_try_exit_signature | default('') | length > 0
 
-    # L2 service - poll HTTP endpoint from deployer-cli with retries
-    - name: smoke check - service HTTP polling
-      ansible.builtin.uri:
-        url: "http://{{ vm_ip }}:{{ catalog_try_port }}{{ _ct_endpoint }}"
-        status_code: 200
-        timeout: 5
-      register: smoke_http
+    # L2 service - verify container is running AND ALL declared ports are listening.
+    # Replaces the previous HTTP poll which exposed catalog-try smoke to
+    # cross-cutting filter concerns (UFW, Host header trust, OAuth callbacks).
+    # The check runs locally on the catalog-try VM (no delegate_to: localhost),
+    # so it bypasses host-network filters entirely.
+    #   1. `docker ps --filter status=running` : at least one container of the
+    #      compose stack is RUNNING (stricter than L1 `docker ps -a` which also
+    #      counts exited containers).
+    #   2. For EACH port in `_ct_ports` : `ss -tplln | grep ':<port>'` confirms
+    #      the port is bound on the host (Docker port-mapping is live + the
+    #      service inside the container has actually started listening). All
+    #      ports must pass ; a single missing port fails the smoke.
+    # Retries until both conditions pass OR `_ct_retries` exhausted.
+    - name: smoke check - service container running + all declared ports listening
+      become: true
+      ansible.builtin.shell: |
+        set -e
+        docker ps --filter "status=running" --format '{{ '{{' }}.Names{{ '}}' }}' | grep -q .
+        {% for p in _ct_ports %}
+        ss -tplln | grep -qE ':{{ p }}\b'
+        {% endfor %}
+      args:
+        chdir: "{{ catalog_try_remote_dir }}"
+      register: smoke_listen
+      changed_when: false
       retries: "{{ _ct_retries | int }}"
       delay: 5
-      until: smoke_http.status == 200
-      delegate_to: localhost
+      until: smoke_listen.rc == 0
       when:
         - catalog_try_mode == 'service'
-        - catalog_try_port | default('') | length > 0
+        - _ct_ports | length > 0
 
     # L1 default fallback : runs whenever NO specific contract applies
     # (no exit_signature for oneshot, no port for service). Uses `docker ps -a`
