@@ -30,6 +30,12 @@ class VmidProtectedError(Exception):
     vmid: int
     reason: str
 
+    def __post_init__(self) -> None:
+        # @dataclass does not call Exception.__init__, so without this
+        # str(self)/self.args would be empty — silently dropping context from
+        # any consumer that logs the exception message directly.
+        super().__init__(f"VMID {self.vmid} in protected range ({self.reason})")
+
     @property
     def details(self) -> list[dict[str, str]]:
         return [

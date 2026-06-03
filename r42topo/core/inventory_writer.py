@@ -189,5 +189,5 @@ def write_inventory(
 
     inv = {"all": {"children": children}}
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(yaml.safe_dump(inv, sort_keys=False))
+    dest.write_text(yaml.safe_dump(inv, sort_keys=False), encoding="utf-8")
     return dest

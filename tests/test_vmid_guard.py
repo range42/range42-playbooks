@@ -48,6 +48,13 @@ def test_filter_safe_vmids_partitions():
     assert blocked == [100, 9000]
 
 
+def test_error_is_self_describing():
+    # @dataclass does not populate Exception.args; __post_init__ must, so a
+    # consumer that logs str(exc) gets the vmid + range, not an empty string.
+    err = VmidProtectedError(vmid=100, reason="100-101")
+    assert str(err) == "VMID 100 in protected range (100-101)"
+
+
 def test_default_ranges_exported():
     # Sanity: explicitly protect 100-101 per user memory (pmg01, zbx01).
     assert (100, 101) in DEFAULT_PROTECTED_RANGES

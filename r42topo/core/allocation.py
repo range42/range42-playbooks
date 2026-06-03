@@ -23,8 +23,11 @@ def _is_protected(v: int, host_overrides: list[list[int]] | None) -> bool:
         if lo <= v <= hi:
             return True
     if host_overrides:
-        for lo, hi in host_overrides:
-            if lo <= v <= hi:
+        # Mirror vmid_guard._effective_ranges' defensiveness (len-guard + int
+        # cast) so the two protected-range checks cannot diverge on the same
+        # input. The canonical schema constrains overrides to [int, int] pairs.
+        for pair in host_overrides:
+            if len(pair) == 2 and int(pair[0]) <= v <= int(pair[1]):
                 return True
     return False
 

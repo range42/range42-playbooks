@@ -21,14 +21,17 @@ else ``warn`` if any warns, else ``pass``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from r42topo.core.vmid_guard import VmidProtectedError, assert_vmid_safe
+
+Result = Literal["pass", "warn", "block"]
 
 
 @dataclass
 class PreflightCheck:
     check: str
-    result: str  # pass | warn | block
+    result: Result
     detail: str = ""
     field_path: str | None = None
     code: str | None = None
@@ -39,7 +42,7 @@ class PreflightReport:
     checks: list[PreflightCheck] = field(default_factory=list)
 
     @property
-    def result(self) -> str:
+    def result(self) -> Result:
         if any(c.result == "block" for c in self.checks):
             return "block"
         if any(c.result == "warn" for c in self.checks):
@@ -99,7 +102,7 @@ def check_resource_budget(
 
 
 def check_secret_completeness(
-    env: list[dict], provided: dict[str, str]
+    env: list[dict], provided: dict[str, str] | None
 ) -> PreflightCheck:
     missing = [
         e["name"]

@@ -137,6 +137,41 @@ def test_skips_non_host_node_kinds(tmp_path):
         "Network nodes must not appear as inventory hosts"
 
 
+def test_wazuh_agent_attachment_adds_client_membership(tmp_path):
+    """A node carrying a wazuh-agent catalog_role attachment is also listed
+    (membership-only, no host vars) under r42_admin_wazuh_clients."""
+    topology = {
+        "schema_version": "1.0",
+        "kind": "gamenet",
+        "naming_prefix": "wz",
+        "bridge_base": 140,
+        "nodes": [
+            {
+                "id": "trainee", "kind": "vm", "role": "team",
+                "replication": {"scope": "per_team"},
+                "template_vmid": 9020,
+                "attachments": [
+                    {"source": {"kind": "catalog_role",
+                                "ref": "software.install.wazuh-agent"},
+                     "stage": "install"},
+                ],
+            }
+        ],
+    }
+    out = tmp_path / "hosts.yml"
+    write_inventory(
+        topology=topology, team_count=2, codename="WZ",
+        proxmox_address="10.0.0.1", ssh_keys_dir=tmp_path / "ssh_keys", dest=out,
+    )
+    inv = yaml.safe_load(out.read_text())
+    clients = inv["all"]["children"]["r42_admin_wazuh_clients"]["hosts"]
+    # One membership entry per team, each with no host vars.
+    assert len(clients) == 2
+    assert all(v == {} for v in clients.values())
+    assert any("1-trainee" in h for h in clients)
+    assert any("2-trainee" in h for h in clients)
+
+
 def test_rejects_node_without_role(tmp_path):
     """VM/LXC nodes MUST have a role; preflight catches this but inventory_writer
     is also a defense layer."""
