@@ -164,6 +164,36 @@ def test_stage01_lists_role_names_not_copied_code(rendered):
     assert "ansible.builtin." not in stage01
 
 
+def test_stage01_emits_attachment_params_as_vars(fake_catalog, spec_factory, tmp_path):
+    """An attachment's params (e.g. firewall_rules) land in its stage_01 play's vars."""
+    spec = ScenarioSpec.model_validate(spec_factory(boxes=[{
+        "template": "vuln-box",
+        "attachments_add": [{
+            "kind": "role", "catalog_ref": "software.configure.firewalls",
+            "params": {"firewall_rules": [{"ip": "all", "port": 8080, "protocol": "tcp"}]},
+        }],
+    }]))
+    root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, dest=tmp_path / "s")
+    stage01 = _read(root, "04_ctf_infrastructure/stage_01/vuln-box.yml")
+    assert "- software.configure.firewalls" in stage01
+    assert "firewall_rules:" in stage01
+    assert "port: 8080" in stage01
+
+
+def test_stage01_container_attachment_emits_docker_compose_play(fake_catalog, spec_factory, tmp_path):
+    """A container attachment renders a docker-compose play wiring the stack."""
+    spec = ScenarioSpec.model_validate(spec_factory(boxes=[{
+        "template": "vuln-box",
+        "attachments_add": [{"kind": "container", "catalog_ref": "cve/web/dvwa", "params": {}}],
+    }]))
+    root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, dest=tmp_path / "s")
+    stage01 = _read(root, "04_ctf_infrastructure/stage_01/vuln-box.yml")
+    assert "- software.configure.docker-compose" in stage01
+    assert "cve/web/dvwa" in stage01                       # stack path wired
+    assert "RANGE42_INVENTORY__DOCKER__CTF" in stage01     # env-based project dir
+    assert "LABEL_PROJET_NAME: dvwa" in stage01
+
+
 def test_stage01_without_roles_is_valid_noop_play(rendered):
     """A box with no role attachments gets a deployable no-op play, NOT a bare [].
 

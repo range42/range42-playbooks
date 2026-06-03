@@ -121,19 +121,24 @@ STAGE00_CLONE = """\
 
 # --- stage_01: software install — catalog roles BY NAME (§2) ---------------
 
-STAGE01_WITH_ROLES = """\
+STAGE01_HEADER = """\
 ##
 ## stage_01 — software install for @@VM_NAME@@
-## catalog roles are referenced BY NAME (resolved via ANSIBLE_ROLES_PATH at deploy).
+## catalog roles are referenced BY NAME (resolved via ANSIBLE_ROLES_PATH at deploy);
+## one play per attachment so each carries its own params (firewall_rules, docker …).
 ##
+"""
 
-- name: "configure @@VM_NAME@@"
+# One play per box attachment — its role + its params (merged box vars + attachment
+# params) as a vars block. Containers map to the docker-compose role (see render).
+STAGE01_PLAY = """\
+- name: "@@VM_NAME@@ — @@ROLE@@"
   hosts: @@SSH_HOST@@
   become: true
   vars_files:
     - "../../secrets/default_vault.yml"
 @@VARS_BLOCK@@  roles:
-@@ROLE_LINES@@
+    - @@ROLE@@
 """
 
 # A valid no-op play (NOT a bare `[]`, which `import_playbook` rejects with

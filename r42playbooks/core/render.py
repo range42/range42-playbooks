@@ -115,18 +115,48 @@ def _gateway(box: AllocatedBox) -> str:
     return f"{prefix}.1"
 
 
-def _role_names(attachments: tuple[Attachment, ...]) -> list[str]:
-    """Catalog role names a stage_01 play should list (dedup, order-preserving).
+def _attachment_role(att: Attachment) -> str:
+    """The catalog role an attachment applies (container -> shared docker-compose)."""
+    return "software.configure.docker-compose" if att.kind == "container" else att.catalog_ref
 
-    ``container`` attachments are applied through the shared docker-compose role
-    (plan §2); ``role``/``gamification`` reference their catalog name directly.
+
+def _attachment_vars(att: Attachment) -> dict:
+    """The vars a stage_01 play passes to the attachment's role.
+
+    role/gamification → the attachment's ``params`` verbatim. container → docker
+    wiring derived from the stack path (env-based project dir, labels), overlaid
+    with any explicit ``params`` (mirrors the demo_lab / bundle docker plays).
     """
-    names: list[str] = []
-    for att in attachments:
-        name = "software.configure.docker-compose" if att.kind == "container" else att.catalog_ref
-        if name not in names:
-            names.append(name)
-    return names
+    if att.kind != "container":
+        return dict(att.params)
+    name = att.catalog_ref.rsplit("/", 1)[-1]
+    wiring = {
+        "LABEL_PROJECT_TYPE": "CTF",
+        "LABEL_PROJET_NAME": name,
+        "LOCAL__PROJECT_DIR": "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/" + att.catalog_ref + "/",
+        "REMOTE_PROJECT_DIR": f"/tmp/deploy-{name}",
+        "OPERATOR_USER": "{{ default_admin_vm_ci_user }}",
+    }
+    wiring.update(att.params)
+    return wiring
+
+
+def _render_stage01(box: AllocatedBox) -> str:
+    """One play per attachment (role + its params), or a no-op placeholder."""
+    ssh = _ssh_host(box.vm_name)
+    box_vars = dict(box.box_vars)
+    plays = [
+        A.fill(
+            A.STAGE01_PLAY, VM_NAME=box.vm_name, SSH_HOST=ssh,
+            ROLE=_attachment_role(att),
+            VARS_BLOCK=_vars_block({**box_vars, **_attachment_vars(att)}),
+        )
+        for att in box.attachments
+    ]
+    if not plays:
+        return A.fill(A.STAGE01_PLACEHOLDER, VM_NAME=box.vm_name, SSH_HOST=ssh,
+                      VARS_BLOCK=_vars_block(box_vars))
+    return A.fill(A.STAGE01_HEADER, VM_NAME=box.vm_name) + "\n" + "\n".join(plays)
 
 
 # --- per-box -----------------------------------------------------------------
@@ -143,21 +173,7 @@ def _render_box(box: AllocatedBox, section_dir: Path, scenario: str, proxmox_nod
     )
     _write(stage00, section_dir / "stage_00" / f"{box.vm_name}.yml")
 
-    vars_block = _vars_block(box.box_vars)
-    roles = _role_names(box.attachments)
-    if roles:
-        role_lines = "\n".join(f"    - {name}" for name in roles)
-        stage01 = A.fill(
-            A.STAGE01_WITH_ROLES,
-            VM_NAME=box.vm_name, SSH_HOST=_ssh_host(box.vm_name),
-            VARS_BLOCK=vars_block, ROLE_LINES=role_lines,
-        )
-    else:
-        stage01 = A.fill(
-            A.STAGE01_PLACEHOLDER,
-            VM_NAME=box.vm_name, SSH_HOST=_ssh_host(box.vm_name), VARS_BLOCK=vars_block,
-        )
-    _write(stage01, section_dir / "stage_01" / f"{box.vm_name}.yml")
+    _write(_render_stage01(box), section_dir / "stage_01" / f"{box.vm_name}.yml")
 
     _render_devkit(box, section_dir / "stage_01" / f"{box.vm_name}.devkit", scenario, proxmox_node)
 
