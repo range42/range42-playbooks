@@ -4,8 +4,18 @@
 > Status: **proposal — needs cross-team sign-off** (the schema + engine are owned by an active
 > effort; see §8). Supersedes parts of `r42topo-plan.md` and `range42/docs/r42deploy-plan.md`.
 >
-> Progress: **Phase 1 (schema intake) done** on `feat/r42topo-canonical-schema`; Phases 2+
-> (engine port) **held pending @pparage sign-off** per §8.
+> Progress (branch `feat/r42topo-canonical-schema`): **Phase 1 schema intake**, **Phase 2
+> `expand_replication`**, **Phase 3 `compose`** — done & pushed, all green against the shared
+> vectors. **Phases 4–5** (inventory_writer / allocation / vmid_guard / preflight) in progress.
+> **Phase 7 (backend swap) held for @pparage sign-off** per §8.
+>
+> **Deferred — redaction/resolve_secrets**: the backend `app/core/redaction.py` (`run_pipeline`,
+> impure audit-file writer) **diverges from the shared redaction vectors** — marker
+> `__range42_vault_origin__` vs vector `__vault_tagged__`; token `[REDACTED:vault_tagged]` vs
+> vector `***REDACTED***`; vectors expect a pure `apply_redactions(event, layers) -> {event,
+> redactions[]}` while the backend returns only the event (and vector 02 is `edge`). The
+> contract is unsettled, so this operator is **not ported** until reconciled with the spec owner
+> (don't invent it). `serialize/*` vectors are the UI canvas→doc step (TS-side) — no Python op.
 
 ## 0. Why this exists
 
