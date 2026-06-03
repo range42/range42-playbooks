@@ -206,10 +206,12 @@ reallocated; `templates[]` populated; manifest matches demo_lab schema; no colli
   (gateway/bridge come from the **subnet layout**, not the box).
 - `stage_01/<vm>.yml`: copy boilerplate; only `hosts:` and the `roles:` list vary —
   `roles: [<box.default_attachments + spec additions, by NAME>]` (§2: names, never copied role code).
-- **H3 — `01_init_proxmox/templates/` subtree**: copy it verbatim into each scenario (it is
-  scenario-independent — creates the 9xxx templates the clones need) UNLESS the team decides templates
-  are created once by `_init_lab`; if so the generated `main.yml` omits the `01_init_proxmox` imports.
-  Make the choice explicit and keep `main.yml` imports consistent with emitted dirs.
+- **H3 — `01_init_proxmox/` subtree** `MUTATED 2026-06-03`: **RESOLVED — copy verbatim into each
+  scenario** from the vendored package asset `r42playbooks/assets/scenario/01_init_proxmox/` (sourced
+  from `blank_scenario_2_subnets`; see §7.2). The generated `main.yml` imports its two playbooks; keep
+  imports consistent with emitted dirs.
+- **Richness** `MUTATED 2026-06-03`: **RESOLVED — uniform per-box structure only**; do NOT generate
+  group playbooks / group devkits / `_testing/` / `builder_*` (see §7.2).
 - **C1 — `secrets/`**: emit `vars_files: ["../../secrets/default_vault.yml"]` refs; **do NOT create
   `secrets/`** (range42-context symlinks it at deploy). Per §4.2.
 - devkits, `_main.reinstall.sh`, `_activate.sh`, `templates/ansible-vars.yml`, `templates/vault-example.yml`,
@@ -310,13 +312,33 @@ quality). Address CRITICAL/HIGH. Re-run suite.
 - **Host/group naming (M5):** SSH host = `r42.<vm_name>`; inventory group = `r42_<role>` (or the box's
   `default_inventory_group`). Single source shared by the inventory generator and stage `hosts:` lines.
 
-## 7.2 Open questions / risks (genuinely open)
-- **`01_init_proxmox` ownership (H3):** copy the template-creation subtree into every scenario, or create
-  templates once via `_init_lab` and omit the import? Decide in S5b; keep `main.yml` imports consistent.
+## 7.2 Open questions / risks
+- **`01_init_proxmox` ownership (H3): RESOLVED `MUTATED 2026-06-03`.** Copy a single **canonical
+  `01_init_proxmox/` subtree, vendored as a package asset** (`r42playbooks/assets/scenario/01_init_proxmox/`),
+  verbatim into every generated scenario; the generated `main.yml` imports its two playbooks
+  (`templates/_main_download_cloudinit_files.yml` + `templates/ubuntu_noble/_main_ubuntu_noble.yml`).
+  Source of the vendored copy = `scenarios/blank_scenario_2_subnets/01_init_proxmox/` (it matches
+  `TEMPLATE_TABLE`'s management subnet `vmbr140`/`192.168.140.x` and carries the idempotence guards;
+  demo_lab's copy drifted to `.142` and is older). **Rationale:** the 9xxx templates live on a
+  platform-wide management bridge (`vmbr140`), are scenario-independent, and per-scenario
+  self-containment matches demo_lab + each scenario's own `delete_all.sh` (which deletes its templates).
+  Chosen over "create once via `_init_lab`" so a generated scenario deploys standalone with no implicit
+  prerequisite scenario. `main.yml` imports stay consistent with the emitted dirs.
+- **demo_lab richness — how much to generate: RESOLVED `MUTATED 2026-06-03`.** Generate a **uniform
+  per-box structure only**: per box → `stage_00/<vm>.yml` (parametrized clone), `stage_01/<vm>.yml`
+  (`hosts:` + `roles:` by NAME), and a per-box `stage_01/<vm>.devkit/{install,snapshot,revert}.sh`;
+  per section → `_main.yml` (S5a) + `_main.reinstall.sh`. **Do NOT generate** demo_lab's group-level
+  richness — `_r42_<group>.yml` group playbooks, group-level `.devkit/`, `stage_00/_testing/`, and the
+  `builder_*` admin VMs. Those are demo_lab's **own hand-authored composition**, not generator
+  primitives; reproducing them would require inferring grouping semantics absent from the spec
+  (KISS/YAGNI). The §4.3 golden filelist is a **reference shape**, not a literal target — the renderer
+  maps it onto the composed scenario name + its actual boxes. (If a maintainer later wants generated
+  group playbooks, that is a follow-up step, not S5b.)
 - **Scope vs the canonical engine:** keep them separate; if a shared schema is ever wanted, that's a
   later reconciliation, not this plan.
 - **Real catalog absent in-repo:** `range42-catalog/` is a sibling repo, gitignored — all tests use a
-  `fake_catalog` fixture; never hardcode the real path.
+  `fake_catalog` fixture; never hardcode the real path. (The vendored `01_init_proxmox/` asset is part
+  of the **package**, not the catalog, so S5b tests use it directly.)
 
 ## 8. Plan mutation protocol
 Steps may be split/inserted/reordered. If you change the plan, edit this file in the same PR and note

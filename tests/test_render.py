@@ -1,0 +1,189 @@
+"""S5b renderer — class-(B) verbatim-with-param boilerplate.
+
+Golden-shape assertions against the §4.3 demo_lab baseline: the renderer maps
+that shape onto the *composed* scenario name + its actual boxes (it never copies
+demo_lab's own VMs). Verifies: the vendored ``01_init_proxmox/`` subtree (H3),
+per-box ``stage_00``/``stage_01`` + devkits, top-level scripts, class-B
+templates, that ``stage_01`` lists role NAMES (not copied role code), that
+``secrets/`` is NOT created, and that demo_lab's group-level richness is NOT
+generated (plan §7.2 richness decision).
+"""
+
+from pathlib import Path
+
+import pytest
+
+from r42playbooks.core.allocate import allocate
+from r42playbooks.core.catalog import load_catalog
+from r42playbooks.core.render import render_scenario
+from r42playbooks.core.spec import ScenarioSpec, load_spec
+
+
+@pytest.fixture
+def rendered(fake_catalog, valid_spec_dict, tmp_path):
+    """Render the default 2-box composition (admin-wazuh + vuln-box×5) once."""
+    spec = ScenarioSpec.model_validate(valid_spec_dict)
+    catalog = load_catalog(fake_catalog)
+    alloc = allocate(spec, catalog)
+    dest = tmp_path / "scenarios"
+    root = render_scenario(alloc, spec, dest=dest)
+    return spec, alloc, root
+
+
+def _read(root: Path, rel: str) -> str:
+    return (root / rel).read_text(encoding="utf-8")
+
+
+# --- top-level shape -------------------------------------------------------
+
+def test_render_returns_scenario_root_dir(rendered):
+    spec, _alloc, root = rendered
+    assert root.is_dir()
+    assert root.name == spec.name  # dest/<name>
+
+
+def test_init_proxmox_subtree_copied_verbatim(rendered):
+    """H3: the vendored 01_init_proxmox/ template-creation subtree is present."""
+    _spec, _alloc, root = rendered
+    assert (root / "01_init_proxmox" / "templates"
+            / "ubuntu_noble" / "_main_ubuntu_noble.yml").is_file()
+    assert (root / "01_init_proxmox" / "templates"
+            / "_main_download_cloudinit_files.yml").is_file()
+
+
+def test_main_yml_imports_only_emitted_sections(rendered):
+    """main.yml wires 01_init_proxmox + the sections that actually have boxes."""
+    _spec, _alloc, root = rendered
+    main = _read(root, "main.yml")
+    assert "./01_init_proxmox/templates/_main_download_cloudinit_files.yml" in main
+    assert "./02_admin_infrastructure/_main.yml" in main
+    assert "./04_ctf_infrastructure/_main.yml" in main
+    # no student box was composed -> never import a section that wasn't emitted
+    assert "03_student_infrastructure" not in main
+
+
+def test_top_level_scripts_present_and_named_for_scenario(rendered):
+    spec, _alloc, root = rendered
+    n = spec.name
+    for rel in (
+        "_activate.sh",
+        f"{n}.setup.sh",
+        f"{n}.setup_vms_only.sh",
+        f"{n}.delete_all.sh",
+        f"{n}.delete_vms_only.sh",
+        f"{n}.reset.setup.sh",
+        f"{n}.reset.ssh_keys.sh",
+        "devkit_ansible.show_ansible_inventory.to.text.sh",
+        "README.md",
+        "scenario.r42.yml",
+    ):
+        assert (root / rel).is_file(), f"missing top-level file: {rel}"
+
+
+def test_class_b_templates_present_and_parametrised(rendered):
+    spec, _alloc, root = rendered
+    assert (root / "templates" / "vault-example.yml").is_file()
+    ansible_vars = _read(root, "templates/ansible-vars.yml")
+    assert f'INFRASTRUCTURE_SCENARIO: "{spec.name}"' in ansible_vars
+
+
+# --- per-section / per-box shape ------------------------------------------
+
+def test_sections_match_composed_roles(rendered):
+    """admin box -> 02_admin, ctf box -> 04_ctf; no student section emitted."""
+    _spec, _alloc, root = rendered
+    assert (root / "02_admin_infrastructure").is_dir()
+    assert (root / "04_ctf_infrastructure").is_dir()
+    assert not (root / "03_student_infrastructure").exists()
+    for section in ("02_admin_infrastructure", "04_ctf_infrastructure"):
+        assert (root / section / "_main.reinstall.sh").is_file()
+
+
+def test_each_box_has_stage00_and_stage01_playbooks(rendered):
+    _spec, alloc, root = rendered
+    section_of = {"admin": "02_admin_infrastructure", "ctf": "04_ctf_infrastructure"}
+    for box in alloc.boxes:
+        section = section_of[box.role]
+        assert (root / section / "stage_00" / f"{box.vm_name}.yml").is_file()
+        assert (root / section / "stage_01" / f"{box.vm_name}.yml").is_file()
+
+
+def test_stage00_clone_is_parametrised_boilerplate(rendered):
+    """stage_00 clones via the proxmox controller and references the secrets symlink."""
+    _spec, _alloc, root = rendered
+    stage00 = _read(root, "04_ctf_infrastructure/stage_00/vuln-box-00.yml")
+    assert "- hosts: proxmox" in stage00
+    assert "{{ global_template_vm_id }}" in stage00
+    assert "{{ global_vm_name }}" in stage00
+    # C1: references the deploy-time secrets symlink, never creates it
+    assert "../../secrets/default_vault.yml" in stage00
+
+
+def test_stage01_lists_role_names_not_copied_code(rendered):
+    """The contract (§2): stage_01 references catalog roles BY NAME only."""
+    _spec, _alloc, root = rendered
+    stage01 = _read(root, "04_ctf_infrastructure/stage_01/vuln-box-00.yml")
+    assert "roles:" in stage01
+    assert "software.install.wazuh-agent" in stage01  # default_attachment
+    assert "software.install.extra" in stage01        # spec attachments_add
+    assert "hosts: r42.vuln-box-00" in stage01        # M5 naming contract
+    # no role *code* was vendored (a real role would carry tasks/handlers)
+    assert "include_role:" not in stage01
+    assert "ansible.builtin." not in stage01
+
+
+def test_stage01_without_roles_is_placeholder(rendered):
+    """A box with no role attachments still gets a valid placeholder stage_01."""
+    _spec, _alloc, root = rendered
+    stage01 = _read(root, "02_admin_infrastructure/stage_01/admin-wazuh.yml")
+    assert "place" in stage01.lower() or stage01.strip() in ("---\n[]", "---", "[]")
+
+
+def test_each_box_has_devkit_scripts(rendered):
+    spec, _alloc, root = rendered
+    devkit = root / "04_ctf_infrastructure" / "stage_01" / "vuln-box-00.devkit"
+    assert (devkit / f"{spec.name}.vuln-box-00.install.sh").is_file()
+    assert (devkit / f"{spec.name}.vuln-box-00.snapshot.sh").is_file()
+    assert (devkit / f"{spec.name}.vuln-box-00.revert.sh").is_file()
+
+
+# --- negative assertions (decision boundaries) ----------------------------
+
+def test_secrets_dir_is_not_created(rendered):
+    """§4.2 / C1: secrets/ is a deploy-time symlink, never generated."""
+    _spec, _alloc, root = rendered
+    assert not (root / "secrets").exists()
+
+
+def test_no_group_level_richness_generated(rendered):
+    """Plan §7.2: group playbooks, group devkits, _testing/, builder_* are NOT generated."""
+    _spec, _alloc, root = rendered
+    files = [str(p.relative_to(root)) for p in root.rglob("*")]
+    assert not any("_testing" in f for f in files)
+    assert not any("builder_" in f for f in files)
+    # no group playbook like _r42_admin_group.yml / _r42_vuln_box_group.yml
+    assert not any(Path(f).name.startswith("_r42_") and f.endswith(".yml") for f in files)
+
+
+# --- reproducibility -------------------------------------------------------
+
+def test_scenario_spec_roundtrips_into_tree(rendered):
+    spec, _alloc, root = rendered
+    reloaded = load_spec(root / "scenario.r42.yml")
+    assert reloaded.name == spec.name
+    assert reloaded.subnet_layout == spec.subnet_layout
+    assert [b.template for b in reloaded.boxes] == [b.template for b in spec.boxes]
+
+
+def test_render_is_deterministic(fake_catalog, valid_spec_dict, tmp_path):
+    """Two renders of the same composition produce byte-identical class-B files."""
+    spec = ScenarioSpec.model_validate(valid_spec_dict)
+    catalog = load_catalog(fake_catalog)
+    alloc = allocate(spec, catalog)
+    a = render_scenario(alloc, spec, dest=tmp_path / "a")
+    b = render_scenario(alloc, spec, dest=tmp_path / "b")
+    files_a = sorted(p.relative_to(a).as_posix() for p in a.rglob("*") if p.is_file())
+    files_b = sorted(p.relative_to(b).as_posix() for p in b.rglob("*") if p.is_file())
+    assert files_a == files_b
+    for rel in files_a:
+        assert (a / rel).read_bytes() == (b / rel).read_bytes(), f"non-deterministic: {rel}"

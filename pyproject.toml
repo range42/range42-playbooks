@@ -26,6 +26,11 @@ r42playbooks-tui = "r42playbooks.tui.app:main"
 [tool.setuptools.packages.find]
 include = ["r42playbooks*"]
 
+[tool.setuptools.package-data]
+# Verbatim scenario boilerplate copied into every generated tree (e.g. the
+# 01_init_proxmox/ template-creation subtree — see render.py / plan H3).
+r42playbooks = ["assets/**/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
