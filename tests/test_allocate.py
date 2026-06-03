@@ -70,6 +70,41 @@ def test_select_template_no_ramdisk_match_still_raises():
         select_template("1cpu/999gb/999gb")
 
 
+def test_select_template_defaults_to_ubuntu_and_scopes_by_os():
+    t = select_template("4cpu/8gb/64gb")          # default os
+    assert t.os == "ubuntu"
+    # debian has no image set today -> a clear, OS-specific error (not a silent ubuntu clone)
+    with pytest.raises(ValidationError, match="debian"):
+        select_template("4cpu/8gb/64gb", os="debian")
+
+
+def test_box_os_defaults_to_ubuntu_and_lands_in_manifest(fake_catalog):
+    alloc = _alloc(load_catalog(fake_catalog))
+    assert all(b.os == "ubuntu" for b in alloc.boxes)
+    assert all(t.os == "ubuntu" for t in alloc.templates)
+
+
+def test_debian_box_blocks_allocation_until_image_exists(fake_catalog, tmp_path):
+    """A box declaring os=debian is schema-valid but can't allocate (no image yet)."""
+    from r42playbooks.core.catalog import load_catalog as _load
+    # materialize a debian box template alongside the fake catalog
+    layer = fake_catalog / "05_topology_layer" / "box_templates" / "deb-box" / "v1.0.0"
+    layer.mkdir(parents=True)
+    (layer / "template.yml").write_text(
+        "id: deb-box\napi_version: 1\nrole: student\nos: debian\n"
+        "default_inventory_group: r42_student\nspec: \"2cpu/4gb/32gb\"\n",
+        encoding="utf-8",
+    )
+    catalog = _load(fake_catalog)
+    assert catalog.box_templates["deb-box"].os == "debian"
+    spec = ScenarioSpec.model_validate({
+        "name": "deb_lab", "subnet_layout": "default-3zone",
+        "network_policy": "air-gap-ctf", "boxes": [{"template": "deb-box"}],
+    })
+    with pytest.raises(ValidationError, match="debian"):
+        allocate(spec, catalog)
+
+
 # --- octet rule + base octets ---------------------------------------------
 
 def test_admin_box_gets_demo_lab_slot(fake_catalog):
@@ -195,7 +230,8 @@ def test_manifest_matches_demo_lab_schema(fake_catalog):
     assert {"scenario", "version", "description", "vms", "templates"} == set(m)
     # vms sorted by vm_id, demo_lab row shape
     assert m["vms"] == sorted(m["vms"], key=lambda v: v["vm_id"])
-    assert set(m["vms"][0]) == {"vm_id", "vm_name", "ip", "role", "bridge"}
+    assert set(m["vms"][0]) == {"vm_id", "vm_name", "ip", "role", "bridge", "os"}
+    assert all(v["os"] == "ubuntu" for v in m["vms"])  # fake_catalog boxes default to ubuntu
 
 
 def test_manifest_templates_populated_not_empty(fake_catalog):
@@ -203,7 +239,7 @@ def test_manifest_templates_populated_not_empty(fake_catalog):
     alloc = _alloc(load_catalog(fake_catalog))
     m = manifest_dict(alloc)
     assert len(m["templates"]) == len(TEMPLATE_TABLE) == 12
-    assert set(m["templates"][0]) == {"vm_id", "vm_name", "spec", "ip", "bridge"}
+    assert set(m["templates"][0]) == {"vm_id", "vm_name", "spec", "ip", "bridge", "os"}
 
 
 def test_unknown_box_template_raises(fake_catalog):

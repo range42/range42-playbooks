@@ -23,7 +23,7 @@ _STRICT = ConfigDict(extra="forbid")
 # --- box templates ---------------------------------------------------------
 
 class BoxTemplate(BaseModel):
-    """A VM/box archetype: role, default inventory group, spec, attachments."""
+    """A VM/box archetype: role, OS, default inventory group, spec, attachments."""
 
     model_config = _STRICT
 
@@ -31,6 +31,12 @@ class BoxTemplate(BaseModel):
     api_version: int = 1
     description: str = ""
     role: Literal["admin", "ctf", "team", "student", "template"]
+    # Base OS family of the box. Drives which Proxmox clone image is selected at
+    # authoring time (cpu/ram are clone-time settings, but the disk image is the
+    # OS). Values match Ansible's ``ansible_facts.distribution`` lower-cased, so
+    # the runtime role dispatch (ubuntu/debian/fedora task files) agrees with the
+    # image that was cloned. Defaults to ``ubuntu`` (every existing box).
+    os: Literal["ubuntu", "debian", "fedora"] = "ubuntu"
     default_inventory_group: str = Field(pattern=C.INVENTORY_GROUP_RE.pattern)
     spec: str = Field(min_length=1)
     default_attachments: list[Attachment] = Field(default_factory=list)

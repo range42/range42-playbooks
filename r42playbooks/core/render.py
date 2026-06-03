@@ -217,8 +217,8 @@ def _render_templates_class_b(root: Path, scenario: str) -> None:
 
 
 def _render_readme(root: Path, spec: ScenarioSpec, alloc: Allocation) -> None:
-    rows = ["| box | role | vm_id | ip |", "|---|---|---|---|"]
-    rows += [f"| `{b.vm_name}` | {b.role} | {b.vm_id} | {b.ip} |" for b in alloc.boxes]
+    rows = ["| box | role | os | vm_id | ip |", "|---|---|---|---|---|"]
+    rows += [f"| `{b.vm_name}` | {b.role} | {b.os} | {b.vm_id} | {b.ip} |" for b in alloc.boxes]
     _write(
         A.fill(
             A.README_MD, SCENARIO=spec.name, SUBNET_LAYOUT=spec.subnet_layout,

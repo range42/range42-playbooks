@@ -38,6 +38,7 @@ class AllocatedBox:
     gateway: str | None
     inventory_group: str
     box_template: str           # the catalog box-template id (e.g. "vuln-box")
+    os: str                     # base OS family (ubuntu/debian/fedora)
     template_vm_id: int         # the 9xxx clone source (global_template_vm_id)
     template_name: str
     attachments: tuple[Attachment, ...]
@@ -119,7 +120,7 @@ def _allocate_box(
         )
 
     prefix = _subnet_prefix(subnet.cidr)
-    tmpl = select_template(bt.spec, override_vm_id=box.template_vm_id)
+    tmpl = select_template(bt.spec, os=bt.os, override_vm_id=box.template_vm_id)
     attachments = tuple(bt.default_attachments) + tuple(box.attachments_add)
     base_octet = C.ROLE_BASE_OCTET[bt.role]
 
@@ -140,6 +141,7 @@ def _allocate_box(
             gateway=subnet.gateway,
             inventory_group=bt.default_inventory_group,
             box_template=box.template,
+            os=bt.os,
             template_vm_id=tmpl.vm_id,
             template_name=tmpl.vm_name,
             attachments=attachments,
@@ -181,13 +183,15 @@ def manifest_dict(alloc: Allocation) -> dict[str, Any]:
     """Project an Allocation into the demo_lab ``scenario_vms.json`` dict."""
     vms = sorted(
         (
-            {"vm_id": b.vm_id, "vm_name": b.vm_name, "ip": b.ip, "role": b.role, "bridge": b.bridge}
+            {"vm_id": b.vm_id, "vm_name": b.vm_name, "ip": b.ip, "role": b.role,
+             "bridge": b.bridge, "os": b.os}
             for b in alloc.boxes
         ),
         key=lambda v: v["vm_id"],
     )
     templates = [
-        {"vm_id": t.vm_id, "vm_name": t.vm_name, "spec": t.spec, "ip": t.ip, "bridge": t.bridge}
+        {"vm_id": t.vm_id, "vm_name": t.vm_name, "spec": t.spec, "ip": t.ip,
+         "bridge": t.bridge, "os": t.os}
         for t in alloc.templates
     ]
     return {

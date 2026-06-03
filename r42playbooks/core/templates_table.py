@@ -16,13 +16,20 @@ from r42playbooks.core.errors import ValidationError
 
 @dataclass(frozen=True)
 class ProxmoxTemplate:
-    """One 9xxx clone-source template VM."""
+    """One 9xxx clone-source template VM.
+
+    ``os`` is the base image family (``ubuntu``/``debian``/``fedora``); it must
+    match the box's declared ``os`` so the cloned image and the role's runtime
+    ``ansible_facts.distribution`` dispatch agree. Defaults to ``ubuntu`` — the
+    only image set ``01_init_proxmox`` currently creates.
+    """
 
     vm_id: int
     vm_name: str
     spec: str
     ip: str
     bridge: str
+    os: str = "ubuntu"
 
 
 # Verbatim from scenarios/demo_lab/manifest/scenario_vms.json -> templates[].
@@ -53,15 +60,20 @@ def _ram_disk(spec: str) -> tuple[str, ...]:
     return tuple(spec.split("/")[1:])
 
 
-def select_template(spec: str, *, override_vm_id: int | None = None) -> ProxmoxTemplate:
-    """Resolve a box ``spec`` to a clone template (plan §7.1 / H2).
+def select_template(
+    spec: str, *, os: str = "ubuntu", override_vm_id: int | None = None
+) -> ProxmoxTemplate:
+    """Resolve a box ``(os, spec)`` to a clone template (plan §7.1 / H2).
 
-    With ``override_vm_id`` the box pins an explicit template id. Otherwise an
+    With ``override_vm_id`` the box pins an explicit template id (any OS).
+    Otherwise selection is scoped to the box's ``os`` image set, then an
     **exact** ``cpu/ram/disk`` match wins (lowest vm_id for determinism); failing
-    that, a template with the same ``ram/disk`` is used (cpu is a clone-time
-    setting — see :func:`_ram_disk`). The lowest matching vm_id is always chosen.
+    that, a template with the same ``ram/disk`` is used (cpu/ram are clone-time
+    settings — the image's baked dimension is the disk, see :func:`_ram_disk`).
 
-    :raises ValidationError: if the override id or spec matches no template.
+    :raises ValidationError: if the override id is unknown, the OS has no image
+        set yet (e.g. debian/fedora — only ``ubuntu`` is created today), or the
+        spec matches no template for that OS.
     """
     if override_vm_id is not None:
         for tmpl in TEMPLATE_TABLE:
@@ -69,13 +81,20 @@ def select_template(spec: str, *, override_vm_id: int | None = None) -> ProxmoxT
                 return tmpl
         raise ValidationError(f"template_vm_id override not in table: {override_vm_id}")
 
-    exact = [t for t in TEMPLATE_TABLE if t.spec == spec]
+    pool = [t for t in TEMPLATE_TABLE if t.os == os]
+    if not pool:
+        raise ValidationError(
+            f"no Proxmox template image for os {os!r} "
+            f"(only {sorted({t.os for t in TEMPLATE_TABLE})} are created today)"
+        )
+
+    exact = [t for t in pool if t.spec == spec]
     if exact:
         return min(exact, key=lambda t: t.vm_id)
 
     want = _ram_disk(spec)
-    approx = [t for t in TEMPLATE_TABLE if _ram_disk(t.spec) == want]
+    approx = [t for t in pool if _ram_disk(t.spec) == want]
     if approx:
         return min(approx, key=lambda t: t.vm_id)
 
-    raise ValidationError(f"no Proxmox template matches box spec {spec!r} (cpu/ram/disk or ram/disk)")
+    raise ValidationError(f"no {os} Proxmox template matches box spec {spec!r} (cpu/ram/disk or ram/disk)")
