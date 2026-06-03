@@ -38,6 +38,40 @@ def valid_topology_dict() -> dict:
 
 
 @pytest.fixture
+def valid_spec_dict() -> dict:
+    """A minimal, valid scenario.r42.yml composition spec (msfvenom 'options')."""
+    return {
+        "schema_version": 1,
+        "name": "my_lab",
+        "subnet_layout": "default-3zone",
+        "network_policy": "air-gap-ctf",
+        "proxmox_node": "px-testing",
+        "notes": "demo composition",
+        "boxes": [
+            {"template": "admin-wazuh"},
+            {
+                "template": "vuln-box",
+                "count": 5,
+                "attachments_add": [
+                    {"kind": "role", "catalog_ref": "software.install.extra", "params": {}},
+                ],
+                "vars": {"difficulty": "hard"},
+            },
+        ],
+    }
+
+
+@pytest.fixture
+def spec_factory(valid_spec_dict):
+    """Return a deep-copy mutator so tests can tweak one spec field in isolation."""
+    def _make(**overrides) -> dict:
+        spec = copy.deepcopy(valid_spec_dict)
+        spec.update(overrides)
+        return spec
+    return _make
+
+
+@pytest.fixture
 def topology_factory(valid_topology_dict):
     """Return a deep-copy mutator so tests can tweak one field in isolation."""
     def _make(**overrides) -> dict:

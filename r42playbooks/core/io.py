@@ -42,12 +42,15 @@ def dumps_topology(topology: Topology) -> str:
     return json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
-def dump_topology(topology: Topology, path: Path) -> Path:
-    """Atomically write *topology* to *path* as canonical JSON. Returns the path."""
+def atomic_write_text(text: str, path: Path) -> Path:
+    """Atomically write *text* to *path* (temp file + os.replace). Returns the path.
+
+    Shared by every artifact writer in the core (topology JSON, scenario specs,
+    rendered scenario files) so atomicity lives in exactly one place.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    text = dumps_topology(topology)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".topology-", suffix=".tmp")
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".r42-", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(text)
@@ -56,3 +59,8 @@ def dump_topology(topology: Topology, path: Path) -> Path:
         if os.path.exists(tmp):
             os.unlink(tmp)
     return path
+
+
+def dump_topology(topology: Topology, path: Path) -> Path:
+    """Atomically write *topology* to *path* as canonical JSON. Returns the path."""
+    return atomic_write_text(dumps_topology(topology), Path(path))

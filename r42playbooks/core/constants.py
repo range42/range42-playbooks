@@ -49,6 +49,10 @@ PORT_SPEC_RE = re.compile(r"^[0-9]{1,5}(:[0-9]{1,5})?$")
 VM_ID_MIN = 1000
 VM_ID_MAX = 9999
 
+# Upper bound on how many VMs a single composed box may expand to (count>1).
+# Bounds runaway allocation from a hostile/typo'd scenario.r42.yml.
+BOX_COUNT_MAX = 99
+
 # Catalog template id — dotless kebab (distinct from dotted role refs and from
 # the scenario-name rule). Used for directory names under 05_topology_layer/.
 TEMPLATE_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
