@@ -2,3 +2,13 @@
 **/secret/
 CLAUDE.md
 **/CLAUDE.md
+
+# Python (r42topo module)
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+dist/
+build/
