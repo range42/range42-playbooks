@@ -127,7 +127,14 @@ def scaffold(
     naming_prefix: str = typer.Option("lab", "--naming-prefix", help="Hostname prefix"),
     output: Path = _OutOpt,
 ) -> None:
-    """Emit a minimal, valid canonical gamenet document to start from."""
+    """Emit a minimal, valid canonical gamenet document to start from.
+
+    Includes one shared admin VM and one per-team node so ``expand`` and
+    ``preflight`` are immediately demonstrable. ``template_vmid`` is the Proxmox
+    template VMID to clone from — replace the placeholders with your real
+    template IDs (kept below 9000 here so the scaffold passes preflight; the
+    9000-9999 band is protected).
+    """
     doc = {
         "schema_version": "1.0",
         "kind": "gamenet",
@@ -140,10 +147,19 @@ def scaffold(
                 "kind": "vm",
                 "role": "admin",
                 "replication": {"scope": "shared"},
-                "template_vmid": 9001,
+                "template_vmid": 8001,
                 "config": {"cores": 2, "memory": 2048},
                 "attachments": [],
-            }
+            },
+            {
+                "id": "trainee",
+                "kind": "vm",
+                "role": "team",
+                "replication": {"scope": "per_team"},
+                "template_vmid": 8002,
+                "config": {"cores": 2, "memory": 2048},
+                "attachments": [],
+            },
         ],
     }
     try:
@@ -151,6 +167,11 @@ def scaffold(
     except TopologyError as exc:  # pragma: no cover - defensive
         _fail(f"scaffold produced an invalid document: {exc}")
     _emit(doc, output)
+    if output:
+        typer.secho(
+            "  → edit template_vmid to your Proxmox template IDs before deploying",
+            fg=typer.colors.CYAN, err=True,
+        )
 
 
 @app.command()

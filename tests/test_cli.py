@@ -92,6 +92,25 @@ def test_scaffold_emits_valid_document(tmp_path):
     assert val.exit_code == 0, val.output
 
 
+def test_scaffold_output_passes_the_full_flow(tmp_path):
+    """The scaffold skeleton must be green end-to-end: validate, expand
+    (multiplies the per-team node), and preflight all pass out of the box."""
+    out = tmp_path / "scaffold.json"
+    runner.invoke(app, ["scaffold", "--name", "My Lab", "-o", str(out)])
+
+    # expand must actually produce per-team copies (regression: a shared-only
+    # skeleton made expand look like a no-op)
+    expanded = tmp_path / "expanded.json"
+    runner.invoke(app, ["expand", str(out), "--teams", "3", "-o", str(expanded)])
+    ids = [n["id"] for n in json.loads(expanded.read_text())["nodes"]]
+    assert "trainee__team_1" in ids and "trainee__team_3" in ids
+
+    # preflight must pass (template_vmid kept out of the protected 9000-9999 band)
+    pf = runner.invoke(app, ["preflight", str(out), "--teams", "3"])
+    assert pf.exit_code == 0, pf.output
+    assert "result: pass" in pf.output
+
+
 def test_show_lists_nodes(tmp_path):
     src = _write_topo(tmp_path, "02-multi-team")
     res = runner.invoke(app, ["show", str(src)])
