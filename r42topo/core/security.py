@@ -4,21 +4,25 @@ The deny-list rejects (never sanitizes) Jinja/SSTI (`{{ }}`, `{% %}`, `${`),
 shell metacharacters, NUL/newlines, path traversal, and argv-flag injection.
 
 Extracted from the retired invented-model `constants.py` during the canonical
-convergence (issue #67). It is applied to the **canonical** free-text surface —
-``config`` / ``vars`` / ``defaults`` / ``param_overrides`` — by
-``r42topo.api`` (see ``assert_document_safe``). It is deliberately NOT applied
-to the schema's controlled ``*_template`` fields (``cidr_template``,
-``bridge_template``, ``ip_template``, ``value_template``), which legitimately
-contain ``{{ bridge_base + team_id }}`` and are rendered by a safe
-substitution pass.
+convergence (issue #67). It is applied to a canonical document's free-text
+surface — ``defaults`` and each node's ``config`` / attachment ``vars`` — by
+``r42topo.api`` (see ``assert_document_safe`` / ``validate_document``). Overlay
+inputs (``param_overrides`` etc.) are covered by scanning the **effective
+document** after ``compose`` (``api.compose_effective``), since they land in
+those same fields. It is deliberately NOT applied to the schema's controlled
+``*_template`` fields (``cidr_template``, ``bridge_template``, ``ip_template``,
+``value_template``), which legitimately contain ``{{ bridge_base + team_id }}``
+and are rendered by a safe substitution pass.
 """
 from __future__ import annotations
 
 from typing import Any
 
-# Substrings that must never appear in a free-text topology field.
+# Substrings that must never appear in a free-text topology field. Covers
+# Jinja/SSTI (`{{ }}`, `{% %}`, `${`), shell subshell/metacharacters
+# (`$(`, backtick, `;`, `|`, `&`), NUL/newlines, and path traversal.
 DENYLIST_SUBSTRINGS: tuple[str, ...] = (
-    "{{", "}}", "{%", "%}", "${", "`", ";", "|", "&", "\n", "\r", "\x00", "..",
+    "{{", "}}", "{%", "%}", "${", "$(", "`", ";", "|", "&", "\n", "\r", "\x00", "..",
 )
 
 
@@ -40,8 +44,8 @@ def nested_violations(obj: Any, *, path: str = "") -> list[str]:
     """Recursively collect dotted paths of every deny-listed string in *obj*.
 
     Walks dict keys+values and list items. Used for free-form ``config`` /
-    ``vars`` / ``defaults`` / ``param_overrides`` whose values flow into Ansible
-    variables (a Jinja2 render surface). Returns ``[]`` when *obj* is clean.
+    ``vars`` / ``defaults`` whose values flow into Ansible variables (a Jinja2
+    render surface). Returns ``[]`` when *obj* is clean.
     """
     out: list[str] = []
     if isinstance(obj, str):

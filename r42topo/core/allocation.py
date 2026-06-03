@@ -15,6 +15,7 @@ the protected ranges.
 """
 from __future__ import annotations
 
+from r42topo.core.errors import CompileError
 from r42topo.core.vmid_guard import DEFAULT_PROTECTED_RANGES
 
 
@@ -46,5 +47,5 @@ def allocate_vmids(
             out.append(v)
         v += 1
     if len(out) < count:
-        raise RuntimeError(f"Exhausted VMID range starting at {start}")
+        raise CompileError(f"Exhausted VMID range starting at {start}")
     return out

@@ -46,6 +46,29 @@ def test_dump_json_atomic_writes_and_leaves_no_tmp(tmp_path):
     assert [p.name for p in dest.parent.iterdir()] == ["doc.json"]
 
 
+def test_dump_text_atomic_cleans_up_temp_on_write_failure(tmp_path, monkeypatch):
+    from r42topo.core import io
+
+    dest = tmp_path / "out.txt"
+
+    class _Boom:
+        def write(self, *_a):
+            raise OSError("disk full")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(io.os, "fdopen", lambda *a, **k: _Boom())
+    with pytest.raises(OSError, match="disk full"):
+        io.dump_text_atomic("data", dest)
+    assert not dest.exists()
+    # no leftover temp file in the destination directory
+    assert list(dest.parent.glob(".r42topo-*.tmp")) == []
+
+
 def test_effective_doc_hash_format_and_determinism():
     h = effective_doc_hash({"a": 1, "b": 2})
     assert h.startswith("sha256:") and len(h) == len("sha256:") + 64

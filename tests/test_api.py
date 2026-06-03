@@ -67,6 +67,25 @@ def test_compose_effective_returns_doc_and_stable_hash():
     assert api.compose_effective(v["input"]["base"], v["input"]["overlay"])[1] == h
 
 
+def test_validate_overlay_rejects_garbage():
+    with pytest.raises(ValidationError, match="invalid project overlay"):
+        api.validate_overlay({"schema_version": "1.0"})  # missing source_url/source_sha
+
+
+def test_compose_effective_rejects_overlay_injection():
+    # an injection smuggled via param_overrides lands in the effective doc and
+    # must be caught by the post-compose deny-list scan
+    base = _topo("01-minimal")
+    overlay = {
+        "schema_version": "1.0",
+        "source_url": "https://github.com/me/repo.git",
+        "source_sha": "deadbeef",
+        "param_overrides": {"defaults.hostname": "a;rm -rf /"},
+    }
+    with pytest.raises(ValidationError, match="forbidden values"):
+        api.compose_effective(base, overlay)
+
+
 def test_compose_effective_identity_without_overlay():
     base = _topo("01-minimal")
     eff, _ = api.compose_effective(base, None)
@@ -109,11 +128,13 @@ def test_preflight_document_passes_for_clean_topology():
 
 
 def test_preflight_document_blocks_protected_vmid():
+    # template_vmid in the protected 9000-9999 band (schema-valid, unlike the
+    # non-canonical vmid_base) — see the base-field note above.
     doc = {
         "schema_version": "1.0", "kind": "gamenet", "name": "x", "naming_prefix": "x",
         "nodes": [
             {"id": "bad", "kind": "vm", "role": "admin",
-             "replication": {"scope": "shared"}, "vmid_base": 100},  # protected
+             "replication": {"scope": "shared"}, "template_vmid": 9001},  # protected
         ],
     }
     report = api.preflight_document(doc, team_count=1)

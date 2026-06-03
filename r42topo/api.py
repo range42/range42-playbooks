@@ -23,6 +23,7 @@ from r42topo.core.canonical import CatalogEntry, ProjectOverlay
 from r42topo.core.errors import ValidationError
 from r42topo.core.io import (
     dump_json_atomic,
+    dump_text_atomic,
     dumps_canonical,
     effective_doc_hash,
     load_json,
@@ -43,6 +44,8 @@ __all__ = [
     "validate_overlay",
     "assert_document_safe",
     "dumps_canonical",
+    "dump_json_atomic",
+    "dump_text_atomic",
     "effective_doc_hash",
     # operators
     "compose",
@@ -113,9 +116,14 @@ def compose_effective(
     """Compose ``base`` + ``overlay`` into the effective doc and its hash.
 
     Returns ``(effective_doc, effective_doc_hash)``. The hash is byte-compatible
-    with the backend so managed and IaC deploy paths agree (ADR §9).
+    with the backend so managed and IaC deploy paths agree (ADR §9). The
+    effective document is deny-list scanned before returning, so overlay-injected
+    values (``param_overrides``, ``nodes_added`` …) cannot slip through unchecked.
+
+    :raises ValidationError: if a free-text field carries a deny-listed value.
     """
     eff = compose(base, overlay)
+    assert_document_safe(eff)
     return eff, effective_doc_hash(eff)
 
 

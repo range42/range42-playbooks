@@ -40,7 +40,7 @@ def _load(path: Path) -> dict:
 def _emit(doc: dict, output: Path | None) -> None:
     text = api.dumps_canonical(doc)
     if output:
-        output.write_text(text, encoding="utf-8")
+        api.dump_text_atomic(text, output)  # atomic: no torn artifact feeds the next step
         typer.secho(f"✓ wrote {output}", fg=typer.colors.GREEN, err=True)
     else:
         typer.echo(text, nl=False)
@@ -95,6 +95,7 @@ def inventory(
     """Render the static Ansible inventory (hosts.yml) for a topology."""
     doc = _load(topology)
     try:
+        api.validate_document(doc)  # schema + deny-list before producing a deploy artifact
         api.write_inventory(
             topology=doc, team_count=teams, codename=codename,
             proxmox_address=proxmox, ssh_keys_dir=ssh_keys, dest=output,

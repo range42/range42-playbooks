@@ -1,6 +1,6 @@
 """Framework-free exception hierarchy for the r42topo core.
 
-Consumers (backend-api, CLI, TUI) translate these into their own surface
+Consumers (backend-api, CLI, r42deploy) translate these into their own surface
 (HTTP envelopes, exit codes, dialog text). The core never raises framework
 exceptions such as fastapi.HTTPException.
 """
@@ -11,12 +11,8 @@ class TopologyError(Exception):
 
 
 class ValidationError(TopologyError):
-    """A topology or template failed semantic validation (beyond schema)."""
-
-
-class CatalogNotFoundError(TopologyError):
-    """A referenced catalog template id/version could not be resolved."""
+    """A document failed canonical-schema validation or the security deny-list."""
 
 
 class CompileError(TopologyError):
-    """Compilation failed (reservation conflict, segmentation invariant, etc.)."""
+    """An engine operation could not complete (e.g. VMID range exhausted)."""

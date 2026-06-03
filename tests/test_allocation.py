@@ -9,6 +9,7 @@ the backend / future r42runtime — their tests are intentionally not mirrored.
 import pytest
 
 from r42topo.core.allocation import allocate_vmids
+from r42topo.core.errors import CompileError
 
 
 def test_allocate_vmids_is_contiguous_and_skips_protected():
@@ -31,5 +32,7 @@ def test_host_overrides_are_skipped():
 
 
 def test_exhaustion_raises():
-    with pytest.raises(RuntimeError):
+    # r42topo raises its own hierarchy (CompileError ⊂ TopologyError), not the
+    # bare RuntimeError the backend used, so consumers catch one error family.
+    with pytest.raises(CompileError):
         allocate_vmids(start=99998, count=5, reserved=set(), host_overrides=None)

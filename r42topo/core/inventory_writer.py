@@ -52,6 +52,10 @@ _DEFAULT_SSH_USER = {
     "shared": "bob",
 }
 
+# range42 protocol constants — must match the universal playbook's host addressing.
+_DEFAULT_BRIDGE_BASE = 140       # team N → 192.168.(bridge_base+N).x / vmbr(bridge_base+N)
+_HOST_IP_OCTET_BASE = 200        # managed-node host IPs start at .200 within the subnet
+
 
 def _ssh_key_path(ssh_keys_dir: Path, role: str, user: str) -> str:
     """Match existing key naming. Admin uses admin_keys/, team/trainee uses student_keys/."""
@@ -98,7 +102,7 @@ def _hostname(prefix: str, team_id: int | None, name: str) -> str:
 
 def _ip_for_node(bridge_base: int, team_id: int | None, seq: int) -> str:
     octet = bridge_base + (team_id or 0)
-    return f"192.168.{octet}.{200 + seq}"
+    return f"192.168.{octet}.{_HOST_IP_OCTET_BASE + seq}"
 
 
 def write_inventory(
@@ -126,7 +130,7 @@ def write_inventory(
         ValueError: If a host-kind node is missing the required ``role`` field.
     """
     prefix = topology.get("naming_prefix", codename.lower())
-    bridge_base = topology.get("bridge_base", 140)
+    bridge_base = topology.get("bridge_base", _DEFAULT_BRIDGE_BASE)
     ssh_user_for_role = topology.get("naming", {}).get("ssh_user_for_role", {})
 
     # Filter nodes: only vm/lxc/docker become Ansible hosts

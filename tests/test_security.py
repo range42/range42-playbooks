@@ -17,6 +17,7 @@ from r42topo.core.security import (
         "${IFS}",
         "a`whoami`",
         "a;rm -rf /",
+        "a$(id)b",  # bash subshell
         "a|b",
         "a&b",
         "line1\nline2",
