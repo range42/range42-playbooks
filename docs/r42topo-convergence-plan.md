@@ -158,11 +158,15 @@ change. The safe first step is a shared-test-vector contract: whatever package o
 must pass `deployer-ui/schema/test-vectors/*`, which lets `r42topo` and the backend converge
 without a flag-day.
 
-## 9. ADR — engine home: adopt the pure engine, provide the deploy gate
+## 9. ADR — engine home: adopt the pure engine; per-context deploy authority
 
-> **Status:** proposed (needs NC3 / @pparage sign-off per §8). **Date:** 2026-06-03.
+> **Status:** proposed (needs @pparage sign-off per §8). **Date:** 2026-06-03 (rev. 2).
 > Refines §3/§5/§7. Captured after an ECC multi-perspective review (neutral architect
 > terrain map + two steelman advocates over the live code).
+> **Rev. 2:** point 2 reworked — the deploy gate is **per-execution-context**, NOT
+> always-server. A universal "server-authoritative" hash was rejected because it would make
+> every deploy depend on a running backend, defeating r42topo/r42deploy's core purpose: a
+> standalone infra-as-code path that works with **no backend and no UI**.
 
 **Context.** A recurring framing is "should `range42-backend-api` *adopt* an externally-owned
 engine (import `r42topo`, delete its in-repo modules) **or** *provide* the engine to others (own
@@ -179,25 +183,46 @@ allocator, the httpx/FS preflight checks). They want different homes.
    r42deploy must compose/expand/write-inventory **with no backend running**. Putting shared pure
    logic behind a FastAPI+DB process inverts the dependency graph. The pure core is already a clean
    package (`pyproject.toml`, pydantic+pyyaml only) and is golden-byte-identical to the backend.
-2. **Provide the deploy *gate* as a service, on top of (1).** The binding `effective_doc_hash` is
-   **always re-composed server-side** at deploy time; a client's local compose (e.g. r42deploy) is
-   a **non-authoritative preview**. This is the one new constraint this ADR adds — it neutralizes
-   the strongest pro-"provide" argument (client/library **version skew** silently producing a
-   `effective_doc_hash` the backend won't honor) **without** forcing the engine to live in the
-   backend. "Provide" is therefore a layer *above* "adopt", not an alternative to it.
-3. **Skew defense in depth:** shared-test-vector CI in both repos (§8) + backend pins `r42topo`
-   exactly + the deploy path is server-authoritative (point 2).
+2. **Deploy authority is per-execution-context, not a central server.** There are two
+   first-class deployment paths and the authoritative `effective_doc_hash` is produced by
+   **whoever executes the deploy** — it is recorded for that execution:
+   - **Managed path** (deployer-ui → backend → runner): the **backend** composes and records the
+     hash for its own deploys (into the `DeploymentRecord`).
+   - **Infra-as-code path** (r42deploy, GitOps/CI, possibly air-gapped): **r42deploy itself**
+     composes and records the hash — with **no backend and no UI in the loop**. The source of
+     truth is the **git commit** (topology doc + content-addressed `catalog_sha`/`project_sha` +
+     `team_count` + recorded engine version).
+
+   Authority is therefore the **deterministic contract**, not a runtime: given content-addressed
+   inputs + a pinned engine version + the deterministic pure engine (canonical-JSON `sort_keys`
+   compose/expand), **any** executor reproduces the **same** hash. A universal server-authoritative
+   gate is explicitly **rejected** — it would make the IaC path depend on a live backend, negating
+   r42topo/r42deploy independence.
+3. **Cross-path agreement, only when required.** Version skew matters *only* when paths are mixed
+   (preview a doc in the UI, then deploy it via the CLI, and require the two hashes to match). That
+   guarantee is bought by **pinning the same `r42topo` version** across executors **+ the
+   shared-test-vector CI** (§8) proving byte-identical operators across versions — **never** by
+   routing deploys through the backend. Inside a single path there is no skew (the same executor
+   composes *and* deploys; in IaC the desired state lives in git).
 
 **Layering (the seam):** "which VMIDs" (pure, in `r42topo`) is separate from "who gets them under
 contention" (`allocate_vmids_locked`'s `asyncio.Lock` — runtime serialization, stays in the
 backend / `r42runtime`). Same for preflight: the pure checks live in core; `run_declarative_checks`
 + the network/FS checks are runtime. This is layering, not a split invariant.
 
+**Stack shape.** `r42topo` (pure engine) + `r42runtime` (impure runner/workspace/vault) + r42deploy
+(CLI/TUI) form a **complete, standalone infra-as-code deployment path** — no backend, no UI
+required. deployer-ui + backend-api are an **optional managed/GUI layer on top** of that same
+engine, not a prerequisite for deploying. Both layers share one engine and one schema.
+
 **Rejected alternatives.**
+- *Universal server-authoritative deploy gate* — making the binding `effective_doc_hash` always
+  recomputed by the backend would force every deploy through a running backend, defeating the IaC
+  path's independence. Replaced by per-context authority + version-pin/vector-CI (point 2/3).
 - *Engine stays welded inside the backend as its only home* — forces FastAPI/DB/httpx onto every
   consumer to compute a VMID or render a `hosts.yml`; breaks offline r42deploy.
 - *Provide-as-service only* — an air-gapped r42deploy cannot call an HTTP compose endpoint
-  (CRITICAL). Service is the gate, not the sole interface.
+  (CRITICAL). An HTTP surface is at most a convenience for the managed path, never the sole interface.
 - *Provide-as-library cut from the backend* — viable but pays a backend packaging-split tax
   (`app/core` is entangled with ORM/settings; no `pyproject.toml`) that adopt does not, and still
   leaks the backend's heavy deps.
