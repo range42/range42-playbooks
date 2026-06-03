@@ -12,3 +12,8 @@ __pycache__/
 .coverage
 dist/
 build/
+
+# Local scratch outputs from r42topo/r42playbooks CLI
+/topology.json
+/hosts.yml
+/expanded.json
