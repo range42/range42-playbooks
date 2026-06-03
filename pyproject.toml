@@ -17,7 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 cli = ["typer>=0.12"]
 tui = ["textual>=0.60"]
-dev = ["pytest>=8.3", "pytest-cov"]
+dev = ["pytest>=8.3", "pytest-cov", "datamodel-code-generator>=0.25"]
 
 [project.scripts]
 r42topo = "r42topo.cli:app"
