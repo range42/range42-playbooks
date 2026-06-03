@@ -29,12 +29,21 @@ The CLI is an optional extra (`pip install r42topo[cli]`).
 
 ```bash
 r42topo scaffold --name "My Lab" -o topology.json   # start from a valid skeleton
-r42topo validate topology.json                      # schema check
-r42topo compose base.json --overlay overlay.json    # effective doc + hash
+r42topo validate topology.json                      # schema + deny-list check
+r42topo compose topology.json                       # effective doc + hash (--overlay is optional)
 r42topo expand topology.json --teams 4              # per-team expansion
 r42topo preflight topology.json --teams 4           # pure sync checks
 r42topo inventory topology.json --teams 4 \
     --codename LAB --proxmox 10.0.0.1 --ssh-keys ./keys -o hosts.yml
+```
+
+`compose` takes a base `CatalogEntry` (e.g. the scaffolded `topology.json`) and an *optional*
+`--overlay <ProjectOverlay>`; without an overlay it is the identity transform and just reports the
+`effective_doc_hash`. A minimal overlay:
+
+```json
+{ "schema_version": "1.0", "source_url": "https://github.com/you/repo.git",
+  "source_sha": "deadbeef", "param_overrides": { "defaults.region": "eu" } }
 ```
 
 ## Schema
