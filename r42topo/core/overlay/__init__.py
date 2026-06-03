@@ -9,6 +9,7 @@ Ported from range42-backend-api (feature/gamenet-authoring-v1) as part of the
 convergence that makes r42topo the single shared topology engine (issue #67).
 """
 
+from r42topo.core.overlay.compose import compose
 from r42topo.core.overlay.expand_replication import ExpandResult, expand_replication
 
-__all__ = ["expand_replication", "ExpandResult"]
+__all__ = ["compose", "expand_replication", "ExpandResult"]
