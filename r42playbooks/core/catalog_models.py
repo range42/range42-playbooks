@@ -31,12 +31,13 @@ class BoxTemplate(BaseModel):
     api_version: int = 1
     description: str = ""
     role: Literal["admin", "ctf", "team", "student", "template"]
-    # Base OS family of the box. Drives which Proxmox clone image is selected at
-    # authoring time (cpu/ram are clone-time settings, but the disk image is the
-    # OS). Values match Ansible's ``ansible_facts.distribution`` lower-cased, so
-    # the runtime role dispatch (ubuntu/debian/fedora task files) agrees with the
-    # image that was cloned. Defaults to ``ubuntu`` (every existing box).
-    os: Literal["ubuntu", "debian", "fedora"] = "ubuntu"
+    # Versioned base image the box clones, named ``<distro>_<codename>`` (e.g.
+    # ``ubuntu_noble``, ``debian_trixie``) = the 01_init_proxmox templates/<image>/
+    # set. Drives clone-image selection at authoring time (cpu/ram are clone-time
+    # settings; the disk image carries the OS+version). The runtime role dispatch
+    # still self-detects via ``ansible_facts.distribution``, so it agrees with the
+    # cloned image. Defaults to ``ubuntu_noble`` (every existing box).
+    image: str = Field(default="ubuntu_noble", pattern=C.IMAGE_RE.pattern)
     default_inventory_group: str = Field(pattern=C.INVENTORY_GROUP_RE.pattern)
     spec: str = Field(min_length=1)
     default_attachments: list[Attachment] = Field(default_factory=list)

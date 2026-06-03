@@ -84,10 +84,10 @@ def test_init_proxmox_is_os_selective_ubuntu_only(rendered):
     init = root / "01_init_proxmox"
     templates = init / "stage_01-create_templates" / "templates"
     assert (templates / "ubuntu_noble").is_dir()
-    assert not (templates / "debian").exists()         # no inert debian template files
+    assert not (templates / "debian_trixie").exists()         # no inert debian template files
     dl = init / "stage_00-download_cloudinit_files"
     assert (dl / "cloudinit_ubuntu_noble.yml").is_file()
-    assert not (dl / "cloudinit_debian.yml").exists()  # no unused debian image downloaded
+    assert not (dl / "cloudinit_debian_trixie.yml").exists()  # no unused debian image downloaded
     # the stage orchestrators import only ubuntu
     stage01_main = _read(root, "01_init_proxmox/stage_01-create_templates/_main.yml")
     assert "ubuntu_noble/_main_ubuntu_noble.yml" in stage01_main
@@ -241,30 +241,29 @@ def test_scenario_spec_roundtrips_into_tree(rendered):
 
 
 def test_init_proxmox_is_os_selective_debian(fake_catalog, tmp_path):
-    """A Debian lab carries ONLY debian/ + downloads only the trixie image."""
-    # add a debian box to the catalog
+    """A Debian lab carries ONLY debian_trixie/ + downloads only the trixie image."""
+    # add a debian_trixie box to the catalog
     layer = fake_catalog / "05_topology_layer" / "box_templates" / "deb-box" / "v1.0.0"
     layer.mkdir(parents=True)
     (layer / "template.yml").write_text(
-        "id: deb-box\napi_version: 1\nrole: student\nos: debian\n"
+        "id: deb-box\napi_version: 1\nrole: student\nimage: debian_trixie\n"
         "default_inventory_group: r42_student\nspec: \"2cpu/4gb/32gb\"\n", encoding="utf-8",
     )
     spec = ScenarioSpec.model_validate({
-        "name": "deb_lab", "subnet_layout": "default-3zone",
-        "network_policy": "air-gap-ctf", "boxes": [{"template": "deb-box"}],
+        "name": "deb_lab", "subnet_layout": "default-3zone", "boxes": [{"template": "deb-box"}],
     })
     root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, dest=tmp_path / "s")
     init = root / "01_init_proxmox"
     templates = init / "stage_01-create_templates" / "templates"
-    assert (templates / "debian").is_dir()
+    assert (templates / "debian_trixie").is_dir()
     assert not (templates / "ubuntu_noble").exists()       # no inert ubuntu template files
     stage01_main = _read(root, "01_init_proxmox/stage_01-create_templates/_main.yml")
-    assert "debian/_main_debian.yml" in stage01_main
+    assert "debian_trixie/_main_debian_trixie.yml" in stage01_main
     assert "ubuntu_noble" not in stage01_main
     dl = init / "stage_00-download_cloudinit_files"
-    assert (dl / "cloudinit_debian.yml").is_file()
+    assert (dl / "cloudinit_debian_trixie.yml").is_file()
     assert not (dl / "cloudinit_ubuntu_noble.yml").exists()  # no unused ubuntu image
-    download = _read(root, "01_init_proxmox/stage_00-download_cloudinit_files/cloudinit_debian.yml")
+    download = _read(root, "01_init_proxmox/stage_00-download_cloudinit_files/cloudinit_debian_trixie.yml")
     assert "debian-13-genericcloud" in download
     assert "noble" not in download
 

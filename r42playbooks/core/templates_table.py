@@ -18,10 +18,10 @@ from r42playbooks.core.errors import ValidationError
 class ProxmoxTemplate:
     """One 9xxx clone-source template VM.
 
-    ``os`` is the base image family (``ubuntu``/``debian``/``fedora``); it must
-    match the box's declared ``os`` so the cloned image and the role's runtime
-    ``ansible_facts.distribution`` dispatch agree. Defaults to ``ubuntu`` — the
-    only image set ``01_init_proxmox`` currently creates.
+    ``image`` is the versioned base-image set name (``<distro>_<codename>``, e.g.
+    ``ubuntu_noble`` / ``debian_trixie``); it must match the box's declared
+    ``image`` so the cloned disk and the role's runtime
+    ``ansible_facts.distribution`` agree. Defaults to ``ubuntu_noble``.
     """
 
     vm_id: int
@@ -29,7 +29,7 @@ class ProxmoxTemplate:
     spec: str
     ip: str
     bridge: str
-    os: str = "ubuntu"
+    image: str = "ubuntu_noble"
 
 
 # Verbatim from scenarios/demo_lab/manifest/scenario_vms.json -> templates[].
@@ -46,11 +46,11 @@ TEMPLATE_TABLE: tuple[ProxmoxTemplate, ...] = (
     ProxmoxTemplate(9244, "template-vm-large-04-8g-64g", "4cpu/8gb/64gb", "192.168.140.244", "vmbr140"),
     ProxmoxTemplate(9246, "template-vm-large-06-8g-64g", "6cpu/8gb/64gb", "192.168.140.246", "vmbr140"),
     ProxmoxTemplate(9248, "template-vm-large-08-8g-64g", "8cpu/8gb/64gb", "192.168.140.248", "vmbr140"),
-    # --- debian (trixie / 13) — created by 01_init_proxmox/templates/debian/. Two
-    # sizes cover every current box spec via the ram/disk fallback (4gb/32gb and
-    # 8gb/64gb). 93xx band + .140.12x/.13x IPs avoid the ubuntu rows above.
-    ProxmoxTemplate(9321, "template-vm-debian-small", "1cpu/4gb/32gb", "192.168.140.121", "vmbr140", os="debian"),
-    ProxmoxTemplate(9331, "template-vm-debian-medium", "2cpu/8gb/64gb", "192.168.140.131", "vmbr140", os="debian"),
+    # --- debian_trixie (13) — created by 01_init_proxmox/templates/debian_trixie/.
+    # Two sizes cover every current box spec via the ram/disk fallback (4gb/32gb,
+    # 8gb/64gb). 93xx band + .140.12x/.13x IPs avoid the ubuntu_noble rows above.
+    ProxmoxTemplate(9321, "template-vm-debian-small", "1cpu/4gb/32gb", "192.168.140.121", "vmbr140", image="debian_trixie"),
+    ProxmoxTemplate(9331, "template-vm-debian-medium", "2cpu/8gb/64gb", "192.168.140.131", "vmbr140", image="debian_trixie"),
 )
 
 
@@ -66,19 +66,18 @@ def _ram_disk(spec: str) -> tuple[str, ...]:
 
 
 def select_template(
-    spec: str, *, os: str = "ubuntu", override_vm_id: int | None = None
+    spec: str, *, image: str = "ubuntu_noble", override_vm_id: int | None = None
 ) -> ProxmoxTemplate:
-    """Resolve a box ``(os, spec)`` to a clone template (plan §7.1 / H2).
+    """Resolve a box ``(image, spec)`` to a clone template (plan §7.1 / H2).
 
-    With ``override_vm_id`` the box pins an explicit template id (any OS).
-    Otherwise selection is scoped to the box's ``os`` image set, then an
-    **exact** ``cpu/ram/disk`` match wins (lowest vm_id for determinism); failing
-    that, a template with the same ``ram/disk`` is used (cpu/ram are clone-time
-    settings — the image's baked dimension is the disk, see :func:`_ram_disk`).
+    With ``override_vm_id`` the box pins an explicit template id (any image).
+    Otherwise selection is scoped to the box's ``image`` set, then an **exact**
+    ``cpu/ram/disk`` match wins (lowest vm_id for determinism); failing that, a
+    template with the same ``ram/disk`` is used (cpu/ram are clone-time settings
+    — the image's baked dimension is the disk, see :func:`_ram_disk`).
 
-    :raises ValidationError: if the override id is unknown, the OS has no image
-        set yet (e.g. debian/fedora — only ``ubuntu`` is created today), or the
-        spec matches no template for that OS.
+    :raises ValidationError: if the override id is unknown, the image set does
+        not exist yet, or the spec matches no template in that image set.
     """
     if override_vm_id is not None:
         for tmpl in TEMPLATE_TABLE:
@@ -86,11 +85,11 @@ def select_template(
                 return tmpl
         raise ValidationError(f"template_vm_id override not in table: {override_vm_id}")
 
-    pool = [t for t in TEMPLATE_TABLE if t.os == os]
+    pool = [t for t in TEMPLATE_TABLE if t.image == image]
     if not pool:
         raise ValidationError(
-            f"no Proxmox template image for os {os!r} "
-            f"(only {sorted({t.os for t in TEMPLATE_TABLE})} are created today)"
+            f"unknown base image {image!r} "
+            f"(available: {sorted({t.image for t in TEMPLATE_TABLE})})"
         )
 
     exact = [t for t in pool if t.spec == spec]
@@ -102,4 +101,4 @@ def select_template(
     if approx:
         return min(approx, key=lambda t: t.vm_id)
 
-    raise ValidationError(f"no {os} Proxmox template matches box spec {spec!r} (cpu/ram/disk or ram/disk)")
+    raise ValidationError(f"image {image!r} has no template matching box spec {spec!r} (cpu/ram/disk or ram/disk)")

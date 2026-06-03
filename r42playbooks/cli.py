@@ -113,7 +113,7 @@ def show(
         bt = cat.box_templates[module]
         typer.secho(f"box-template: {bt.id}", bold=True)
         typer.echo(f"  role:            {bt.role}")
-        typer.echo(f"  os:              {bt.os}")
+        typer.echo(f"  image:           {bt.image}")
         typer.echo(f"  inventory group: {bt.default_inventory_group}")
         typer.echo(f"  spec:            {bt.spec}")
         attachments = bt.default_attachments or []

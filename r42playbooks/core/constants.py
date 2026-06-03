@@ -83,6 +83,10 @@ REPLICA_PAD = 2
 # the scenario-name rule). Used for directory names under 05_topology_layer/.
 TEMPLATE_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
+# Base-image set name — ``<distro>_<codename>`` (e.g. ubuntu_noble, debian_trixie).
+# Matches the 01_init_proxmox/.../templates/<image>/ dir a box clones from.
+IMAGE_RE = re.compile(r"^[a-z0-9]+(?:_[a-z0-9]+)+$")
+
 # Version directory under a template id, e.g. "v1.0.0".
 VERSION_DIR_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 
