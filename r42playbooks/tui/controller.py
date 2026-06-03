@@ -120,25 +120,34 @@ class ScenarioComposerController:
     # -- preview / generate --
 
     def preview(self) -> str:
-        """A plain-text preview of the composition + its allocated VMs.
+        """A plain-text preview of the current composition.
 
-        Never raises: validation gaps and allocation errors (e.g. no template
-        matches a box spec, subnet exhausted) are returned as text so the TUI
-        can show them in-pane instead of crashing.
+        Always shows the picked header + the boxes added so far (so every
+        ``add_box`` gives visible feedback), then the readiness verdict or the
+        allocated VMs. Never raises: validation gaps and allocation errors are
+        returned as text so the TUI shows them in-pane instead of crashing.
         """
+        total_vms = sum(count for _t, count in self._boxes)
+        lines = [
+            f"name:   {self.name or '(unset)'}",
+            f"subnet: {self.subnet_layout or '(unset)'}   policy: {self.network_policy or '(unset)'}",
+            f"boxes:  {total_vms} VM(s) from {len(self._boxes)} pick(s)",
+        ]
+        lines += [f"  - {template} ×{count}" for template, count in self._boxes]
+
         problems = self.validate()
         if problems:
-            return "not ready:\n" + "\n".join(f"  ✗ {p}" for p in problems)
+            lines += ["", "not ready:"] + [f"  ✗ {p}" for p in problems]
+            return "\n".join(lines)
+
         try:
             spec = self.build_spec()
             alloc = allocate(spec, self.catalog, self.reserved)
         except TopologyError as exc:
-            return f"✗ cannot allocate: {exc}"
-        lines = [
-            f"scenario: {spec.name}",
-            f"subnet layout: {spec.subnet_layout}   policy: {spec.network_policy}",
-            f"boxes ({len(alloc.boxes)} VMs):",
-        ]
+            lines += ["", f"✗ cannot allocate: {exc}"]
+            return "\n".join(lines)
+
+        lines += ["", "ready — allocation:"]
         lines += [
             f"  - {b.vm_name}  id={b.vm_id} ip={b.ip} role={b.role}" for b in alloc.boxes
         ]

@@ -66,6 +66,15 @@ def test_controller_preview_shows_allocation(fake_catalog):
     assert "vuln-box-02" in preview  # count=3 expanded
 
 
+def test_controller_preview_lists_added_boxes_when_incomplete(fake_catalog):
+    """Every add_box gives visible feedback even before name/subnet/policy are set."""
+    ctl = ScenarioComposerController(fake_catalog)
+    ctl.add_box("vuln-box", count=2)             # nothing else picked yet
+    preview = ctl.preview()
+    assert "vuln-box ×2" in preview              # the pick is shown
+    assert "not ready" in preview                # and the readiness gap
+
+
 def test_controller_generate_writes_deployable_tree(fake_catalog, tmp_path):
     ctl = _composed(fake_catalog)
     root = ctl.generate(tmp_path / "scenarios")
@@ -154,7 +163,7 @@ def test_controller_preview_surfaces_allocation_error_without_raising(fake_catal
     ctl = _composed(fake_catalog)
     monkeypatch.setattr(ctlmod, "allocate", _boom)
     out = ctl.preview()
-    assert out.startswith("✗ cannot allocate")
+    assert "✗ cannot allocate" in out
     assert "subnet exhausted" in out
 
 

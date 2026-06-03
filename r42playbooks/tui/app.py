@@ -33,25 +33,36 @@ class ScenarioComposerApp(App):
         self.out_dir = out_dir or Path("scenarios")
         self._pending_overwrite = False  # set after an exists-warning; next Generate overwrites
 
+    def _select(self, options: list[str], widget_id: str) -> Select:
+        """A Select that defaults to its first option (no blank/prompt state).
+
+        Without allow_blank=False a Select sits on Select.BLANK until the user
+        opens it, which makes "Add" silently no-op on a freshly opened TUI.
+        """
+        opts = [(x, x) for x in options]
+        if opts:
+            return Select(opts, id=widget_id, allow_blank=False, value=opts[0][1])
+        return Select(opts, id=widget_id)
+
     def compose(self) -> ComposeResult:
         yield Header()
         with Vertical(id="form"):
             yield Label("Scenario name")
             yield Input(placeholder="my_lab", id="scenario")
             yield Label("Subnet layout")
-            yield Select([(x, x) for x in self.controller.layouts()], id="layout")
+            yield self._select(self.controller.layouts(), "layout")
             yield Label("Network policy")
-            yield Select([(x, x) for x in self.controller.policies()], id="policy")
-            yield Label("Add box")
+            yield self._select(self.controller.policies(), "policy")
+            yield Label("Add box  (template, count)")
             with Horizontal():
-                yield Select([(x, x) for x in self.controller.box_templates()], id="box")
+                yield self._select(self.controller.box_templates(), "box")
                 yield Input(value=_DEFAULT_COUNT, id="count")
                 yield Button("Add", id="add", variant="primary")
             with Horizontal():
                 yield Button("Preview", id="preview")
                 yield Button("Generate", id="generate", variant="success")
                 yield Button("Clear boxes", id="clear", variant="warning")
-        yield Static("(compose a scenario to begin)", id="output")
+        yield Static("(pick a box and press Add to begin)", id="output")
         yield Footer()
 
     # -- helpers --
