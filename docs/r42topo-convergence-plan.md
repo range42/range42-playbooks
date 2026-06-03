@@ -13,7 +13,15 @@
 > topology vectors (`tests/golden/inventory/`); the rest mirror the backend unit tests. Impure
 > bits deferred to r42runtime per `docs/r42topo-port-map.md` (`allocate_vmids_locked`,
 > `ssh_controlmaster_env`, FS/httpx preflight checks, `run_declarative_checks`).
-> **Phase 7 (backend swap) held for @pparage sign-off** per §8.
+> **Phase 6 (security + emit hardening on the canonical path)** — done & pushed: deny-list scan
+> of the canonical free-text surface (`defaults`/`config`/`vars`, `*_template` exempt), wired into
+> `api.validate_document` + `compose_effective` (fail-closed); atomic `hosts.yml`/JSON emit.
+> **Invented-model retirement** (the §9 prerequisite) — done & pushed: the `subnets/zones/boxes`
+> model + iptables compiler + Textual TUI are removed; `r42topo` exposes only the canonical
+> engine (`api`/`cli` re-pointed at `CatalogEntry`/`ProjectOverlay`), so the Phase 7 `import
+> r42topo` swap won't hit a two-headed package. 112 tests green.
+> **Phase 7 (backend swap) held for @pparage sign-off** per §8. Done without touching
+> range42-backend-api / range42-deployer-ui — they adopt the change on their own schedule.
 >
 > **Deferred — redaction/resolve_secrets**: the backend `app/core/redaction.py` (`run_pipeline`,
 > impure audit-file writer) **diverges from the shared redaction vectors** — marker
