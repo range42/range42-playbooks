@@ -15,6 +15,7 @@ root, and symlinks escaping the root are rejected.
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -25,6 +26,9 @@ from r42playbooks.core.catalog_models import (
     SubnetLayout,
 )
 from r42playbooks.core.errors import CatalogNotFoundError, ValidationError
+
+if TYPE_CHECKING:
+    from r42playbooks.core.spec import ScenarioSpec
 
 _CATEGORY_MODEL = {
     C.CATEGORY_BOX_TEMPLATES: BoxTemplate,
@@ -44,11 +48,14 @@ class _Resolved:
 
 @dataclass
 class Catalog:
-    """In-memory index of validated topology-layer templates."""
+    """In-memory index of validated topology-layer templates + pickable refs."""
 
     box_templates: dict[str, BoxTemplate] = field(default_factory=dict)
     network_policies: dict[str, NetworkPolicyTemplate] = field(default_factory=dict)
     subnet_layouts: dict[str, SubnetLayout] = field(default_factory=dict)
+    # name-referenced modules from 02_/03_ (not pydantic templates) — see S3.
+    roles: set[str] = field(default_factory=set)
+    containers: set[str] = field(default_factory=set)
     _resolved: dict[tuple[str, str], _Resolved] = field(default_factory=dict)
 
     # -- resolution helpers (raise CatalogNotFoundError on miss) --
@@ -145,6 +152,48 @@ def _load_category(layer_root: Path, category: str, catalog: Catalog) -> None:
         )
 
 
+def list_roles(catalog_root: Path) -> list[str]:
+    """Enumerate reusable Ansible role names under ``02_ansible_layer/**/roles/``.
+
+    Roles are referenced by name (``<category>.<action>.<target>``) and resolve at
+    deploy time via ``ANSIBLE_ROLES_PATH`` — this is a read-only name scan, never a
+    copy. Returns a sorted, de-duplicated list. Empty if the layer is absent.
+    """
+    layer_root = (Path(catalog_root) / C.ANSIBLE_LAYER_DIR).resolve()
+    if not layer_root.is_dir():
+        return []
+    names: set[str] = set()
+    for roles_dir in layer_root.rglob(C.ROLES_DIR_NAME):
+        if not roles_dir.is_dir() or not roles_dir.resolve().is_relative_to(layer_root):
+            continue  # skip symlink escapes
+        for child in roles_dir.iterdir():
+            if child.is_dir() and C.CATALOG_REF_RE.fullmatch(child.name):
+                names.add(child.name)
+    return sorted(names)
+
+
+def list_containers(catalog_root: Path) -> list[str]:
+    """Enumerate CTF docker stacks under ``03_container_layer/docker/_ctf/``.
+
+    A container ref is the POSIX path, relative to ``_ctf/``, of a directory that
+    holds a compose file (e.g. ``cve/web/dvwa``). Returns a sorted list. Empty if
+    the layer is absent.
+    """
+    ctf_root = (Path(catalog_root) / C.CONTAINER_LAYER_DIR / C.CTF_REL_DIR).resolve()
+    if not ctf_root.is_dir():
+        return []
+    refs: set[str] = set()
+    for filename in C.COMPOSE_FILENAMES:
+        for compose in ctf_root.rglob(filename):
+            stack_dir = compose.parent.resolve()
+            if not stack_dir.is_relative_to(ctf_root):
+                continue  # skip symlink escapes
+            rel = stack_dir.relative_to(ctf_root).as_posix()
+            if rel and rel != ".":
+                refs.add(rel)
+    return sorted(refs)
+
+
 def load_catalog(catalog_root: Path) -> Catalog:
     """Load + validate all topology-layer templates from a catalog checkout.
 
@@ -159,4 +208,30 @@ def load_catalog(catalog_root: Path) -> Catalog:
     catalog = Catalog()
     for category in _CATEGORY_MODEL:
         _load_category(layer_root, category, catalog)
+    catalog.roles = set(list_roles(catalog_root))
+    catalog.containers = set(list_containers(catalog_root))
     return catalog
+
+
+def validate_refs(spec: "ScenarioSpec", catalog: Catalog) -> list[str]:
+    """Return human-readable messages for every spec ref missing from *catalog*.
+
+    A typo guard for ``scenario.r42.yml``: checks the subnet layout, network
+    policy, each box template, and each added role/container attachment. An empty
+    list means every referenced module exists. ``gamification`` attachments are
+    not enumerated here and are skipped (cannot be validated by name yet).
+    """
+    problems: list[str] = []
+    if spec.subnet_layout not in catalog.subnet_layouts:
+        problems.append(f"unknown subnet_layout: {spec.subnet_layout!r}")
+    if spec.network_policy not in catalog.network_policies:
+        problems.append(f"unknown network_policy: {spec.network_policy!r}")
+    for box in spec.boxes:
+        if box.template not in catalog.box_templates:
+            problems.append(f"unknown box template: {box.template!r}")
+        for att in box.attachments_add:
+            if att.kind == "role" and att.catalog_ref not in catalog.roles:
+                problems.append(f"unknown role: {att.catalog_ref!r}")
+            elif att.kind == "container" and att.catalog_ref not in catalog.containers:
+                problems.append(f"unknown container: {att.catalog_ref!r}")
+    return problems

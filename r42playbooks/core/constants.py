@@ -66,6 +66,17 @@ CATEGORY_BOX_TEMPLATES = "box_templates"
 CATEGORY_NETWORK_POLICIES = "network_policies"
 CATEGORY_SUBNET_LAYOUTS = "subnet_layouts"
 
+# Catalog layers scanned for pickable, name-referenced modules (S3).
+#   roles      -> 02_ansible_layer/**/roles/<category>.<action>.<target>/
+#   containers -> 03_container_layer/docker/_ctf/**/  (dir holding a compose file)
+ANSIBLE_LAYER_DIR = "02_ansible_layer"
+CONTAINER_LAYER_DIR = "03_container_layer"
+CTF_REL_DIR = "docker/_ctf"
+ROLES_DIR_NAME = "roles"
+COMPOSE_FILENAMES: tuple[str, ...] = (
+    "docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml",
+)
+
 # Security deny-list: substrings that must never appear in a free-text topology
 # field. Blocks Jinja/SSTI (`{{ }}`, `{% %}`, `${`), shell metacharacters,
 # path traversal, and argv-flag injection. Fields are rejected, never sanitized.

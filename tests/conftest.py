@@ -126,6 +126,16 @@ default_inventory_group: r42_admin_group
 spec: "4cpu/8gb/64gb"
 """.lstrip())
 
+    # 02_ansible_layer: reusable roles, referenced by name (<category>.<action>.<target>).
+    for role in ("software.install.wazuh", "software.install.wazuh-agent", "software.install.extra"):
+        _write(root / "02_ansible_layer" / "admin" / "roles" / role / "tasks" / "main.yml", "---\n[]\n")
+
+    # 03_container_layer: CTF docker stacks, referenced by path under _ctf/.
+    _write(root / "03_container_layer" / "docker" / "_ctf" / "cve" / "web" / "dvwa" / "docker-compose.yml",
+           "services: {}\n")
+    _write(root / "03_container_layer" / "docker" / "_ctf" / "misconfiguration" / "network" / "open-smb" / "compose.yml",
+           "services: {}\n")
+
     # two versions of a policy — loader must pick the highest (1.1.0)
     for ver, comment in (("v1.0.0", "v1"), ("v1.1.0", "v1.1")):
         _write(layer / "network_policies" / "air-gap-ctf" / ver / "template.yml", f"""
