@@ -6,7 +6,10 @@
 >
 > **Branch:** `feat/r42playbooks-generator` (based on the original scenario-authoring foundation).
 > **Base/PR target:** `dev` (repo uses a `dev → main` PR flow). **License:** GPL-3.0.
-> **Status:** not started — Step 1 is the entry point.
+> **Status:** S1–S4 done & committed (rename, spec model, catalog pick/validate, allocation
+> + manifest). 120 tests green. **Next: S5b** (verbatim-with-param renderer). Step 0 housekeeping
+> still pending. New modules: `core/spec.py`, `core/templates_table.py`, `core/allocate.py`; extended
+> `core/catalog.py` (`list_roles`/`list_containers`/`validate_refs`) and `core/io.py` (`atomic_write_text`).
 
 ## 0. Objective (the one line)
 
