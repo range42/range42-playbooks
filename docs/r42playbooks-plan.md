@@ -6,14 +6,15 @@
 >
 > **Branch:** `feat/r42playbooks-generator` (based on the original scenario-authoring foundation).
 > **Base/PR target:** `dev` (repo uses a `dev → main` PR flow). **License:** GPL-3.0.
-> **Status:** S1–S4 + **S5b done & committed** (rename, spec model, catalog pick/validate, allocation
-> + manifest, **class-B renderer**). 135 tests green. **Next: S5a** (class-A manifest-derived artifacts:
-> `_main.yml` per section, `templates/*.j2`, `manifest/scenario_vms.json` — and FREEZE the
-> `render_scenario`/`list_*` API that gates S6∥S7). Step 0 housekeeping still pending. New modules:
-> `core/spec.py`, `core/templates_table.py`, `core/allocate.py`, `core/render.py` + `core/render_assets.py`
-> (+ vendored `assets/scenario/01_init_proxmox/`); extended `core/catalog.py`
+> **Status:** S1–S4 + **S5b + S5a done & committed** (rename, spec model, catalog pick/validate,
+> allocation + manifest, **full renderer class B + class A**, **frozen public API**). 145 tests green.
+> **Next: S6 ∥ S7** (Typer CLI + Textual TUI over the frozen API) — Step 0 housekeeping still pending.
+> New modules: `core/spec.py`, `core/templates_table.py`, `core/allocate.py`, `core/render.py` +
+> `core/render_assets.py` (+ vendored `assets/scenario/01_init_proxmox/`); extended `core/catalog.py`
 > (`list_roles`/`list_containers`/`validate_refs`) and `core/io.py` (`atomic_write_text`).
-> Renderer entry point (not yet frozen): `render.render_scenario(alloc, spec, *, dest) -> Path`.
+> **FROZEN API (api.py):** `render_scenario(spec, *, catalog, dest, reserved=None) -> Path`,
+> `allocate`, `load_spec`, `list_roles`, `list_containers`, `validate_refs`, `ScenarioSpec`.
+> (Core renderer stays `render.render_scenario(alloc, spec, *, dest)`; api wraps allocate+render.)
 
 ## 0. Objective (the one line)
 
