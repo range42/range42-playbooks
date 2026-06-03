@@ -132,37 +132,6 @@ def test_app_generate_warns_on_existing_then_overwrites(fake_catalog, tmp_path):
     asyncio.run(_go())
 
 
-def test_app_ctrl_bindings_drive_actions_without_mouse(fake_catalog, tmp_path):
-    """Ctrl shortcuts operate the composer with no mouse, even from the name field.
-
-    Mouse clicks and F-keys are unreliable over tmux/SSH; Ctrl combos bubble up
-    from the focused Input (they're not Input bindings) so they always fire.
-    """
-    import asyncio
-    from textual.widgets import Input
-    from r42playbooks.tui.app import ScenarioComposerApp
-
-    out = tmp_path / "scenarios"
-
-    async def _go():
-        app = ScenarioComposerApp(ScenarioComposerController(fake_catalog), out_dir=out)
-        shown: list[str] = []
-        app._set_output = lambda t: shown.append(t)
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            app.query_one("#scenario", Input).value = "kbd_lab"
-            app.query_one("#scenario", Input).focus()
-            await pilot.pause()
-            await pilot.press("ctrl+n")      # Add (defaulted box/layout/policy) — from the Input
-            await pilot.press("ctrl+g")      # Generate
-            await pilot.pause()
-        assert any("admin-wazuh ×1" in s for s in shown)        # Ctrl+N added + previewed
-        assert any(s.startswith("✓ generated") for s in shown)  # Ctrl+G generated
-        assert (out / "kbd_lab" / "main.yml").is_file()
-
-    asyncio.run(_go())
-
-
 def test_app_button_fires_on_mouse_click(fake_catalog):
     """A mouse click on the Add button invokes the handler."""
     import asyncio
@@ -198,21 +167,72 @@ def test_app_button_fires_on_enter_when_focused(fake_catalog):
     asyncio.run(_go())
 
 
-def test_app_ctrl_cycles_box_and_count_without_mouse(fake_catalog):
-    """Ctrl+B cycles the box template and Ctrl+up bumps the count, keyboard-only."""
+def test_app_full_flow_via_buttons(fake_catalog, tmp_path):
+    """Compose + generate using only button presses (the standard interaction)."""
     import asyncio
-    from textual.widgets import Input, Select
+    from textual.widgets import Input
+    from r42playbooks.tui.app import ScenarioComposerApp
+
+    out = tmp_path / "scenarios"
+
+    async def _go():
+        app = ScenarioComposerApp(ScenarioComposerController(fake_catalog), out_dir=out)
+        shown: list[str] = []
+        app._set_output = lambda t: shown.append(t)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.query_one("#scenario", Input).value = "btn_lab"
+            await pilot.pause()
+            await pilot.click("#add")
+            await pilot.click("#generate")
+            await pilot.pause()
+        assert any(s.startswith("✓ generated") for s in shown)
+        assert (out / "btn_lab" / "main.yml").is_file()
+
+    asyncio.run(_go())
+
+
+def test_app_layout_buttons_and_output_visible(fake_catalog):
+    """Regression: every button is on-screen and the output pane has real height.
+
+    The tall single-column layout used to squeeze #output to height 0 and push
+    the buttons below the fold, so only Quit (which closes the app) had a visible
+    effect. Guard the side-by-side layout at a standard 80x24.
+    """
+    import asyncio
+    from textual.widgets import Button, Static
+    from r42playbooks.tui.app import ScenarioComposerApp
+
+    async def _go():
+        app = ScenarioComposerApp(ScenarioComposerController(fake_catalog))
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            out = app.query_one("#output", Static)
+            assert out.size.height > 0 and out.size.width > 0   # output is visible
+            for bid in ("add", "preview", "generate", "clear", "quit"):
+                b = app.query_one(f"#{bid}", Button)
+                assert b.region.width > 0
+                assert b.region.y + b.region.height <= app.size.height  # on-screen
+            await pilot.click("#add")    # must not raise OutOfBounds
+            await pilot.pause()
+            assert len(app.controller.boxes) == 1
+
+    asyncio.run(_go())
+
+
+def test_app_quit_button_exits(fake_catalog):
+    """The Quit button exits the app (mouse users need a visible way out)."""
+    import asyncio
     from r42playbooks.tui.app import ScenarioComposerApp
 
     async def _go():
         app = ScenarioComposerApp(ScenarioComposerController(fake_catalog))
         async with app.run_test() as pilot:
             await pilot.pause()
-            first = app.query_one("#box", Select).value
-            await pilot.press("ctrl+b")                         # cycle box
-            assert app.query_one("#box", Select).value != first
-            await pilot.press("ctrl+up")                        # count 1 -> 2
-            assert app.query_one("#count", Input).value == "2"
+            await pilot.click("#quit")
+            await pilot.pause()
+        # app.run_test() context exits cleanly once the app has stopped
+        assert app.is_running is False
 
     asyncio.run(_go())
 
