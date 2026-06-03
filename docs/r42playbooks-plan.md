@@ -6,10 +6,14 @@
 >
 > **Branch:** `feat/r42playbooks-generator` (based on the original scenario-authoring foundation).
 > **Base/PR target:** `dev` (repo uses a `dev → main` PR flow). **License:** GPL-3.0.
-> **Status:** S1–S4 done & committed (rename, spec model, catalog pick/validate, allocation
-> + manifest). 120 tests green. **Next: S5b** (verbatim-with-param renderer). Step 0 housekeeping
-> still pending. New modules: `core/spec.py`, `core/templates_table.py`, `core/allocate.py`; extended
-> `core/catalog.py` (`list_roles`/`list_containers`/`validate_refs`) and `core/io.py` (`atomic_write_text`).
+> **Status:** S1–S4 + **S5b done & committed** (rename, spec model, catalog pick/validate, allocation
+> + manifest, **class-B renderer**). 135 tests green. **Next: S5a** (class-A manifest-derived artifacts:
+> `_main.yml` per section, `templates/*.j2`, `manifest/scenario_vms.json` — and FREEZE the
+> `render_scenario`/`list_*` API that gates S6∥S7). Step 0 housekeeping still pending. New modules:
+> `core/spec.py`, `core/templates_table.py`, `core/allocate.py`, `core/render.py` + `core/render_assets.py`
+> (+ vendored `assets/scenario/01_init_proxmox/`); extended `core/catalog.py`
+> (`list_roles`/`list_containers`/`validate_refs`) and `core/io.py` (`atomic_write_text`).
+> Renderer entry point (not yet frozen): `render.render_scenario(alloc, spec, *, dest) -> Path`.
 
 ## 0. Objective (the one line)
 
