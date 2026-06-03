@@ -53,6 +53,32 @@ VM_ID_MAX = 9999
 # Bounds runaway allocation from a hostile/typo'd scenario.r42.yml.
 BOX_COUNT_MAX = 99
 
+# --- allocation conventions (S4) -------------------------------------------
+# Which subnet (by name in the chosen subnet_layout) a box of each role lands in.
+# 'team' has no demo_lab subnet — DEFAULT it to the student subnet (plan §7.1).
+# 'template' boxes are not placed (templates come from TEMPLATE_TABLE, band 9xxx).
+ROLE_SUBNET_NAME: dict[str, str] = {
+    "admin": "admin",
+    "ctf": "ctf",
+    "student": "student",
+    "team": "student",
+}
+# First host octet tried for each role (mirrors demo_lab: admin .100, student
+# .160, ctf .170; team offset above student to avoid a same-subnet clash).
+ROLE_BASE_OCTET: dict[str, int] = {
+    "admin": 100,
+    "student": 160,
+    "ctf": 170,
+    "team": 180,
+}
+# vm_id = band*1000 + octet. Bands 1..8 for placed boxes; 9xxx is the template band.
+VM_ID_BAND_MIN = 1
+VM_ID_BAND_MAX = 8
+# Highest usable host octet in a /24 (last is broadcast-ish; stay <= 254).
+HOST_OCTET_MAX = 254
+# Zero-pad width for expanded replica names (vuln-box-00..); supports BOX_COUNT_MAX.
+REPLICA_PAD = 2
+
 # Catalog template id — dotless kebab (distinct from dotted role refs and from
 # the scenario-name rule). Used for directory names under 05_topology_layer/.
 TEMPLATE_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")

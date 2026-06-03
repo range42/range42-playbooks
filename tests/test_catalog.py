@@ -8,7 +8,7 @@ from r42playbooks.core.errors import CatalogNotFoundError
 
 def test_load_catalog_indexes_all_categories(fake_catalog):
     cat = load_catalog(fake_catalog)
-    assert set(cat.box_templates) == {"vuln-box", "admin-wazuh"}
+    assert set(cat.box_templates) == {"vuln-box", "admin-wazuh", "student-box"}
     assert set(cat.network_policies) == {"air-gap-ctf"}
     assert set(cat.subnet_layouts) == {"default-3zone"}
 

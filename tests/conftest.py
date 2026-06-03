@@ -126,6 +126,15 @@ default_inventory_group: r42_admin_group
 spec: "4cpu/8gb/64gb"
 """.lstrip())
 
+    _write(layer / "box_templates" / "student-box" / "v1.0.0" / "template.yml", """
+id: student-box
+api_version: 1
+description: student workstation
+role: student
+default_inventory_group: r42_student_group
+spec: "1cpu/2gb/24gb"
+""".lstrip())
+
     # 02_ansible_layer: reusable roles, referenced by name (<category>.<action>.<target>).
     for role in ("software.install.wazuh", "software.install.wazuh-agent", "software.install.extra"):
         _write(root / "02_ansible_layer" / "admin" / "roles" / role / "tasks" / "main.yml", "---\n[]\n")
