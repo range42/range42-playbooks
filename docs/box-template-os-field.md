@@ -118,6 +118,41 @@ When debian/fedora images exist, add their `9xxx` rows to
 (sourced, as today, from the `01_init_proxmox/templates/<family>/` definitions and
 the reference manifest `templates[]`).
 
+## 01_init_proxmox layout (generator)
+
+The generator's vendored `01_init_proxmox/` now mirrors the **`_init_lab` STAGED
+layout** (not the flat `templates/` one):
+
+```
+01_init_proxmox/
+  _main.yml                              # imports stage_00 + stage_01
+  stage_00-download_cloudinit_files/
+    _main.yml                            # generated: import cloudinit_<os>.yml per used OS
+    cloudinit_<os>.yml                   # copied per used OS (downloads base images)
+  stage_01-create_templates/
+    _main.yml                            # generated: import templates/<os>/_main_<os>.yml per used OS
+    templates/<os>/…                     # copied per used OS
+```
+
+It stays **OS-selective**: a Ubuntu-only lab carries only `ubuntu_noble/` +
+`cloudinit_ubuntu_noble.yml`; a Debian lab only `debian/` + `cloudinit_debian.yml`.
+
+⚠ **Content note:** `_init_lab`'s template playbooks are an *older, simpler* set
+than `blank_scenario_*`'s — they lack the **idempotence guards** ("skip if already
+a template", lock-aware waits) and the **apt-proxy / update-templates** steps.
+The generator currently vendors the `_init_lab` content (per the layout choice).
+If the richer/idempotent content is wanted, port `blank_scenario`'s ubuntu_noble
+files into the staged layout (fix the secrets depth `../../../` → `../../../../`)
+and regenerate the Debian set from them.
+
+## bundles/core/linux/debian (examples)
+
+`bundles/core/linux/debian/` mirrors `…/ubuntu/` (install/configure example
+playbooks + tests). Because the roles self-detect the OS at runtime, the
+`main.yml` bodies are identical to ubuntu's; only the `test.sh` target host
+differs (a Debian box). A future cleanup may collapse `ubuntu/`+`debian/` into a
+single `linux/` set once the roles are confirmed fully OS-agnostic.
+
 ## Out of scope / explicitly NOT changing
 
 - The warmup roles' runtime fact dispatch — keep `feat/local-apt-mirror`'s pattern.

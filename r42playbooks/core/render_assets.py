@@ -485,33 +485,36 @@ MAIN_VMS_ONLY_HEADER = """\
 
 """
 
-# Generated per scenario so it downloads ONLY the cloud images the composition's
-# OS families need (@@IMAGE_LOOP@@ = the loop items). Structure mirrors the
-# original static 01_init_proxmox download playbook.
-DOWNLOAD_CLOUDINIT = """\
+# Staged 01_init_proxmox sub-orchestrators, generated per scenario so each stage
+# imports ONLY the OS families the composition uses (@@IMPORTS@@ = the import
+# lines). The cloudinit_<os>.yml downloads and templates/<os>/ trees are copied
+# from the vendored asset; these two files just wire up the used ones.
+
+STAGE_DOWNLOAD_MAIN = """\
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# PROMOX INIT - download cloud-init base images (only the OS families used)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+@@IMPORTS@@"""
+
+STAGE_TEMPLATES_MAIN = """\
+---
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# PROMOX INIT - create the Proxmox template images (only the OS families used)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+@@IMPORTS@@"""
+
+# Reinstall helper for the 01_init_proxmox stage (re-run template creation).
+INIT_REINSTALL_SH = """\
+#!/bin/bash
 ##
-## download cloud-init base images for the OS families this scenario uses
+## re-run 01_init_proxmox (download images + create templates)
 ##
 
-- hosts: proxmox
-  gather_facts: false
-  vars_files:
-    - "../../secrets/default_vault.yml"
-
-  tasks:
-    - name: PROMOX INIT - DOWNLOAD - CLOUD INIT images
-      include_role:
-        name: range42-ansible_roles-proxmox_controller
-
-      vars:
-        proxmox_vm_action: "storage_download_iso"
-        proxmox_storage: "local"
-        iso_file_content_type: "iso"
-        iso_url: "{{ item.iso_url }}"
-        iso_file_name: "{{ item.iso_file_name }}"
-
-      loop:
-@@IMAGE_LOOP@@
+ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \\
+    -l "proxmox" \\
+    "./_main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set — run: range42-context use <codename> <scenario>}"
 """
 
 # --- class-A: ansible-inventory.j2 (groups + member hosts, manifest-derived) ---

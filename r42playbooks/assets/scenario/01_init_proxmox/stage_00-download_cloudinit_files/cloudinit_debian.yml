@@ -1,0 +1,29 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# PROMOX INIT - download cloud init files
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: PROMOX INIT - DOWNLOAD - CLOUD INIT images
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "storage_download_iso"
+        # proxmox_node: "VALUE_IMPORTED" # TODO :: UPDATE DOCUMENTATION
+        proxmox_storage: "local"
+        iso_file_content_type: "iso"
+        iso_url: "{{ item.iso_url }}"
+        iso_file_name: "{{ item.iso_file_name }}"
+
+      loop:
+        - {
+            iso_url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.raw",
+            iso_file_name: "debian-13-genericcloud-amd64.img",
+          }

@@ -52,34 +52,25 @@ _DEFAULT_PROXMOX_NODE = "px-testing"
 _NETMASK = "24"
 _EXEC_MODE = 0o755
 
-# Per-OS image set under 01_init_proxmox/templates/. A scenario only downloads,
-# imports, and copies the families its composition uses (H3 / OS-selective):
-#   dir    — the templates/<dir>/ subtree copied from the vendored asset
-#   main   — the image-creation orchestrator imported by main.yml
-#   images — (url, on-disk filename) cloud images downloaded for this OS
-# Only OSes with an image set appear here; an OS without one is blocked earlier
-# at allocation (select_template), so render never sees it.
+# 01_init_proxmox uses the _init_lab STAGED layout:
+#   _main.yml                         -> imports stage_00 + stage_01
+#   stage_00-download_cloudinit_files/ cloudinit_<os>.yml  (download base images)
+#   stage_01-create_templates/        templates/<os>/_main_<os>.yml + per-size files
+# A scenario only downloads/creates the OS families its composition uses
+# (OS-selective): the two stage _main.yml are generated with just those imports,
+# and only the matching cloudinit_<os>.yml + templates/<os>/ are copied. Per OS:
+#   cloudinit — stage_00 download playbook filename
+#   dir       — templates/<dir>/ image-creation subtree
+#   main      — templates/<dir>/<main> orchestrator
+# An OS without an image set is blocked earlier at allocation (select_template),
+# so render never sees it.
 _OS_IMAGE: dict[str, dict] = {
-    "ubuntu": {
-        "dir": "ubuntu_noble",
-        "main": "_main_ubuntu_noble.yml",
-        "images": [
-            ("https://cloud-images.ubuntu.com/minimal/daily/noble/current/noble-minimal-cloudimg-amd64.img",
-             "noble-minimal-cloudimg-amd64.img"),
-            ("https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img",
-             "noble-server-cloudimg-amd64.img"),
-        ],
-    },
-    "debian": {
-        "dir": "debian",
-        "main": "_main_debian.yml",
-        "images": [
-            ("https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.raw",
-             "debian-13-genericcloud-amd64.img"),
-        ],
-    },
+    "ubuntu": {"cloudinit": "cloudinit_ubuntu_noble.yml", "dir": "ubuntu_noble", "main": "_main_ubuntu_noble.yml"},
+    "debian": {"cloudinit": "cloudinit_debian.yml", "dir": "debian", "main": "_main_debian.yml"},
 }
-_DOWNLOAD_IMPORT = "- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml"
+_INIT_MAIN_IMPORT = "- import_playbook: ./01_init_proxmox/_main.yml"
+_DOWNLOAD_DIR = "stage_00-download_cloudinit_files"
+_TEMPLATES_STAGE = "stage_01-create_templates"
 
 # The vendored boilerplate copied verbatim into every scenario (plan H3).
 _ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
@@ -209,44 +200,51 @@ def _render_sections(alloc: Allocation, root: Path, scenario: str, proxmox_node:
 
 # --- top level ---------------------------------------------------------------
 
+def _copy_file(src: Path, dst: Path) -> None:
+    """Copy a single asset file, creating parent dirs."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+
+
 def _render_init_proxmox(root: Path, used_os: list[str]) -> None:
-    """Emit 01_init_proxmox for ONLY the OS families the composition uses (H3).
+    """Emit 01_init_proxmox (staged) for ONLY the OS families the composition uses.
 
-    Generates the download playbook (just the needed images) and copies each
-    used OS's ``templates/<dir>/`` image-creation subtree from the vendored asset.
-    A Ubuntu-only lab never carries Debian template files, and vice versa.
+    Mirrors the ``_init_lab`` layout: a top ``_main.yml`` imports the download and
+    template-creation stages, each of which imports only the used OSes. A
+    Ubuntu-only lab never carries Debian template files, and vice versa (H3).
     """
-    asset_templates = _ASSETS_DIR / "scenario" / "01_init_proxmox" / "templates"
-    dest_templates = root / "01_init_proxmox" / "templates"
+    asset = _ASSETS_DIR / "scenario" / "01_init_proxmox"
+    init = root / "01_init_proxmox"
+    used = [o for o in used_os if o in _OS_IMAGE]
 
-    images = [img for os_name in used_os for img in _OS_IMAGE.get(os_name, {}).get("images", [])]
-    loop = "\n".join(f'        - {{ iso_url: "{url}", iso_file_name: "{name}" }}' for url, name in images)
-    _write(A.fill(A.DOWNLOAD_CLOUDINIT, IMAGE_LOOP=loop),
-           dest_templates / "_main_download_cloudinit_files.yml")
+    # static top orchestrator (imports both stages) + a clean reinstall helper
+    _copy_file(asset / "_main.yml", init / "_main.yml")
+    _write(A.INIT_REINSTALL_SH, init / "_main.reinstall.sh", executable=True)
 
-    for os_name in used_os:
-        entry = _OS_IMAGE.get(os_name)
-        if entry:
-            shutil.copytree(asset_templates / entry["dir"], dest_templates / entry["dir"],
-                            dirs_exist_ok=True)
+    # stage_00: download base images — one cloudinit_<os>.yml import per used OS
+    dl = init / _DOWNLOAD_DIR
+    dl_imports = "".join(f"- import_playbook: ./{_OS_IMAGE[o]['cloudinit']}\n" for o in used)
+    _write(A.fill(A.STAGE_DOWNLOAD_MAIN, IMPORTS=dl_imports), dl / "_main.yml")
+    for o in used:
+        _copy_file(asset / _DOWNLOAD_DIR / _OS_IMAGE[o]["cloudinit"], dl / _OS_IMAGE[o]["cloudinit"])
+
+    # stage_01: create templates — one templates/<os>/_main_<os>.yml import per used OS
+    stage = init / _TEMPLATES_STAGE
+    tpl_imports = "".join(
+        f"- import_playbook: ./templates/{_OS_IMAGE[o]['dir']}/{_OS_IMAGE[o]['main']}\n" for o in used
+    )
+    _write(A.fill(A.STAGE_TEMPLATES_MAIN, IMPORTS=tpl_imports), stage / "_main.yml")
+    for o in used:
+        shutil.copytree(asset / _TEMPLATES_STAGE / "templates" / _OS_IMAGE[o]["dir"],
+                        stage / "templates" / _OS_IMAGE[o]["dir"], dirs_exist_ok=True)
 
 
-def _image_imports(used_os: list[str]) -> str:
-    """Download images + import the per-OS image-creation orchestrators used."""
-    lines = [_DOWNLOAD_IMPORT]
-    for os_name in used_os:
-        entry = _OS_IMAGE.get(os_name)
-        if entry:
-            lines.append(f"- import_playbook: ./01_init_proxmox/templates/{entry['dir']}/{entry['main']}")
-    return "\n".join(lines) + "\n"
-
-
-def _render_main_playbooks(root: Path, scenario: str, sections: list[str], used_os: list[str]) -> None:
-    """Top-level main.yml / main_vms_only.yml (only emitted sections + used images)."""
+def _render_main_playbooks(root: Path, scenario: str, sections: list[str]) -> None:
+    """Top-level main.yml / main_vms_only.yml (only emitted sections)."""
     section_imports = "".join(f"- import_playbook: ./{s}/_main.yml\n" for s in sections)
     header = A.fill(A.MAIN_HEADER, SCENARIO=scenario)
-    # main.yml: create the template images (per OS) then deploy the sections.
-    _write(header + _image_imports(used_os) + "\n" + section_imports, root / "main.yml")
+    # main.yml: create the template images (01_init_proxmox) then deploy the sections.
+    _write(header + _INIT_MAIN_IMPORT + "\n\n" + section_imports, root / "main.yml")
     # main_vms_only.yml: skip 01_init_proxmox (templates already exist).
     _write(A.fill(A.MAIN_VMS_ONLY_HEADER, SCENARIO=scenario) + section_imports,
            root / "main_vms_only.yml")
@@ -363,7 +361,7 @@ def render_scenario(
     used_os = sorted({box.os for box in alloc.boxes})
     _render_init_proxmox(root, used_os)
     sections = _render_sections(alloc, root, spec.name, proxmox_node)
-    _render_main_playbooks(root, spec.name, sections, used_os)
+    _render_main_playbooks(root, spec.name, sections)
     _render_top_level_scripts(root, spec.name)
     _render_templates_class_b(root, spec.name)
     _render_readme(root, spec, alloc)

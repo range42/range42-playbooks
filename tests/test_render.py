@@ -51,43 +51,47 @@ def test_render_returns_scenario_root_dir(rendered):
 
 
 def test_init_proxmox_subtree_copied_verbatim(rendered):
-    """H3: the vendored 01_init_proxmox/ template-creation subtree is present."""
+    """H3: the vendored 01_init_proxmox/ (staged _init_lab layout) is present."""
     _spec, _alloc, root = rendered
-    assert (root / "01_init_proxmox" / "templates"
+    init = root / "01_init_proxmox"
+    assert (init / "_main.yml").is_file()
+    assert (init / "stage_00-download_cloudinit_files" / "cloudinit_ubuntu_noble.yml").is_file()
+    assert (init / "stage_01-create_templates" / "templates"
             / "ubuntu_noble" / "_main_ubuntu_noble.yml").is_file()
-    assert (root / "01_init_proxmox" / "templates"
-            / "_main_download_cloudinit_files.yml").is_file()
 
 
 def test_main_yml_imports_only_emitted_sections(rendered):
     """main.yml wires 01_init_proxmox + the sections that actually have boxes."""
     _spec, _alloc, root = rendered
     main = _read(root, "main.yml")
-    assert "./01_init_proxmox/templates/_main_download_cloudinit_files.yml" in main
+    assert "./01_init_proxmox/_main.yml" in main
     assert "./02_admin_infrastructure/_main.yml" in main
     assert "./04_ctf_infrastructure/_main.yml" in main
     # no student box was composed -> never import a section that wasn't emitted
     assert "03_student_infrastructure" not in main
 
 
-def test_main_yml_imports_image_family_per_os(rendered):
-    """main.yml creates the image set(s) the composition uses (ubuntu by default)."""
+def test_main_yml_imports_init_proxmox(rendered):
+    """main.yml runs the staged 01_init_proxmox orchestrator then the sections."""
     _spec, _alloc, root = rendered
     main = _read(root, "main.yml")
-    assert "./01_init_proxmox/templates/_main_download_cloudinit_files.yml" in main
-    assert "./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml" in main
-    assert "debian/_main_debian.yml" not in main   # no debian box in this composition
+    assert "- import_playbook: ./01_init_proxmox/_main.yml" in main
 
 
 def test_init_proxmox_is_os_selective_ubuntu_only(rendered):
     """A Ubuntu-only lab carries ONLY ubuntu_noble + downloads only ubuntu images."""
     _spec, _alloc, root = rendered
-    templates = root / "01_init_proxmox" / "templates"
+    init = root / "01_init_proxmox"
+    templates = init / "stage_01-create_templates" / "templates"
     assert (templates / "ubuntu_noble").is_dir()
-    assert not (templates / "debian").exists()        # no inert debian template files
-    download = _read(root, "01_init_proxmox/templates/_main_download_cloudinit_files.yml")
-    assert "noble" in download
-    assert "debian" not in download                   # no unused debian image downloaded
+    assert not (templates / "debian").exists()         # no inert debian template files
+    dl = init / "stage_00-download_cloudinit_files"
+    assert (dl / "cloudinit_ubuntu_noble.yml").is_file()
+    assert not (dl / "cloudinit_debian.yml").exists()  # no unused debian image downloaded
+    # the stage orchestrators import only ubuntu
+    stage01_main = _read(root, "01_init_proxmox/stage_01-create_templates/_main.yml")
+    assert "ubuntu_noble/_main_ubuntu_noble.yml" in stage01_main
+    assert "debian" not in stage01_main
 
 
 def test_top_level_scripts_present_and_named_for_scenario(rendered):
@@ -250,15 +254,19 @@ def test_init_proxmox_is_os_selective_debian(fake_catalog, tmp_path):
         "network_policy": "air-gap-ctf", "boxes": [{"template": "deb-box"}],
     })
     root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, dest=tmp_path / "s")
-    templates = root / "01_init_proxmox" / "templates"
+    init = root / "01_init_proxmox"
+    templates = init / "stage_01-create_templates" / "templates"
     assert (templates / "debian").is_dir()
     assert not (templates / "ubuntu_noble").exists()       # no inert ubuntu template files
-    main = _read(root, "main.yml")
-    assert "debian/_main_debian.yml" in main
-    assert "ubuntu_noble" not in main
-    download = _read(root, "01_init_proxmox/templates/_main_download_cloudinit_files.yml")
+    stage01_main = _read(root, "01_init_proxmox/stage_01-create_templates/_main.yml")
+    assert "debian/_main_debian.yml" in stage01_main
+    assert "ubuntu_noble" not in stage01_main
+    dl = init / "stage_00-download_cloudinit_files"
+    assert (dl / "cloudinit_debian.yml").is_file()
+    assert not (dl / "cloudinit_ubuntu_noble.yml").exists()  # no unused ubuntu image
+    download = _read(root, "01_init_proxmox/stage_00-download_cloudinit_files/cloudinit_debian.yml")
     assert "debian-13-genericcloud" in download
-    assert "noble" not in download                         # no unused ubuntu image downloaded
+    assert "noble" not in download
 
 
 def test_render_refuses_existing_dir_then_overwrites(fake_catalog, valid_spec_dict, tmp_path):

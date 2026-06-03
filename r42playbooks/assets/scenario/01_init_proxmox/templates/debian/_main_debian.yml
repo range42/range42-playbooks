@@ -1,8 +1,0 @@
-##
-## debian trixie (13) template images — created from the genericcloud image
-## downloaded by ../_main_download_cloudinit_files.yml. Two sizes cover every
-## current box spec via the generator's ram/disk fallback (4gb/32gb, 8gb/64gb).
-##
-
-- import_playbook: ./00-template-vm-debian-small.yml
-- import_playbook: ./01-template-vm-debian-medium.yml
