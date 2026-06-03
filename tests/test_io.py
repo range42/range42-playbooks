@@ -1,32 +1,67 @@
-"""P1 IO round-trip tests for r42topo.core.io — RED before GREEN."""
-
+"""Canonical JSON IO: load, deterministic dump, atomic write, effective hash."""
 import json
 
-from r42topo.core.io import dump_topology, load_topology
-from r42topo.core.models import Topology
+import pytest
+
+from r42topo.core.errors import TopologyError
+from r42topo.core.io import (
+    dump_json_atomic,
+    dumps_canonical,
+    effective_doc_hash,
+    load_json,
+)
 
 
-def test_round_trip_preserves_topology(tmp_path, valid_topology_dict):
-    t = Topology.model_validate(valid_topology_dict)
-    path = tmp_path / "topology.json"
-    dump_topology(t, path)
-    loaded = load_topology(path)
-    assert loaded == t
+def test_load_json_roundtrip(tmp_path):
+    doc = {"kind": "gamenet", "nodes": [{"id": "a"}]}
+    p = tmp_path / "doc.json"
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    assert load_json(p) == doc
 
 
-def test_dump_writes_sorted_deterministic_json(tmp_path, valid_topology_dict):
-    t = Topology.model_validate(valid_topology_dict)
-    p1, p2 = tmp_path / "a.json", tmp_path / "b.json"
-    dump_topology(t, p1)
-    dump_topology(t, p2)
-    assert p1.read_text() == p2.read_text()  # byte-identical
-    top = json.loads(p1.read_text())
-    assert list(top.keys()) == sorted(top.keys())  # sorted keys
+def test_load_json_missing_file_raises(tmp_path):
+    with pytest.raises(TopologyError, match="cannot read"):
+        load_json(tmp_path / "nope.json")
 
 
-def test_load_rejects_unknown_path(tmp_path):
-    import pytest
+def test_load_json_invalid_json_raises(tmp_path):
+    p = tmp_path / "bad.json"
+    p.write_text("{not json", encoding="utf-8")
+    with pytest.raises(TopologyError, match="invalid JSON"):
+        load_json(p)
 
-    from r42topo.core.errors import TopologyError
-    with pytest.raises(TopologyError):
-        load_topology(tmp_path / "does-not-exist.json")
+
+def test_dumps_canonical_is_sorted_and_newline_terminated():
+    text = dumps_canonical({"b": 1, "a": 2})
+    assert text.endswith("\n")
+    assert text.index('"a"') < text.index('"b"')  # keys sorted
+
+
+def test_dump_json_atomic_writes_and_leaves_no_tmp(tmp_path):
+    dest = tmp_path / "out" / "doc.json"
+    returned = dump_json_atomic({"a": 1}, dest)
+    assert returned == dest
+    assert load_json(dest) == {"a": 1}
+    # no leftover temp files in the destination directory
+    assert [p.name for p in dest.parent.iterdir()] == ["doc.json"]
+
+
+def test_effective_doc_hash_format_and_determinism():
+    h = effective_doc_hash({"a": 1, "b": 2})
+    assert h.startswith("sha256:") and len(h) == len("sha256:") + 64
+    assert h == effective_doc_hash({"a": 1, "b": 2})
+
+
+def test_effective_doc_hash_is_key_order_independent():
+    # canonical hash sorts keys → insertion order must not matter
+    assert effective_doc_hash({"a": 1, "b": 2}) == effective_doc_hash({"b": 2, "a": 1})
+
+
+def test_effective_doc_hash_matches_backend_formula():
+    # byte-compatible with range42-backend-api _effective_hash (ADR §9)
+    doc = {"kind": "gamenet", "name": "x"}
+    import hashlib
+    expected = "sha256:" + hashlib.sha256(
+        json.dumps(doc, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    assert effective_doc_hash(doc) == expected

@@ -1,55 +1,110 @@
-"""P3 importable-API adapter tests (the surface FastAPI / deployment CLI call)."""
+"""Canonical api adapter surface (r42topo.api) over the shared test-vectors."""
+import json
+from pathlib import Path
 
 import pytest
 
 from r42topo import api
+from r42topo.core.canonical import CatalogEntry
 from r42topo.core.errors import ValidationError
-from r42topo.core.idalloc import ReservedIndex
-from r42topo.core.models import Topology
+
+VECTORS = Path(__file__).parent / "vectors" / "test-vectors"
 
 
-def test_load_catalog_reexported(fake_catalog):
-    cat = api.load_catalog(fake_catalog)
-    assert "vuln-box" in cat.box_templates
+def _topo(name: str) -> dict:
+    return json.loads((VECTORS / "topology" / f"{name}.json").read_text(encoding="utf-8"))
 
 
-def test_author_topology_returns_model(topology_factory, fake_catalog):
-    cat = api.load_catalog(fake_catalog)
-    t = api.author_topology(topology_factory(), catalog=cat)
-    assert isinstance(t, Topology)
+def test_load_and_validate_document(tmp_path):
+    doc = _topo("01-minimal")
+    p = tmp_path / "topo.json"
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    loaded = api.load_document(p)
+    entry = api.validate_document(loaded)
+    assert isinstance(entry, CatalogEntry)
+    assert entry.kind.value == "gamenet"
 
 
-def test_author_topology_rejects_dangling_ref(topology_factory, fake_catalog):
-    cat = api.load_catalog(fake_catalog)
-    spec = topology_factory()
-    spec["boxes"][0]["box_template"] = "missing-template"
-    with pytest.raises(ValidationError):
-        api.author_topology(spec, catalog=cat)
+def test_validate_document_rejects_garbage():
+    with pytest.raises(ValidationError, match="invalid topology"):
+        api.validate_document({"kind": "not-a-kind", "name": 123})
 
 
-def test_validate_topology_clean(topology_factory, fake_catalog, reserved_factory):
-    cat = api.load_catalog(fake_catalog)
-    t = Topology.model_validate(topology_factory())
-    reserved = ReservedIndex.from_file(reserved_factory([]))
-    assert api.validate_topology(t, catalog=cat, reserved=reserved) == []
+def test_validate_overlay_on_compose_vector():
+    v = json.loads((VECTORS / "compose" / "01_identity.json").read_text(encoding="utf-8"))
+    overlay = api.validate_overlay(v["input"]["overlay"])
+    assert overlay.source_sha
 
 
-def test_validate_topology_reports_problems(topology_factory, fake_catalog, reserved_factory):
-    cat = api.load_catalog(fake_catalog)
-    spec = topology_factory()
-    spec["boxes"][0]["ip"] = "10.0.0.100"
-    t = Topology.model_validate(spec)
-    reserved = ReservedIndex.from_file(reserved_factory([]))
-    assert api.validate_topology(t, catalog=cat, reserved=reserved)
+def test_compose_effective_returns_doc_and_stable_hash():
+    v = json.loads((VECTORS / "compose" / "02_nodes_added.json").read_text(encoding="utf-8"))
+    eff, h = api.compose_effective(v["input"]["base"], v["input"]["overlay"])
+    assert eff == v["expected"]
+    assert h.startswith("sha256:")
+    # recompute is stable
+    assert api.compose_effective(v["input"]["base"], v["input"]["overlay"])[1] == h
 
 
-def test_full_author_compile_extravars(topology_factory, fake_catalog, reserved_factory, tmp_path):
-    cat = api.load_catalog(fake_catalog)
-    reserved = ReservedIndex.from_file(reserved_factory([]))
-    t = api.author_topology(topology_factory(), catalog=cat)
-    assert api.validate_topology(t, catalog=cat, reserved=reserved) == []
-    result = api.compile_topology(t, workspace=tmp_path / "ws", catalog=cat, reserved=reserved)
-    ev = api.resolve_universal_extravars(result, deployment_id="d", attempt_id="a", scope="global")
-    # the _universal stub asserts this path exists and is a regular file
-    from pathlib import Path
-    assert Path(ev["r42_topology_path"]).is_file()
+def test_compose_effective_identity_without_overlay():
+    base = _topo("01-minimal")
+    eff, _ = api.compose_effective(base, None)
+    assert eff == base
+
+
+def test_expand_replication_multi_team():
+    doc = _topo("02-multi-team")
+    result = api.expand_replication(doc, 3)
+    assert result["plays_per_team"] == 3
+
+
+def test_write_inventory_smoke(tmp_path):
+    doc = _topo("02-multi-team")
+    dest = tmp_path / "hosts.yml"
+    out = api.write_inventory(
+        topology=doc, team_count=2, codename="MT",
+        proxmox_address="10.0.0.1", ssh_keys_dir=tmp_path / "keys", dest=dest,
+    )
+    assert out == dest and dest.exists()
+
+
+def test_preflight_document_passes_for_clean_topology():
+    # NOTE: the ported check_vmid_safety_for_topology uses template_vmid as the
+    # allocation base (the canonical schema has no vmid_base), so the safe case
+    # must keep template_vmid out of the 9000-9999 protected range. The shared
+    # 02-multi-team vector uses 9001/9020 templates and so blocks — a faithful
+    # backend quirk flagged for spec reconciliation, not changed here.
+    doc = {
+        "schema_version": "1.0", "kind": "gamenet", "name": "x", "naming_prefix": "x",
+        "nodes": [
+            {"id": "adm", "kind": "vm", "role": "admin",
+             "replication": {"scope": "shared"}, "template_vmid": 5000},
+            {"id": "tr", "kind": "vm", "role": "team",
+             "replication": {"scope": "per_team"}, "template_vmid": 5100},
+        ],
+    }
+    report = api.preflight_document(doc, team_count=2)
+    assert report.result == "pass", [(c.check, c.result, c.detail) for c in report.checks]
+
+
+def test_preflight_document_blocks_protected_vmid():
+    doc = {
+        "schema_version": "1.0", "kind": "gamenet", "name": "x", "naming_prefix": "x",
+        "nodes": [
+            {"id": "bad", "kind": "vm", "role": "admin",
+             "replication": {"scope": "shared"}, "vmid_base": 100},  # protected
+        ],
+    }
+    report = api.preflight_document(doc, team_count=1)
+    assert report.result == "block"
+
+
+def test_preflight_document_blocks_missing_role():
+    doc = {
+        "schema_version": "1.0", "kind": "gamenet", "name": "x", "naming_prefix": "x",
+        "nodes": [
+            {"id": "norole", "kind": "vm", "replication": {"scope": "shared"},
+             "template_vmid": 8000},
+        ],
+    }
+    report = api.preflight_document(doc, team_count=1)
+    assert report.result == "block"

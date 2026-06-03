@@ -1,23 +1,31 @@
-"""Topology load/dump helpers — deterministic, atomic JSON IO.
+"""Deterministic, atomic JSON IO for canonical topology documents.
 
-``dump_topology`` writes sorted-key, stable JSON so re-compiling an unchanged
-topology yields byte-identical output (clean diffs, reproducible builds).
-Writes are atomic (temp file + os.replace) to avoid half-written artifacts.
+Canonical documents are plain dicts (validated against the generated
+``canonical`` models). ``dumps_canonical`` produces sorted-key, stable,
+newline-terminated JSON so re-emitting an unchanged document yields
+byte-identical output (clean diffs, reproducible builds). ``dump_json_atomic``
+writes via a temp file + ``os.replace`` to avoid half-written artifacts.
+
+``effective_doc_hash`` is byte-compatible with range42-backend-api's
+``_effective_hash`` (``json.dumps(sort_keys=True, separators=(",", ":"))``):
+identical effective documents hash identically across the backend (managed
+path) and r42deploy (infra-as-code path) — the per-context deploy-authority
+guarantee of convergence ADR §9 (issue #67).
 """
+from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
 from pathlib import Path
-
-from pydantic import ValidationError as _PydanticValidationError
+from typing import Any
 
 from r42topo.core.errors import TopologyError
-from r42topo.core.models import Topology
 
 
-def load_topology(path: Path) -> Topology:
-    """Load and validate a topology.json from *path*.
+def load_json(path: Path) -> dict[str, Any]:
+    """Load a JSON document from *path*.
 
     :raises TopologyError: if the file is missing or not valid JSON.
     """
@@ -25,29 +33,24 @@ def load_topology(path: Path) -> Topology:
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise TopologyError(f"cannot read topology file: {path}") from exc
+        raise TopologyError(f"cannot read document file: {path}") from exc
     try:
-        data = json.loads(raw)
+        return json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise TopologyError(f"invalid JSON in topology file: {path}") from exc
-    try:
-        return Topology.model_validate(data)
-    except _PydanticValidationError as exc:
-        raise TopologyError(f"topology schema error in {path}: {exc}") from exc
+        raise TopologyError(f"invalid JSON in document file: {path}") from exc
 
 
-def dumps_topology(topology: Topology) -> str:
-    """Serialize a Topology to canonical, sorted, newline-terminated JSON."""
-    payload = topology.model_dump(mode="json")
-    return json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+def dumps_canonical(doc: dict[str, Any]) -> str:
+    """Serialize *doc* to canonical, sorted, newline-terminated JSON."""
+    return json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
-def dump_topology(topology: Topology, path: Path) -> Path:
-    """Atomically write *topology* to *path* as canonical JSON. Returns the path."""
+def dump_json_atomic(doc: dict[str, Any], path: Path) -> Path:
+    """Atomically write *doc* to *path* as canonical JSON. Returns the path."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    text = dumps_topology(topology)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".topology-", suffix=".tmp")
+    text = dumps_canonical(doc)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".r42topo-", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(text)
@@ -56,3 +59,13 @@ def dump_topology(topology: Topology, path: Path) -> Path:
         if os.path.exists(tmp):
             os.unlink(tmp)
     return path
+
+
+def effective_doc_hash(doc: dict[str, Any]) -> str:
+    """Return ``sha256:<hex>`` over the effective document.
+
+    Byte-compatible with the backend's ``_effective_hash`` so the managed and
+    infra-as-code deploy paths agree on a document's identity (ADR §9).
+    """
+    payload = json.dumps(doc, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(payload).hexdigest()

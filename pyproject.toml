@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "r42topo"
-version = "0.1.0"
-description = "range42 scenario authoring & topology compiler"
+version = "0.2.0"
+description = "range42 canonical topology engine (compose / expand / inventory / preflight)"
 readme = "r42topo/README.md"
 requires-python = ">=3.11"
 license = { text = "GPL-3.0-only" }
@@ -16,12 +16,10 @@ dependencies = [
 
 [project.optional-dependencies]
 cli = ["typer>=0.12"]
-tui = ["textual>=0.60"]
 dev = ["pytest>=8.3", "pytest-cov", "datamodel-code-generator>=0.25"]
 
 [project.scripts]
 r42topo = "r42topo.cli:app"
-r42topo-tui = "r42topo.tui.app:main"
 
 [tool.setuptools.packages.find]
 include = ["r42topo*"]
