@@ -6,7 +6,13 @@
 >
 > Progress (branch `feat/r42topo-canonical-schema`): **Phase 1 schema intake**, **Phase 2
 > `expand_replication`**, **Phase 3 `compose`** — done & pushed, all green against the shared
-> vectors. **Phases 4–5** (inventory_writer / allocation / vmid_guard / preflight) in progress.
+> vectors. **Phases 4–5** — done & pushed: ported `vmid_guard` → `allocation.allocate_vmids`
+> (pure subset) → `preflight` (sync/no-IO subset) → `inventory_writer` into `r42topo/core/` as
+> framework-free pure modules (plain `Exception` subclasses; no FastAPI/httpx/asyncio).
+> `inventory_writer` is golden byte-compared to the backend's `write_inventory` over the shared
+> topology vectors (`tests/golden/inventory/`); the rest mirror the backend unit tests. Impure
+> bits deferred to r42runtime per `docs/r42topo-port-map.md` (`allocate_vmids_locked`,
+> `ssh_controlmaster_env`, FS/httpx preflight checks, `run_declarative_checks`).
 > **Phase 7 (backend swap) held for @pparage sign-off** per §8.
 >
 > **Deferred — redaction/resolve_secrets**: the backend `app/core/redaction.py` (`run_pipeline`,
