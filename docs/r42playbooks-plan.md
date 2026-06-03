@@ -6,11 +6,14 @@
 >
 > **Branch:** `feat/r42playbooks-generator` (based on the original scenario-authoring foundation).
 > **Base/PR target:** `dev` (repo uses a `dev → main` PR flow). **License:** GPL-3.0.
-> **Status:** S1–S8 **done & committed** (rename, spec model, catalog pick/validate, allocation +
-> manifest, **full renderer class B + class A**, **frozen public API**, **generator CLI
-> `list`/`show`/`new`**, **Textual TUI composer**, **importable package surface + generator docs**).
-> 159 tests green. **Next: S9** (ECC `python-reviewer` + `code-reviewer` over S1–S8). Step 0
-> housekeeping (close #67, tracking issue, scratch `.gitignore`) still pending + independent.
+> **Status:** S1–S9 **done & committed** — full generator (spec → catalog pick/validate → allocate →
+> renderer class B + class A), **frozen public API**, **CLI `list`/`show`/`new`**, **Textual TUI
+> composer**, **importable package surface + docs**, and the **ECC review pass** (python + code +
+> security reviewers; all CRITICAL/HIGH + security MEDIUMs fixed; verified end-to-end against the real
+> range42-catalog). 168 tests green. **Remaining:** Step 0 housekeeping (close #67, open the tracking
+> issue, scratch `.gitignore`) — independent; and a noted follow-up: box `cpu`/`ram` are not yet
+> applied at clone time (the renderer clones the matched template; spec cpu/ram override is a future
+> enhancement, see `select_template` ram/disk fallback).
 > New modules: `core/spec.py`, `core/templates_table.py`, `core/allocate.py`, `core/render.py` +
 > `core/render_assets.py` (+ vendored `assets/scenario/01_init_proxmox/`); extended `core/catalog.py`
 > (`list_roles`/`list_containers`/`validate_refs`) and `core/io.py` (`atomic_write_text`).
