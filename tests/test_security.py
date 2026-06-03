@@ -2,6 +2,7 @@
 import pytest
 
 from r42topo.core.security import (
+    document_freetext_violations,
     nested_violations,
     reject_injection,
     violates_denylist,
@@ -59,3 +60,47 @@ def test_nested_violations_clean_is_empty():
 def test_nested_violations_flags_bad_key():
     paths = nested_violations({"a;b": "clean"})
     assert any("(key)" in p for p in paths)
+
+
+# --- canonical document free-text scan (Phase 6) ---------------------------
+
+def test_document_freetext_violations_flags_config_and_vars():
+    doc = {
+        "kind": "gamenet", "name": "x",
+        "defaults": {"clean": "ok", "bad": "${x}"},
+        "nodes": [
+            {"id": "n1", "kind": "vm", "config": {"cmd": "a;b", "cores": 2},
+             "attachments": [{"vars": {"k": "{{ evil }}"}}]},
+            {"id": "grp", "kind": "group",
+             "children": [{"id": "c1", "kind": "vm", "config": {"x": "a|b"}}]},
+        ],
+    }
+    paths = document_freetext_violations(doc)
+    assert "defaults.bad" in paths
+    assert "nodes[n1].config.cmd" in paths
+    assert "nodes[n1].attachments[0].vars.k" in paths
+    assert "nodes[grp].children[c1].config.x" in paths
+    assert len(paths) == 4
+
+
+def test_document_freetext_violations_exempts_template_fields():
+    # *_template fields legitimately contain {{ }} and must NOT be flagged
+    doc = {
+        "kind": "gamenet", "name": "x",
+        "nodes": [
+            {"id": "net", "kind": "network",
+             "cidr_template": "192.168.{{ bridge_base + team_id }}.0/24",
+             "bridge_template": "vmbr{{ bridge_base + team_id }}",
+             "networks": [{"node_ref": "net", "ip_template": "10.0.{{ team_id }}.5"}]},
+        ],
+        "flags": [{"id": "f", "scope": "per_team", "value_template": "{{ team_id }}"}],
+    }
+    assert document_freetext_violations(doc) == []
+
+
+def test_document_freetext_violations_clean_topology():
+    doc = {
+        "kind": "gamenet", "name": "x",
+        "nodes": [{"id": "n", "kind": "vm", "config": {"cores": 2, "memory": 2048}}],
+    }
+    assert document_freetext_violations(doc) == []

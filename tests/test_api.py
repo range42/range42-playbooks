@@ -30,6 +30,28 @@ def test_validate_document_rejects_garbage():
         api.validate_document({"kind": "not-a-kind", "name": 123})
 
 
+def test_validate_document_rejects_injection_in_config():
+    doc = {
+        "schema_version": "1.0", "kind": "gamenet", "name": "x", "naming_prefix": "x",
+        "nodes": [
+            {"id": "n", "kind": "vm", "role": "admin",
+             "replication": {"scope": "shared"}, "template_vmid": 5000,
+             "config": {"hostname": "{{ lookup('pipe','id') }}"}},
+        ],
+    }
+    with pytest.raises(ValidationError, match="forbidden values"):
+        api.validate_document(doc)
+
+
+def test_assert_document_safe_passes_clean_and_flags_dirty():
+    api.assert_document_safe(_topo("01-minimal"))  # clean → no raise
+    with pytest.raises(ValidationError, match="config"):
+        api.assert_document_safe({
+            "kind": "gamenet", "name": "x",
+            "nodes": [{"id": "n", "kind": "vm", "config": {"c": "a;b"}}],
+        })
+
+
 def test_validate_overlay_on_compose_vector():
     v = json.loads((VECTORS / "compose" / "01_identity.json").read_text(encoding="utf-8"))
     overlay = api.validate_overlay(v["input"]["overlay"])

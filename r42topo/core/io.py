@@ -45,11 +45,14 @@ def dumps_canonical(doc: dict[str, Any]) -> str:
     return json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
-def dump_json_atomic(doc: dict[str, Any], path: Path) -> Path:
-    """Atomically write *doc* to *path* as canonical JSON. Returns the path."""
+def dump_text_atomic(text: str, path: Path) -> Path:
+    """Atomically write *text* to *path* (temp file + ``os.replace``).
+
+    Avoids half-written artifacts on crash/interrupt — a torn ``hosts.yml`` or
+    ``topology.json`` would silently mis-deploy. Returns the path.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    text = dumps_canonical(doc)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".r42topo-", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
@@ -59,6 +62,11 @@ def dump_json_atomic(doc: dict[str, Any], path: Path) -> Path:
         if os.path.exists(tmp):
             os.unlink(tmp)
     return path
+
+
+def dump_json_atomic(doc: dict[str, Any], path: Path) -> Path:
+    """Atomically write *doc* to *path* as canonical JSON. Returns the path."""
+    return dump_text_atomic(dumps_canonical(doc), path)
 
 
 def effective_doc_hash(doc: dict[str, Any]) -> str:

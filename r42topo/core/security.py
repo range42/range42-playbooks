@@ -57,3 +57,42 @@ def nested_violations(obj: Any, *, path: str = "") -> list[str]:
         for idx, item in enumerate(obj):
             out.extend(nested_violations(item, path=f"{path}[{idx}]"))
     return out
+
+
+def _scan_nodes(nodes: list[dict], prefix: str) -> list[str]:
+    out: list[str] = []
+    for idx, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            continue
+        npath = f"{prefix}[{node.get('id', idx)}]"
+        cfg = node.get("config")
+        if isinstance(cfg, dict):
+            out.extend(f"{npath}.config.{p}" for p in nested_violations(cfg))
+        for j, att in enumerate(node.get("attachments") or []):
+            if isinstance(att, dict) and isinstance(att.get("vars"), dict):
+                out.extend(
+                    f"{npath}.attachments[{j}].vars.{p}"
+                    for p in nested_violations(att["vars"])
+                )
+        children = node.get("children")
+        if isinstance(children, list):
+            out.extend(_scan_nodes(children, f"{npath}.children"))
+    return out
+
+
+def document_freetext_violations(doc: dict) -> list[str]:
+    """Collect deny-list violations in a canonical document's free-text surface.
+
+    Scans exactly the user-supplied fields that flow into Ansible variables —
+    top-level ``defaults`` and each node's ``config`` / attachment ``vars``
+    (recursing into ``children``). Deliberately does NOT scan the schema's
+    controlled ``*_template`` fields (``cidr_template`` / ``bridge_template`` /
+    ``ip_template`` / ``value_template``), which legitimately contain
+    ``{{ bridge_base + team_id }}``. Returns ``[]`` for a clean document.
+    """
+    out: list[str] = []
+    defaults = doc.get("defaults")
+    if isinstance(defaults, dict):
+        out.extend(f"defaults.{p}" for p in nested_violations(defaults))
+    out.extend(_scan_nodes(doc.get("nodes") or [], "nodes"))
+    return out

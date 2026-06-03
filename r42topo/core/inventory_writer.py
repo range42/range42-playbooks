@@ -30,6 +30,8 @@ from typing import Any
 
 import yaml
 
+from r42topo.core.io import dump_text_atomic
+
 
 # Node kinds that become Ansible hosts (others are infra primitives)
 _HOST_KINDS = {"vm", "lxc", "docker"}
@@ -188,6 +190,7 @@ def write_inventory(
                 children["r42_admin_wazuh_clients"]["hosts"][host] = {}
 
     inv = {"all": {"children": children}}
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(yaml.safe_dump(inv, sort_keys=False), encoding="utf-8")
-    return dest
+    # Atomic write (temp + os.replace): a torn hosts.yml would silently
+    # mis-target a deploy. Byte-identical to a plain write, so golden parity
+    # holds.
+    return dump_text_atomic(yaml.safe_dump(inv, sort_keys=False), dest)

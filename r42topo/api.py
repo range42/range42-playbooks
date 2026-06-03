@@ -34,12 +34,14 @@ from r42topo.core.preflight import (
     check_topology_node_role,
     check_vmid_safety_for_topology,
 )
+from r42topo.core.security import document_freetext_violations
 
 __all__ = [
     # documents
     "load_document",
     "validate_document",
     "validate_overlay",
+    "assert_document_safe",
     "dumps_canonical",
     "effective_doc_hash",
     # operators
@@ -62,15 +64,36 @@ def load_document(path: Path) -> dict[str, Any]:
     return load_json(path)
 
 
-def validate_document(doc: dict[str, Any]) -> CatalogEntry:
-    """Validate *doc* as a canonical ``CatalogEntry`` (scenario/topology).
+def assert_document_safe(doc: dict[str, Any]) -> None:
+    """Fail closed if *doc*'s free-text fields carry injection-bearing values.
 
-    :raises ValidationError: if *doc* does not conform to the canonical schema.
+    Scans ``defaults`` + each node's ``config`` / attachment ``vars`` against
+    the deny-list (Jinja/SSTI, shell metacharacters, path traversal, argv
+    flags). The controlled ``*_template`` fields are intentionally exempt.
+
+    :raises ValidationError: listing every offending field path.
+    """
+    violations = document_freetext_violations(doc)
+    if violations:
+        raise ValidationError(
+            "document contains forbidden values in: " + ", ".join(violations)
+        )
+
+
+def validate_document(doc: dict[str, Any]) -> CatalogEntry:
+    """Validate *doc* as a canonical ``CatalogEntry`` (schema + security).
+
+    Runs canonical-schema validation, then the fail-closed free-text deny-list
+    scan. Both must pass.
+
+    :raises ValidationError: on a schema failure or a deny-listed free-text value.
     """
     try:
-        return CatalogEntry.model_validate(doc)
+        entry = CatalogEntry.model_validate(doc)
     except _PydanticValidationError as exc:
         raise ValidationError(f"invalid topology document: {exc}") from exc
+    assert_document_safe(doc)
+    return entry
 
 
 def validate_overlay(doc: dict[str, Any]) -> ProjectOverlay:
