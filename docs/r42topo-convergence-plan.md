@@ -157,3 +157,59 @@ be agreed with the gamenet spec/branch owner (NC3) before execution — this is 
 change. The safe first step is a shared-test-vector contract: whatever package owns the engine
 must pass `deployer-ui/schema/test-vectors/*`, which lets `r42topo` and the backend converge
 without a flag-day.
+
+## 9. ADR — engine home: adopt the pure engine, provide the deploy gate
+
+> **Status:** proposed (needs NC3 / @pparage sign-off per §8). **Date:** 2026-06-03.
+> Refines §3/§5/§7. Captured after an ECC multi-perspective review (neutral architect
+> terrain map + two steelman advocates over the live code).
+
+**Context.** A recurring framing is "should `range42-backend-api` *adopt* an externally-owned
+engine (import `r42topo`, delete its in-repo modules) **or** *provide* the engine to others (own
+it; expose it as a published library or an HTTP service)?" The review showed this is a false
+binary: the engine has two layers — a **pure authoring/compute core** (compose, expand_replication,
+inventory_writer, allocate_vmids, vmid_guard, the sync preflight checks) and an **impure
+deploy-execution layer** (`deploy_trigger`, the detached runner, DB, the `asyncio.Lock`
+allocator, the httpx/FS preflight checks). They want different homes.
+
+**Decision.**
+1. **Adopt for the pure engine.** `r42topo` is the home of the pure core; backend-api imports it
+   and deletes its duplicated modules (the §5 swap). Rationale: N-1 of the consumers
+   (deployer-ui tooling, r42deploy CLI/TUI, air-gapped operators) are **not** web services, and
+   r42deploy must compose/expand/write-inventory **with no backend running**. Putting shared pure
+   logic behind a FastAPI+DB process inverts the dependency graph. The pure core is already a clean
+   package (`pyproject.toml`, pydantic+pyyaml only) and is golden-byte-identical to the backend.
+2. **Provide the deploy *gate* as a service, on top of (1).** The binding `effective_doc_hash` is
+   **always re-composed server-side** at deploy time; a client's local compose (e.g. r42deploy) is
+   a **non-authoritative preview**. This is the one new constraint this ADR adds — it neutralizes
+   the strongest pro-"provide" argument (client/library **version skew** silently producing a
+   `effective_doc_hash` the backend won't honor) **without** forcing the engine to live in the
+   backend. "Provide" is therefore a layer *above* "adopt", not an alternative to it.
+3. **Skew defense in depth:** shared-test-vector CI in both repos (§8) + backend pins `r42topo`
+   exactly + the deploy path is server-authoritative (point 2).
+
+**Layering (the seam):** "which VMIDs" (pure, in `r42topo`) is separate from "who gets them under
+contention" (`allocate_vmids_locked`'s `asyncio.Lock` — runtime serialization, stays in the
+backend / `r42runtime`). Same for preflight: the pure checks live in core; `run_declarative_checks`
++ the network/FS checks are runtime. This is layering, not a split invariant.
+
+**Rejected alternatives.**
+- *Engine stays welded inside the backend as its only home* — forces FastAPI/DB/httpx onto every
+  consumer to compute a VMID or render a `hosts.yml`; breaks offline r42deploy.
+- *Provide-as-service only* — an air-gapped r42deploy cannot call an HTTP compose endpoint
+  (CRITICAL). Service is the gate, not the sole interface.
+- *Provide-as-library cut from the backend* — viable but pays a backend packaging-split tax
+  (`app/core` is entangled with ORM/settings; no `pyproject.toml`) that adopt does not, and still
+  leaks the backend's heavy deps.
+
+**Revisit / flip conditions.** This ADR is wrong if: no real non-web consumer materializes (YAGNI —
+leave it in the backend); no team owns `r42topo`'s release lifecycle (an orphan shared dep is worse
+than embedded code); the pure slice can't stay pure (preflight/allocation start needing live
+Proxmox/DB state to be correct); or the spec-divergence pattern (cf. deferred redaction) becomes the
+norm rather than the exception.
+
+**Direction-independent prerequisites (don't let these bias the choice).** Finish r42topo's
+internal convergence (retire the invented `subnets/zones/boxes` model in `api.py`/`core/models.py`)
+**before** the backend `import r42topo` swap; extract the impure `r42runtime` layer for offline use;
+add the schema-vendoring drift check; reconcile the deferred redaction divergence. These are owed
+whether we adopt or provide.
