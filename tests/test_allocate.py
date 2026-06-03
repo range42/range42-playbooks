@@ -70,38 +70,58 @@ def test_select_template_no_ramdisk_match_still_raises():
         select_template("1cpu/999gb/999gb")
 
 
-def test_select_template_defaults_to_ubuntu_and_scopes_by_os():
-    t = select_template("4cpu/8gb/64gb")          # default os
-    assert t.os == "ubuntu"
-    # debian has no image set today -> a clear, OS-specific error (not a silent ubuntu clone)
-    with pytest.raises(ValidationError, match="debian"):
-        select_template("4cpu/8gb/64gb", os="debian")
+def test_select_template_scopes_by_os():
+    assert select_template("4cpu/8gb/64gb").os == "ubuntu"            # default
+    # debian image set exists (trixie) -> ram/disk fallback to the 8gb/64gb image
+    deb = select_template("4cpu/8gb/64gb", os="debian")
+    assert deb.os == "debian" and deb.vm_id == 9331
+    # fedora has no image set yet -> a clear, OS-specific error (not a silent clone)
+    with pytest.raises(ValidationError, match="fedora"):
+        select_template("4cpu/8gb/64gb", os="fedora")
 
 
 def test_box_os_defaults_to_ubuntu_and_lands_in_manifest(fake_catalog):
     alloc = _alloc(load_catalog(fake_catalog))
     assert all(b.os == "ubuntu" for b in alloc.boxes)
-    assert all(t.os == "ubuntu" for t in alloc.templates)
+    assert all(t.os == "ubuntu" for t in (x for x in alloc.templates if x.os == "ubuntu"))
 
 
-def test_debian_box_blocks_allocation_until_image_exists(fake_catalog, tmp_path):
-    """A box declaring os=debian is schema-valid but can't allocate (no image yet)."""
-    from r42playbooks.core.catalog import load_catalog as _load
-    # materialize a debian box template alongside the fake catalog
-    layer = fake_catalog / "05_topology_layer" / "box_templates" / "deb-box" / "v1.0.0"
+def _add_box_template(fake_catalog, *, box_id: str, os: str, spec: str = "2cpu/4gb/32gb") -> None:
+    layer = fake_catalog / "05_topology_layer" / "box_templates" / box_id / "v1.0.0"
     layer.mkdir(parents=True)
     (layer / "template.yml").write_text(
-        "id: deb-box\napi_version: 1\nrole: student\nos: debian\n"
-        "default_inventory_group: r42_student\nspec: \"2cpu/4gb/32gb\"\n",
+        f"id: {box_id}\napi_version: 1\nrole: student\nos: {os}\n"
+        f"default_inventory_group: r42_student\nspec: \"{spec}\"\n",
         encoding="utf-8",
     )
+
+
+def test_debian_box_selects_a_debian_template(fake_catalog):
+    """A box declaring os=debian clones a debian image (now that trixie exists)."""
+    from r42playbooks.core.catalog import load_catalog as _load
+    _add_box_template(fake_catalog, box_id="deb-box", os="debian", spec="2cpu/4gb/32gb")
     catalog = _load(fake_catalog)
     assert catalog.box_templates["deb-box"].os == "debian"
     spec = ScenarioSpec.model_validate({
         "name": "deb_lab", "subnet_layout": "default-3zone",
         "network_policy": "air-gap-ctf", "boxes": [{"template": "deb-box"}],
     })
-    with pytest.raises(ValidationError, match="debian"):
+    box = allocate(spec, catalog).boxes[0]
+    assert box.os == "debian"
+    assert box.template_vm_id == 9321  # debian small (4gb/32gb via ram/disk fallback)
+    assert box.template_name == "template-vm-debian-small"
+
+
+def test_fedora_box_blocks_allocation_until_image_exists(fake_catalog):
+    """os=fedora is schema-valid but has no image set yet -> blocked, clearly."""
+    from r42playbooks.core.catalog import load_catalog as _load
+    _add_box_template(fake_catalog, box_id="fed-box", os="fedora")
+    catalog = _load(fake_catalog)
+    spec = ScenarioSpec.model_validate({
+        "name": "fed_lab", "subnet_layout": "default-3zone",
+        "network_policy": "air-gap-ctf", "boxes": [{"template": "fed-box"}],
+    })
+    with pytest.raises(ValidationError, match="fedora"):
         allocate(spec, catalog)
 
 
@@ -238,7 +258,8 @@ def test_manifest_templates_populated_not_empty(fake_catalog):
     # H1 guard: the old compiler hard-coded templates:[]; here it must be full.
     alloc = _alloc(load_catalog(fake_catalog))
     m = manifest_dict(alloc)
-    assert len(m["templates"]) == len(TEMPLATE_TABLE) == 12
+    assert len(m["templates"]) == len(TEMPLATE_TABLE)
+    assert {t["os"] for t in m["templates"]} == {"ubuntu", "debian"}
     assert set(m["templates"][0]) == {"vm_id", "vm_name", "spec", "ip", "bridge", "os"}
 
 

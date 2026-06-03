@@ -52,6 +52,16 @@ _DEFAULT_PROXMOX_NODE = "px-testing"
 _NETMASK = "24"
 _EXEC_MODE = 0o755
 
+# Per-OS image-creation orchestrator under 01_init_proxmox/templates/. main.yml
+# imports only the families the composition actually uses (H3: never import an
+# image set that isn't needed). ubuntu_noble is the only set created today.
+_OS_IMAGE_MAIN: dict[str, str] = {
+    "ubuntu": "ubuntu_noble/_main_ubuntu_noble.yml",
+    "debian": "debian/_main_debian.yml",
+    "fedora": "fedora/_main_fedora.yml",
+}
+_DOWNLOAD_IMPORT = "- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml"
+
 # The vendored boilerplate copied verbatim into every scenario (plan H3).
 _ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 
@@ -186,11 +196,25 @@ def _render_init_proxmox(root: Path) -> None:
     shutil.copytree(src, root / "01_init_proxmox", dirs_exist_ok=True)
 
 
-def _render_main_playbooks(root: Path, scenario: str, sections: list[str]) -> None:
-    """Top-level main.yml / main_vms_only.yml import skeleton (only emitted sections)."""
-    imports = "".join(f"- import_playbook: ./{s}/_main.yml\n" for s in sections)
-    _write(A.fill(A.MAIN_HEADER, SCENARIO=scenario) + imports, root / "main.yml")
-    _write(A.fill(A.MAIN_VMS_ONLY_HEADER, SCENARIO=scenario) + imports, root / "main_vms_only.yml")
+def _image_imports(used_os: list[str]) -> str:
+    """Download images + import the per-OS image-creation orchestrators used."""
+    lines = [_DOWNLOAD_IMPORT]
+    for os_name in used_os:
+        family = _OS_IMAGE_MAIN.get(os_name)
+        if family:
+            lines.append(f"- import_playbook: ./01_init_proxmox/templates/{family}")
+    return "\n".join(lines) + "\n"
+
+
+def _render_main_playbooks(root: Path, scenario: str, sections: list[str], used_os: list[str]) -> None:
+    """Top-level main.yml / main_vms_only.yml (only emitted sections + used images)."""
+    section_imports = "".join(f"- import_playbook: ./{s}/_main.yml\n" for s in sections)
+    header = A.fill(A.MAIN_HEADER, SCENARIO=scenario)
+    # main.yml: create the template images (per OS) then deploy the sections.
+    _write(header + _image_imports(used_os) + "\n" + section_imports, root / "main.yml")
+    # main_vms_only.yml: skip 01_init_proxmox (templates already exist).
+    _write(A.fill(A.MAIN_VMS_ONLY_HEADER, SCENARIO=scenario) + section_imports,
+           root / "main_vms_only.yml")
 
 
 def _render_top_level_scripts(root: Path, scenario: str) -> None:
@@ -301,9 +325,10 @@ def render_scenario(
     proxmox_node = spec.proxmox_node or _DEFAULT_PROXMOX_NODE
 
     # class B — verbatim-with-param boilerplate
+    used_os = sorted({box.os for box in alloc.boxes})
     _render_init_proxmox(root)
     sections = _render_sections(alloc, root, spec.name, proxmox_node)
-    _render_main_playbooks(root, spec.name, sections)
+    _render_main_playbooks(root, spec.name, sections, used_os)
     _render_top_level_scripts(root, spec.name)
     _render_templates_class_b(root, spec.name)
     _render_readme(root, spec, alloc)

@@ -1,9 +1,12 @@
 # Draft: `os` field on catalog box templates
 
-**Status:** proposal for `range42-catalog` (`feat/topology-layer-templates`).
-**Companion:** the generator side (`r42playbooks`) is implemented — `BoxTemplate.os`,
-OS-aware `select_template`, `os` in `scenario_vms.json` + README. This doc is the
-catalog-schema half for @pparage to land.
+**Status:** applied on `range42-catalog` (`feat/topology-layer-templates`) — `os:` added
+to the four existing boxes (explicit `os: ubuntu`) and a `debian-jump` example box
+(`os: debian`, Debian 13 / trixie). Review before merge.
+**Companion (done):** generator side in `r42playbooks` — `BoxTemplate.os`, OS-aware
+`select_template`, `os` in `scenario_vms.json` + README + `show`; OS-aware `main.yml`
+image imports; **Debian trixie image set** (`assets/.../01_init_proxmox/templates/debian/`
++ `TEMPLATE_TABLE` rows 9321/9331). Debian boxes now generate a deployable tree.
 
 ## Why
 
@@ -88,15 +91,18 @@ default_attachments:
 
 ## Deployability note (the image set is the gate)
 
-`01_init_proxmox/templates/` currently creates **only the `ubuntu_noble` image
-set**; `debian/`, `alpine/`, `fedora/` are empty placeholders. So:
+`01_init_proxmox/templates/` creates the `ubuntu_noble` set and (new) the **`debian`
+set (Debian 13 / trixie)**; `alpine`/`fedora` are still empty placeholders. So:
 
-- `os: ubuntu` → works today.
-- `os: debian` / `fedora` → **schema-valid but not yet deployable**. The generator
-  fails fast and clearly (`no Proxmox template image for os 'debian' …`) rather
-  than silently cloning an Ubuntu image. It becomes deployable the moment the
-  matching `01_init_proxmox/templates/<family>/` image definitions land (and the
-  generator's template table gains those rows — see below).
+- `os: ubuntu` → works.
+- `os: debian` → **generates a deployable tree** (the genericcloud trixie image is
+  downloaded and turned into the `9321`/`9331` templates). ⚠ The Debian
+  template-creation playbooks were ported from `ubuntu_noble` and have **not yet
+  been validated against a live Proxmox** — verify a real `range42-context deploy`
+  before relying on them.
+- `os: fedora` → schema-valid but **not deployable**: the generator fails fast and
+  clearly (`no Proxmox template image for os 'fedora' …`) instead of silently
+  cloning another OS. Becomes deployable once a `fedora/` image set + table rows land.
 
 ## Generator side (already done in r42playbooks)
 

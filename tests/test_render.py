@@ -70,6 +70,15 @@ def test_main_yml_imports_only_emitted_sections(rendered):
     assert "03_student_infrastructure" not in main
 
 
+def test_main_yml_imports_image_family_per_os(rendered):
+    """main.yml creates the image set(s) the composition uses (ubuntu by default)."""
+    _spec, _alloc, root = rendered
+    main = _read(root, "main.yml")
+    assert "./01_init_proxmox/templates/_main_download_cloudinit_files.yml" in main
+    assert "./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml" in main
+    assert "debian/_main_debian.yml" not in main   # no debian box in this composition
+
+
 def test_top_level_scripts_present_and_named_for_scenario(rendered):
     spec, _alloc, root = rendered
     n = spec.name

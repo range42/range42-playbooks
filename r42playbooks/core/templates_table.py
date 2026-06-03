@@ -46,6 +46,11 @@ TEMPLATE_TABLE: tuple[ProxmoxTemplate, ...] = (
     ProxmoxTemplate(9244, "template-vm-large-04-8g-64g", "4cpu/8gb/64gb", "192.168.140.244", "vmbr140"),
     ProxmoxTemplate(9246, "template-vm-large-06-8g-64g", "6cpu/8gb/64gb", "192.168.140.246", "vmbr140"),
     ProxmoxTemplate(9248, "template-vm-large-08-8g-64g", "8cpu/8gb/64gb", "192.168.140.248", "vmbr140"),
+    # --- debian (trixie / 13) — created by 01_init_proxmox/templates/debian/. Two
+    # sizes cover every current box spec via the ram/disk fallback (4gb/32gb and
+    # 8gb/64gb). 93xx band + .140.12x/.13x IPs avoid the ubuntu rows above.
+    ProxmoxTemplate(9321, "template-vm-debian-small", "1cpu/4gb/32gb", "192.168.140.121", "vmbr140", os="debian"),
+    ProxmoxTemplate(9331, "template-vm-debian-medium", "2cpu/8gb/64gb", "192.168.140.131", "vmbr140", os="debian"),
 )
 
 
