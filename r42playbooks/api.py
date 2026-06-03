@@ -6,27 +6,68 @@ raises the ``r42playbooks.core.errors`` hierarchy — never framework types. Eac
 consumer maps these into its own surface (HTTP envelopes, exit codes, dialogs).
 """
 
+from pathlib import Path
+
 from pydantic import ValidationError as _PydanticValidationError
 
-from r42playbooks.core.catalog import Catalog, load_catalog
+from r42playbooks.core.allocate import Allocation, allocate
+from r42playbooks.core.catalog import (
+    Catalog,
+    list_containers,
+    list_roles,
+    load_catalog,
+    validate_refs,
+)
 from r42playbooks.core.compiler import CompileResult, compile_topology
 from r42playbooks.core.errors import ValidationError
 from r42playbooks.core.extravars import resolve_universal_extravars
 from r42playbooks.core.idalloc import ReservedIndex, validate_allocation
 from r42playbooks.core.models import Topology
+from r42playbooks.core.render import render_scenario as _render_scenario
+from r42playbooks.core.spec import ScenarioSpec, dump_spec_atomic, load_spec
 from r42playbooks.core.validate import semantic_problems
 
 __all__ = [
+    # generator surface (FROZEN at S5a — consumed by the CLI/TUI/backend)
     "load_catalog",
+    "list_roles",
+    "list_containers",
+    "validate_refs",
+    "load_spec",
+    "dump_spec_atomic",
+    "allocate",
+    "render_scenario",
+    "ScenarioSpec",
+    "Allocation",
+    "Catalog",
+    "ReservedIndex",
+    # legacy topology-compiler surface (pre-pivot; kept for compatibility)
     "author_topology",
     "validate_topology",
     "compile_topology",
     "resolve_universal_extravars",
-    "Catalog",
     "CompileResult",
     "Topology",
-    "ReservedIndex",
 ]
+
+
+def render_scenario(
+    spec: ScenarioSpec,
+    *,
+    catalog: Catalog,
+    dest: Path,
+    reserved: ReservedIndex | None = None,
+) -> Path:
+    """Allocate *spec* against *catalog* and render a ``scenarios/<name>/`` tree.
+
+    The single entry point a frontend calls to go from a composition spec to a
+    deployable scenario directory. Returns the scenario root path.
+
+    :raises CatalogNotFoundError: a referenced subnet layout / box template is unknown.
+    :raises CompileError: a box cannot be placed (no subnet, exhausted ids/octets).
+    """
+    alloc = allocate(spec, catalog, reserved)
+    return _render_scenario(alloc, spec, dest=Path(dest))
 
 
 def author_topology(spec: dict, *, catalog: Catalog) -> Topology:

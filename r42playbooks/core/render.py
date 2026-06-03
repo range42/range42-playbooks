@@ -23,7 +23,7 @@ import shutil
 from pathlib import Path
 
 from r42playbooks.core import render_assets as A
-from r42playbooks.core.allocate import Allocation, AllocatedBox
+from r42playbooks.core.allocate import Allocation, AllocatedBox, manifest_json
 from r42playbooks.core.io import atomic_write_text
 from r42playbooks.core.models import Attachment
 from r42playbooks.core.spec import ScenarioSpec, dumps_spec
@@ -199,15 +199,71 @@ def _render_readme(root: Path, spec: ScenarioSpec, alloc: Allocation) -> None:
     )
 
 
+# --- class-A: manifest-derived artifacts (reflect THIS composition) ----------
+
+def _render_manifest(alloc: Allocation, root: Path) -> None:
+    """Write manifest/scenario_vms.json (vms[] + populated templates[], H1)."""
+    _write(manifest_json(alloc), root / "manifest" / "scenario_vms.json")
+
+
+def _inventory_groups(alloc: Allocation) -> str:
+    """Build the per-composition inventory group blocks (8/10/12-space indent)."""
+    groups: dict[str, list[str]] = {}
+    for box in alloc.boxes:
+        groups.setdefault(box.inventory_group, []).append(box.vm_name)
+    blocks: list[str] = []
+    for group, names in groups.items():
+        lines = [f"        {group}:", "          hosts:"]
+        lines += [f"            {_ssh_host(n)}:" for n in names]
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks) + "\n"
+
+
+def _render_inventory_j2(alloc: Allocation, root: Path) -> None:
+    """templates/ansible-inventory.j2 — groups + member hosts from the manifest."""
+    body = A.fill(A.INVENTORY_J2, GROUPS=_inventory_groups(alloc))
+    _write(body, root / "templates" / "ansible-inventory.j2")
+
+
+def _render_ssh_config_j2(alloc: Allocation, root: Path) -> None:
+    """templates/ssh-config.j2 — one Host/Hostname block per VM (M5 naming)."""
+    blocks = "\n\n".join(
+        f"Host {_ssh_host(b.vm_name)}\n    Hostname {b.ip}" for b in alloc.boxes
+    )
+    _write(A.fill(A.SSHCONFIG_J2, VM_BLOCKS=blocks), root / "templates" / "ssh-config.j2")
+
+
+def _stage00_import(box: AllocatedBox) -> str:
+    """One section-_main.yml stage_00 import + its per-VM global_* overrides."""
+    return A.fill(
+        A.SECTION_MAIN_STAGE00,
+        VM_NAME=box.vm_name, VM_ID=box.vm_id, IP=box.ip, TAG=box.role,
+        DESCRIPTION=box.box_template, TEMPLATE_VM_ID=box.template_vm_id,
+        TEMPLATE_NAME=box.template_name,
+    )
+
+
+def _render_section_mains(alloc: Allocation, root: Path) -> None:
+    """Each section's _main.yml: stage_00 imports (+global_*) then stage_01 imports."""
+    for section, boxes in _sections_for(alloc).items():
+        parts = [A.fill(A.SECTION_MAIN_HEADER, SECTION=section), "#### STAGE 00 ####\n"]
+        parts += [_stage00_import(b) for b in boxes]
+        parts.append("\n#### STAGE 01 ####\n")
+        parts += [f"- import_playbook: ./stage_01/{b.vm_name}.yml\n" for b in boxes]
+        _write("\n".join(parts), root / section / "_main.yml")
+
+
 def render_scenario(alloc: Allocation, spec: ScenarioSpec, *, dest: Path) -> Path:
     """Render *alloc*/*spec* into ``dest/<spec.name>/`` and return that path.
 
-    Class-(B) boilerplate only (S5b); S5a layers the manifest-derived class-(A)
-    artifacts on top. Never creates ``secrets/`` (deploy-time symlink, §4.2).
+    Emits both class-(B) boilerplate (S5b) and the class-(A) manifest-derived
+    artifacts (S5a: manifest, inventory/ssh-config templates, section _main.yml).
+    Never creates ``secrets/`` (deploy-time symlink, §4.2). Deterministic.
     """
     root = Path(dest) / spec.name
     proxmox_node = spec.proxmox_node or _DEFAULT_PROXMOX_NODE
 
+    # class B — verbatim-with-param boilerplate
     _render_init_proxmox(root)
     sections = _render_sections(alloc, root, spec.name, proxmox_node)
     _render_main_playbooks(root, spec.name, sections)
@@ -215,4 +271,10 @@ def render_scenario(alloc: Allocation, spec: ScenarioSpec, *, dest: Path) -> Pat
     _render_templates_class_b(root, spec.name)
     _render_readme(root, spec, alloc)
     _write(dumps_spec(spec), root / "scenario.r42.yml")
+
+    # class A — generated from the allocation (reflect THIS composition)
+    _render_manifest(alloc, root)
+    _render_inventory_j2(alloc, root)
+    _render_ssh_config_j2(alloc, root)
+    _render_section_mains(alloc, root)
     return root
