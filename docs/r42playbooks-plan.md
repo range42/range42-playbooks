@@ -6,10 +6,11 @@
 >
 > **Branch:** `feat/r42playbooks-generator` (based on the original scenario-authoring foundation).
 > **Base/PR target:** `dev` (repo uses a `dev → main` PR flow). **License:** GPL-3.0.
-> **Status:** S1–S4 + S5b + S5a + S6 + **S7 done & committed** (rename, spec model, catalog
-> pick/validate, allocation + manifest, **full renderer class B + class A**, **frozen public API**,
-> **generator CLI `list`/`show`/`new`**, **Textual TUI composer**). 155 tests green. **Next: S8**
-> (importable API + packaging + README rewrite) → S9 (ECC review). Step 0 housekeeping still pending.
+> **Status:** S1–S8 **done & committed** (rename, spec model, catalog pick/validate, allocation +
+> manifest, **full renderer class B + class A**, **frozen public API**, **generator CLI
+> `list`/`show`/`new`**, **Textual TUI composer**, **importable package surface + generator docs**).
+> 159 tests green. **Next: S9** (ECC `python-reviewer` + `code-reviewer` over S1–S8). Step 0
+> housekeeping (close #67, tracking issue, scratch `.gitignore`) still pending + independent.
 > New modules: `core/spec.py`, `core/templates_table.py`, `core/allocate.py`, `core/render.py` +
 > `core/render_assets.py` (+ vendored `assets/scenario/01_init_proxmox/`); extended `core/catalog.py`
 > (`list_roles`/`list_containers`/`validate_refs`) and `core/io.py` (`atomic_write_text`).
