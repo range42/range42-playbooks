@@ -1,8 +1,8 @@
-"""Textual TUI view — thin shell over TuiController.
+"""Textual TUI view — thin shell over ScenarioComposerController.
 
-Pick a scenario name, subnet layout, and network policy; scaffold a starter
-topology; see its summary, validation result, and compiled FORWARD rules; save
-it to disk. All logic is delegated to TuiController (tested separately).
+Compose a lab: name it, pick a subnet layout + network policy, add boxes (with a
+count), preview the allocation, and generate a deployable ``scenarios/<name>/``
+tree. All logic is delegated to ScenarioComposerController (tested separately).
 """
 
 from pathlib import Path
@@ -12,11 +12,13 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Footer, Header, Input, Label, Select, Static
 
 from r42playbooks.core.errors import TopologyError
-from r42playbooks.tui.controller import TuiController
+from r42playbooks.tui.controller import ScenarioComposerController
+
+_DEFAULT_COUNT = "1"
 
 
-class TopologyAuthorApp(App):
-    """Interactive authoring app for r42playbooks topologies."""
+class ScenarioComposerApp(App):
+    """Interactive msfvenom-style scenario composer for r42playbooks."""
 
     CSS = """
     #form { height: auto; padding: 1; }
@@ -25,10 +27,10 @@ class TopologyAuthorApp(App):
     """
     BINDINGS = [("q", "quit", "Quit")]
 
-    def __init__(self, controller: TuiController, *, out_path: Path | None = None) -> None:
+    def __init__(self, controller: ScenarioComposerController, *, out_dir: Path | None = None) -> None:
         super().__init__()
         self.controller = controller
-        self.out_path = out_path or Path("topology.json")
+        self.out_dir = out_dir or Path("scenarios")
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -39,56 +41,83 @@ class TopologyAuthorApp(App):
             yield Select([(x, x) for x in self.controller.layouts()], id="layout")
             yield Label("Network policy")
             yield Select([(x, x) for x in self.controller.policies()], id="policy")
+            yield Label("Add box")
             with Horizontal():
-                yield Button("Scaffold", id="scaffold", variant="primary")
-                yield Button("Save", id="save", variant="success")
-        yield Static("(author a topology to begin)", id="output")
+                yield Select([(x, x) for x in self.controller.box_templates()], id="box")
+                yield Input(value=_DEFAULT_COUNT, id="count")
+                yield Button("Add", id="add", variant="primary")
+            with Horizontal():
+                yield Button("Preview", id="preview")
+                yield Button("Generate", id="generate", variant="success")
+                yield Button("Clear boxes", id="clear", variant="warning")
+        yield Static("(compose a scenario to begin)", id="output")
         yield Footer()
+
+    # -- helpers --
 
     def _set_output(self, text: str) -> None:
         self.query_one("#output", Static).update(text)
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "scaffold":
-            self._do_scaffold()
-        elif event.button.id == "save":
-            self._do_save()
 
     def _selected(self, widget_id: str) -> str | None:
         value = self.query_one(f"#{widget_id}", Select).value
         return None if value is Select.BLANK else str(value)
 
-    def _do_scaffold(self) -> None:
-        scenario = self.query_one("#scenario", Input).value.strip()
-        layout = self._selected("layout")
-        policy = self._selected("policy")
-        if not (scenario and layout and policy):
-            self._set_output("⚠ fill scenario, layout, and policy first")
-            return
-        try:
-            self.controller.scaffold(scenario=scenario, layout_id=layout, policy_id=policy)
-        except TopologyError as exc:  # surface authoring errors in the view
-            self._set_output(f"✗ {exc}")
-            return
-        problems = self.controller.validate()
-        verdict = "✓ valid" if not problems else "✗ " + "; ".join(problems)
-        self._set_output(
-            f"{self.controller.summary()}\n\n{verdict}\n\n{self.controller.rules_text()}"
-        )
+    def _sync_header_fields(self) -> None:
+        """Push the name/layout/policy widgets into the controller."""
+        self.controller.set_name(self.query_one("#scenario", Input).value)
+        if (layout := self._selected("layout")) is not None:
+            self.controller.set_subnet(layout)
+        if (policy := self._selected("policy")) is not None:
+            self.controller.set_policy(policy)
 
-    def _do_save(self) -> None:
+    # -- events --
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        handlers = {
+            "add": self._do_add,
+            "preview": self._do_preview,
+            "generate": self._do_generate,
+            "clear": self._do_clear,
+        }
+        handler = handlers.get(event.button.id)
+        if handler:
+            handler()
+
+    def _do_add(self) -> None:
+        template = self._selected("box")
+        if template is None:
+            self._set_output("⚠ pick a box template first")
+            return
         try:
-            path = self.controller.save(self.out_path)
-        except (TopologyError, ValueError) as exc:
+            count = int(self.query_one("#count", Input).value or _DEFAULT_COUNT)
+        except ValueError:
+            self._set_output("⚠ count must be an integer")
+            return
+        self.controller.add_box(template, count)
+        self._do_preview()
+
+    def _do_clear(self) -> None:
+        self.controller.clear_boxes()
+        self._do_preview()
+
+    def _do_preview(self) -> None:
+        self._sync_header_fields()
+        self._set_output(self.controller.preview())
+
+    def _do_generate(self) -> None:
+        self._sync_header_fields()
+        try:
+            root = self.controller.generate(self.out_dir)
+        except TopologyError as exc:
             self._set_output(f"✗ {exc}")
             return
-        self._set_output(f"✓ saved {path}")
+        self._set_output(f"✓ generated {root}")
 
 
 def main() -> None:  # pragma: no cover - manual entry point
     import sys
     catalog = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("../range42-catalog")
-    TopologyAuthorApp(TuiController(catalog)).run()
+    ScenarioComposerApp(ScenarioComposerController(catalog)).run()
 
 
 if __name__ == "__main__":  # pragma: no cover

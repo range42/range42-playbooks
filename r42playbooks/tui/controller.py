@@ -1,30 +1,34 @@
 """Pure controller behind the Textual TUI — no Textual imports here.
 
-Wraps the api/core so the view stays a thin shell and the logic is unit-testable
-(and reusable by the range42 deployment TUI). Holds the in-progress Topology.
+Wraps the frozen ``r42playbooks.api`` so the view stays a thin shell and the
+compose→generate logic is unit-testable (and reusable by the range42 deployment
+TUI). Holds the in-progress composition: a scenario name, a subnet layout, a
+network policy, and an ordered list of boxes (template + count).
 """
 
 from pathlib import Path
 
+from pydantic import ValidationError as _PydValidationError
+
 from r42playbooks import api
-from r42playbooks.core.catalog import load_catalog
-from r42playbooks.core.compiler.network_policy import compile_network_policy
+from r42playbooks.core.allocate import allocate
+from r42playbooks.core.errors import TopologyError
 from r42playbooks.core.idalloc import ReservedIndex
-from r42playbooks.core.io import dump_topology
-from r42playbooks.core.models import Topology
-from r42playbooks.core.scaffold import scaffold_topology
+from r42playbooks.core.spec import ScenarioSpec
 
 
-class TuiController:
-    """Stateful façade the TUI drives: choose templates, scaffold, validate, save."""
+class ScenarioComposerController:
+    """Stateful façade the TUI drives: pick layout/policy, add boxes, generate."""
 
     def __init__(self, catalog_root: Path, reserved_path: Path | None = None) -> None:
-        self.catalog = load_catalog(catalog_root)
-        self.reserved = (
-            ReservedIndex.from_file(reserved_path)
-            if reserved_path else ReservedIndex(entries=())
+        self.catalog = api.load_catalog(catalog_root)
+        self.reserved: ReservedIndex | None = (
+            ReservedIndex.from_file(reserved_path) if reserved_path else None
         )
-        self.topology: Topology | None = None
+        self.name: str = ""
+        self.subnet_layout: str = ""
+        self.network_policy: str = ""
+        self._boxes: list[tuple[str, int]] = []
 
     # -- catalog choices --
 
@@ -34,50 +38,110 @@ class TuiController:
     def policies(self) -> list[str]:
         return sorted(self.catalog.network_policies)
 
-    # -- authoring --
+    def box_templates(self) -> list[str]:
+        return sorted(self.catalog.box_templates)
 
-    def scaffold(self, *, scenario: str, layout_id: str, policy_id: str) -> Topology:
-        self.topology = scaffold_topology(
-            self.catalog, scenario=scenario, layout_id=layout_id, policy_id=policy_id
-        )
-        return self.topology
+    def roles(self) -> list[str]:
+        return sorted(self.catalog.roles)
+
+    def containers(self) -> list[str]:
+        return sorted(self.catalog.containers)
+
+    # -- composition state --
+
+    @property
+    def boxes(self) -> list[tuple[str, int]]:
+        """The composed (template, count) pairs, in insertion order (a copy)."""
+        return list(self._boxes)
+
+    def set_name(self, name: str) -> None:
+        self.name = name.strip()
+
+    def set_subnet(self, layout_id: str) -> None:
+        self.subnet_layout = layout_id
+
+    def set_policy(self, policy_id: str) -> None:
+        self.network_policy = policy_id
+
+    def add_box(self, template: str, count: int = 1) -> None:
+        self._boxes.append((template, count))
+
+    def remove_box(self, index: int) -> None:
+        del self._boxes[index]
+
+    def clear_boxes(self) -> None:
+        self._boxes = []
+
+    # -- spec / validation --
+
+    def _missing(self) -> list[str]:
+        """Structural gaps that stop a spec from being built (pre-schema)."""
+        problems: list[str] = []
+        if not self.name:
+            problems.append("scenario name is required")
+        if not self.subnet_layout:
+            problems.append("a subnet layout must be selected")
+        if not self.network_policy:
+            problems.append("a network policy must be selected")
+        if not self._boxes:
+            problems.append("add at least one box")
+        return problems
+
+    def build_spec(self) -> ScenarioSpec:
+        """Assemble the in-progress composition into a ``ScenarioSpec``.
+
+        :raises TopologyError: if the composition is incomplete or schema-invalid.
+        """
+        missing = self._missing()
+        if missing:
+            raise TopologyError("; ".join(missing))
+        data = {
+            "name": self.name,
+            "subnet_layout": self.subnet_layout,
+            "network_policy": self.network_policy,
+            "boxes": [{"template": t, "count": c} for t, c in self._boxes],
+        }
+        try:
+            return ScenarioSpec.model_validate(data)
+        except _PydValidationError as exc:
+            raise TopologyError(f"invalid composition: {exc}") from exc
 
     def validate(self) -> list[str]:
-        if self.topology is None:
-            return ["no topology authored yet"]
-        return api.validate_topology(self.topology, catalog=self.catalog, reserved=self.reserved)
+        """Return all problems with the current composition ([] == ready)."""
+        missing = self._missing()
+        if missing:
+            return missing
+        try:
+            spec = self.build_spec()
+        except TopologyError as exc:
+            return [str(exc)]
+        return api.validate_refs(spec, self.catalog)
 
-    def save(self, path: Path) -> Path:
-        if self.topology is None:
-            raise ValueError("nothing to save — scaffold a topology first")
-        return dump_topology(self.topology, Path(path))
+    # -- preview / generate --
 
-    # -- rendering helpers (plain strings; the view decides styling) --
-
-    def summary(self) -> str:
-        t = self.topology
-        if t is None:
-            return "(no topology)"
+    def preview(self) -> str:
+        """A plain-text preview of the composition + its allocated VMs."""
+        problems = self.validate()
+        if problems:
+            return "not ready:\n" + "\n".join(f"  ✗ {p}" for p in problems)
+        spec = self.build_spec()
+        alloc = allocate(spec, self.catalog, self.reserved)
         lines = [
-            f"scenario: {t.scenario}",
-            f"subnets:  {', '.join(f'{s.name}={s.cidr}@{s.bridge}' for s in t.subnets)}",
-            f"zones:    {', '.join(f'{z.name}({z.role})' for z in t.zones)}",
-            f"boxes:    {len(t.boxes)}",
+            f"scenario: {spec.name}",
+            f"subnet layout: {spec.subnet_layout}   policy: {spec.network_policy}",
+            f"boxes ({len(alloc.boxes)} VMs):",
         ]
-        lines += [f"  - {b.vm_name} id={b.vm_id} ip={b.ip} zone={b.zone}" for b in t.boxes]
-        lines.append(f"policy:   {t.network_policy.template}")
+        lines += [
+            f"  - {b.vm_name}  id={b.vm_id} ip={b.ip} role={b.role}" for b in alloc.boxes
+        ]
         return "\n".join(lines)
 
-    def rules_text(self) -> str:
-        t = self.topology
-        if t is None:
-            return ""
-        pol = self.catalog.resolve_network_policy(t.network_policy.template)
-        ver = self.catalog.resolved_version("network_policies", pol.id)
-        compiled = compile_network_policy(t, pol, version=ver)
-        out = [f"FORWARD rules ({pol.id}@{ver}):"]
-        for r in compiled.rules:
-            dst = r.destination or r.out_interface or "-"
-            port = f":{r.destination_port}" if r.destination_port else ""
-            out.append(f"  w{r.weight:<3} {r.jump:<6} {r.source or '-':<18} -> {dst}{port}")
-        return "\n".join(out)
+    def generate(self, dest: Path) -> Path:
+        """Render the composition into ``dest/<name>/`` and return that path.
+
+        :raises TopologyError: if the composition is incomplete/invalid or a ref
+            cannot be resolved/placed.
+        """
+        spec = self.build_spec()
+        return api.render_scenario(spec, catalog=self.catalog, dest=Path(dest),
+                                   reserved=self.reserved)
