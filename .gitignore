@@ -12,3 +12,8 @@ __pycache__/
 .coverage
 dist/
 build/
+
+# Scratch compiler artifacts (flat-workspace outputs, never committed)
+/topology.json
+/hosts.yml
+/expanded.json
