@@ -54,8 +54,6 @@ class ScenarioComposerApp(App):
                 yield Input(placeholder="my_lab", id="scenario")
                 yield Label("Subnet layout")
                 yield self._select(self.controller.layouts(), "layout")
-                yield Label("Network policy")
-                yield self._select(self.controller.policies(), "policy")
                 yield Label("Box  (template, count)")
                 with Horizontal(classes="row"):
                     yield self._select(self.controller.box_templates(), "box")
@@ -95,8 +93,6 @@ class ScenarioComposerApp(App):
         self.controller.set_name(self.query_one("#scenario", Input).value)
         if (layout := self._selected("layout")) is not None:
             self.controller.set_subnet(layout)
-        if (policy := self._selected("policy")) is not None:
-            self.controller.set_policy(policy)
 
     # -- events --
 

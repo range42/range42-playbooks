@@ -81,8 +81,6 @@ class ScenarioComposerController:
             problems.append("scenario name is required")
         if not self.subnet_layout:
             problems.append("a subnet layout must be selected")
-        if not self.network_policy:
-            problems.append("a network policy must be selected")
         if not self._boxes:
             problems.append("add at least one box")
         return problems
@@ -98,9 +96,10 @@ class ScenarioComposerController:
         data = {
             "name": self.name,
             "subnet_layout": self.subnet_layout,
-            "network_policy": self.network_policy,
             "boxes": [{"template": t, "count": c} for t, c in self._boxes],
         }
+        if self.network_policy:  # optional + ignored by the generator
+            data["network_policy"] = self.network_policy
         try:
             return ScenarioSpec.model_validate(data)
         except _PydValidationError as exc:
@@ -130,7 +129,7 @@ class ScenarioComposerController:
         total_vms = sum(count for _t, count in self._boxes)
         lines = [
             f"name:   {self.name or '(unset)'}",
-            f"subnet: {self.subnet_layout or '(unset)'}   policy: {self.network_policy or '(unset)'}",
+            f"subnet layout: {self.subnet_layout or '(unset)'}",
             f"boxes:  {total_vms} VM(s) from {len(self._boxes)} pick(s)",
         ]
         lines += [f"  - {template} ×{count}" for template, count in self._boxes]

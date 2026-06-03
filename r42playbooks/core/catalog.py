@@ -237,7 +237,8 @@ def validate_refs(spec: "ScenarioSpec", catalog: Catalog) -> list[str]:
     problems: list[str] = []
     if spec.subnet_layout not in catalog.subnet_layouts:
         problems.append(f"unknown subnet_layout: {spec.subnet_layout!r}")
-    if spec.network_policy not in catalog.network_policies:
+    # network_policy is optional + ignored by the generator; typo-guard only if set.
+    if spec.network_policy is not None and spec.network_policy not in catalog.network_policies:
         problems.append(f"unknown network_policy: {spec.network_policy!r}")
     for box in spec.boxes:
         bt = catalog.box_templates.get(box.template)

@@ -169,14 +169,16 @@ def _build_spec(
             data = loaded.model_dump(mode="json")
             data["name"] = name  # positional name wins, so the output dir matches
     else:
-        if not subnet or not policy:
-            _fail("error: --subnet and --policy are required (or pass --spec)")
+        if not subnet:
+            _fail("error: --subnet is required (or pass --spec)")
         if not boxes:
             _fail("error: at least one --box is required (or pass --spec)")
         data = {
-            "name": name, "subnet_layout": subnet, "network_policy": policy,
+            "name": name, "subnet_layout": subnet,
             "boxes": [_parse_box(b) for b in boxes],
         }
+        if policy:  # optional + ignored by the generator (isolation = per-box firewall roles)
+            data["network_policy"] = policy
         if proxmox_node:
             data["proxmox_node"] = proxmox_node
         if notes:
@@ -191,7 +193,8 @@ def _build_spec(
 def new(
     name: str = typer.Argument(..., help="Scenario name (no dots)"),
     subnet: str = typer.Option(None, "--subnet", help="subnet_layout template id"),
-    policy: str = typer.Option(None, "--policy", help="network_policy template id"),
+    policy: str = typer.Option(None, "--policy",
+                               help="network_policy id (optional, currently unused by the generator)"),
     box: list[str] = typer.Option(None, "--box", help="template[:count=N,template_vm_id=ID]"),
     spec: Path = typer.Option(None, "--spec", help="Load a scenario.r42.yml instead of flags"),
     proxmox_node: str = typer.Option(None, "--proxmox-node", help="Target Proxmox node"),

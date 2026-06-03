@@ -118,7 +118,6 @@ def test_app_generate_warns_on_existing_then_overwrites(fake_catalog, tmp_path):
             await pilot.pause()
             app.query_one("#scenario", Input).value = "dup"
             app.query_one("#layout", Select).value = "default-3zone"
-            app.query_one("#policy", Select).value = "air-gap-ctf"
             app.query_one("#box", Select).value = "admin-wazuh"
             await pilot.pause()
             app._do_add()

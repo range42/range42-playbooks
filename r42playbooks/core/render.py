@@ -279,7 +279,7 @@ def _render_readme(root: Path, spec: ScenarioSpec, alloc: Allocation) -> None:
     _write(
         A.fill(
             A.README_MD, SCENARIO=spec.name, SUBNET_LAYOUT=spec.subnet_layout,
-            NETWORK_POLICY=spec.network_policy, BOX_TABLE="\n".join(rows),
+            BOX_TABLE="\n".join(rows),
         ),
         root / "README.md",
     )
