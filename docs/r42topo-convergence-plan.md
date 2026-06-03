@@ -1,7 +1,11 @@
 # r42topo Convergence — align to the canonical Range42 schema & become the shared engine
 
+> **Tracking issue:** range42/range42-playbooks#67
 > Status: **proposal — needs cross-team sign-off** (the schema + engine are owned by an active
 > effort; see §8). Supersedes parts of `r42topo-plan.md` and `range42/docs/r42deploy-plan.md`.
+>
+> Progress: **Phase 1 (schema intake) done** on `feat/r42topo-canonical-schema`; Phases 2+
+> (engine port) **held pending @pparage sign-off** per §8.
 
 ## 0. Why this exists
 
