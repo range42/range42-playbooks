@@ -1,0 +1,6 @@
+---
+##
+## my_lab — deploy VMs only (templates already exist; skip 01_init_proxmox)
+##
+
+- import_playbook: ./03_student_infrastructure/_main.yml

@@ -144,12 +144,14 @@ class ScenarioComposerController:
         ]
         return "\n".join(lines)
 
-    def generate(self, dest: Path) -> Path:
+    def generate(self, dest: Path, *, overwrite: bool = False) -> Path:
         """Render the composition into ``dest/<name>/`` and return that path.
 
+        :param overwrite: replace an existing ``dest/<name>/`` (default False).
+        :raises ScenarioExistsError: target exists and ``overwrite`` is False.
         :raises TopologyError: if the composition is incomplete/invalid or a ref
             cannot be resolved/placed.
         """
         spec = self.build_spec()
         return api.render_scenario(spec, catalog=self.catalog, dest=Path(dest),
-                                   reserved=self.reserved)
+                                   reserved=self.reserved, overwrite=overwrite)

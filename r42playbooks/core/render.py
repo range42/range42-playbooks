@@ -27,6 +27,7 @@ import yaml
 
 from r42playbooks.core import render_assets as A
 from r42playbooks.core.allocate import Allocation, AllocatedBox, manifest_json
+from r42playbooks.core.errors import ScenarioExistsError
 from r42playbooks.core.io import atomic_write_text
 from r42playbooks.core.models import Attachment
 from r42playbooks.core.spec import ScenarioSpec, dumps_spec
@@ -281,14 +282,22 @@ def _render_section_mains(alloc: Allocation, root: Path) -> None:
         _write("\n".join(parts), root / section / "_main.yml")
 
 
-def render_scenario(alloc: Allocation, spec: ScenarioSpec, *, dest: Path) -> Path:
+def render_scenario(
+    alloc: Allocation, spec: ScenarioSpec, *, dest: Path, overwrite: bool = False
+) -> Path:
     """Render *alloc*/*spec* into ``dest/<spec.name>/`` and return that path.
 
     Emits both class-(B) boilerplate (S5b) and the class-(A) manifest-derived
     artifacts (S5a: manifest, inventory/ssh-config templates, section _main.yml).
     Never creates ``secrets/`` (deploy-time symlink, §4.2). Deterministic.
+
+    :param overwrite: if False (default) and ``dest/<name>/`` already exists,
+        raise :class:`ScenarioExistsError` rather than silently clobbering it.
+    :raises ScenarioExistsError: target exists and ``overwrite`` is False.
     """
     root = Path(dest) / spec.name
+    if root.exists() and not overwrite:
+        raise ScenarioExistsError(f"scenario already exists at {root}")
     proxmox_node = spec.proxmox_node or _DEFAULT_PROXMOX_NODE
 
     # class B — verbatim-with-param boilerplate

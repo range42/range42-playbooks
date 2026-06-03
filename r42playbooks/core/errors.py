@@ -20,3 +20,12 @@ class CatalogNotFoundError(TopologyError):
 
 class CompileError(TopologyError):
     """Compilation failed (reservation conflict, segmentation invariant, etc.)."""
+
+
+class ScenarioExistsError(TopologyError):
+    """The target ``scenarios/<name>/`` directory already exists.
+
+    Raised by the renderer when ``overwrite=False`` (the default) so a generate
+    never silently clobbers an existing scenario. Callers pass ``overwrite=True``
+    (CLI ``--force``) to replace it.
+    """

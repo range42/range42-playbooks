@@ -11,7 +11,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Footer, Header, Input, Label, Select, Static
 
-from r42playbooks.core.errors import TopologyError
+from r42playbooks.core.errors import ScenarioExistsError, TopologyError
 from r42playbooks.tui.controller import ScenarioComposerController
 
 _DEFAULT_COUNT = "1"
@@ -31,6 +31,7 @@ class ScenarioComposerApp(App):
         super().__init__()
         self.controller = controller
         self.out_dir = out_dir or Path("scenarios")
+        self._pending_overwrite = False  # set after an exists-warning; next Generate overwrites
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -80,8 +81,12 @@ class ScenarioComposerApp(App):
             "clear": self._do_clear,
         }
         handler = handlers.get(event.button.id)
-        if handler:
+        if handler is None:
+            return
+        try:
             handler()
+        except Exception as exc:  # never let a handler silently kill the app
+            self._set_output(f"✗ unexpected error: {exc!r}")
 
     def _do_add(self) -> None:
         template = self._selected("box")
@@ -107,10 +112,15 @@ class ScenarioComposerApp(App):
     def _do_generate(self) -> None:
         self._sync_header_fields()
         try:
-            root = self.controller.generate(self.out_dir)
+            root = self.controller.generate(self.out_dir, overwrite=self._pending_overwrite)
+        except ScenarioExistsError as exc:
+            self._pending_overwrite = True
+            self._set_output(f"⚠ {exc}\n  press Generate again to overwrite it.")
+            return
         except TopologyError as exc:
             self._set_output(f"✗ {exc}")
             return
+        self._pending_overwrite = False
         self._set_output(f"✓ generated {root}")
 
 

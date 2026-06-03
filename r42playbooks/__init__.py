@@ -24,6 +24,7 @@ from r42playbooks.api import (
     Allocation,
     Catalog,
     ReservedIndex,
+    ScenarioExistsError,
     ScenarioSpec,
     allocate,
     dump_spec_atomic,
@@ -50,6 +51,7 @@ __all__ = [
     "Allocation",
     "Catalog",
     "ReservedIndex",
+    "ScenarioExistsError",
     # legacy topology model (pre-pivot, kept for back-compat)
     "Topology",
     "__version__",

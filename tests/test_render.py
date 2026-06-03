@@ -216,6 +216,21 @@ def test_scenario_spec_roundtrips_into_tree(rendered):
     assert [b.template for b in reloaded.boxes] == [b.template for b in spec.boxes]
 
 
+def test_render_refuses_existing_dir_then_overwrites(fake_catalog, valid_spec_dict, tmp_path):
+    """A second render into the same dir must not silently clobber (overwrite gate)."""
+    import pytest
+    from r42playbooks.core.errors import ScenarioExistsError
+    spec = ScenarioSpec.model_validate(valid_spec_dict)
+    catalog = load_catalog(fake_catalog)
+    alloc = allocate(spec, catalog)
+    dest = tmp_path / "scenarios"
+    render_scenario(alloc, spec, dest=dest)
+    with pytest.raises(ScenarioExistsError):
+        render_scenario(alloc, spec, dest=dest)                 # default: refuse
+    root = render_scenario(alloc, spec, dest=dest, overwrite=True)  # explicit: ok
+    assert (root / "main.yml").is_file()
+
+
 def test_render_is_deterministic(fake_catalog, valid_spec_dict, tmp_path):
     """Two renders of the same composition produce byte-identical class-B files."""
     spec = ScenarioSpec.model_validate(valid_spec_dict)

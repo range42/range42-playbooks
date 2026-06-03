@@ -93,6 +93,20 @@ def test_new_from_flags_writes_deployable_tree(tmp_path, fake_catalog):
     assert str(root) in res.output
 
 
+def test_new_existing_dir_warns_then_force_overwrites(tmp_path, fake_catalog):
+    out = tmp_path / "scenarios"
+    args = [
+        "new", "dup_lab", "--subnet", "default-3zone", "--policy", "air-gap-ctf",
+        "--box", "admin-wazuh", "--catalog", str(fake_catalog), "-o", str(out),
+    ]
+    assert runner.invoke(app, args).exit_code == 0
+    again = runner.invoke(app, args)                 # second run: refuse + hint
+    assert again.exit_code != 0
+    assert "already exists" in again.output and "--force" in again.output
+    forced = runner.invoke(app, args + ["--force"])  # --force: overwrite
+    assert forced.exit_code == 0, forced.output
+
+
 def test_new_bad_box_ref_exits_nonzero(tmp_path, fake_catalog):
     out = tmp_path / "scenarios"
     res = runner.invoke(app, [

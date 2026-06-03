@@ -1,0 +1,13 @@
+##
+## stage_01 — software install for vuln-box-03
+## catalog roles are referenced BY NAME (resolved via ANSIBLE_ROLES_PATH at deploy).
+##
+
+- name: "configure vuln-box-03"
+  hosts: r42.vuln-box-03
+  become: true
+  vars_files:
+    - "../../secrets/default_vault.yml"
+  roles:
+    - software.configure.firewalls
+    - software.install.wazuh-agent

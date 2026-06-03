@@ -19,7 +19,7 @@ from r42playbooks.core.catalog import (
     validate_refs,
 )
 from r42playbooks.core.compiler import CompileResult, compile_topology
-from r42playbooks.core.errors import ValidationError
+from r42playbooks.core.errors import ScenarioExistsError, ValidationError
 from r42playbooks.core.extravars import resolve_universal_extravars
 from r42playbooks.core.idalloc import ReservedIndex, validate_allocation
 from r42playbooks.core.models import Topology
@@ -41,6 +41,7 @@ __all__ = [
     "Allocation",
     "Catalog",
     "ReservedIndex",
+    "ScenarioExistsError",
     # legacy topology-compiler surface (pre-pivot; kept for compatibility)
     "author_topology",
     "validate_topology",
@@ -57,6 +58,7 @@ def render_scenario(
     catalog: Catalog,
     dest: Path,
     reserved: ReservedIndex | None = None,
+    overwrite: bool = False,
 ) -> Path:
     """Allocate *spec* against *catalog* and render a ``scenarios/<name>/`` tree.
 
@@ -68,11 +70,14 @@ def render_scenario(
     typo-guard ``attachments_add`` / ``default_attachments`` before generating.
     Deny-list guards on every field still apply at schema-validation time.
 
+    :param overwrite: if False (default) and the target dir exists, raise
+        :class:`~r42playbooks.core.errors.ScenarioExistsError` instead of clobbering.
     :raises CatalogNotFoundError: a referenced subnet layout / box template is unknown.
     :raises CompileError: a box cannot be placed (no subnet, exhausted ids/octets).
+    :raises ScenarioExistsError: target exists and ``overwrite`` is False.
     """
     alloc = allocate(spec, catalog, reserved)
-    return _render_scenario(alloc, spec, dest=Path(dest))
+    return _render_scenario(alloc, spec, dest=Path(dest), overwrite=overwrite)
 
 
 def author_topology(spec: dict, *, catalog: Catalog) -> Topology:

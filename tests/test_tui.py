@@ -81,6 +81,68 @@ def test_controller_generate_without_compose_raises(fake_catalog, tmp_path):
         ctl.generate(tmp_path / "scenarios")
 
 
+def test_controller_generate_refuses_existing_then_overwrites(fake_catalog, tmp_path):
+    from r42playbooks.core.errors import ScenarioExistsError
+    ctl = _composed(fake_catalog)
+    out = tmp_path / "scenarios"
+    ctl.generate(out)
+    with pytest.raises(ScenarioExistsError):
+        ctl.generate(out)                       # default refuses
+    root = ctl.generate(out, overwrite=True)    # explicit overwrite
+    assert (root / "main.yml").is_file()
+
+
+def test_app_generate_warns_on_existing_then_overwrites(fake_catalog, tmp_path):
+    """Two-press overwrite: first Generate warns, second overwrites (no crash)."""
+    import asyncio
+    from textual.widgets import Input, Select
+    from r42playbooks.tui.app import ScenarioComposerApp
+
+    out = tmp_path / "scenarios"
+    (out / "dup").mkdir(parents=True)            # pre-existing scenario dir
+
+    async def _go():
+        app = ScenarioComposerApp(ScenarioComposerController(fake_catalog), out_dir=out)
+        shown: list[str] = []
+        app._set_output = lambda t: shown.append(t)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.query_one("#scenario", Input).value = "dup"
+            app.query_one("#layout", Select).value = "default-3zone"
+            app.query_one("#policy", Select).value = "air-gap-ctf"
+            app.query_one("#box", Select).value = "admin-wazuh"
+            await pilot.pause()
+            app._do_add()
+            app._do_generate()      # first: warns, arms overwrite
+            assert app._pending_overwrite is True
+            app._do_generate()      # second: overwrites
+            assert app._pending_overwrite is False
+        assert any("press Generate again to overwrite" in s for s in shown)
+        assert any(s.startswith("✓ generated") for s in shown)
+
+    asyncio.run(_go())
+
+
+def test_app_handler_catch_all_shows_error_not_crash(fake_catalog, monkeypatch):
+    """Any handler exception is shown in-pane, never silently killing the app."""
+    import asyncio
+    from r42playbooks.tui.app import ScenarioComposerApp
+    from textual.widgets import Button
+
+    async def _go():
+        app = ScenarioComposerApp(ScenarioComposerController(fake_catalog))
+        shown: list[str] = []
+        app._set_output = lambda t: shown.append(t)
+        async with app.run_test():
+            def _boom():
+                raise RuntimeError("kaboom")
+            monkeypatch.setattr(app, "_do_preview", _boom)
+            app.on_button_pressed(Button.Pressed(app.query_one("#preview", Button)))
+        assert any("unexpected error" in s and "kaboom" in s for s in shown)
+
+    asyncio.run(_go())
+
+
 def test_controller_preview_surfaces_allocation_error_without_raising(fake_catalog, monkeypatch):
     """preview() must never crash the TUI on an allocation error — return text."""
     import r42playbooks.tui.controller as ctlmod

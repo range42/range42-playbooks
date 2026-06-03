@@ -19,7 +19,7 @@ import typer
 from pydantic import ValidationError as _PydValidationError
 
 from r42playbooks import api
-from r42playbooks.core.errors import TopologyError
+from r42playbooks.core.errors import ScenarioExistsError, TopologyError
 from r42playbooks.core.idalloc import ReservedIndex
 from r42playbooks.core.spec import ScenarioSpec
 
@@ -195,6 +195,7 @@ def new(
     spec: Path = typer.Option(None, "--spec", help="Load a scenario.r42.yml instead of flags"),
     proxmox_node: str = typer.Option(None, "--proxmox-node", help="Target Proxmox node"),
     notes: str = typer.Option(None, "--notes", help="Free-text notes"),
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing scenario dir"),
     catalog: Path = _CatalogOpt,
     output: Path = _OutputOpt,
     reserved: Path = _ReservedOpt,
@@ -210,7 +211,11 @@ def new(
         _fail(f"{len(problems)} unknown catalog reference(s)")
 
     try:
-        root = api.render_scenario(composed, catalog=cat, dest=output, reserved=_reserved(reserved))
+        root = api.render_scenario(
+            composed, catalog=cat, dest=output, reserved=_reserved(reserved), overwrite=force
+        )
+    except ScenarioExistsError as exc:
+        _fail(f"{exc}\n  pass --force to overwrite it")
     except TopologyError as exc:
         _fail(f"generate failed: {exc}")
     typer.secho(f"✓ generated {root}", fg=typer.colors.GREEN)
