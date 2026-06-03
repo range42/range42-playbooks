@@ -485,6 +485,35 @@ MAIN_VMS_ONLY_HEADER = """\
 
 """
 
+# Generated per scenario so it downloads ONLY the cloud images the composition's
+# OS families need (@@IMAGE_LOOP@@ = the loop items). Structure mirrors the
+# original static 01_init_proxmox download playbook.
+DOWNLOAD_CLOUDINIT = """\
+##
+## download cloud-init base images for the OS families this scenario uses
+##
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: PROMOX INIT - DOWNLOAD - CLOUD INIT images
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "storage_download_iso"
+        proxmox_storage: "local"
+        iso_file_content_type: "iso"
+        iso_url: "{{ item.iso_url }}"
+        iso_file_name: "{{ item.iso_file_name }}"
+
+      loop:
+@@IMAGE_LOOP@@
+"""
+
 # --- class-A: ansible-inventory.j2 (groups + member hosts, manifest-derived) ---
 # @@GROUPS@@ is built per-composition; the proxmox/-cli groups stay verbatim
 # (range42-context fills INFRASTRUCTURE_CODENAME / _PROXMOX_ADDRESS at deploy).

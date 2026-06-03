@@ -79,6 +79,17 @@ def test_main_yml_imports_image_family_per_os(rendered):
     assert "debian/_main_debian.yml" not in main   # no debian box in this composition
 
 
+def test_init_proxmox_is_os_selective_ubuntu_only(rendered):
+    """A Ubuntu-only lab carries ONLY ubuntu_noble + downloads only ubuntu images."""
+    _spec, _alloc, root = rendered
+    templates = root / "01_init_proxmox" / "templates"
+    assert (templates / "ubuntu_noble").is_dir()
+    assert not (templates / "debian").exists()        # no inert debian template files
+    download = _read(root, "01_init_proxmox/templates/_main_download_cloudinit_files.yml")
+    assert "noble" in download
+    assert "debian" not in download                   # no unused debian image downloaded
+
+
 def test_top_level_scripts_present_and_named_for_scenario(rendered):
     spec, _alloc, root = rendered
     n = spec.name
@@ -223,6 +234,31 @@ def test_scenario_spec_roundtrips_into_tree(rendered):
     assert reloaded.name == spec.name
     assert reloaded.subnet_layout == spec.subnet_layout
     assert [b.template for b in reloaded.boxes] == [b.template for b in spec.boxes]
+
+
+def test_init_proxmox_is_os_selective_debian(fake_catalog, tmp_path):
+    """A Debian lab carries ONLY debian/ + downloads only the trixie image."""
+    # add a debian box to the catalog
+    layer = fake_catalog / "05_topology_layer" / "box_templates" / "deb-box" / "v1.0.0"
+    layer.mkdir(parents=True)
+    (layer / "template.yml").write_text(
+        "id: deb-box\napi_version: 1\nrole: student\nos: debian\n"
+        "default_inventory_group: r42_student\nspec: \"2cpu/4gb/32gb\"\n", encoding="utf-8",
+    )
+    spec = ScenarioSpec.model_validate({
+        "name": "deb_lab", "subnet_layout": "default-3zone",
+        "network_policy": "air-gap-ctf", "boxes": [{"template": "deb-box"}],
+    })
+    root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, dest=tmp_path / "s")
+    templates = root / "01_init_proxmox" / "templates"
+    assert (templates / "debian").is_dir()
+    assert not (templates / "ubuntu_noble").exists()       # no inert ubuntu template files
+    main = _read(root, "main.yml")
+    assert "debian/_main_debian.yml" in main
+    assert "ubuntu_noble" not in main
+    download = _read(root, "01_init_proxmox/templates/_main_download_cloudinit_files.yml")
+    assert "debian-13-genericcloud" in download
+    assert "noble" not in download                         # no unused ubuntu image downloaded
 
 
 def test_render_refuses_existing_dir_then_overwrites(fake_catalog, valid_spec_dict, tmp_path):
