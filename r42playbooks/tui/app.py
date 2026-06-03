@@ -25,7 +25,16 @@ class ScenarioComposerApp(App):
     #output { padding: 1; border: round $accent; height: 1fr; }
     Select, Input { width: 1fr; }
     """
-    BINDINGS = [("q", "quit", "Quit")]
+    # Keyboard bindings so the TUI is fully operable without a mouse (terminals
+    # over tmux/SSH often don't forward clicks). Function keys never collide with
+    # typing in an Input or Select type-ahead. The buttons remain for mouse users.
+    BINDINGS = [
+        ("f1", "add", "Add box"),
+        ("f2", "preview", "Preview"),
+        ("f3", "generate", "Generate"),
+        ("f4", "clear", "Clear boxes"),
+        ("q", "quit", "Quit"),
+    ]
 
     def __init__(self, controller: ScenarioComposerController, *, out_dir: Path | None = None) -> None:
         super().__init__()
@@ -62,7 +71,11 @@ class ScenarioComposerApp(App):
                 yield Button("Preview", id="preview")
                 yield Button("Generate", id="generate", variant="success")
                 yield Button("Clear boxes", id="clear", variant="warning")
-        yield Static("(pick a box and press Add to begin)", id="output")
+        yield Static(
+            "Tab to move between fields. Mouse or keys: F1 Add · F2 Preview · "
+            "F3 Generate · F4 Clear · q Quit.",
+            id="output",
+        )
         yield Footer()
 
     # -- helpers --
@@ -84,6 +97,13 @@ class ScenarioComposerApp(App):
 
     # -- events --
 
+    def _safe(self, handler) -> None:
+        """Run an action handler, surfacing any error in-pane (never crash)."""
+        try:
+            handler()
+        except Exception as exc:  # never let a handler silently kill the app
+            self._set_output(f"✗ unexpected error: {exc!r}")
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         handlers = {
             "add": self._do_add,
@@ -92,12 +112,21 @@ class ScenarioComposerApp(App):
             "clear": self._do_clear,
         }
         handler = handlers.get(event.button.id)
-        if handler is None:
-            return
-        try:
-            handler()
-        except Exception as exc:  # never let a handler silently kill the app
-            self._set_output(f"✗ unexpected error: {exc!r}")
+        if handler is not None:
+            self._safe(handler)
+
+    # keyboard bindings (work without a mouse) -> same handlers as the buttons
+    def action_add(self) -> None:
+        self._safe(self._do_add)
+
+    def action_preview(self) -> None:
+        self._safe(self._do_preview)
+
+    def action_generate(self) -> None:
+        self._safe(self._do_generate)
+
+    def action_clear(self) -> None:
+        self._safe(self._do_clear)
 
     def _do_add(self) -> None:
         template = self._selected("box")

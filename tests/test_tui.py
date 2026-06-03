@@ -132,6 +132,32 @@ def test_app_generate_warns_on_existing_then_overwrites(fake_catalog, tmp_path):
     asyncio.run(_go())
 
 
+def test_app_keyboard_bindings_drive_actions_without_mouse(fake_catalog, tmp_path):
+    """F1/F2/F3 operate the composer with no mouse (clicks fail over tmux/SSH)."""
+    import asyncio
+    from textual.widgets import Input
+    from r42playbooks.tui.app import ScenarioComposerApp
+
+    out = tmp_path / "scenarios"
+
+    async def _go():
+        app = ScenarioComposerApp(ScenarioComposerController(fake_catalog), out_dir=out)
+        shown: list[str] = []
+        app._set_output = lambda t: shown.append(t)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.query_one("#scenario", Input).value = "kbd_lab"
+            await pilot.pause()
+            await pilot.press("f1")          # Add (defaults: admin-wazuh, default-3zone, air-gap-ctf)
+            await pilot.press("f3")          # Generate
+            await pilot.pause()
+        assert any("admin-wazuh ×1" in s for s in shown)       # F1 added + previewed
+        assert any(s.startswith("✓ generated") for s in shown)  # F3 generated
+        assert (out / "kbd_lab" / "main.yml").is_file()
+
+    asyncio.run(_go())
+
+
 def test_app_handler_catch_all_shows_error_not_crash(fake_catalog, monkeypatch):
     """Any handler exception is shown in-pane, never silently killing the app."""
     import asyncio
