@@ -38,6 +38,19 @@ PROXMOX_NODE_RE = re.compile(r"^[A-Za-z0-9-]*$")
 VM_ID_MIN = 1000
 VM_ID_MAX = 9999
 
+# Catalog template id — dotless kebab (distinct from dotted role refs and from
+# the scenario-name rule). Used for directory names under 05_topology_layer/.
+TEMPLATE_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+# Version directory under a template id, e.g. "v1.0.0".
+VERSION_DIR_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
+
+# Catalog layout: the new topology layer and its categories.
+TOPOLOGY_LAYER_DIR = "05_topology_layer"
+CATEGORY_BOX_TEMPLATES = "box_templates"
+CATEGORY_NETWORK_POLICIES = "network_policies"
+CATEGORY_SUBNET_LAYOUTS = "subnet_layouts"
+
 # Security deny-list: substrings that must never appear in a free-text topology
 # field. Blocks Jinja/SSTI (`{{ }}`, `{% %}`, `${`), shell metacharacters,
 # path traversal, and argv-flag injection. Fields are rejected, never sanitized.
