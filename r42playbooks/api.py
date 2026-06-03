@@ -63,6 +63,11 @@ def render_scenario(
     The single entry point a frontend calls to go from a composition spec to a
     deployable scenario directory. Returns the scenario root path.
 
+    Note: this resolves box templates but does NOT pre-validate role/container
+    attachment names — call :func:`validate_refs` first (the CLI/TUI do) to
+    typo-guard ``attachments_add`` / ``default_attachments`` before generating.
+    Deny-list guards on every field still apply at schema-validation time.
+
     :raises CatalogNotFoundError: a referenced subnet layout / box template is unknown.
     :raises CompileError: a box cannot be placed (no subnet, exhausted ids/octets).
     """

@@ -12,6 +12,7 @@ touches the filesystem beyond the load/dump helpers, which reuse ``core.io``'s
 atomic writer.
 """
 
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -75,18 +76,16 @@ def dumps_spec(spec: ScenarioSpec) -> str:
     )
 
 
-def dump_spec_atomic(spec: ScenarioSpec, path) -> "object":
+def dump_spec_atomic(spec: ScenarioSpec, path: Path | str) -> Path:
     """Atomically write *spec* to *path* as canonical YAML. Returns the path."""
     return io.atomic_write_text(dumps_spec(spec), path)
 
 
-def load_spec(path) -> ScenarioSpec:
+def load_spec(path: Path | str) -> ScenarioSpec:
     """Load and validate a ``scenario.r42.yml`` from *path*.
 
     :raises TopologyError: if the file is missing, not valid YAML, or fails schema.
     """
-    from pathlib import Path
-
     path = Path(path)
     try:
         raw = path.read_text(encoding="utf-8")

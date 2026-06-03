@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
+from pydantic import ValidationError as _PydValidationError
 
 from r42playbooks.core import constants as C
 from r42playbooks.core.catalog_models import (
@@ -56,7 +57,9 @@ class Catalog:
     # name-referenced modules from 02_/03_ (not pydantic templates) — see S3.
     roles: set[str] = field(default_factory=set)
     containers: set[str] = field(default_factory=set)
-    _resolved: dict[tuple[str, str], _Resolved] = field(default_factory=dict)
+    _resolved: dict[tuple[str, str], _Resolved] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     # -- resolution helpers (raise CatalogNotFoundError on miss) --
 
@@ -70,10 +73,18 @@ class Catalog:
         return self._resolve(C.CATEGORY_SUBNET_LAYOUTS, ref, self.subnet_layouts)
 
     def resolved_version(self, category: str, template_id: str) -> str:
-        return self._resolved[(category, template_id)].version
+        return self._resolved_entry(category, template_id).version
 
     def resolved_hash(self, category: str, template_id: str) -> str:
-        return self._resolved[(category, template_id)].sha256
+        return self._resolved_entry(category, template_id).sha256
+
+    def _resolved_entry(self, category: str, template_id: str) -> _Resolved:
+        try:
+            return self._resolved[(category, template_id)]
+        except KeyError:
+            raise CatalogNotFoundError(
+                f"{category} template not in resolved index: {template_id!r}"
+            ) from None
 
     def _resolve(self, category: str, ref: str, index: dict):
         # ref is a bare template id (version pinning via @range is a later refinement)
@@ -136,7 +147,7 @@ def _load_category(layer_root: Path, category: str, catalog: Catalog) -> None:
         data = yaml.safe_load(raw.decode("utf-8"))
         try:
             model = model_cls.model_validate(data)
-        except Exception as exc:  # pydantic ValidationError -> our ValidationError
+        except _PydValidationError as exc:  # pydantic ValidationError -> our ValidationError
             raise ValidationError(
                 f"invalid {category} template {template_id!r}: {exc}"
             ) from exc
@@ -217,7 +228,9 @@ def validate_refs(spec: "ScenarioSpec", catalog: Catalog) -> list[str]:
     """Return human-readable messages for every spec ref missing from *catalog*.
 
     A typo guard for ``scenario.r42.yml``: checks the subnet layout, network
-    policy, each box template, and each added role/container attachment. An empty
+    policy, each box template, and every attachment that becomes a generated role
+    name — both the box's catalog ``default_attachments`` and the spec's
+    ``attachments_add`` (the renderer emits both, so both must resolve). An empty
     list means every referenced module exists. ``gamification`` attachments are
     not enumerated here and are skipped (cannot be validated by name yet).
     """
@@ -227,9 +240,11 @@ def validate_refs(spec: "ScenarioSpec", catalog: Catalog) -> list[str]:
     if spec.network_policy not in catalog.network_policies:
         problems.append(f"unknown network_policy: {spec.network_policy!r}")
     for box in spec.boxes:
-        if box.template not in catalog.box_templates:
+        bt = catalog.box_templates.get(box.template)
+        if bt is None:
             problems.append(f"unknown box template: {box.template!r}")
-        for att in box.attachments_add:
+        default_attachments = bt.default_attachments if bt else []
+        for att in list(default_attachments) + list(box.attachments_add):
             if att.kind == "role" and att.catalog_ref not in catalog.roles:
                 problems.append(f"unknown role: {att.catalog_ref!r}")
             elif att.kind == "container" and att.catalog_ref not in catalog.containers:

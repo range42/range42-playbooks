@@ -7,12 +7,40 @@ gitignored repo never present in this checkout.
 """
 
 from r42playbooks.core.catalog import (
+    Catalog,
     list_containers,
     list_roles,
     load_catalog,
     validate_refs,
 )
+from r42playbooks.core.catalog_models import BoxTemplate
+from r42playbooks.core.models import Attachment
 from r42playbooks.core.spec import ScenarioSpec
+
+
+def test_validate_refs_flags_unknown_default_attachment_role():
+    """A box template's own default_attachments must resolve too (renderer emits them)."""
+    catalog = Catalog(
+        subnet_layouts={"layout": object()},      # presence is all validate_refs checks
+        network_policies={"policy": object()},
+        box_templates={
+            "leaky-box": BoxTemplate(
+                id="leaky-box", role="ctf", default_inventory_group="r42_ctf",
+                spec="1cpu/2gb/24gb",
+                default_attachments=[
+                    Attachment(kind="role", catalog_ref="software.install.ghost"),
+                ],
+            )
+        },
+        roles=set(),          # the default role is NOT in the catalog
+        containers=set(),
+    )
+    spec = ScenarioSpec.model_validate({
+        "name": "x", "subnet_layout": "layout", "network_policy": "policy",
+        "boxes": [{"template": "leaky-box"}],
+    })
+    problems = validate_refs(spec, catalog)
+    assert any("software.install.ghost" in p for p in problems)
 
 
 def test_list_roles_enumerates_role_dir_names(fake_catalog):

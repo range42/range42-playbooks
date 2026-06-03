@@ -11,11 +11,24 @@ role NAMES only (the catalog↔playbooks name-reference contract, plan §2).
 """
 
 
+import re as _re
+
+_SENTINEL_RE = _re.compile(r"@@[A-Z_]+@@")
+
+
 def fill(template: str, **values: object) -> str:
-    """Replace every ``@@KEY@@`` sentinel in *template* with ``str(value)``."""
+    """Replace every ``@@KEY@@`` sentinel in *template* with ``str(value)``.
+
+    :raises RuntimeError: if any ``@@KEY@@`` sentinel is left unfilled (a
+        programming error — a call site misspelled or forgot a key). This keeps
+        an unsubstituted sentinel from silently shipping into a generated file.
+    """
     out = template
     for key, value in values.items():
         out = out.replace(f"@@{key}@@", str(value))
+    leftover = _SENTINEL_RE.findall(out)
+    if leftover:
+        raise RuntimeError(f"unfilled render sentinel(s): {sorted(set(leftover))}")
     return out
 
 
@@ -119,18 +132,23 @@ STAGE01_WITH_ROLES = """\
   become: true
   vars_files:
     - "../../secrets/default_vault.yml"
-  roles:
+@@VARS_BLOCK@@  roles:
 @@ROLE_LINES@@
 """
 
+# A valid no-op play (NOT a bare `[]`, which `import_playbook` rejects with
+# "A play definition must contain exactly one of hosts/import_playbook/roles/tasks").
 STAGE01_PLACEHOLDER = """\
 ##
 ## stage_01 — @@VM_NAME@@ : placeholder (no catalog roles attached)
-##
 ## This box clones + boots but installs nothing. Attach roles via the box's
 ## `attachments_add` in scenario.r42.yml, then re-generate.
 ##
-[]
+
+- name: "@@VM_NAME@@ — placeholder (no catalog roles attached)"
+  hosts: @@SSH_HOST@@
+  gather_facts: false
+@@VARS_BLOCK@@  tasks: []
 """
 
 

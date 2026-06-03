@@ -42,9 +42,21 @@ def test_list_subnets_and_policies(fake_catalog):
     assert res.exit_code == 0 and "air-gap-ctf" in res.output
 
 
-def test_list_requires_catalog_for_catalog_kinds():
-    res = runner.invoke(app, ["list", "boxes"])
+def test_list_bad_catalog_exits_nonzero(tmp_path):
+    res = runner.invoke(app, ["list", "boxes", "--catalog", str(tmp_path / "nope")])
     assert res.exit_code != 0
+
+
+def test_list_scenarios_shows_generated(tmp_path, fake_catalog):
+    out = tmp_path / "scenarios"
+    gen = runner.invoke(app, [
+        "new", "scen_a", "--subnet", "default-3zone", "--policy", "air-gap-ctf",
+        "--box", "admin-wazuh", "--catalog", str(fake_catalog), "-o", str(out),
+    ])
+    assert gen.exit_code == 0, gen.output
+    res = runner.invoke(app, ["list", "scenarios", "-o", str(out)])
+    assert res.exit_code == 0, res.output
+    assert "scen_a" in res.output
 
 
 # --- show ------------------------------------------------------------------

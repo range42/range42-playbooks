@@ -26,6 +26,10 @@ class Attachment(BaseModel):
     catalog_ref: str = Field(pattern=C.CATALOG_REF_RE.pattern)
     params: dict[str, Any] = Field(default_factory=dict)
 
+    # CATALOG_REF_RE permits dots/slashes (role names, container paths) — so it
+    # also admits '..'. Deny-list-guard the ref: it is written verbatim as an
+    # Ansible role name / resolved against ANSIBLE_ROLES_PATH at deploy.
+    _guard_catalog_ref = field_validator("catalog_ref")(_no_injection)
     _guard_params = field_validator("params")(C.reject_injection_nested)
 
 

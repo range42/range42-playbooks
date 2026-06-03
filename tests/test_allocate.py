@@ -15,6 +15,7 @@ import pytest
 from r42playbooks.core import constants as C
 from r42playbooks.core.allocate import Allocation, allocate, manifest_dict
 from r42playbooks.core.catalog import load_catalog
+from r42playbooks.core.errors import CatalogNotFoundError, ValidationError
 from r42playbooks.core.idalloc import ReservedIndex
 from r42playbooks.core.spec import ScenarioSpec
 from r42playbooks.core.templates_table import TEMPLATE_TABLE, select_template
@@ -45,7 +46,7 @@ def test_select_template_override_by_vm_id():
 
 
 def test_select_template_unknown_spec_raises():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         select_template("999cpu/1tb/1pb")
 
 
@@ -191,7 +192,7 @@ def test_unknown_box_template_raises(fake_catalog):
         "name": "gen_lab", "subnet_layout": "default-3zone",
         "network_policy": "air-gap-ctf", "boxes": [{"template": "ghost-box"}],
     })
-    with pytest.raises(Exception):
+    with pytest.raises(CatalogNotFoundError):
         allocate(spec, catalog)
 
 

@@ -26,7 +26,10 @@ from r42playbooks.core.spec import ScenarioSpec
 app = typer.Typer(help="range42 scenario generator (compose labs from the catalog)",
                   no_args_is_help=True)
 
-_CatalogOpt = typer.Option(None, "--catalog", help="Path to the range42-catalog checkout")
+_CatalogOpt = typer.Option(
+    Path("../range42-catalog"), "--catalog",
+    help="Path to the range42-catalog checkout",
+)
 _OutputOpt = typer.Option(Path("scenarios"), "-o", "--output", help="Scenarios output dir")
 _ReservedOpt = typer.Option(None, "--reserved", help="Path to scenarios/_reserved.json")
 
@@ -161,8 +164,9 @@ def _build_spec(
             loaded = api.load_spec(spec_file)
         except TopologyError as exc:
             _fail(f"error: {exc}")
-        data = loaded.model_dump(mode="json")
-        data["name"] = name  # positional name wins, so the output dir matches
+        else:
+            data = loaded.model_dump(mode="json")
+            data["name"] = name  # positional name wins, so the output dir matches
     else:
         if not subnet or not policy:
             _fail("error: --subnet and --policy are required (or pass --spec)")

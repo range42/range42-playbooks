@@ -20,7 +20,10 @@ output depends only on the ``Allocation`` + ``ScenarioSpec`` (no clock/randomnes
 
 import os
 import shutil
+from collections.abc import Mapping
 from pathlib import Path
+
+import yaml
 
 from r42playbooks.core import render_assets as A
 from r42playbooks.core.allocate import Allocation, AllocatedBox, manifest_json
@@ -65,6 +68,25 @@ def _ssh_host(vm_name: str) -> str:
     return f"r42.{vm_name}"
 
 
+def _file_prefix(scenario: str) -> str:
+    """Filename-safe scenario prefix (SCENARIO_NAME_RE permits '/' for nesting).
+
+    The directory tree keeps the full ``scenario`` name (so ``ctf/web1`` nests),
+    but per-file prefixes use only the leaf so a slash never spawns extra dirs in
+    a script/devkit filename (e.g. ``ctf/web1.setup.sh``).
+    """
+    return scenario.rsplit("/", 1)[-1]
+
+
+def _vars_block(box_vars: Mapping[str, object]) -> str:
+    """Render a box's free-form vars as an indented ``vars:`` block (or '')."""
+    if not box_vars:
+        return ""
+    dumped = yaml.safe_dump(dict(box_vars), default_flow_style=False, sort_keys=True)
+    indented = "\n".join("    " + line for line in dumped.rstrip("\n").splitlines())
+    return f"  vars:\n{indented}\n"
+
+
 def _gateway(box: AllocatedBox) -> str:
     """Box subnet gateway, or the conventional ``.1`` host if the layout omits it."""
     if box.gateway:
@@ -101,15 +123,20 @@ def _render_box(box: AllocatedBox, section_dir: Path, scenario: str, proxmox_nod
     )
     _write(stage00, section_dir / "stage_00" / f"{box.vm_name}.yml")
 
+    vars_block = _vars_block(box.box_vars)
     roles = _role_names(box.attachments)
     if roles:
         role_lines = "\n".join(f"    - {name}" for name in roles)
         stage01 = A.fill(
             A.STAGE01_WITH_ROLES,
-            VM_NAME=box.vm_name, SSH_HOST=_ssh_host(box.vm_name), ROLE_LINES=role_lines,
+            VM_NAME=box.vm_name, SSH_HOST=_ssh_host(box.vm_name),
+            VARS_BLOCK=vars_block, ROLE_LINES=role_lines,
         )
     else:
-        stage01 = A.fill(A.STAGE01_PLACEHOLDER, VM_NAME=box.vm_name)
+        stage01 = A.fill(
+            A.STAGE01_PLACEHOLDER,
+            VM_NAME=box.vm_name, SSH_HOST=_ssh_host(box.vm_name), VARS_BLOCK=vars_block,
+        )
     _write(stage01, section_dir / "stage_01" / f"{box.vm_name}.yml")
 
     _render_devkit(box, section_dir / "stage_01" / f"{box.vm_name}.devkit", scenario, proxmox_node)
@@ -117,7 +144,7 @@ def _render_box(box: AllocatedBox, section_dir: Path, scenario: str, proxmox_nod
 
 def _render_devkit(box: AllocatedBox, devkit_dir: Path, scenario: str, proxmox_node: str) -> None:
     """Emit the per-box install / snapshot / revert scripts."""
-    prefix = f"{scenario}.{box.vm_name}"
+    prefix = f"{_file_prefix(scenario)}.{box.vm_name}"
     scripts = {
         f"{prefix}.install.sh": A.fill(A.DEVKIT_INSTALL, VM_NAME=box.vm_name),
         f"{prefix}.snapshot.sh": A.fill(A.DEVKIT_SNAPSHOT, VM_NAME=box.vm_name, PROXMOX_NODE=proxmox_node),
@@ -167,14 +194,15 @@ def _render_main_playbooks(root: Path, scenario: str, sections: list[str]) -> No
 
 def _render_top_level_scripts(root: Path, scenario: str) -> None:
     """Emit the activate + setup/delete/reset + inventory scripts (all executable)."""
+    prefix = _file_prefix(scenario)
     scripts = {
         "_activate.sh": A.ACTIVATE_SH,
-        f"{scenario}.setup.sh": A.SETUP_SH,
-        f"{scenario}.setup_vms_only.sh": A.SETUP_VMS_ONLY_SH,
-        f"{scenario}.delete_all.sh": A.DELETE_ALL_SH,
-        f"{scenario}.delete_vms_only.sh": A.DELETE_VMS_ONLY_SH,
-        f"{scenario}.reset.setup.sh": A.RESET_SETUP_SH,
-        f"{scenario}.reset.ssh_keys.sh": A.RESET_SSH_KEYS_SH,
+        f"{prefix}.setup.sh": A.SETUP_SH,
+        f"{prefix}.setup_vms_only.sh": A.SETUP_VMS_ONLY_SH,
+        f"{prefix}.delete_all.sh": A.DELETE_ALL_SH,
+        f"{prefix}.delete_vms_only.sh": A.DELETE_VMS_ONLY_SH,
+        f"{prefix}.reset.setup.sh": A.RESET_SETUP_SH,
+        f"{prefix}.reset.ssh_keys.sh": A.RESET_SSH_KEYS_SH,
         "devkit_ansible.show_ansible_inventory.to.text.sh": A.SHOW_INVENTORY_SH,
     }
     for name, body in scripts.items():

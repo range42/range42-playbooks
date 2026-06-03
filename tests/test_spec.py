@@ -11,6 +11,16 @@ from r42playbooks.core.errors import TopologyError
 from r42playbooks.core.spec import ScenarioSpec, dump_spec_atomic, load_spec
 
 
+def test_attachment_catalog_ref_rejects_path_traversal(spec_factory):
+    """catalog_ref is written verbatim as an Ansible role name -> deny-list '..'."""
+    bad = spec_factory(boxes=[{
+        "template": "vuln-box",
+        "attachments_add": [{"kind": "role", "catalog_ref": "software/../etc", "params": {}}],
+    }])
+    with pytest.raises(PydanticValidationError):
+        ScenarioSpec.model_validate(bad)
+
+
 def test_valid_spec_round_trips(tmp_path, valid_spec_dict):
     # Arrange
     spec = ScenarioSpec.model_validate(valid_spec_dict)

@@ -13,7 +13,8 @@ with a lock is the deploy side's job — see ``idalloc`` docstring).
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from types import MappingProxyType
+from typing import Any, Mapping
 
 from r42playbooks.core import constants as C
 from r42playbooks.core.catalog import Catalog
@@ -40,7 +41,7 @@ class AllocatedBox:
     template_vm_id: int         # the 9xxx clone source (global_template_vm_id)
     template_name: str
     attachments: tuple[Attachment, ...]
-    box_vars: dict[str, Any]
+    box_vars: Mapping[str, Any]   # read-only (MappingProxyType) — frozen-dataclass safe
 
 
 @dataclass(frozen=True)
@@ -142,7 +143,7 @@ def _allocate_box(
             template_vm_id=tmpl.vm_id,
             template_name=tmpl.vm_name,
             attachments=attachments,
-            box_vars=dict(box.vars),
+            box_vars=MappingProxyType(dict(box.vars)),
         ))
     return placed
 
@@ -176,7 +177,7 @@ def allocate(spec: ScenarioSpec, catalog: Catalog, reserved: ReservedIndex | Non
     )
 
 
-def manifest_dict(alloc: Allocation) -> dict:
+def manifest_dict(alloc: Allocation) -> dict[str, Any]:
     """Project an Allocation into the demo_lab ``scenario_vms.json`` dict."""
     vms = sorted(
         (

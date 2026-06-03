@@ -67,7 +67,7 @@ class ScenarioComposerController:
         self._boxes.append((template, count))
 
     def remove_box(self, index: int) -> None:
-        del self._boxes[index]
+        self._boxes = [b for i, b in enumerate(self._boxes) if i != index]
 
     def clear_boxes(self) -> None:
         self._boxes = []

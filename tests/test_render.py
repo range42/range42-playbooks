@@ -13,10 +13,18 @@ from pathlib import Path
 
 import pytest
 
+from r42playbooks.core import render_assets
 from r42playbooks.core.allocate import allocate
 from r42playbooks.core.catalog import load_catalog
 from r42playbooks.core.render import render_scenario
 from r42playbooks.core.spec import ScenarioSpec, load_spec
+
+
+def test_fill_raises_on_unfilled_sentinel():
+    """A misspelled/forgotten key must not silently ship a leftover @@X@@."""
+    import pytest
+    with pytest.raises(RuntimeError):
+        render_assets.fill("hello @@MISSING@@", PRESENT="x")
 
 
 @pytest.fixture
@@ -132,11 +140,44 @@ def test_stage01_lists_role_names_not_copied_code(rendered):
     assert "ansible.builtin." not in stage01
 
 
-def test_stage01_without_roles_is_placeholder(rendered):
-    """A box with no role attachments still gets a valid placeholder stage_01."""
+def test_stage01_without_roles_is_valid_noop_play(rendered):
+    """A box with no role attachments gets a deployable no-op play, NOT a bare [].
+
+    `_main.yml` imports stage_01 via import_playbook, which rejects `[]` with
+    "a play definition must contain exactly one of hosts/import_playbook/roles/tasks".
+    """
+    import yaml
     _spec, _alloc, root = rendered
-    stage01 = _read(root, "02_admin_infrastructure/stage_01/admin-wazuh.yml")
-    assert "place" in stage01.lower() or stage01.strip() in ("---\n[]", "---", "[]")
+    text = _read(root, "02_admin_infrastructure/stage_01/admin-wazuh.yml")
+    plays = yaml.safe_load(text)            # a playbook is one doc: a list of plays
+    assert isinstance(plays, list) and len(plays) == 1
+    play = plays[0]
+    assert play["hosts"] == "r42.admin-wazuh"
+    assert play.get("tasks") == []          # valid no-op
+    assert "roles" not in play              # no roles attached
+
+
+def test_stage01_renders_box_vars(rendered):
+    """Box `vars` from the spec are emitted into the stage_01 play (not dropped)."""
+    _spec, _alloc, root = rendered
+    # valid_spec_dict sets vars={"difficulty": "hard"} on vuln-box
+    stage01 = _read(root, "04_ctf_infrastructure/stage_01/vuln-box-00.yml")
+    assert "vars:" in stage01
+    assert "difficulty: hard" in stage01
+
+
+def test_scenario_name_with_slash_keeps_files_in_leaf(fake_catalog, valid_spec_dict, tmp_path):
+    """A '/'-nested scenario name nests the dir but file prefixes use the leaf."""
+    from r42playbooks.core.spec import ScenarioSpec
+    from r42playbooks.core.catalog import load_catalog
+    from r42playbooks.core.allocate import allocate
+    from r42playbooks.core.render import render_scenario
+    spec = ScenarioSpec.model_validate({**valid_spec_dict, "name": "ctf/web1"})
+    catalog = load_catalog(fake_catalog)
+    root = render_scenario(allocate(spec, catalog), spec, dest=tmp_path / "scenarios")
+    assert root == tmp_path / "scenarios" / "ctf" / "web1"
+    assert (root / "web1.setup.sh").is_file()        # leaf prefix, not ctf/web1.setup.sh
+    assert not (root / "ctf").exists()               # no extra nested dir inside root
 
 
 def test_each_box_has_devkit_scripts(rendered):
