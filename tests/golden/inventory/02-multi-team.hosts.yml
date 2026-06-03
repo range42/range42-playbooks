@@ -1,0 +1,50 @@
+all:
+  children:
+    r42_admin:
+      hosts:
+        r42.mt-wazuh:
+          ansible_host: 192.168.140.200
+          ansible_user: alice
+          ansible_ssh_private_key_file: /keys/admin_keys/r42.deployer-key_alice
+          ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new -o ProxyJump=root@10.0.0.1
+          r42_team_id: null
+          r42_node_name: wazuh
+          r42_template_vmid: 9001
+    r42_admin_wazuh_clients:
+      hosts: {}
+    r42_blank_group:
+      hosts:
+        r42.mt-1-trainee:
+          ansible_host: 192.168.141.200
+          ansible_user: bob
+          ansible_ssh_private_key_file: /keys/student_keys/r42.deployer-key_bob
+          ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new -o ProxyJump=root@10.0.0.1
+          r42_team_id: 1
+          r42_node_name: trainee
+          r42_template_vmid: 9020
+        r42.mt-2-trainee:
+          ansible_host: 192.168.142.200
+          ansible_user: bob
+          ansible_ssh_private_key_file: /keys/student_keys/r42.deployer-key_bob
+          ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new -o ProxyJump=root@10.0.0.1
+          r42_team_id: 2
+          r42_node_name: trainee
+          r42_template_vmid: 9020
+        r42.mt-3-trainee:
+          ansible_host: 192.168.143.200
+          ansible_user: bob
+          ansible_ssh_private_key_file: /keys/student_keys/r42.deployer-key_bob
+          ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new -o ProxyJump=root@10.0.0.1
+          r42_team_id: 3
+          r42_node_name: trainee
+          r42_template_vmid: 9020
+    proxmox:
+      hosts:
+        mt:
+          ansible_host: 10.0.0.1:8006
+    proxmox-cli:
+      hosts:
+        mt-cli:
+          ansible_host: 10.0.0.1
+          ansible_connection: paramiko_ssh
+          ansible_user: root
