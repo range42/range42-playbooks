@@ -137,13 +137,16 @@ layout** (not the flat `templates/` one):
 It stays **OS-selective**: a Ubuntu-only lab carries only `ubuntu_noble/` +
 `cloudinit_ubuntu_noble.yml`; a Debian lab only `debian/` + `cloudinit_debian.yml`.
 
-⚠ **Content note:** `_init_lab`'s template playbooks are an *older, simpler* set
-than `blank_scenario_*`'s — they lack the **idempotence guards** ("skip if already
-a template", lock-aware waits) and the **apt-proxy / update-templates** steps.
-The generator currently vendors the `_init_lab` content (per the layout choice).
-If the richer/idempotent content is wanted, port `blank_scenario`'s ubuntu_noble
-files into the staged layout (fix the secrets depth `../../../` → `../../../../`)
-and regenerate the Debian set from them.
+**Content:** the staged layout uses the `_init_lab` *structure* but the **richer
+`blank_scenario` template content** (path depth fixed `../../../` → `../../../../`):
+both OS sets carry the **idempotence guards** ("skip if already a template",
+lock-aware waits) and the **apt-proxy + update-templates** steps:
+- per-template files probe `qm config … | grep '^template:'` and skip if done;
+- `_apply_apt_proxy.yml` attaches the apt-proxy cicustom (no-op if `apt_proxy_url`
+  empty) — Ubuntu and Debian each loop their own template ids;
+- `_update_templates.yml` is **manifest-driven** (reads `manifest/scenario_vms.json`,
+  probes template/vm/missing state) — boots each template, runs apt update +
+  dist-upgrade via cloud-init, then converts to template. Idempotent + OS-agnostic.
 
 ## bundles/core/linux/debian (examples)
 
