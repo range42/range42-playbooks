@@ -17,16 +17,19 @@ def build_scenario_vms(topology: Topology) -> dict:
     zone_role = {z.name: z.role for z in topology.zones}
     zbridge = zone_bridge_map(topology)
 
-    vms = [
-        {
-            "vm_id": box.vm_id,
-            "vm_name": box.vm_name,
-            "ip": box.ip,
-            "role": zone_role.get(box.zone),
-            "bridge": zbridge.get(box.zone),
-        }
-        for box in topology.boxes
-    ]
+    vms = sorted(
+        (
+            {
+                "vm_id": box.vm_id,
+                "vm_name": box.vm_name,
+                "ip": box.ip,
+                "role": zone_role.get(box.zone),
+                "bridge": zbridge.get(box.zone),
+            }
+            for box in topology.boxes
+        ),
+        key=lambda v: v["vm_id"],
+    )
 
     return {
         "scenario": topology.scenario,

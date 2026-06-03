@@ -13,12 +13,8 @@ from r42topo.core import constants as C
 
 _STRICT = ConfigDict(extra="forbid")
 
-
-def _no_injection(value: str) -> str:
-    """Reject free-text values containing deny-listed tokens (SSTI/shell/path)."""
-    if C.violates_denylist(value):
-        raise ValueError("value contains a forbidden character or pattern")
-    return value
+# free-text injection guard (shared with catalog_models via constants)
+_no_injection = C.reject_injection
 
 
 class Attachment(BaseModel):
@@ -29,6 +25,8 @@ class Attachment(BaseModel):
     kind: Literal["role", "container", "gamification"]
     catalog_ref: str = Field(pattern=C.CATALOG_REF_RE.pattern)
     params: dict[str, Any] = Field(default_factory=dict)
+
+    _guard_params = field_validator("params")(C.reject_injection_nested)
 
 
 class Subnet(BaseModel):
@@ -80,17 +78,23 @@ class NetworkPolicyRef(BaseModel):
     template: str = Field(pattern=C.CATALOG_REF_RE.pattern)
     overrides: dict[str, Any] = Field(default_factory=dict)
 
+    _guard_overrides = field_validator("overrides")(C.reject_injection_nested)
+
 
 class Topology(BaseModel):
     """Top-level authored topology — the source of truth the compiler expands."""
 
     model_config = _STRICT
 
-    schema_version: int = 1
+    schema_version: Literal[1] = 1
     scenario: str = Field(pattern=C.SCENARIO_NAME_RE.pattern)
-    description: str = ""
+    description: str = Field(default="", max_length=255)
     proxmox_node: str = Field(pattern=C.PROXMOX_NODE_RE.pattern)
     subnets: list[Subnet] = Field(min_length=1)
     zones: list[Zone] = Field(min_length=1)
     boxes: list[Box] = Field(min_length=1)
     network_policy: NetworkPolicyRef
+
+    _guard_scenario = field_validator("scenario")(_no_injection)
+    _guard_description = field_validator("description")(_no_injection)
+    _guard_proxmox_node = field_validator("proxmox_node")(_no_injection)

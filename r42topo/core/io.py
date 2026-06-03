@@ -10,6 +10,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from pydantic import ValidationError as _PydanticValidationError
+
 from r42topo.core.errors import TopologyError
 from r42topo.core.models import Topology
 
@@ -28,7 +30,10 @@ def load_topology(path: Path) -> Topology:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise TopologyError(f"invalid JSON in topology file: {path}") from exc
-    return Topology.model_validate(data)
+    try:
+        return Topology.model_validate(data)
+    except _PydanticValidationError as exc:
+        raise TopologyError(f"topology schema error in {path}: {exc}") from exc
 
 
 def dumps_topology(topology: Topology) -> str:

@@ -41,6 +41,10 @@ def resolve_universal_extravars(
         "r42_scope": _safe_id("scope", scope),
         "r42_team_id": _safe_id("team_id", team_id) if team_id else "",
     }
-    # defensive: guarantee no key escaped the allow-list
-    assert set(extravars) == set(_ALLOWED_KEYS)
+    # defensive: guarantee no key escaped the allow-list (explicit, not assert —
+    # assert is stripped under `python -O`)
+    if set(extravars) != set(_ALLOWED_KEYS):
+        raise ValidationError(
+            f"extravars key mismatch: {set(extravars) ^ set(_ALLOWED_KEYS)}"
+        )
     return extravars

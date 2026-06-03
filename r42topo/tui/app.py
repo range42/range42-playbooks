@@ -11,6 +11,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Footer, Header, Input, Label, Select, Static
 
+from r42topo.core.errors import TopologyError
 from r42topo.tui.controller import TuiController
 
 
@@ -66,7 +67,7 @@ class TopologyAuthorApp(App):
             return
         try:
             self.controller.scaffold(scenario=scenario, layout_id=layout, policy_id=policy)
-        except Exception as exc:  # surface authoring errors in the view
+        except TopologyError as exc:  # surface authoring errors in the view
             self._set_output(f"✗ {exc}")
             return
         problems = self.controller.validate()
@@ -78,7 +79,7 @@ class TopologyAuthorApp(App):
     def _do_save(self) -> None:
         try:
             path = self.controller.save(self.out_path)
-        except Exception as exc:
+        except (TopologyError, ValueError) as exc:
             self._set_output(f"✗ {exc}")
             return
         self._set_output(f"✓ saved {path}")

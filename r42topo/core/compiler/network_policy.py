@@ -8,11 +8,14 @@ flush-rebuilds a dedicated ``R42-FORWARD`` chain from this list in order, which
 is naturally idempotent and never touches the host INPUT chain (SSH stays up).
 """
 
+import ipaddress
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from r42topo.core import constants as C
 from r42topo.core.catalog_models import MatrixRule, NetworkPolicyTemplate, PortSpec
+from r42topo.core.errors import CompileError
 from r42topo.core.models import Topology
 from r42topo.core.validate import zone_bridge_map, zone_subnet_map
 
@@ -39,12 +42,12 @@ class CompiledRule(BaseModel):
     proto: Literal["tcp", "udp", "icmp", "all"] = "all"
     source: str | None = None
     destination: str | None = None
-    destination_port: str | None = None
-    in_interface: str | None = None
-    out_interface: str | None = None
+    destination_port: str | None = Field(default=None, pattern=C.PORT_SPEC_RE.pattern)
+    in_interface: str | None = Field(default=None, pattern=C.IFACE_RE.pattern)
+    out_interface: str | None = Field(default=None, pattern=C.IFACE_RE.pattern)
     ctstate: str | None = None
     jump: Literal["ACCEPT", "DROP", "REJECT"]
-    comment: str
+    comment: str = Field(max_length=200)
 
 
 class CompiledNetworkPolicy(BaseModel):
@@ -75,6 +78,15 @@ def _param(policy: NetworkPolicyTemplate, topology: Topology, key: str, default)
     return topology.network_policy.overrides.get(key, policy.params.get(key, default))
 
 
+def _require_ip(value, what: str) -> str:
+    """Validate that *value* is a concrete IPv4/IPv6 address, else CompileError."""
+    try:
+        ipaddress.ip_address(str(value))
+    except ValueError:
+        raise CompileError(f"{what} must be a valid IP address, got {value!r}") from None
+    return str(value)
+
+
 def compile_network_policy(
     topology: Topology, policy: NetworkPolicyTemplate, *, version: str
 ) -> CompiledNetworkPolicy:
@@ -82,7 +94,9 @@ def compile_network_policy(
     zsubnet = zone_subnet_map(topology)
     zbridge = zone_bridge_map(topology)
     services = {s.name: s for s in policy.services}
-    wan_interface = _param(policy, topology, "wan_interface", "vmbr0")
+    wan_interface = str(_param(policy, topology, "wan_interface", "vmbr0"))
+    if not C.IFACE_RE.fullmatch(wan_interface):
+        raise CompileError(f"invalid wan_interface: {wan_interface!r}")
     defaults = policy.defaults
 
     rules: list[CompiledRule] = []
@@ -140,8 +154,10 @@ def _compile_matrix_rule(mr, zsubnet, services, topology, policy) -> list[Compil
         svc_name = mr.dst[len(_SVC):]
         svc = services.get(svc_name)
         if svc is None:
-            return []
-        svc_ip = _param(policy, topology, f"{svc_name}_ip", None)
+            raise CompileError(f"matrix references unknown service {svc_name!r}")
+        # a missing/invalid service IP would silently broaden the rule to "any dest"
+        svc_ip = _require_ip(_param(policy, topology, f"{svc_name}_ip", None),
+                             f"service {svc_name!r} ip ({svc_name}_ip)")
         out: list[CompiledRule] = []
         for p in (mr.ports or svc.ports):
             out.append(CompiledRule(
@@ -184,37 +200,73 @@ def lint_segmentation(
         elif first_drop is not None and min(r.weight for r in est) > first_drop:
             problems.append("ESTABLISHED accept does not precede DROP rules")
 
-    zsubnet = zone_subnet_map(topology)
-
-    # 3. each explicit deny pair must not be shadowed by an earlier accept
-    for mr in policy.matrix:
-        if mr.action not in ("drop", "reject"):
+    # 3. no ACCEPT may shadow an earlier-evaluated DROP/REJECT for overlapping
+    #    traffic. Considers ALL compiled drops (including wildcard-source ones),
+    #    not just exact matrix zone-pairs — this closes the src="*" bypass.
+    #    The terminal default catch-all (no match fields) is excluded: specific
+    #    ACCEPTs are *supposed* to precede it. Interface-scoped rules (air-gap)
+    #    only conflict with other interface-scoped rules, so they are matched
+    #    on interface too, avoiding false positives against CIDR/service rules.
+    accepts = [r for r in rules if r.jump == "ACCEPT"]
+    for d in rules:
+        if d.jump not in ("DROP", "REJECT") or _is_catch_all(d):
             continue
-        if mr.dst.startswith(_SVC):
+        for a in accepts:
+            if a.weight < d.weight and _shadows(a, d):
+                problems.append(
+                    f"ACCEPT (w{a.weight}) shadows DROP (w{d.weight}) for "
+                    f"{a.source or '*'}->{a.destination or a.out_interface or '*'} "
+                    f"({d.comment})"
+                )
+                break
+
+    # also assert every explicit zone->zone deny actually produced a DROP rule
+    zsubnet = zone_subnet_map(topology)
+    for mr in policy.matrix:
+        if mr.action not in ("drop", "reject") or mr.dst.startswith(_SVC) or mr.src == "*":
             continue
         src, dst = zsubnet.get(mr.src), zsubnet.get(mr.dst)
         if src is None or dst is None:
             continue
-        drop_w = min((r.weight for r in rules
-                      if r.source == src and r.destination == dst and r.jump in ("DROP", "REJECT")),
-                     default=None)
-        if drop_w is None:
+        if not any(r.source == src and r.destination == dst and r.jump in ("DROP", "REJECT")
+                   for r in rules):
             problems.append(f"deny {mr.src}->{mr.dst} produced no DROP rule")
-            continue
-        if any(r.source == src and r.destination == dst and r.jump == "ACCEPT" and r.weight < drop_w
-               for r in rules):
-            problems.append(f"ACCEPT shadows deny {mr.src}->{mr.dst} (ordering hazard)")
 
-    # 4. each air-gap zone must have a wan-drop rule
+    # 4. each air-gap zone must exist in the topology AND have a wan-drop rule
     zbridge = zone_bridge_map(topology)
     for zname in policy.defaults.airgap_zones:
         bridge = zbridge.get(zname)
-        if bridge and not any(r.in_interface == bridge and r.out_interface and r.jump == "DROP"
-                              for r in rules):
+        if bridge is None:
+            problems.append(f"air-gap zone {zname!r} not bound in topology — air-gap absent")
+        elif not any(r.in_interface == bridge and r.out_interface and r.jump == "DROP"
+                     for r in rules):
             problems.append(f"air-gap zone {zname!r} missing wan DROP")
 
-    # 5. default-deny must be the terminal rule
-    if policy.defaults.default_action == "drop" and rules and rules[-1].jump != "DROP":
-        problems.append("default-deny is not the terminal rule")
+    # 5. terminal rule must be the deny catch-all when default denies
+    if policy.defaults.default_action in ("drop", "reject"):
+        if not rules or rules[-1].jump not in ("DROP", "REJECT"):
+            problems.append("default-deny is not the terminal rule")
 
     return problems
+
+
+def _is_catch_all(rule: CompiledRule) -> bool:
+    """True for a rule with no match fields — the intended terminal default."""
+    return (rule.source is None and rule.destination is None
+            and rule.in_interface is None and rule.out_interface is None
+            and rule.destination_port is None and rule.ctstate is None)
+
+
+def _shadows(accept: CompiledRule, drop: CompiledRule) -> bool:
+    """True if *accept* would match traffic the later *drop* intends to block.
+
+    A None match field means "any" for that dimension. Interface-scoped drops
+    (air-gap) only conflict with interface-scoped accepts on the same interface,
+    so they never false-positive against CIDR/service ACCEPT rules.
+    """
+    if drop.in_interface or drop.out_interface:
+        return (accept.in_interface == drop.in_interface
+                and accept.out_interface == drop.out_interface)
+    src_overlap = drop.source is None or accept.source == drop.source
+    dst_overlap = drop.destination is None or accept.destination == drop.destination
+    return src_overlap and dst_overlap

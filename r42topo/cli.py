@@ -6,6 +6,7 @@ and maps core errors to exit codes.
 """
 
 from pathlib import Path
+from typing import NoReturn
 
 import typer
 
@@ -24,10 +25,16 @@ _ReservedOpt = typer.Option(None, "--reserved", help="Path to scenarios/_reserve
 
 
 def _reserved(path: Path | None) -> ReservedIndex:
-    return ReservedIndex.from_file(path) if path else ReservedIndex(entries=())
+    if path:
+        return ReservedIndex.from_file(path)
+    typer.secho(
+        "⚠ no --reserved file: cross-scenario vm_id/IP collision checks are disabled",
+        fg=typer.colors.YELLOW, err=True,
+    )
+    return ReservedIndex(entries=())
 
 
-def _fail(message: str) -> None:
+def _fail(message: str) -> NoReturn:
     typer.secho(message, fg=typer.colors.RED, err=True)
     raise typer.Exit(code=1)
 

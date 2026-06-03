@@ -52,8 +52,8 @@ def scaffold_topology(
     layout = catalog.resolve_subnet_layout(layout_id)
     catalog.resolve_network_policy(policy_id)  # fail fast if missing
 
-    subnets = [s.model_dump() for s in layout.subnets]
     zones, boxes = [], []
+    role_seen: dict[str, int] = {}  # per-role count -> distinct octet/vm_id per box
 
     for subnet in layout.subnets:
         role = _role_for(subnet.name)
@@ -63,9 +63,11 @@ def scaffold_topology(
         template = _first_template_for_role(catalog, role)
         if template is None:
             continue  # no archetype for this role — leave the zone box-less
-        octet = _ROLE_OCTET.get(role, 200)
+        nth = role_seen.get(role, 0)
+        role_seen[role] = nth + 1
+        octet = _ROLE_OCTET.get(role, 200) + nth  # avoid dup vm_id/IP per role
         boxes.append(Box(
-            vm_name=template.id,
+            vm_name=f"{template.id}-{nth:02d}" if nth else template.id,
             vm_id=1000 + octet,
             ip=_ip_with_octet(subnet.cidr, octet),
             zone=subnet.name,
@@ -82,7 +84,7 @@ def scaffold_topology(
         scenario=scenario,
         description=description,
         proxmox_node=proxmox_node,
-        subnets=subnets,
+        subnets=list(layout.subnets),  # pydantic accepts model instances directly
         zones=zones,
         boxes=boxes,
         network_policy=NetworkPolicyRef(template=policy_id),

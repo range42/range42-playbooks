@@ -6,7 +6,7 @@ raises the ``r42topo.core.errors`` hierarchy — never framework types. Each
 consumer maps these into its own surface (HTTP envelopes, exit codes, dialogs).
 """
 
-from pathlib import Path
+from pydantic import ValidationError as _PydanticValidationError
 
 from r42topo.core.catalog import Catalog, load_catalog
 from r42topo.core.compiler import CompileResult, compile_topology
@@ -36,7 +36,7 @@ def author_topology(spec: dict, *, catalog: Catalog) -> Topology:
     """
     try:
         topology = Topology.model_validate(spec)
-    except Exception as exc:  # pydantic ValidationError -> our ValidationError
+    except _PydanticValidationError as exc:
         raise ValidationError(f"invalid topology: {exc}") from exc
 
     problems = semantic_problems(topology, catalog)

@@ -12,7 +12,7 @@ binds symbols to a topology's concrete subnets/IPs.
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from r42topo.core import constants as C
 from r42topo.core.models import Attachment, Subnet
@@ -85,11 +85,15 @@ class MatrixRule(BaseModel):
 
     model_config = _STRICT
 
-    src: str
-    dst: str
+    src: str = Field(pattern=C.MATRIX_SRC_RE.pattern)
+    dst: str = Field(pattern=C.MATRIX_DST_RE.pattern)
     action: Literal["accept", "drop", "reject"]
     ports: list[PortSpec] = Field(default_factory=list)
-    comment: str | None = None
+    comment: str | None = Field(default=None, max_length=200)
+
+    _guard_comment = field_validator("comment")(
+        lambda v: C.reject_injection(v) if v is not None else v
+    )
 
 
 class PolicyDefaults(BaseModel):

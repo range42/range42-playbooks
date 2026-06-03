@@ -31,8 +31,19 @@ BRIDGE_RE = re.compile(r"^vmbr[0-9]+$")
 IPV4_RE = re.compile(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
 IPV4_CIDR_RE = re.compile(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$")
 
-# Proxmox node name — mirrors backend schema pattern.
-PROXMOX_NODE_RE = re.compile(r"^[A-Za-z0-9-]*$")
+# Proxmox node name — requires a leading alphanumeric (no empty, no leading dash
+# which a subprocess could read as a flag), bounded length per RFC-952/Proxmox.
+PROXMOX_NODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,62}$")
+
+# Network-policy matrix endpoints (catalog-authored): src is a zone name or "*";
+# dst is a zone name, "svc:<name>", or "*".
+MATRIX_SRC_RE = re.compile(r"^(\*|[a-z0-9-]{1,40})$")
+MATRIX_DST_RE = re.compile(r"^(\*|svc:[a-z0-9-]{1,40}|[a-z0-9-]{1,40})$")
+
+# Interface name for compiled iptables rules (bridges, uplink NICs).
+IFACE_RE = re.compile(r"^[A-Za-z0-9._-]{1,32}$")
+# iptables destination port or inclusive range, e.g. "1514" or "1514:1515".
+PORT_SPEC_RE = re.compile(r"^[0-9]{1,5}(:[0-9]{1,5})?$")
 
 # vm_id bounds: 4-digit ids in the project's allocated band.
 VM_ID_MIN = 1000
@@ -64,6 +75,32 @@ def violates_denylist(value: str) -> bool:
     if value.startswith("-"):
         return True
     return any(token in value for token in DENYLIST_SUBSTRINGS)
+
+
+def reject_injection(value: str) -> str:
+    """Field-validator helper: raise ValueError if *value* is deny-listed."""
+    if violates_denylist(value):
+        raise ValueError("value contains a forbidden character or pattern")
+    return value
+
+
+def reject_injection_nested(obj):
+    """Recursively deny-list-check every string key/value in a dict/list/scalar.
+
+    Used for free-form ``params`` / ``overrides`` dicts whose values can flow
+    into Ansible variables (Jinja2 render surface) or compiled rule fields.
+    """
+    if isinstance(obj, str):
+        reject_injection(obj)
+    elif isinstance(obj, dict):
+        for key, val in obj.items():
+            if isinstance(key, str):
+                reject_injection(key)
+            reject_injection_nested(val)
+    elif isinstance(obj, (list, tuple)):
+        for item in obj:
+            reject_injection_nested(item)
+    return obj
 
 
 def octet_matches_vm_id(vm_id: int, ip: str) -> bool:

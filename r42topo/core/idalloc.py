@@ -12,6 +12,12 @@ topology's boxes against it and against the project's allocation rules:
 
 Read-only and pure: claiming/writing reservations (with a file lock) is a
 separate concern handled by the deploy side, not here.
+
+TOCTOU: ``validate_allocation`` reads the registry at compile time; there is an
+inherent race between this check and the deploy-side reservation write. Callers
+that compile concurrently must serialize the validate→deploy→record sequence
+with an external lock (file lock / DB advisory lock) to avoid two scenarios
+claiming the same vm_id/IP.
 """
 
 import json
