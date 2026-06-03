@@ -50,6 +50,26 @@ def test_select_template_unknown_spec_raises():
         select_template("999cpu/1tb/1pb")
 
 
+def test_select_template_ram_disk_fallback():
+    """No exact cpu/ram/disk match -> clone the template with the same ram/disk.
+
+    Real catalog boxes use e.g. ``2cpu/4gb/32gb`` (cpu is a clone-time setting);
+    the baked template is the ``…/4gb/32gb`` small image (9221, lowest match).
+    """
+    t = select_template("2cpu/4gb/32gb")
+    assert _ram_disk_ok(t.spec)
+    assert t.vm_id == 9221
+
+
+def _ram_disk_ok(spec: str) -> bool:
+    return spec.split("/")[1:] == ["4gb", "32gb"]
+
+
+def test_select_template_no_ramdisk_match_still_raises():
+    with pytest.raises(ValidationError):
+        select_template("1cpu/999gb/999gb")
+
+
 # --- octet rule + base octets ---------------------------------------------
 
 def test_admin_box_gets_demo_lab_slot(fake_catalog):

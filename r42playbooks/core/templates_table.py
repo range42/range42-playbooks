@@ -42,12 +42,24 @@ TEMPLATE_TABLE: tuple[ProxmoxTemplate, ...] = (
 )
 
 
+def _ram_disk(spec: str) -> tuple[str, ...]:
+    """The ram/disk suffix of a ``cpu/ram/disk`` spec (the template's baked size).
+
+    A Proxmox template bakes only the disk image; cpu (and ram) are applied at
+    clone time via cloud-init / ``qm set``. So when no template matches the full
+    ``cpu/ram/disk`` spec, a template with the same ``ram/disk`` is a valid clone
+    source (e.g. a box wanting ``2cpu/4gb/32gb`` clones the ``…/4gb/32gb`` image).
+    """
+    return tuple(spec.split("/")[1:])
+
+
 def select_template(spec: str, *, override_vm_id: int | None = None) -> ProxmoxTemplate:
     """Resolve a box ``spec`` to a clone template (plan §7.1 / H2).
 
-    With ``override_vm_id`` the box pins an explicit template id. Otherwise the
-    spec may match several templates (e.g. ``4cpu/8gb/64gb`` -> 9234 and 9244);
-    the **lowest** matching vm_id is chosen for determinism.
+    With ``override_vm_id`` the box pins an explicit template id. Otherwise an
+    **exact** ``cpu/ram/disk`` match wins (lowest vm_id for determinism); failing
+    that, a template with the same ``ram/disk`` is used (cpu is a clone-time
+    setting — see :func:`_ram_disk`). The lowest matching vm_id is always chosen.
 
     :raises ValidationError: if the override id or spec matches no template.
     """
@@ -56,7 +68,14 @@ def select_template(spec: str, *, override_vm_id: int | None = None) -> ProxmoxT
             if tmpl.vm_id == override_vm_id:
                 return tmpl
         raise ValidationError(f"template_vm_id override not in table: {override_vm_id}")
-    matches = [t for t in TEMPLATE_TABLE if t.spec == spec]
-    if not matches:
-        raise ValidationError(f"no Proxmox template matches box spec {spec!r}")
-    return min(matches, key=lambda t: t.vm_id)
+
+    exact = [t for t in TEMPLATE_TABLE if t.spec == spec]
+    if exact:
+        return min(exact, key=lambda t: t.vm_id)
+
+    want = _ram_disk(spec)
+    approx = [t for t in TEMPLATE_TABLE if _ram_disk(t.spec) == want]
+    if approx:
+        return min(approx, key=lambda t: t.vm_id)
+
+    raise ValidationError(f"no Proxmox template matches box spec {spec!r} (cpu/ram/disk or ram/disk)")

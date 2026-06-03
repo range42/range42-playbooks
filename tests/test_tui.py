@@ -81,6 +81,21 @@ def test_controller_generate_without_compose_raises(fake_catalog, tmp_path):
         ctl.generate(tmp_path / "scenarios")
 
 
+def test_controller_preview_surfaces_allocation_error_without_raising(fake_catalog, monkeypatch):
+    """preview() must never crash the TUI on an allocation error — return text."""
+    import r42playbooks.tui.controller as ctlmod
+    from r42playbooks.core.errors import CompileError
+
+    def _boom(*_a, **_k):
+        raise CompileError("subnet exhausted")
+
+    ctl = _composed(fake_catalog)
+    monkeypatch.setattr(ctlmod, "allocate", _boom)
+    out = ctl.preview()
+    assert out.startswith("✗ cannot allocate")
+    assert "subnet exhausted" in out
+
+
 def test_app_mounts(fake_catalog):
     """The Textual app composes and mounts headlessly without error."""
     from r42playbooks.tui.app import ScenarioComposerApp

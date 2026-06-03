@@ -120,12 +120,20 @@ class ScenarioComposerController:
     # -- preview / generate --
 
     def preview(self) -> str:
-        """A plain-text preview of the composition + its allocated VMs."""
+        """A plain-text preview of the composition + its allocated VMs.
+
+        Never raises: validation gaps and allocation errors (e.g. no template
+        matches a box spec, subnet exhausted) are returned as text so the TUI
+        can show them in-pane instead of crashing.
+        """
         problems = self.validate()
         if problems:
             return "not ready:\n" + "\n".join(f"  ✗ {p}" for p in problems)
-        spec = self.build_spec()
-        alloc = allocate(spec, self.catalog, self.reserved)
+        try:
+            spec = self.build_spec()
+            alloc = allocate(spec, self.catalog, self.reserved)
+        except TopologyError as exc:
+            return f"✗ cannot allocate: {exc}"
         lines = [
             f"scenario: {spec.name}",
             f"subnet layout: {spec.subnet_layout}   policy: {spec.network_policy}",
