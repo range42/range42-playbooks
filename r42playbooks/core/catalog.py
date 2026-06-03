@@ -18,13 +18,13 @@ from pathlib import Path
 
 import yaml
 
-from r42topo.core import constants as C
-from r42topo.core.catalog_models import (
+from r42playbooks.core import constants as C
+from r42playbooks.core.catalog_models import (
     BoxTemplate,
     NetworkPolicyTemplate,
     SubnetLayout,
 )
-from r42topo.core.errors import CatalogNotFoundError, ValidationError
+from r42playbooks.core.errors import CatalogNotFoundError, ValidationError
 
 _CATEGORY_MODEL = {
     C.CATEGORY_BOX_TEMPLATES: BoxTemplate,

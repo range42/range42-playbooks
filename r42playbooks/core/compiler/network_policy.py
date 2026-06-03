@@ -13,11 +13,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from r42topo.core import constants as C
-from r42topo.core.catalog_models import MatrixRule, NetworkPolicyTemplate, PortSpec
-from r42topo.core.errors import CompileError
-from r42topo.core.models import Topology
-from r42topo.core.validate import zone_bridge_map, zone_subnet_map
+from r42playbooks.core import constants as C
+from r42playbooks.core.catalog_models import MatrixRule, NetworkPolicyTemplate, PortSpec
+from r42playbooks.core.errors import CompileError
+from r42playbooks.core.models import Topology
+from r42playbooks.core.validate import zone_bridge_map, zone_subnet_map
 
 # weight bands — lower weight is evaluated earlier in FORWARD
 W_ESTABLISHED = 0

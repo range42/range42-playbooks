@@ -9,8 +9,8 @@ by (kind, catalog_ref) keeping first occurrence.
 
 import json
 
-from r42topo.core.catalog import Catalog
-from r42topo.core.models import Box, Topology
+from r42playbooks.core.catalog import Catalog
+from r42playbooks.core.models import Box, Topology
 
 # deploy order for zone roles (admin infra before students before ctf targets)
 _ROLE_ORDER = {"template": 0, "admin": 1, "student": 2, "team": 3, "ctf": 4}

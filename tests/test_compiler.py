@@ -5,11 +5,11 @@ import json
 import pytest
 import yaml
 
-from r42topo.core.catalog import load_catalog
-from r42topo.core.compiler import compile_topology
-from r42topo.core.compiler.network_policy import compile_network_policy, lint_segmentation
-from r42topo.core.idalloc import ReservedIndex
-from r42topo.core.models import Topology
+from r42playbooks.core.catalog import load_catalog
+from r42playbooks.core.compiler import compile_topology
+from r42playbooks.core.compiler.network_policy import compile_network_policy, lint_segmentation
+from r42playbooks.core.idalloc import ReservedIndex
+from r42playbooks.core.models import Topology
 
 
 @pytest.fixture
@@ -94,7 +94,7 @@ def test_segmentation_linter_flags_shadowed_drop(built):
     t, cat, _ = built
     pol = cat.network_policies["air-gap-ctf"].model_copy(deep=True)
     # add ctf->admin ACCEPT before the existing ctf->admin DROP
-    from r42topo.core.catalog_models import MatrixRule
+    from r42playbooks.core.catalog_models import MatrixRule
     pol.matrix.insert(0, MatrixRule(src="ctf", dst="admin", action="accept",
                                     comment="bad: opens ctf->admin"))
     compiled = compile_network_policy(t, pol, version="1.1.0")
@@ -124,13 +124,13 @@ def test_compile_writes_all_artifacts(built):
 
 def test_compile_topology_roundtrips_topology(built):
     t, _, result = built
-    from r42topo.core.io import load_topology
+    from r42playbooks.core.io import load_topology
     assert load_topology(result.topology_path) == t
 
 
 def test_compile_rejects_allocation_conflict(topology_factory, fake_catalog,
                                              reserved_factory, tmp_path):
-    from r42topo.core.errors import CompileError
+    from r42playbooks.core.errors import CompileError
     t = Topology.model_validate(topology_factory())
     cat = load_catalog(fake_catalog)
     reserved = ReservedIndex.from_file(reserved_factory([

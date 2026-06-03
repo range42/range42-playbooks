@@ -4,7 +4,7 @@ import json
 
 from typer.testing import CliRunner
 
-from r42topo.cli import app
+from r42playbooks.cli import app
 
 runner = CliRunner()
 

@@ -1,4 +1,4 @@
-"""Framework-free exception hierarchy for the r42topo core.
+"""Framework-free exception hierarchy for the r42playbooks core.
 
 Consumers (backend-api, CLI, TUI) translate these into their own surface
 (HTTP envelopes, exit codes, dialog text). The core never raises framework
@@ -7,7 +7,7 @@ exceptions such as fastapi.HTTPException.
 
 
 class TopologyError(Exception):
-    """Base class for all r42topo core errors."""
+    """Base class for all r42playbooks core errors."""
 
 
 class ValidationError(TopologyError):

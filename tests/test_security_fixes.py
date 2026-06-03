@@ -5,12 +5,12 @@ import json
 import pytest
 from pydantic import ValidationError as PydErr
 
-from r42topo.core.catalog import load_catalog
-from r42topo.core.catalog_models import MatrixRule, NetworkPolicyTemplate, ZoneDecl
-from r42topo.core.compiler.network_policy import compile_network_policy, lint_segmentation
-from r42topo.core.errors import CompileError, TopologyError
-from r42topo.core.extravars import resolve_universal_extravars
-from r42topo.core.models import Topology
+from r42playbooks.core.catalog import load_catalog
+from r42playbooks.core.catalog_models import MatrixRule, NetworkPolicyTemplate, ZoneDecl
+from r42playbooks.core.compiler.network_policy import compile_network_policy, lint_segmentation
+from r42playbooks.core.errors import CompileError, TopologyError
+from r42playbooks.core.extravars import resolve_universal_extravars
+from r42playbooks.core.models import Topology
 
 
 # --- C3: wildcard-source DROP must not be shadowed undetected ---
@@ -89,7 +89,7 @@ def test_schema_version_pinned(topology_factory):
 # --- CRITICAL(py): load_topology wraps pydantic errors as TopologyError ---
 
 def test_load_topology_wraps_schema_error(tmp_path, valid_topology_dict):
-    from r42topo.core.io import load_topology
+    from r42playbooks.core.io import load_topology
     bad = dict(valid_topology_dict)
     bad["proxmox_node"] = ""  # schema-invalid but valid JSON
     p = tmp_path / "bad.json"

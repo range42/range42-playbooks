@@ -8,8 +8,8 @@ of a topology and are emitted as an empty list for now.
 
 import json
 
-from r42topo.core.models import Topology
-from r42topo.core.validate import zone_bridge_map
+from r42playbooks.core.models import Topology
+from r42playbooks.core.validate import zone_bridge_map
 
 
 def build_scenario_vms(topology: Topology) -> dict:

@@ -15,7 +15,7 @@ strings are data, never templated, so there is no SSTI surface.
 
 import yaml
 
-from r42topo.core.models import Topology
+from r42playbooks.core.models import Topology
 
 
 def build_inventory(topology: Topology) -> dict:

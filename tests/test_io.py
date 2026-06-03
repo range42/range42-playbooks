@@ -1,9 +1,9 @@
-"""P1 IO round-trip tests for r42topo.core.io — RED before GREEN."""
+"""P1 IO round-trip tests for r42playbooks.core.io — RED before GREEN."""
 
 import json
 
-from r42topo.core.io import dump_topology, load_topology
-from r42topo.core.models import Topology
+from r42playbooks.core.io import dump_topology, load_topology
+from r42playbooks.core.models import Topology
 
 
 def test_round_trip_preserves_topology(tmp_path, valid_topology_dict):
@@ -27,6 +27,6 @@ def test_dump_writes_sorted_deterministic_json(tmp_path, valid_topology_dict):
 def test_load_rejects_unknown_path(tmp_path):
     import pytest
 
-    from r42topo.core.errors import TopologyError
+    from r42playbooks.core.errors import TopologyError
     with pytest.raises(TopologyError):
         load_topology(tmp_path / "does-not-exist.json")

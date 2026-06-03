@@ -6,13 +6,13 @@ Wraps the api/core so the view stays a thin shell and the logic is unit-testable
 
 from pathlib import Path
 
-from r42topo import api
-from r42topo.core.catalog import load_catalog
-from r42topo.core.compiler.network_policy import compile_network_policy
-from r42topo.core.idalloc import ReservedIndex
-from r42topo.core.io import dump_topology
-from r42topo.core.models import Topology
-from r42topo.core.scaffold import scaffold_topology
+from r42playbooks import api
+from r42playbooks.core.catalog import load_catalog
+from r42playbooks.core.compiler.network_policy import compile_network_policy
+from r42playbooks.core.idalloc import ReservedIndex
+from r42playbooks.core.io import dump_topology
+from r42playbooks.core.models import Topology
+from r42playbooks.core.scaffold import scaffold_topology
 
 
 class TuiController:

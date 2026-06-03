@@ -42,14 +42,14 @@ ref name exists — then *writes name references*. The generated tree stays a th
 
 | Asset | Path | Use |
 |---|---|---|
-| Catalog loader | `r42topo/core/catalog.py`, `catalog_models.py` | reads `05_topology_layer` box_templates / subnet_layouts / network_policies |
-| Topology model | `r42topo/core/models.py` | the `subnets/zones/boxes` authoring model + scaffold target |
-| Scaffold | `r42topo/core/scaffold.py` | scaffolds a topology from catalog picks |
-| Reservation/alloc | `r42topo/core/idalloc.py` | `_reserved.json` index, vm_id/IP allocation, octet rule |
-| Compiler | `r42topo/core/compiler/*` | emits a **flat workspace** (topology.json, hosts.yml, scenario_vms.json, network_policy.json, stages.json) — NOT the staged scenario dir |
-| Typer CLI | `r42topo/cli.py` | `validate` / `compile` / `author` / `show` (re-point/extend) |
-| Textual TUI | `r42topo/tui/` (`app.py`, `controller.py`) | interactive composer (re-point/extend) |
-| Deny-list + atomic IO | `r42topo/core/constants.py`, `io.py` | security + safe writes |
+| Catalog loader | `r42playbooks/core/catalog.py`, `catalog_models.py` | reads `05_topology_layer` box_templates / subnet_layouts / network_policies |
+| Topology model | `r42playbooks/core/models.py` | the `subnets/zones/boxes` authoring model + scaffold target |
+| Scaffold | `r42playbooks/core/scaffold.py` | scaffolds a topology from catalog picks |
+| Reservation/alloc | `r42playbooks/core/idalloc.py` | `_reserved.json` index, vm_id/IP allocation, octet rule |
+| Compiler | `r42playbooks/core/compiler/*` | emits a **flat workspace** (topology.json, hosts.yml, scenario_vms.json, network_policy.json, stages.json) — NOT the staged scenario dir |
+| Typer CLI | `r42playbooks/cli.py` | `validate` / `compile` / `author` / `show` (re-point/extend) |
+| Textual TUI | `r42playbooks/tui/` (`app.py`, `controller.py`) | interactive composer (re-point/extend) |
+| Deny-list + atomic IO | `r42playbooks/core/constants.py`, `io.py` | security + safe writes |
 
 ## 4. The net-new gap
 

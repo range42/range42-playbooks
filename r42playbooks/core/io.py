@@ -12,8 +12,8 @@ from pathlib import Path
 
 from pydantic import ValidationError as _PydanticValidationError
 
-from r42topo.core.errors import TopologyError
-from r42topo.core.models import Topology
+from r42playbooks.core.errors import TopologyError
+from r42playbooks.core.models import Topology
 
 
 def load_topology(path: Path) -> Topology:

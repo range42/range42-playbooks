@@ -2,8 +2,8 @@
 
 import pytest
 
-from r42topo.core.catalog import load_catalog
-from r42topo.core.errors import CatalogNotFoundError
+from r42playbooks.core.catalog import load_catalog
+from r42playbooks.core.errors import CatalogNotFoundError
 
 
 def test_load_catalog_indexes_all_categories(fake_catalog):

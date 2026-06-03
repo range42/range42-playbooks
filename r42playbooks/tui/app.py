@@ -11,12 +11,12 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Footer, Header, Input, Label, Select, Static
 
-from r42topo.core.errors import TopologyError
-from r42topo.tui.controller import TuiController
+from r42playbooks.core.errors import TopologyError
+from r42playbooks.tui.controller import TuiController
 
 
 class TopologyAuthorApp(App):
-    """Interactive authoring app for r42topo topologies."""
+    """Interactive authoring app for r42playbooks topologies."""
 
     CSS = """
     #form { height: auto; padding: 1; }

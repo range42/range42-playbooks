@@ -15,16 +15,16 @@ Artifacts are written under::
 from dataclasses import dataclass
 from pathlib import Path
 
-from r42topo.core.catalog import Catalog
-from r42topo.core.compiler import inventory as _inventory
-from r42topo.core.compiler import network_policy as _netpol
-from r42topo.core.compiler import scenario_vms as _scenario_vms
-from r42topo.core.compiler import stages as _stages
-from r42topo.core.errors import CompileError
-from r42topo.core.idalloc import ReservedIndex, validate_allocation
-from r42topo.core.io import dump_topology
-from r42topo.core.models import Topology
-from r42topo.core.validate import semantic_problems
+from r42playbooks.core.catalog import Catalog
+from r42playbooks.core.compiler import inventory as _inventory
+from r42playbooks.core.compiler import network_policy as _netpol
+from r42playbooks.core.compiler import scenario_vms as _scenario_vms
+from r42playbooks.core.compiler import stages as _stages
+from r42playbooks.core.errors import CompileError
+from r42playbooks.core.idalloc import ReservedIndex, validate_allocation
+from r42playbooks.core.io import dump_topology
+from r42playbooks.core.models import Topology
+from r42playbooks.core.validate import semantic_problems
 
 
 @dataclass(frozen=True)

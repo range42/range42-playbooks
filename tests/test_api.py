@@ -2,10 +2,10 @@
 
 import pytest
 
-from r42topo import api
-from r42topo.core.errors import ValidationError
-from r42topo.core.idalloc import ReservedIndex
-from r42topo.core.models import Topology
+from r42playbooks import api
+from r42playbooks.core.errors import ValidationError
+from r42playbooks.core.idalloc import ReservedIndex
+from r42playbooks.core.models import Topology
 
 
 def test_load_catalog_reexported(fake_catalog):

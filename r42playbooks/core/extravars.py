@@ -7,9 +7,9 @@ at a real file. This builder emits ONLY the allow-listed ``r42_*`` keys — no
 Identifier values are deny-list checked (no injection into templated vars).
 """
 
-from r42topo.core import constants as C
-from r42topo.core.compiler import CompileResult
-from r42topo.core.errors import ValidationError
+from r42playbooks.core import constants as C
+from r42playbooks.core.compiler import CompileResult
+from r42playbooks.core.errors import ValidationError
 
 # the exact contract keys _universal/main.yml expects
 _ALLOWED_KEYS = (

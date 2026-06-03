@@ -9,9 +9,9 @@ point an operator refines in the CLI/TUI.
 
 import ipaddress
 
-from r42topo.core.catalog import Catalog
-from r42topo.core.errors import ValidationError
-from r42topo.core.models import Box, NetworkPolicyRef, Topology, Zone
+from r42playbooks.core.catalog import Catalog
+from r42playbooks.core.errors import ValidationError
+from r42playbooks.core.models import Box, NetworkPolicyRef, Topology, Zone
 
 # subnet/zone name -> role (anything unrecognized becomes a team zone)
 _NAME_ROLE = {"admin": "admin", "ctf": "ctf", "student": "student", "template": "template"}

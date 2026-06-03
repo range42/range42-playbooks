@@ -1,9 +1,9 @@
 """P4 scaffold tests — pure starter-topology generation (shared by CLI + TUI)."""
 
-from r42topo.core import constants as C
-from r42topo.core.catalog import load_catalog
-from r42topo.core.scaffold import scaffold_topology
-from r42topo.core.validate import semantic_problems
+from r42playbooks.core import constants as C
+from r42playbooks.core.catalog import load_catalog
+from r42playbooks.core.scaffold import scaffold_topology
+from r42playbooks.core.validate import semantic_problems
 
 
 def test_scaffold_produces_valid_topology(fake_catalog):

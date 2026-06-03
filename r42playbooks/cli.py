@@ -1,4 +1,4 @@
-"""Typer CLI — a thin frontend over r42topo.api / core.
+"""Typer CLI — a thin frontend over r42playbooks.api / core.
 
 Commands: author (scaffold a starter topology), validate, compile, show.
 All real logic lives in the pure core; this module only parses args, prints,
@@ -10,13 +10,13 @@ from typing import NoReturn
 
 import typer
 
-from r42topo import api
-from r42topo.core.catalog import load_catalog
-from r42topo.core.compiler.network_policy import compile_network_policy
-from r42topo.core.errors import TopologyError
-from r42topo.core.idalloc import ReservedIndex
-from r42topo.core.io import dumps_topology, load_topology
-from r42topo.core.scaffold import scaffold_topology
+from r42playbooks import api
+from r42playbooks.core.catalog import load_catalog
+from r42playbooks.core.compiler.network_policy import compile_network_policy
+from r42playbooks.core.errors import TopologyError
+from r42playbooks.core.idalloc import ReservedIndex
+from r42playbooks.core.io import dumps_topology, load_topology
+from r42playbooks.core.scaffold import scaffold_topology
 
 app = typer.Typer(help="range42 scenario authoring & topology compiler", no_args_is_help=True)
 

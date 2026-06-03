@@ -2,8 +2,8 @@
 
 import asyncio
 
-from r42topo.core.io import load_topology
-from r42topo.tui.controller import TuiController
+from r42playbooks.core.io import load_topology
+from r42playbooks.tui.controller import TuiController
 
 
 def test_controller_lists_catalog_choices(fake_catalog):
@@ -30,7 +30,7 @@ def test_controller_save_roundtrip(fake_catalog, tmp_path):
 
 def test_app_mounts(fake_catalog):
     """The Textual app composes and mounts headlessly without error."""
-    from r42topo.tui.app import TopologyAuthorApp
+    from r42playbooks.tui.app import TopologyAuthorApp
 
     async def _go():
         app = TopologyAuthorApp(TuiController(fake_catalog))

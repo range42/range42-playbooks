@@ -1,7 +1,7 @@
 """P2 id/IP allocation + reservation tests — RED before GREEN."""
 
-from r42topo.core.idalloc import ReservedIndex, validate_allocation
-from r42topo.core.models import Topology
+from r42playbooks.core.idalloc import ReservedIndex, validate_allocation
+from r42playbooks.core.models import Topology
 
 
 def test_valid_topology_has_no_allocation_errors(valid_topology_dict, reserved_factory):

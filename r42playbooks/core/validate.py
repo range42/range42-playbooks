@@ -9,8 +9,8 @@ never raises.
 
 import ipaddress
 
-from r42topo.core.catalog import Catalog
-from r42topo.core.models import Topology
+from r42playbooks.core.catalog import Catalog
+from r42playbooks.core.models import Topology
 
 
 def zone_subnet_map(topology: Topology) -> dict[str, str]:

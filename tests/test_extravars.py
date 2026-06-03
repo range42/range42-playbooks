@@ -2,12 +2,12 @@
 
 import pytest
 
-from r42topo.core.catalog import load_catalog
-from r42topo.core.compiler import compile_topology
-from r42topo.core.errors import ValidationError
-from r42topo.core.extravars import resolve_universal_extravars
-from r42topo.core.idalloc import ReservedIndex
-from r42topo.core.models import Topology
+from r42playbooks.core.catalog import load_catalog
+from r42playbooks.core.compiler import compile_topology
+from r42playbooks.core.errors import ValidationError
+from r42playbooks.core.extravars import resolve_universal_extravars
+from r42playbooks.core.idalloc import ReservedIndex
+from r42playbooks.core.models import Topology
 
 
 @pytest.fixture

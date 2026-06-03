@@ -1,8 +1,8 @@
 """P3 semantic validation tests — RED before GREEN."""
 
-from r42topo.core.catalog import load_catalog
-from r42topo.core.models import Topology
-from r42topo.core.validate import semantic_problems
+from r42playbooks.core.catalog import load_catalog
+from r42playbooks.core.models import Topology
+from r42playbooks.core.validate import semantic_problems
 
 
 def _valid(topology_factory, fake_catalog):

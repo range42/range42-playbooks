@@ -14,8 +14,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from r42topo.core import constants as C
-from r42topo.core.models import Attachment, Subnet
+from r42playbooks.core import constants as C
+from r42playbooks.core.models import Attachment, Subnet
 
 _STRICT = ConfigDict(extra="forbid")
 

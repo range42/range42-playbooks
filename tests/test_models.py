@@ -1,9 +1,9 @@
-"""P1 schema tests for r42topo.core.models — RED before GREEN."""
+"""P1 schema tests for r42playbooks.core.models — RED before GREEN."""
 
 import pytest
 from pydantic import ValidationError
 
-from r42topo.core.models import Topology
+from r42playbooks.core.models import Topology
 
 
 def test_valid_topology_parses(valid_topology_dict):
