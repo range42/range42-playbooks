@@ -1,37 +1,43 @@
-"""Typer CLI — a thin frontend over r42playbooks.api / core.
+"""Typer CLI — the msfvenom-style scenario generator frontend.
 
-Commands: author (scaffold a starter topology), validate, compile, show.
-All real logic lives in the pure core; this module only parses args, prints,
-and maps core errors to exit codes.
+Commands:
+  list <kind>   enumerate pickable catalog modules (boxes/subnets/policies/
+                roles/containers) or existing generated scenarios
+  show <module> describe one catalog module
+  new <name>    compose a ScenarioSpec (from flags or --spec) and render a
+                deployable scenarios/<name>/ tree
+
+A thin shell over the frozen ``r42playbooks.api``: it parses args, prints, and
+maps core errors to exit codes. No business logic lives here.
 """
 
+from enum import Enum
 from pathlib import Path
 from typing import NoReturn
 
 import typer
+from pydantic import ValidationError as _PydValidationError
 
 from r42playbooks import api
-from r42playbooks.core.catalog import load_catalog
-from r42playbooks.core.compiler.network_policy import compile_network_policy
 from r42playbooks.core.errors import TopologyError
 from r42playbooks.core.idalloc import ReservedIndex
-from r42playbooks.core.io import dumps_topology, load_topology
-from r42playbooks.core.scaffold import scaffold_topology
+from r42playbooks.core.spec import ScenarioSpec
 
-app = typer.Typer(help="range42 scenario authoring & topology compiler", no_args_is_help=True)
+app = typer.Typer(help="range42 scenario generator (compose labs from the catalog)",
+                  no_args_is_help=True)
 
-_CatalogOpt = typer.Option(..., "--catalog", help="Path to the range42-catalog checkout")
+_CatalogOpt = typer.Option(None, "--catalog", help="Path to the range42-catalog checkout")
+_OutputOpt = typer.Option(Path("scenarios"), "-o", "--output", help="Scenarios output dir")
 _ReservedOpt = typer.Option(None, "--reserved", help="Path to scenarios/_reserved.json")
 
 
-def _reserved(path: Path | None) -> ReservedIndex:
-    if path:
-        return ReservedIndex.from_file(path)
-    typer.secho(
-        "⚠ no --reserved file: cross-scenario vm_id/IP collision checks are disabled",
-        fg=typer.colors.YELLOW, err=True,
-    )
-    return ReservedIndex(entries=())
+class ListKind(str, Enum):
+    boxes = "boxes"
+    subnets = "subnets"
+    policies = "policies"
+    roles = "roles"
+    containers = "containers"
+    scenarios = "scenarios"
 
 
 def _fail(message: str) -> NoReturn:
@@ -39,109 +45,171 @@ def _fail(message: str) -> NoReturn:
     raise typer.Exit(code=1)
 
 
-@app.command()
-def validate(
-    topology: Path = typer.Argument(..., help="Path to topology.json"),
-    catalog: Path = _CatalogOpt,
-    reserved: Path = _ReservedOpt,
-) -> None:
-    """Validate a topology against schema, catalog, and the reservation registry."""
+def _load_catalog(catalog: Path | None) -> api.Catalog:
+    if catalog is None:
+        _fail("error: --catalog is required")
     try:
-        cat = load_catalog(catalog)
-        topo = load_topology(topology)
+        return api.load_catalog(catalog)
     except TopologyError as exc:
         _fail(f"error: {exc}")
-    problems = api.validate_topology(topo, catalog=cat, reserved=_reserved(reserved))
-    if problems:
-        for p in problems:
-            typer.secho(f"  ✗ {p}", fg=typer.colors.RED)
-        _fail(f"{len(problems)} problem(s) found")
-    typer.secho("✓ topology is valid", fg=typer.colors.GREEN)
 
 
-@app.command("compile")
-def compile_cmd(
-    topology: Path = typer.Argument(..., help="Path to topology.json"),
-    workspace: Path = typer.Option(..., "--workspace", help="Output workspace dir"),
-    catalog: Path = _CatalogOpt,
-    reserved: Path = _ReservedOpt,
-) -> None:
-    """Compile a topology into deploy artifacts under a workspace."""
+def _reserved(path: Path | None) -> ReservedIndex | None:
+    if path is None:
+        return None
     try:
-        cat = load_catalog(catalog)
-        topo = load_topology(topology)
-        result = api.compile_topology(topo, workspace=workspace, catalog=cat,
-                                      reserved=_reserved(reserved))
+        return ReservedIndex.from_file(path)
     except TopologyError as exc:
-        _fail(f"compile failed: {exc}")
-    typer.secho("✓ compiled", fg=typer.colors.GREEN)
-    for label, path in (
-        ("topology", result.topology_path),
-        ("inventory", result.inventory_path),
-        ("scenario_vms", result.scenario_vms_path),
-        ("network_policy", result.network_policy_path),
-        ("stages", result.stages_path),
-    ):
-        typer.echo(f"  {label:<14} {path}")
+        _fail(f"error: {exc}")
 
 
-@app.command()
-def author(
-    scenario: str = typer.Option(..., "--scenario", help="Scenario name (no dots)"),
-    layout: str = typer.Option(..., "--layout", help="subnet_layout template id"),
-    policy: str = typer.Option(..., "--policy", help="network_policy template id"),
+# --- list ------------------------------------------------------------------
+
+@app.command("list")
+def list_cmd(
+    kind: ListKind = typer.Argument(..., help="What to enumerate"),
     catalog: Path = _CatalogOpt,
-    output: Path = typer.Option(None, "-o", "--output", help="Write to file (default: stdout)"),
+    output: Path = _OutputOpt,
 ) -> None:
-    """Scaffold a starter topology.json from a subnet layout + network policy."""
-    try:
-        cat = load_catalog(catalog)
-        topo = scaffold_topology(cat, scenario=scenario, layout_id=layout, policy_id=policy)
-    except TopologyError as exc:
-        _fail(f"author failed: {exc}")
-    text = dumps_topology(topo)
-    if output:
-        output.write_text(text, encoding="utf-8")
-        typer.secho(f"✓ wrote {output}", fg=typer.colors.GREEN)
-    else:
-        typer.echo(text)
+    """List pickable catalog modules, or existing generated scenarios."""
+    if kind is ListKind.scenarios:
+        for path in sorted(Path(output).glob("*/scenario.r42.yml")):
+            typer.echo(path.parent.name)
+        return
 
+    cat = _load_catalog(catalog)
+    if kind is ListKind.boxes:
+        for name in sorted(cat.box_templates):
+            bt = cat.box_templates[name]
+            typer.echo(f"{name}\t{bt.role}\t{bt.spec}")
+    elif kind is ListKind.subnets:
+        for name in sorted(cat.subnet_layouts):
+            typer.echo(name)
+    elif kind is ListKind.policies:
+        for name in sorted(cat.network_policies):
+            typer.echo(name)
+    elif kind is ListKind.roles:
+        for name in sorted(cat.roles):
+            typer.echo(name)
+    elif kind is ListKind.containers:
+        for name in sorted(cat.containers):
+            typer.echo(name)
+
+
+# --- show ------------------------------------------------------------------
 
 @app.command()
 def show(
-    topology: Path = typer.Argument(..., help="Path to topology.json"),
-    catalog: Path = typer.Option(None, "--catalog", help="Catalog (required for --rules)"),
-    rules: bool = typer.Option(False, "--rules", help="Also show compiled FORWARD rules"),
+    module: str = typer.Argument(..., help="A box / subnet / policy / role / container name"),
+    catalog: Path = _CatalogOpt,
 ) -> None:
-    """Print a topology summary; with --rules, also the compiled FORWARD table."""
-    try:
-        topo = load_topology(topology)
-    except TopologyError as exc:
-        _fail(f"error: {exc}")
+    """Describe a single catalog module (auto-detects its kind)."""
+    cat = _load_catalog(catalog)
 
-    typer.secho(f"scenario: {topo.scenario}", bold=True)
-    typer.echo(f"  subnets: {', '.join(f'{s.name}={s.cidr}@{s.bridge}' for s in topo.subnets)}")
-    typer.echo(f"  zones:   {', '.join(f'{z.name}({z.role})' for z in topo.zones)}")
-    typer.echo(f"  boxes:   {len(topo.boxes)}")
-    for b in topo.boxes:
-        typer.echo(f"    - {b.vm_name} id={b.vm_id} ip={b.ip} zone={b.zone} tmpl={b.box_template}")
-    typer.echo(f"  policy:  {topo.network_policy.template}")
+    if module in cat.box_templates:
+        bt = cat.box_templates[module]
+        typer.secho(f"box-template: {bt.id}", bold=True)
+        typer.echo(f"  role:            {bt.role}")
+        typer.echo(f"  inventory group: {bt.default_inventory_group}")
+        typer.echo(f"  spec:            {bt.spec}")
+        attachments = bt.default_attachments or []
+        typer.echo(f"  default roles:   {', '.join(a.catalog_ref for a in attachments) or '(none)'}")
+    elif module in cat.subnet_layouts:
+        sl = cat.subnet_layouts[module]
+        typer.secho(f"subnet-layout: {sl.id}", bold=True)
+        for s in sl.subnets:
+            typer.echo(f"  - {s.name}={s.cidr}@{s.bridge}")
+    elif module in cat.network_policies:
+        pol = cat.network_policies[module]
+        typer.secho(f"network-policy: {pol.id}", bold=True)
+        typer.echo(f"  zones:    {', '.join(z.name for z in pol.zones)}")
+        typer.echo(f"  services: {len(pol.services)}  matrix rules: {len(pol.matrix)}")
+    elif module in cat.roles:
+        typer.secho(f"role: {module}", bold=True)
+    elif module in cat.containers:
+        typer.secho(f"container: {module}", bold=True)
+    else:
+        _fail(f"error: no catalog module named {module!r}")
 
-    if rules:
-        if catalog is None:
-            _fail("--rules requires --catalog")
+
+# --- new -------------------------------------------------------------------
+
+def _parse_box(raw: str) -> dict:
+    """Parse a ``--box`` flag: ``template`` or ``template:count=5,template_vm_id=9244``."""
+    template, _, rest = raw.partition(":")
+    box: dict = {"template": template}
+    if rest:
+        for pair in rest.split(","):
+            key, _, value = pair.partition("=")
+            key = key.strip()
+            if key not in ("count", "template_vm_id"):
+                _fail(f"error: unknown box option {key!r} in --box {raw!r}")
+            try:
+                box[key] = int(value)
+            except ValueError:
+                _fail(f"error: --box {raw!r}: {key} must be an integer")
+    return box
+
+
+def _build_spec(
+    name: str, subnet: str | None, policy: str | None, boxes: list[str],
+    spec_file: Path | None, proxmox_node: str | None, notes: str | None,
+) -> ScenarioSpec:
+    """Build a ScenarioSpec from --spec (name-overridden) or from flags."""
+    if spec_file is not None:
         try:
-            cat = load_catalog(catalog)
-            pol = cat.resolve_network_policy(topo.network_policy.template)
-            ver = cat.resolved_version("network_policies", pol.id)
-            compiled = compile_network_policy(topo, pol, version=ver)
+            loaded = api.load_spec(spec_file)
         except TopologyError as exc:
             _fail(f"error: {exc}")
-        typer.secho(f"\nFORWARD rules ({pol.id}@{ver}):", bold=True)
-        for r in compiled.rules:
-            dst = r.destination or r.out_interface or "-"
-            port = f":{r.destination_port}" if r.destination_port else ""
-            typer.echo(f"  w{r.weight:<3} {r.jump:<6} {r.source or '-':<18} -> {dst}{port}")
+        data = loaded.model_dump(mode="json")
+        data["name"] = name  # positional name wins, so the output dir matches
+    else:
+        if not subnet or not policy:
+            _fail("error: --subnet and --policy are required (or pass --spec)")
+        if not boxes:
+            _fail("error: at least one --box is required (or pass --spec)")
+        data = {
+            "name": name, "subnet_layout": subnet, "network_policy": policy,
+            "boxes": [_parse_box(b) for b in boxes],
+        }
+        if proxmox_node:
+            data["proxmox_node"] = proxmox_node
+        if notes:
+            data["notes"] = notes
+    try:
+        return ScenarioSpec.model_validate(data)
+    except _PydValidationError as exc:
+        _fail(f"error: invalid composition: {exc}")
+
+
+@app.command()
+def new(
+    name: str = typer.Argument(..., help="Scenario name (no dots)"),
+    subnet: str = typer.Option(None, "--subnet", help="subnet_layout template id"),
+    policy: str = typer.Option(None, "--policy", help="network_policy template id"),
+    box: list[str] = typer.Option(None, "--box", help="template[:count=N,template_vm_id=ID]"),
+    spec: Path = typer.Option(None, "--spec", help="Load a scenario.r42.yml instead of flags"),
+    proxmox_node: str = typer.Option(None, "--proxmox-node", help="Target Proxmox node"),
+    notes: str = typer.Option(None, "--notes", help="Free-text notes"),
+    catalog: Path = _CatalogOpt,
+    output: Path = _OutputOpt,
+    reserved: Path = _ReservedOpt,
+) -> None:
+    """Compose a scenario and render a deployable scenarios/<name>/ tree."""
+    cat = _load_catalog(catalog)
+    composed = _build_spec(name, subnet, policy, box or [], spec, proxmox_node, notes)
+
+    problems = api.validate_refs(composed, cat)
+    if problems:
+        for p in problems:
+            typer.secho(f"  ✗ {p}", fg=typer.colors.RED)
+        _fail(f"{len(problems)} unknown catalog reference(s)")
+
+    try:
+        root = api.render_scenario(composed, catalog=cat, dest=output, reserved=_reserved(reserved))
+    except TopologyError as exc:
+        _fail(f"generate failed: {exc}")
+    typer.secho(f"✓ generated {root}", fg=typer.colors.GREEN)
 
 
 if __name__ == "__main__":
