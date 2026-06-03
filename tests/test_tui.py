@@ -126,14 +126,18 @@ def test_app_generate_warns_on_existing_then_overwrites(fake_catalog, tmp_path):
             assert app._pending_overwrite is True
             app._do_generate()      # second: overwrites
             assert app._pending_overwrite is False
-        assert any("press Generate again to overwrite" in s for s in shown)
+        assert any("again to overwrite" in s for s in shown)
         assert any(s.startswith("✓ generated") for s in shown)
 
     asyncio.run(_go())
 
 
-def test_app_keyboard_bindings_drive_actions_without_mouse(fake_catalog, tmp_path):
-    """F1/F2/F3 operate the composer with no mouse (clicks fail over tmux/SSH)."""
+def test_app_ctrl_bindings_drive_actions_without_mouse(fake_catalog, tmp_path):
+    """Ctrl shortcuts operate the composer with no mouse, even from the name field.
+
+    Mouse clicks and F-keys are unreliable over tmux/SSH; Ctrl combos bubble up
+    from the focused Input (they're not Input bindings) so they always fire.
+    """
     import asyncio
     from textual.widgets import Input
     from r42playbooks.tui.app import ScenarioComposerApp
@@ -147,13 +151,68 @@ def test_app_keyboard_bindings_drive_actions_without_mouse(fake_catalog, tmp_pat
         async with app.run_test() as pilot:
             await pilot.pause()
             app.query_one("#scenario", Input).value = "kbd_lab"
+            app.query_one("#scenario", Input).focus()
             await pilot.pause()
-            await pilot.press("f1")          # Add (defaults: admin-wazuh, default-3zone, air-gap-ctf)
-            await pilot.press("f3")          # Generate
+            await pilot.press("ctrl+n")      # Add (defaulted box/layout/policy) — from the Input
+            await pilot.press("ctrl+g")      # Generate
             await pilot.pause()
-        assert any("admin-wazuh ×1" in s for s in shown)       # F1 added + previewed
-        assert any(s.startswith("✓ generated") for s in shown)  # F3 generated
+        assert any("admin-wazuh ×1" in s for s in shown)        # Ctrl+N added + previewed
+        assert any(s.startswith("✓ generated") for s in shown)  # Ctrl+G generated
         assert (out / "kbd_lab" / "main.yml").is_file()
+
+    asyncio.run(_go())
+
+
+def test_app_button_fires_on_mouse_click(fake_catalog):
+    """A mouse click on the Add button invokes the handler."""
+    import asyncio
+    from r42playbooks.tui.app import ScenarioComposerApp
+
+    async def _go():
+        app = ScenarioComposerApp(ScenarioComposerController(fake_catalog))
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            await pilot.click("#add")
+            await pilot.pause()
+            assert len(app.controller.boxes) == 1
+
+    asyncio.run(_go())
+
+
+def test_app_button_fires_on_enter_when_focused(fake_catalog):
+    """Enter on a focused button invokes the handler (keyboard, no mouse)."""
+    import asyncio
+    from textual.widgets import Button
+    from r42playbooks.tui.app import ScenarioComposerApp
+
+    async def _go():
+        app = ScenarioComposerApp(ScenarioComposerController(fake_catalog))
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.query_one("#add", Button).focus()
+            await pilot.pause()
+            await pilot.press("enter")
+            await pilot.pause()
+            assert len(app.controller.boxes) == 1
+
+    asyncio.run(_go())
+
+
+def test_app_ctrl_cycles_box_and_count_without_mouse(fake_catalog):
+    """Ctrl+B cycles the box template and Ctrl+up bumps the count, keyboard-only."""
+    import asyncio
+    from textual.widgets import Input, Select
+    from r42playbooks.tui.app import ScenarioComposerApp
+
+    async def _go():
+        app = ScenarioComposerApp(ScenarioComposerController(fake_catalog))
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            first = app.query_one("#box", Select).value
+            await pilot.press("ctrl+b")                         # cycle box
+            assert app.query_one("#box", Select).value != first
+            await pilot.press("ctrl+up")                        # count 1 -> 2
+            assert app.query_one("#count", Input).value == "2"
 
     asyncio.run(_go())
 
