@@ -6,10 +6,18 @@ final list is stable-sorted by (weight, source, destination, proto, port, jump)
 so identical inputs yield byte-identical output. The deploy playbook (Plan B)
 flush-rebuilds a dedicated ``R42-FORWARD`` chain from this list in order, which
 is naturally idempotent and never touches the host INPUT chain (SSH stays up).
+
+Two compile paths exist:
+  - ``compile_network_policy(topology, policy, version)`` — original path, uses
+    the Topology model with explicit zone/subnet bindings and overrides.
+  - ``compile_network_policy_from_alloc(alloc, policy, version)`` — generator
+    path, resolves zone→subnet from Allocation.subnets by matching names.
+    Used by render.py to emit ``05_network_isolation/`` when spec.network_policy
+    is set.
 """
 
 import ipaddress
-from typing import Literal
+from typing import TYPE_CHECKING, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,6 +26,9 @@ from r42playbooks.core.catalog_models import MatrixRule, NetworkPolicyTemplate, 
 from r42playbooks.core.errors import CompileError
 from r42playbooks.core.models import Topology
 from r42playbooks.core.validate import zone_bridge_map, zone_subnet_map
+
+if TYPE_CHECKING:
+    from r42playbooks.core.allocate import Allocation
 
 # weight bands — lower weight is evaluated earlier in FORWARD
 W_ESTABLISHED = 0
@@ -99,6 +110,67 @@ def compile_network_policy(
         raise CompileError(f"invalid wan_interface: {wan_interface!r}")
     defaults = policy.defaults
 
+    params_fn: Callable[[str, object], object] = lambda k, d: _param(policy, topology, k, d)
+    return _compile_rules(
+        policy=policy, version=version, zsubnet=zsubnet, zbridge=zbridge,
+        services=services, wan_interface=wan_interface, defaults=defaults,
+        params_fn=params_fn,
+    )
+
+
+def compile_network_policy_from_alloc(
+    alloc: "Allocation",
+    policy: NetworkPolicyTemplate,
+    *,
+    version: str,
+    wan_interface: str = "vmbr0",
+) -> CompiledNetworkPolicy:
+    """Compile *policy* against *alloc*'s subnets into FORWARD rules.
+
+    Maps policy zone names to subnets by matching ``zone.name == subnet.name``.
+    Zones marked ``wan: true`` are not mapped to a subnet — they are represented
+    by *wan_interface*.  Zones with no matching subnet in the layout are silently
+    skipped (the compiled policy is narrower but still valid).
+
+    Service IPs are resolved from ``policy.params`` (no topology-level overrides).
+    """
+    if not C.IFACE_RE.fullmatch(wan_interface):
+        raise CompileError(f"invalid wan_interface: {wan_interface!r}")
+
+    subnet_by_name = {s.name: s for s in alloc.subnets}
+    zsubnet: dict[str, str] = {}
+    zbridge: dict[str, str] = {}
+    for zone in policy.zones:
+        if zone.wan:
+            continue
+        subnet = subnet_by_name.get(zone.name)
+        if subnet is None:
+            continue
+        zsubnet[zone.name] = subnet.cidr
+        zbridge[zone.name] = subnet.bridge
+
+    services = {s.name: s for s in policy.services}
+    defaults = policy.defaults
+    params_fn: Callable[[str, object], object] = lambda k, d: policy.params.get(k, d)
+    return _compile_rules(
+        policy=policy, version=version, zsubnet=zsubnet, zbridge=zbridge,
+        services=services, wan_interface=wan_interface, defaults=defaults,
+        params_fn=params_fn,
+    )
+
+
+def _compile_rules(
+    *,
+    policy: NetworkPolicyTemplate,
+    version: str,
+    zsubnet: dict[str, str],
+    zbridge: dict[str, str],
+    services: dict,
+    wan_interface: str,
+    defaults,
+    params_fn: Callable[[str, object], object],
+) -> CompiledNetworkPolicy:
+    """Shared rule-building logic for both compile paths."""
     rules: list[CompiledRule] = []
 
     # band 0 — return traffic
@@ -110,7 +182,7 @@ def compile_network_policy(
 
     # explicit matrix rules
     for mr in policy.matrix:
-        rules.extend(_compile_matrix_rule(mr, zsubnet, services, topology, policy))
+        rules.extend(_compile_matrix_rule(mr, zsubnet, services, params_fn))
 
     # band 300 — intra-zone accept
     if defaults.allow_intra_zone:
@@ -144,7 +216,12 @@ def compile_network_policy(
     )
 
 
-def _compile_matrix_rule(mr, zsubnet, services, topology, policy) -> list[CompiledRule]:
+def _compile_matrix_rule(
+    mr: MatrixRule,
+    zsubnet: dict[str, str],
+    services: dict,
+    params_fn: Callable[[str, object], object],
+) -> list[CompiledRule]:
     jump = _ACTION_JUMP[mr.action]
     src = None if mr.src == "*" else zsubnet.get(mr.src)
     comment = f"r42: {mr.comment}" if mr.comment else f"r42: {mr.src}->{mr.dst}"
@@ -156,7 +233,7 @@ def _compile_matrix_rule(mr, zsubnet, services, topology, policy) -> list[Compil
         if svc is None:
             raise CompileError(f"matrix references unknown service {svc_name!r}")
         # a missing/invalid service IP would silently broaden the rule to "any dest"
-        svc_ip = _require_ip(_param(policy, topology, f"{svc_name}_ip", None),
+        svc_ip = _require_ip(params_fn(f"{svc_name}_ip", None),
                              f"service {svc_name!r} ip ({svc_name}_ip)")
         out: list[CompiledRule] = []
         for p in (mr.ports or svc.ports):

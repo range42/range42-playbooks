@@ -271,9 +271,7 @@ def _build_spec(
             "subnet_layout": subnet,
             "boxes": [_parse_box(b) for b in boxes],
         }
-        if (
-            policy
-        ):  # optional + ignored by the generator (isolation = per-box firewall roles)
+        if policy:
             data["network_policy"] = policy
         if proxmox_node:
             data["proxmox_node"] = proxmox_node
@@ -292,7 +290,7 @@ def new(
     policy: str = typer.Option(
         None,
         "--policy",
-        help="network_policy id (optional, currently unused by the generator)",
+        help="network_policy id — emits 05_network_isolation/ iptables playbook",
     ),
     box: list[str] = typer.Option(
         None, "--box", help="template[:count=N,template_vm_id=ID]"

@@ -25,6 +25,7 @@ from pathlib import Path
 
 import yaml
 
+from r42playbooks.core import constants as C
 from r42playbooks.core import render_assets as A
 from r42playbooks.core.allocate import (
     Allocation,
@@ -33,6 +34,10 @@ from r42playbooks.core.allocate import (
     manifest_json,
 )
 from r42playbooks.core.catalog import Catalog
+from r42playbooks.core.compiler.network_policy import (
+    CompiledRule,
+    compile_network_policy_from_alloc,
+)
 from r42playbooks.core.errors import ScenarioExistsError, ValidationError
 from r42playbooks.core.io import atomic_write_text
 from r42playbooks.core.models import Attachment
@@ -368,15 +373,90 @@ def _render_init_proxmox(
         )
 
 
-def _render_main_playbooks(root: Path, scenario: str, sections: list[str]) -> None:
+def _iptables_task(rule: CompiledRule, idx: int) -> str:
+    """Render one CompiledRule as a 4-space-indented ansible.builtin.iptables task."""
+    ind = "    "
+    lines = [
+        f'{ind}- name: "NETWORK ISOLATION - rule w={rule.weight:04d}:{idx:03d} — {rule.comment}"',
+        f'{ind}  ansible.builtin.iptables:',
+        f'{ind}    chain: R42-FORWARD',
+        f'{ind}    table: filter',
+    ]
+    if rule.proto != "all":
+        lines.append(f'{ind}    protocol: {rule.proto}')
+    if rule.source:
+        lines.append(f'{ind}    source: "{rule.source}"')
+    if rule.destination:
+        lines.append(f'{ind}    destination: "{rule.destination}"')
+    if rule.destination_port:
+        lines.append(f'{ind}    destination_port: "{rule.destination_port}"')
+    if rule.in_interface:
+        lines.append(f'{ind}    in_interface: {rule.in_interface}')
+    if rule.out_interface:
+        lines.append(f'{ind}    out_interface: {rule.out_interface}')
+    if rule.ctstate:
+        lines.append(f'{ind}    ctstate:')
+        for state in rule.ctstate.split(","):
+            lines.append(f'{ind}      - {state.strip()}')
+    lines.append(f'{ind}    jump: {rule.jump}')
+    if rule.comment:
+        safe = rule.comment.replace('"', "'")
+        lines.append(f'{ind}    comment: "{safe}"')
+    return "\n".join(lines)
+
+
+def _render_network_isolation(
+    alloc: Allocation, spec: ScenarioSpec, root: Path, catalog: Catalog
+) -> bool:
+    """Emit 05_network_isolation/_main.yml when spec.network_policy is set.
+
+    Compiles the policy against the allocation's subnets and generates an
+    idempotent Ansible playbook that flush-rebuilds the R42-FORWARD iptables
+    chain on proxmox-cli. Returns True when the section was written.
+    """
+    if spec.network_policy is None:
+        return False
+
+    policy = catalog.resolve_network_policy(spec.network_policy)
+    version = catalog.resolved_version(C.CATEGORY_NETWORK_POLICIES, spec.network_policy)
+    wan_interface = str(policy.params.get("wan_interface", "vmbr0"))
+
+    compiled = compile_network_policy_from_alloc(
+        alloc, policy, version=version, wan_interface=wan_interface
+    )
+
+    rule_tasks = "\n\n".join(
+        _iptables_task(r, i) for i, r in enumerate(compiled.rules)
+    )
+    body = A.fill(
+        A.NETWORK_ISOLATION_MAIN,
+        SCENARIO=spec.name,
+        POLICY_ID=compiled.policy_id,
+        POLICY_VERSION=compiled.policy_version,
+        RULE_TASKS=rule_tasks,
+    )
+    _write(body, root / "05_network_isolation" / "_main.yml")
+    return True
+
+
+def _render_main_playbooks(
+    root: Path, scenario: str, sections: list[str], *, network_isolation: bool = False
+) -> None:
     """Top-level main.yml / main_vms_only.yml (only emitted sections)."""
     section_imports = "".join(f"- import_playbook: ./{s}/_main.yml\n" for s in sections)
+    isolation_import = (
+        "- import_playbook: ./05_network_isolation/_main.yml\n"
+        if network_isolation else ""
+    )
     header = A.fill(A.MAIN_HEADER, SCENARIO=scenario)
     # main.yml: create the template images (01_init_proxmox) then deploy the sections.
-    _write(header + _INIT_MAIN_IMPORT + "\n\n" + section_imports, root / "main.yml")
+    _write(
+        header + _INIT_MAIN_IMPORT + "\n\n" + section_imports + isolation_import,
+        root / "main.yml",
+    )
     # main_vms_only.yml: skip 01_init_proxmox (templates already exist).
     _write(
-        A.fill(A.MAIN_VMS_ONLY_HEADER, SCENARIO=scenario) + section_imports,
+        A.fill(A.MAIN_VMS_ONLY_HEADER, SCENARIO=scenario) + section_imports + isolation_import,
         root / "main_vms_only.yml",
     )
 
@@ -521,7 +601,8 @@ def render_scenario(
     # class B — verbatim-with-param boilerplate
     _render_init_proxmox(root, alloc.templates, catalog)
     sections = _render_sections(alloc, root, spec.name, proxmox_node)
-    _render_main_playbooks(root, spec.name, sections)
+    has_isolation = _render_network_isolation(alloc, spec, root, catalog)
+    _render_main_playbooks(root, spec.name, sections, network_isolation=has_isolation)
     _render_top_level_scripts(root, spec.name)
     _render_templates_class_b(root, spec.name)
     _render_readme(root, spec, alloc)

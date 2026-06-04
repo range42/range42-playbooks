@@ -60,10 +60,9 @@ class ScenarioSpec(BaseModel):
     schema_version: Literal[1] = 1
     name: str = Field(pattern=C.SCENARIO_NAME_RE.pattern)
     subnet_layout: str = Field(pattern=C.TEMPLATE_ID_RE.pattern)
-    # Optional + IGNORED by the generator: isolation is enforced by per-box
-    # firewall roles (software.configure.firewalls), not a compiled policy. Kept
-    # only so a future scenario-level policy feature can wire it in without a
-    # schema change. The parked canonical engine (issue #67) still consumes it.
+    # Optional catalog network policy id. When set, the renderer emits
+    # 05_network_isolation/_main.yml targeting proxmox-cli that flush-rebuilds
+    # the R42-FORWARD iptables chain from the compiled policy rules.
     network_policy: str | None = Field(default=None, pattern=C.TEMPLATE_ID_RE.pattern)
     boxes: list[BoxSpec] = Field(min_length=1)
     proxmox_node: str | None = Field(default=None, pattern=C.PROXMOX_NODE_RE.pattern)
