@@ -82,11 +82,9 @@ def _subnet_prefix(cidr: str) -> str:
     return cidr.split("/", 1)[0].rsplit(".", 1)[0]
 
 
-def _expand_names(template_id: str, count: int) -> list[str]:
-    """count==1 -> bare template id; count>1 -> template-00..0(count-1)."""
-    if count == 1:
-        return [template_id]
-    return [f"{template_id}-{i:0{C.REPLICA_PAD}d}" for i in range(count)]
+def _expand_names(subnet_name: str, template_id: str, count: int) -> list[str]:
+    """Always produce {subnet}-{template}-{index:02d}, keeping names unique across subnets."""
+    return [f"{subnet_name}-{template_id}-{i:0{C.REPLICA_PAD}d}" for i in range(count)]
 
 
 def _next_free_octet(base: int, prefix: str, taken_ips: set[str]) -> int:
@@ -178,7 +176,7 @@ def _allocate_box(
     start_octet = box.octet if box.octet is not None else _DEFAULT_OCTET
 
     placed: list[AllocatedBox] = []
-    for name in _expand_names(box.template, box.count):
+    for name in _expand_names(subnet_name, box.template, box.count):
         octet = _next_free_octet(start_octet, prefix, taken_ips)
         vm_id = _next_free_vm_id(octet, taken_ids)
         ip = f"{prefix}.{octet}"
@@ -230,18 +228,6 @@ def allocate(spec: ScenarioSpec, catalog: Catalog, reserved: ReservedIndex | Non
             _allocate_box(box, catalog, subnets_by_name, subnet_index, spec.name, taken_ids, taken_ips)
         )
 
-    # Detect duplicate vm_names — two boxes with the same name produce identical
-    # SSH aliases (r42.<name>) and Ansible inventory entries, causing silent
-    # routing to whichever host happens to match first.
-    seen_names: dict[str, str] = {}  # vm_name -> subnet_name of first occurrence
-    for b in boxes:
-        if b.vm_name in seen_names:
-            raise CompileError(
-                f"vm_name {b.vm_name!r} is used on both subnet "
-                f"{seen_names[b.vm_name]!r} and {b.subnet_name!r} — "
-                f"use 'count: 2' on one subnet, or choose different template names"
-            )
-        seen_names[b.vm_name] = b.subnet_name
 
     # Resolve template subnet for IP/bridge derivation.
     tpl_subnet = layout.template_subnet

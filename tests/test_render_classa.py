@@ -54,9 +54,9 @@ def test_inventory_lists_composed_hosts_under_their_groups(rendered):
     inv = _read(root, "templates/ansible-inventory.j2")
     assert "r42_admin_group:" in inv
     assert "r42_ctf_group:" in inv
-    assert "r42.admin-wazuh:" in inv
-    assert "r42.vuln-box-00:" in inv
-    assert "r42.vuln-box-04:" in inv
+    assert "r42.admin-admin-wazuh-00:" in inv
+    assert "r42.ctf-vuln-box-00:" in inv
+    assert "r42.ctf-vuln-box-04:" in inv
     assert "proxmox:" in inv and "proxmox-cli:" in inv
 
 
@@ -93,13 +93,13 @@ def test_ssh_config_has_one_block_per_vm(rendered):
 def test_section_main_imports_stages_with_global_vars(rendered):
     _spec, alloc, root = rendered
     main = _read(root, "04_ctf_infrastructure/_main.yml")
-    assert "- import_playbook: ./stage_00/vuln-box-00.yml" in main
-    assert "- import_playbook: ./stage_01/vuln-box-00.yml" in main
-    vb0 = next(b for b in alloc.boxes if b.vm_name == "vuln-box-00")
+    assert "- import_playbook: ./stage_00/ctf-vuln-box-00.yml" in main
+    assert "- import_playbook: ./stage_01/ctf-vuln-box-00.yml" in main
+    vb0 = next(b for b in alloc.boxes if b.vm_name == "ctf-vuln-box-00")
     assert f"global_vm_id: {vb0.vm_id}" in main
     assert f'global_vm_ci_ip: "{vb0.ip}"' in main
     assert f"global_template_vm_id: {vb0.template_vm_id}" in main
-    assert 'global_vm_ssh_name: "r42.vuln-box-00"' in main
+    assert 'global_vm_ssh_name: "r42.ctf-vuln-box-00"' in main
 
 
 def test_section_main_is_valid_yaml(rendered):

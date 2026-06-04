@@ -145,7 +145,7 @@ def test_each_box_has_stage00_and_stage01_playbooks(rendered):
 def test_stage00_clone_is_parametrised_boilerplate(rendered):
     """stage_00 clones via the proxmox controller and references the secrets symlink."""
     _spec, _alloc, root = rendered
-    stage00 = _read(root, "04_ctf_infrastructure/stage_00/vuln-box-00.yml")
+    stage00 = _read(root, "04_ctf_infrastructure/stage_00/ctf-vuln-box-00.yml")
     assert "- hosts: proxmox" in stage00
     assert "{{ global_template_vm_id }}" in stage00
     assert "{{ global_vm_name }}" in stage00
@@ -156,11 +156,11 @@ def test_stage00_clone_is_parametrised_boilerplate(rendered):
 def test_stage01_lists_role_names_not_copied_code(rendered):
     """The contract (§2): stage_01 references catalog roles BY NAME only."""
     _spec, _alloc, root = rendered
-    stage01 = _read(root, "04_ctf_infrastructure/stage_01/vuln-box-00.yml")
+    stage01 = _read(root, "04_ctf_infrastructure/stage_01/ctf-vuln-box-00.yml")
     assert "roles:" in stage01
     assert "software.install.wazuh-agent" in stage01  # default_attachment
     assert "software.install.extra" in stage01        # spec attachments_add
-    assert "hosts: r42.vuln-box-00" in stage01        # M5 naming contract
+    assert "hosts: r42.ctf-vuln-box-00" in stage01    # M5 naming contract
     # no role *code* was vendored (a real role would carry tasks/handlers)
     assert "include_role:" not in stage01
     assert "ansible.builtin." not in stage01
@@ -177,7 +177,7 @@ def test_stage01_emits_attachment_params_as_vars(fake_catalog, spec_factory, tmp
         }],
     }]))
     root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, catalog=load_catalog(fake_catalog), dest=tmp_path / "s")
-    stage01 = _read(root, "04_ctf_infrastructure/stage_01/vuln-box.yml")
+    stage01 = _read(root, "04_ctf_infrastructure/stage_01/ctf-vuln-box-00.yml")
     assert "- software.configure.firewalls" in stage01
     assert "firewall_rules:" in stage01
     assert "port: 8080" in stage01
@@ -191,7 +191,7 @@ def test_stage01_container_attachment_emits_docker_compose_play(fake_catalog, sp
         "attachments_add": [{"kind": "container", "catalog_ref": "cve/web/dvwa", "params": {}}],
     }]))
     root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, catalog=load_catalog(fake_catalog), dest=tmp_path / "s")
-    stage01 = _read(root, "04_ctf_infrastructure/stage_01/vuln-box.yml")
+    stage01 = _read(root, "04_ctf_infrastructure/stage_01/ctf-vuln-box-00.yml")
     assert "- software.configure.docker-compose" in stage01
     assert "cve/web/dvwa" in stage01                       # stack path wired
     assert "RANGE42_INVENTORY__DOCKER__CTF" in stage01     # env-based project dir
@@ -206,11 +206,11 @@ def test_stage01_without_roles_is_valid_noop_play(rendered):
     """
     import yaml
     _spec, _alloc, root = rendered
-    text = _read(root, "02_admin_infrastructure/stage_01/admin-wazuh.yml")
+    text = _read(root, "02_admin_infrastructure/stage_01/admin-admin-wazuh-00.yml")
     plays = yaml.safe_load(text)            # a playbook is one doc: a list of plays
     assert isinstance(plays, list) and len(plays) == 1
     play = plays[0]
-    assert play["hosts"] == "r42.admin-wazuh"
+    assert play["hosts"] == "r42.admin-admin-wazuh-00"
     assert play.get("tasks") == []          # valid no-op
     assert "roles" not in play              # no roles attached
 
@@ -219,7 +219,7 @@ def test_stage01_renders_box_vars(rendered):
     """Box `vars` from the spec are emitted into the stage_01 play (not dropped)."""
     _spec, _alloc, root = rendered
     # valid_spec_dict sets vars={"difficulty": "hard"} on vuln-box
-    stage01 = _read(root, "04_ctf_infrastructure/stage_01/vuln-box-00.yml")
+    stage01 = _read(root, "04_ctf_infrastructure/stage_01/ctf-vuln-box-00.yml")
     assert "vars:" in stage01
     assert "difficulty: hard" in stage01
 
@@ -240,10 +240,10 @@ def test_scenario_name_with_slash_keeps_files_in_leaf(fake_catalog, valid_spec_d
 
 def test_each_box_has_devkit_scripts(rendered):
     spec, _alloc, root = rendered
-    devkit = root / "04_ctf_infrastructure" / "stage_01" / "vuln-box-00.devkit"
-    assert (devkit / f"{spec.name}.vuln-box-00.install.sh").is_file()
-    assert (devkit / f"{spec.name}.vuln-box-00.snapshot.sh").is_file()
-    assert (devkit / f"{spec.name}.vuln-box-00.revert.sh").is_file()
+    devkit = root / "04_ctf_infrastructure" / "stage_01" / "ctf-vuln-box-00.devkit"
+    assert (devkit / f"{spec.name}.ctf-vuln-box-00.install.sh").is_file()
+    assert (devkit / f"{spec.name}.ctf-vuln-box-00.snapshot.sh").is_file()
+    assert (devkit / f"{spec.name}.ctf-vuln-box-00.revert.sh").is_file()
 
 
 # --- negative assertions (decision boundaries) ----------------------------

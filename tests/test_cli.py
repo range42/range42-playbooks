@@ -149,7 +149,7 @@ def test_new_from_flags_writes_deployable_tree(tmp_path, fake_catalog):
     assert (root / "manifest" / "scenario_vms.json").is_file()
     assert (root / "scenario.r42.yml").is_file()
     # count=3 expanded
-    assert (root / "04_ctf_infrastructure" / "stage_00" / "vuln-box-02.yml").is_file()
+    assert (root / "04_ctf_infrastructure" / "stage_00" / "ctf-vuln-box-02.yml").is_file()
     assert str(root) in res.output
 
 
