@@ -64,8 +64,19 @@ def test_list_scenarios_shows_generated(tmp_path, fake_catalog):
 def test_show_box_template_details(fake_catalog):
     res = runner.invoke(app, ["show", "vuln-box", "--catalog", str(fake_catalog)])
     assert res.exit_code == 0, res.output
-    assert "ctf" in res.output                                    # role
+    assert "ctf" in res.output                                        # role
     assert "template-vm-ubuntu-noble-small-01-4g-32g" in res.output  # template_vm
+    assert "ubuntu_noble" in res.output                               # resolved image
+    assert "9221" in res.output                                       # resolved vm_id
+    assert "1cpu/4gb/32gb" in res.output                              # resolved spec
+    assert "CTF vulnerable target" in res.output                      # description
+
+
+def test_show_subnet_layout_details(fake_catalog):
+    res = runner.invoke(app, ["show", "default-3zone", "--catalog", str(fake_catalog)])
+    assert res.exit_code == 0, res.output
+    assert "admin" in res.output and "192.168.142.0/24" in res.output   # lab zones
+    assert "vmbr140" in res.output                                      # template_subnet bridge
 
 
 def test_show_unknown_module_exits_nonzero(fake_catalog):

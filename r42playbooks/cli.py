@@ -19,6 +19,7 @@ import typer
 from pydantic import ValidationError as _PydValidationError
 
 from r42playbooks import api
+from r42playbooks.core.catalog import find_template_vm
 from r42playbooks.core.errors import ScenarioExistsError, TopologyError
 from r42playbooks.core.idalloc import ReservedIndex
 from r42playbooks.core.spec import ScenarioSpec
@@ -112,16 +113,28 @@ def show(
     if module in cat.box_templates:
         bt = cat.box_templates[module]
         typer.secho(f"box-template: {bt.id}", bold=True)
+        if bt.description:
+            typer.echo(f"  {bt.description}")
         typer.echo(f"  role:            {bt.role}")
-        typer.echo(f"  template_vm:     {bt.template_vm}")
         typer.echo(f"  inventory group: {bt.default_inventory_group}")
+        resolved = find_template_vm(cat, bt.template_vm)
+        if resolved:
+            image_id, tpl = resolved
+            typer.echo(f"  template_vm:     {bt.template_vm}  [{image_id}  vm_id={tpl.vm_id}  {tpl.spec}]")
+        else:
+            typer.echo(f"  template_vm:     {bt.template_vm}")
         attachments = bt.default_attachments or []
         typer.echo(f"  default roles:   {', '.join(a.catalog_ref for a in attachments) or '(none)'}")
     elif module in cat.subnet_layouts:
         sl = cat.subnet_layouts[module]
         typer.secho(f"subnet-layout: {sl.id}", bold=True)
+        if sl.description:
+            typer.echo(f"  {sl.description}")
         for s in sl.subnets:
             typer.echo(f"  - {s.name}={s.cidr}@{s.bridge}")
+        if sl.template_subnet:
+            ts = sl.template_subnet
+            typer.echo(f"  template_subnet: {ts.cidr}@{ts.bridge}")
     elif module in cat.network_policies:
         pol = cat.network_policies[module]
         typer.secho(f"network-policy: {pol.id}", bold=True)
