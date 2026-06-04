@@ -161,5 +161,11 @@ class ScenarioComposerController:
             cannot be resolved/placed.
         """
         spec = self.build_spec()
-        return api.render_scenario(spec, catalog=self.catalog, dest=Path(dest),
-                                   reserved=self.reserved, overwrite=overwrite)
+        dest = Path(dest)
+        reserved = self.reserved
+        if reserved is None:
+            auto = dest / "_reserved.json"
+            if auto.is_file():
+                reserved = ReservedIndex.from_file(auto)
+        return api.render_scenario(spec, catalog=self.catalog, dest=dest,
+                                   reserved=reserved, overwrite=overwrite)
