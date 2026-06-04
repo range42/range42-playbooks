@@ -119,10 +119,20 @@ def _blocked(reserved: ReservedIndex, scenario: str) -> tuple[set[int], set[str]
     return ids, ips
 
 
+def _subnet_section(index: int, name: str) -> str:
+    """Playbook dir for a subnet: 01_init_proxmox is always slot 0, subnets start at 02."""
+    return f"{index + 2:02d}_{name}_infrastructure"
+
+
+def _subnet_label(name: str) -> str:
+    return f"{name.upper()} INFRASTRUCTURE INIT"
+
+
 def _allocate_box(
     box: BoxSpec,
     catalog: Catalog,
     subnets_by_name: dict[str, Subnet],
+    subnet_index: dict[str, int],
     spec_name: str,
     taken_ids: set[int],
     taken_ips: set[str],
@@ -173,8 +183,8 @@ def _allocate_box(
             ip=ip,
             bridge=subnet.bridge,
             subnet_name=subnet.name,
-            section=subnet.section,
-            label=subnet.label,
+            section=_subnet_section(subnet_index[subnet_name], subnet_name),
+            label=_subnet_label(subnet_name),
             gateway=subnet.gateway,
             inventory_group=f"r42_{subnet_name}_group",
             box_template=box.template,
@@ -198,13 +208,14 @@ def allocate(spec: ScenarioSpec, catalog: Catalog, reserved: ReservedIndex | Non
 
     layout = catalog.resolve_subnet_layout(spec.subnet_layout)
     subnets_by_name = {s.name: s for s in layout.subnets}
+    subnet_index = {s.name: i for i, s in enumerate(layout.subnets)}
 
     taken_ids, taken_ips = _blocked(reserved, spec.name)
 
     boxes: list[AllocatedBox] = []
     for box in spec.boxes:
         boxes.extend(
-            _allocate_box(box, catalog, subnets_by_name, spec.name, taken_ids, taken_ips)
+            _allocate_box(box, catalog, subnets_by_name, subnet_index, spec.name, taken_ids, taken_ips)
         )
 
     # Resolve template subnet for IP/bridge derivation.

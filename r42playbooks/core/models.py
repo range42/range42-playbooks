@@ -42,8 +42,6 @@ class Subnet(BaseModel):
     cidr: str = Field(pattern=C.IPV4_CIDR_RE.pattern)
     bridge: str = Field(pattern=C.BRIDGE_RE.pattern)
     gateway: str | None = Field(default=None, pattern=C.IPV4_RE.pattern)
-    section: str = ""
-    label: str = ""
 
     _guard_name = field_validator("name")(_no_injection)
 
