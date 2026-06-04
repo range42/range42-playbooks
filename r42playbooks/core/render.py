@@ -19,6 +19,7 @@ output depends only on the ``Allocation`` + ``ScenarioSpec`` (no clock/randomnes
 """
 
 import os
+import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -525,8 +526,10 @@ def render_scenario(
     :raises ValidationError: if a used image has no cloud_image in the catalog.
     """
     root = Path(dest) / spec.name
-    if root.exists() and not overwrite:
-        raise ScenarioExistsError(f"scenario already exists at {root}")
+    if root.exists():
+        if not overwrite:
+            raise ScenarioExistsError(f"scenario already exists at {root}")
+        shutil.rmtree(root)
     proxmox_node = spec.proxmox_node or _DEFAULT_PROXMOX_NODE
 
     # class B — verbatim-with-param boilerplate

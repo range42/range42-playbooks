@@ -317,6 +317,20 @@ def test_render_refuses_existing_dir_then_overwrites(fake_catalog, valid_spec_di
     assert (root / "main.yml").is_file()
 
 
+def test_render_overwrite_removes_stale_files(fake_catalog, valid_spec_dict, tmp_path):
+    """--force must clean the old tree; stale files from a prior run must not survive."""
+    spec = ScenarioSpec.model_validate(valid_spec_dict)
+    catalog = load_catalog(fake_catalog)
+    alloc = allocate(spec, catalog)
+    dest = tmp_path / "scenarios"
+    root = render_scenario(alloc, spec, catalog=catalog, dest=dest)
+    stale = root / "01_init_proxmox" / "00-old-template-vm-ubuntu.yml"
+    stale.write_text("# stale artifact from a previous generator run\n")
+    render_scenario(alloc, spec, catalog=catalog, dest=dest, overwrite=True)
+    assert not stale.exists(), "stale file from prior run survived --force overwrite"
+    assert (root / "main.yml").is_file()
+
+
 def test_render_is_deterministic(fake_catalog, valid_spec_dict, tmp_path):
     """Two renders of the same composition produce byte-identical class-B files."""
     spec = ScenarioSpec.model_validate(valid_spec_dict)
