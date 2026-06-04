@@ -1,6 +1,6 @@
 # r42playbooks
 
-**msfvenom-style scenario generator for range42.**
+**Scenario generator for range42 — compose labs from the catalog.**
 
 `r42playbooks` lists the composable modules in `range42-catalog`, lets you compose a lab
 (CLI flags, a `scenario.r42.yml` spec, or the TUI), and **generates a real
@@ -21,7 +21,7 @@ pip install "r42playbooks[cli]"     # + Typer CLI
 pip install "r42playbooks[tui]"     # + Textual TUI
 ```
 
-## CLI (`list` / `show` / `new`)
+## CLI (`list` / `show` / `new` / `validate`)
 
 ```bash
 # explore the catalog

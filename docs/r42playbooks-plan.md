@@ -23,7 +23,7 @@
 
 ## 0. Objective (the one line)
 
-`r42playbooks` is an **msfvenom-style scenario generator**: it *lists* composable `range42-catalog`
+`r42playbooks` is a **scenario generator**: it *lists* composable `range42-catalog`
 modules, lets a user *compose* a lab (flags or a `scenario.r42.yml` spec), and *generates* a real
 `scenarios/<name>/` directory in the **existing demo_lab format** — deployable through the normal
 range42 flow with no changes elsewhere.
@@ -154,7 +154,7 @@ docstrings, and any CI workflow referencing the package/script names).
 
 ## STEP 2 — Composition spec model `scenario.r42.yml` (pure core)
 
-**Context.** The reproducible artifact a user composes (msfvenom "options"). Pydantic model + loader,
+**Context.** The reproducible artifact a user composes. Pydantic model + loader,
 written into every generated scenario so `new` is re-runnable. Depends S1.
 **Tasks.**
 - `r42playbooks/core/spec.py`: `ScenarioSpec` (name, subnet_layout, network_policy, boxes[]:
@@ -253,7 +253,7 @@ those 2 boxes (not demo_lab's 10); `main.yml` imports match emitted dirs; every 
 in the generated inventory.
 **Exit.** A generated scenario is fully deployable + the API surface is frozen. **Rollback:** revert render.py part 2. **Model:** strongest.
 
-## STEP 6 — CLI `r42playbooks list | show | new` (msfvenom feel) — ∥ S7
+## STEP 6 — CLI `r42playbooks list | show | new | validate` — ∥ S7
 
 **Context.** Thin Typer frontend over the frozen S5a API. Depends S3, S5a (frozen API).
 **Tasks.**

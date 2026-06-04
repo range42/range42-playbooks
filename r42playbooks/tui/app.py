@@ -22,7 +22,7 @@ _DEFAULT_COUNT = "1"
 
 
 class ScenarioComposerApp(App):
-    """Interactive msfvenom-style scenario composer for r42playbooks."""
+    """Interactive scenario composer for r42playbooks."""
 
     CSS = """
     #body   { height: 1fr; }
@@ -33,11 +33,15 @@ class ScenarioComposerApp(App):
     .row { height: auto; }
     """
 
-    def __init__(self, controller: ScenarioComposerController, *, out_dir: Path | None = None) -> None:
+    def __init__(
+        self, controller: ScenarioComposerController, *, out_dir: Path | None = None
+    ) -> None:
         super().__init__()
         self.controller = controller
         self.out_dir = out_dir or Path("scenarios")
-        self._pending_overwrite = False  # set after an exists-warning; next Generate overwrites
+        self._pending_overwrite = (
+            False  # set after an exists-warning; next Generate overwrites
+        )
 
     def _select(self, options: list[str], widget_id: str) -> Select:
         """A Select that defaults to its first option (no blank/prompt state)."""
@@ -132,7 +136,9 @@ class ScenarioComposerApp(App):
     def _do_generate(self) -> None:
         self._sync_header_fields()
         try:
-            root = self.controller.generate(self.out_dir, overwrite=self._pending_overwrite)
+            root = self.controller.generate(
+                self.out_dir, overwrite=self._pending_overwrite
+            )
         except ScenarioExistsError as exc:
             self._pending_overwrite = True
             self._set_output(f"⚠ {exc}\n  press Generate again to overwrite it.")
@@ -146,6 +152,7 @@ class ScenarioComposerApp(App):
 
 def main() -> None:  # pragma: no cover - manual entry point
     import sys
+
     catalog = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("../range42-catalog")
     ScenarioComposerApp(ScenarioComposerController(catalog)).run()
 

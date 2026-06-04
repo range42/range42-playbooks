@@ -1,4 +1,4 @@
-"""The ``scenario.r42.yml`` composition spec — the msfvenom-style "options".
+"""The ``scenario.r42.yml`` composition spec — the "options".
 
 A ``ScenarioSpec`` is the reproducible artifact a user composes: which catalog
 modules (subnet layout, network policy, box templates) make up a lab. It is

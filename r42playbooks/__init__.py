@@ -1,4 +1,4 @@
-"""r42playbooks — msfvenom-style range42 scenario generator.
+"""r42playbooks — range42 scenario generator.
 
 Lists composable ``range42-catalog`` modules, lets a user compose a lab (flags,
 a ``scenario.r42.yml`` spec, the CLI, or the TUI), and generates a real

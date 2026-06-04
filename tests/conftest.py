@@ -14,8 +14,12 @@ def valid_topology_dict() -> dict:
         "description": "test topology",
         "proxmox_node": "px-testing",
         "subnets": [
-            {"name": "admin", "cidr": "192.168.142.0/24", "bridge": "vmbr142",
-             "gateway": "192.168.142.1"},
+            {
+                "name": "admin",
+                "cidr": "192.168.142.0/24",
+                "bridge": "vmbr142",
+                "gateway": "192.168.142.1",
+            },
             {"name": "ctf", "cidr": "192.168.144.0/24", "bridge": "vmbr144"},
         ],
         "zones": [
@@ -23,15 +27,30 @@ def valid_topology_dict() -> dict:
             {"name": "ctf", "subnet": "ctf", "role": "ctf"},
         ],
         "boxes": [
-            {"vm_name": "admin-wazuh", "vm_id": 1100, "ip": "192.168.142.100",
-             "zone": "admin", "box_template": "admin-wazuh",
-             "inventory_group": "r42_admin_group",
-             "attachments": [
-                 {"kind": "role", "catalog_ref": "software.install.wazuh", "params": {}},
-             ]},
-            {"vm_name": "vuln-box-00", "vm_id": 1170, "ip": "192.168.144.170",
-             "zone": "ctf", "box_template": "vuln-box",
-             "inventory_group": "r42_vuln_box_group", "attachments": []},
+            {
+                "vm_name": "admin-wazuh",
+                "vm_id": 1100,
+                "ip": "192.168.142.100",
+                "zone": "admin",
+                "box_template": "admin-wazuh",
+                "inventory_group": "r42_admin_group",
+                "attachments": [
+                    {
+                        "kind": "role",
+                        "catalog_ref": "software.install.wazuh",
+                        "params": {},
+                    },
+                ],
+            },
+            {
+                "vm_name": "vuln-box-00",
+                "vm_id": 1170,
+                "ip": "192.168.144.170",
+                "zone": "ctf",
+                "box_template": "vuln-box",
+                "inventory_group": "r42_vuln_box_group",
+                "attachments": [],
+            },
         ],
         "network_policy": {"template": "air-gap-ctf", "overrides": {}},
     }
@@ -39,7 +58,7 @@ def valid_topology_dict() -> dict:
 
 @pytest.fixture
 def valid_spec_dict() -> dict:
-    """A minimal, valid scenario.r42.yml composition spec (msfvenom 'options')."""
+    """A minimal, valid scenario.r42.yml composition spec."""
     return {
         "schema_version": 1,
         "name": "my_lab",
@@ -53,7 +72,11 @@ def valid_spec_dict() -> dict:
                 "template": "vuln-box",
                 "count": 5,
                 "attachments_add": [
-                    {"kind": "role", "catalog_ref": "software.install.extra", "params": {}},
+                    {
+                        "kind": "role",
+                        "catalog_ref": "software.install.extra",
+                        "params": {},
+                    },
                 ],
                 "vars": {"difficulty": "hard"},
             },
@@ -64,20 +87,24 @@ def valid_spec_dict() -> dict:
 @pytest.fixture
 def spec_factory(valid_spec_dict):
     """Return a deep-copy mutator so tests can tweak one spec field in isolation."""
+
     def _make(**overrides) -> dict:
         spec = copy.deepcopy(valid_spec_dict)
         spec.update(overrides)
         return spec
+
     return _make
 
 
 @pytest.fixture
 def topology_factory(valid_topology_dict):
     """Return a deep-copy mutator so tests can tweak one field in isolation."""
+
     def _make(**overrides) -> dict:
         spec = copy.deepcopy(valid_topology_dict)
         spec.update(overrides)
         return spec
+
     return _make
 
 
@@ -96,7 +123,9 @@ def fake_catalog(tmp_path):
     root = tmp_path / "range42-catalog"
     layer = root / "05_topology_layer"
 
-    _write(layer / "subnet_layouts" / "default-3zone" / "v1.0.0" / "template.yml", """
+    _write(
+        layer / "subnet_layouts" / "default-3zone" / "v1.0.0" / "template.yml",
+        """
 id: default-3zone
 api_version: 1
 description: admin + ctf + student subnets
@@ -105,9 +134,12 @@ subnets:
   - {name: ctf, cidr: "192.168.144.0/24", bridge: vmbr144}
   - {name: student, cidr: "192.168.143.0/24", bridge: vmbr143}
 template_subnet: {cidr: "192.168.140.0/24", bridge: vmbr140}
-""".lstrip())
+""".lstrip(),
+    )
 
-    _write(layer / "box_templates" / "vuln-box" / "v1.0.0" / "template.yml", """
+    _write(
+        layer / "box_templates" / "vuln-box" / "v1.0.0" / "template.yml",
+        """
 id: vuln-box
 api_version: 1
 description: CTF vulnerable target
@@ -116,38 +148,72 @@ template_vm: "template-vm-ubuntu-noble-small-01-4g-32g"
 default_inventory_group: r42_vuln_box_group
 default_attachments:
   - {kind: role, catalog_ref: software.install.wazuh-agent, params: {}}
-""".lstrip())
+""".lstrip(),
+    )
 
-    _write(layer / "box_templates" / "admin-wazuh" / "v1.0.0" / "template.yml", """
+    _write(
+        layer / "box_templates" / "admin-wazuh" / "v1.0.0" / "template.yml",
+        """
 id: admin-wazuh
 api_version: 1
 description: Wazuh SIEM admin box
 role: admin
 template_vm: "template-vm-ubuntu-noble-medium-04-8g-64g"
 default_inventory_group: r42_admin_group
-""".lstrip())
+""".lstrip(),
+    )
 
-    _write(layer / "box_templates" / "student-box" / "v1.0.0" / "template.yml", """
+    _write(
+        layer / "box_templates" / "student-box" / "v1.0.0" / "template.yml",
+        """
 id: student-box
 api_version: 1
 description: student workstation
 role: student
 template_vm: "template-vm-ubuntu-noble-micro-01-2g-24g"
 default_inventory_group: r42_student_group
-""".lstrip())
+""".lstrip(),
+    )
 
     # 02_ansible_layer: reusable roles, referenced by name (<category>.<action>.<target>).
-    for role in ("software.install.wazuh", "software.install.wazuh-agent", "software.install.extra"):
-        _write(root / "02_ansible_layer" / "admin" / "roles" / role / "tasks" / "main.yml", "---\n[]\n")
+    for role in (
+        "software.install.wazuh",
+        "software.install.wazuh-agent",
+        "software.install.extra",
+    ):
+        _write(
+            root / "02_ansible_layer" / "admin" / "roles" / role / "tasks" / "main.yml",
+            "---\n[]\n",
+        )
 
     # 03_container_layer: CTF docker stacks, referenced by path under _ctf/.
-    _write(root / "03_container_layer" / "docker" / "_ctf" / "cve" / "web" / "dvwa" / "docker-compose.yml",
-           "services: {}\n")
-    _write(root / "03_container_layer" / "docker" / "_ctf" / "misconfiguration" / "network" / "open-smb" / "compose.yml",
-           "services: {}\n")
+    _write(
+        root
+        / "03_container_layer"
+        / "docker"
+        / "_ctf"
+        / "cve"
+        / "web"
+        / "dvwa"
+        / "docker-compose.yml",
+        "services: {}\n",
+    )
+    _write(
+        root
+        / "03_container_layer"
+        / "docker"
+        / "_ctf"
+        / "misconfiguration"
+        / "network"
+        / "open-smb"
+        / "compose.yml",
+        "services: {}\n",
+    )
 
     # 01_image_layer: base VM image descriptors (ubuntu_noble + debian_trixie)
-    _write(root / "01_image_layer" / "ubuntu_noble" / "v1.0.0" / "image.yml", """
+    _write(
+        root / "01_image_layer" / "ubuntu_noble" / "v1.0.0" / "image.yml",
+        """
 id: ubuntu_noble
 api_version: 1
 distro: ubuntu
@@ -161,8 +227,11 @@ proxmox_templates:
   - {vm_id: 9221, vm_name: "template-vm-ubuntu-noble-small-01-4g-32g",  spec: "1cpu/4gb/32gb", ip_octet: 221}
   - {vm_id: 9232, vm_name: "template-vm-ubuntu-noble-medium-02-8g-64g", spec: "2cpu/8gb/64gb", ip_octet: 232}
   - {vm_id: 9234, vm_name: "template-vm-ubuntu-noble-medium-04-8g-64g", spec: "4cpu/8gb/64gb", ip_octet: 234}
-""".lstrip())
-    _write(root / "01_image_layer" / "debian_trixie" / "v1.0.0" / "image.yml", """
+""".lstrip(),
+    )
+    _write(
+        root / "01_image_layer" / "debian_trixie" / "v1.0.0" / "image.yml",
+        """
 id: debian_trixie
 api_version: 1
 distro: debian
@@ -174,11 +243,14 @@ cloud_image:
 proxmox_templates:
   - {vm_id: 9321, vm_name: "template-vm-debian-trixie-small",  spec: "1cpu/4gb/32gb", ip_octet: 121}
   - {vm_id: 9331, vm_name: "template-vm-debian-trixie-medium", spec: "2cpu/8gb/64gb", ip_octet: 131}
-""".lstrip())
+""".lstrip(),
+    )
 
     # two versions of a policy — loader must pick the highest (1.1.0)
     for ver, comment in (("v1.0.0", "v1"), ("v1.1.0", "v1.1")):
-        _write(layer / "network_policies" / "air-gap-ctf" / ver / "template.yml", f"""
+        _write(
+            layer / "network_policies" / "air-gap-ctf" / ver / "template.yml",
+            f"""
 id: air-gap-ctf
 api_version: 1
 kind: isolation-policy
@@ -200,7 +272,8 @@ matrix:
   - {{src: admin, dst: ctf, action: accept, comment: "admin manages vuln boxes"}}
   - {{src: ctf, dst: "svc:siem", action: accept, comment: "wazuh agent"}}
   - {{src: ctf, dst: admin, action: drop, comment: "zone isolation"}}
-""".lstrip())
+""".lstrip(),
+        )
 
     return root
 
@@ -212,7 +285,11 @@ def reserved_factory(tmp_path):
 
     def _make(entries: list[dict]) -> "object":
         from pathlib import Path
+
         path = Path(tmp_path) / "_reserved.json"
-        path.write_text("\n".join(json.dumps(e) for e in entries) + "\n", encoding="utf-8")
+        path.write_text(
+            "\n".join(json.dumps(e) for e in entries) + "\n", encoding="utf-8"
+        )
         return path
+
     return _make
