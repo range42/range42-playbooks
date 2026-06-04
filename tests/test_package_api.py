@@ -12,7 +12,7 @@ from r42playbooks.core.errors import TopologyError
 def test_package_exports_frozen_generator_surface():
     for name in (
         "render_scenario", "allocate", "load_spec", "dump_spec_atomic",
-        "load_catalog", "list_roles", "list_containers", "validate_refs",
+        "load_catalog", "list_images", "list_roles", "list_containers", "validate_refs",
         "ScenarioSpec", "Catalog", "Allocation", "ReservedIndex", "__version__",
     ):
         assert hasattr(r, name), f"r42playbooks.{name} not exported"
