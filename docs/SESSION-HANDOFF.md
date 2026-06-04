@@ -60,6 +60,39 @@ The plan's S1–S9 is done; then we refined the model substantially:
   layer or role defaults), referenced by `box_templates` — NOT in `bundles/`. This keeps the
   `playbooks → catalog` direction intact.
 
+## Known architecture debt — base images belong in the catalog (`01_image_layer`)
+
+The ONE ingredient referenced by the catalog that does NOT live in the catalog is
+the **base VM image** (`image: ubuntu_noble` / `debian_trixie`). Its definition lives
+in the **playbooks**: the `01_init_proxmox/.../templates/<image>/` creation playbooks
++ `r42playbooks/core/templates_table.py` (`TEMPLATE_TABLE`). Roles (`02_ansible_layer`),
+containers (`03_container_layer`), subnet layouts (`05_topology_layer`) are all
+catalog-owned; the image is not → a soft dependency-direction smell (the catalog box
+"points up" toward the playbooks for that one ingredient).
+
+**Fix (clean, respects the numbering):** move the VM base images into a NEW catalog
+layer **`01_image_layer/`** (or `01_base_images/`). The catalog's numbered layers go
+**foundational → composed**:
+```
+01 image_layer      ← ubuntu_noble, debian_trixie (VM)   ← the foundation (currently EMPTY slot)
+02 ansible_layer    ← roles
+03 container_layer  ← docker + lxc (CONTAINERS — NOT VMs)
+04 gamification_layer
+05 topology_layer   ← box_template references image(01) + roles(02) + containers(03)
+```
+- `01` is currently **empty** in the catalog — and it's exactly the most foundational
+  slot. Mirrors the scenario section `01_init_proxmox` (runs first). Putting base images
+  there **respects** the hierarchy, it doesn't break it.
+- **NOT `03_container_layer`**: a VM (QEMU/KVM, own kernel, cloud-init boot — `vm_create`)
+  is **not** a container. `03` is docker app-stacks + LXC system containers.
+- **LXC base templates** (if LXC boxes are ever supported) are containers → they can stay
+  in `03_container_layer/lxc/`, or `01` could become "all base images (vm + lxc)" — a
+  secondary call.
+- After the move: the catalog owns ALL ingredients (image/roles/containers/topology), the
+  generator only *references* them, and `playbooks → catalog` holds with no exception.
+
+(Not urgent — the current name-contract works and is validated. Do it when consolidating.)
+
 ## NEXT STEPS (priority order)
 1. ⭐ **Validate on a real Proxmox** (`range42-context deploy` of a generated ubuntu + a
    debian_trixie lab). The Debian template-creation playbooks were ported from ubuntu but
