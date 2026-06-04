@@ -257,3 +257,21 @@ def test_allocation_is_deterministic(fake_catalog):
     a2 = _alloc(catalog, boxes=[{"template": "vuln-box", "count": 3}])
     assert isinstance(a1, Allocation)
     assert manifest_dict(a1) == manifest_dict(a2)
+
+
+def test_missing_template_subnet_raises(fake_catalog):
+    """A subnet layout without template_subnet raises CompileError at allocation."""
+    layer = fake_catalog / "05_topology_layer" / "subnet_layouts" / "no-tpl-subnet" / "v1.0.0"
+    layer.mkdir(parents=True)
+    (layer / "template.yml").write_text(
+        "id: no-tpl-subnet\napi_version: 1\n"
+        "subnets:\n  - {name: admin, cidr: 192.168.99.0/24, bridge: vmbr99}\n",
+        encoding="utf-8",
+    )
+    catalog = load_catalog(fake_catalog)
+    spec = ScenarioSpec.model_validate({
+        "name": "bad_lab", "subnet_layout": "no-tpl-subnet",
+        "boxes": [{"template": "admin-wazuh"}],
+    })
+    with pytest.raises(CompileError, match="no template_subnet"):
+        allocate(spec, catalog)
