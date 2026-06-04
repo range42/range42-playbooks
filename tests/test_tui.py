@@ -17,8 +17,8 @@ def _composed(fake_catalog) -> ScenarioComposerController:
     ctl.set_name("tui_lab")
     ctl.set_subnet("default-3zone")
     ctl.set_policy("air-gap-ctf")
-    ctl.add_box("admin-wazuh")
-    ctl.add_box("vuln-box", count=3)
+    ctl.add_box("admin-wazuh", subnet="admin")
+    ctl.add_box("vuln-box", count=3, subnet="ctf")
     return ctl
 
 
@@ -42,7 +42,7 @@ def test_controller_compose_builds_spec(fake_catalog):
 def test_controller_remove_and_clear_boxes(fake_catalog):
     ctl = _composed(fake_catalog)
     ctl.remove_box(0)
-    assert [t for t, _c in ctl.boxes] == ["vuln-box"]
+    assert [t for t, _c, _s in ctl.boxes] == ["vuln-box"]
     ctl.clear_boxes()
     assert ctl.boxes == []
 
@@ -53,7 +53,7 @@ def test_controller_validate_reports_incomplete_then_bad_ref(fake_catalog):
     ctl.set_name("x")
     ctl.set_subnet("default-3zone")
     ctl.set_policy("air-gap-ctf")
-    ctl.add_box("no-such-box")
+    ctl.add_box("no-such-box", subnet="admin")
     problems = ctl.validate()
     assert any("no-such-box" in p for p in problems)
 
@@ -111,7 +111,7 @@ def test_controller_generate_autodetects_reserved_json(fake_catalog, tmp_path):
     ctl = ScenarioComposerController(fake_catalog)
     ctl.set_name("tui_lab2")
     ctl.set_subnet("default-3zone")
-    ctl.add_box("vuln-box")
+    ctl.add_box("vuln-box", subnet="ctf")
     root = ctl.generate(out)
     manifest = json.loads((root / "manifest" / "scenario_vms.json").read_text())
     vm_ids = {v["vm_id"] for v in manifest["vms"]}
@@ -137,6 +137,7 @@ def test_app_generate_warns_on_existing_then_overwrites(fake_catalog, tmp_path):
             app.query_one("#scenario", Input).value = "dup"
             app.query_one("#layout", Select).value = "default-3zone"
             app.query_one("#box", Select).value = "admin-wazuh"
+            app.query_one("#subnet", Select).value = "admin"
             await pilot.pause()
             app._do_add()
             app._do_generate()      # first: warns, arms overwrite

@@ -25,7 +25,7 @@ def _alloc(catalog, **spec_overrides):
         "name": "gen_lab",
         "subnet_layout": "default-3zone",
         "network_policy": "air-gap-ctf",
-        "boxes": [{"template": "admin-wazuh"}],
+        "boxes": [{"template": "admin-wazuh", "subnet": "admin"}],
     }
     base.update(spec_overrides)
     return allocate(ScenarioSpec.model_validate(base), catalog)
@@ -45,7 +45,7 @@ def _add_box_template(fake_catalog, *, box_id: str, template_vm: str) -> None:
     layer = fake_catalog / "05_topology_layer" / "box_templates" / box_id / "v1.0.0"
     layer.mkdir(parents=True)
     (layer / "template.yml").write_text(
-        f"id: {box_id}\napi_version: 1\nrole: student\n"
+        f"id: {box_id}\napi_version: 1\n"
         f"template_vm: \"{template_vm}\"\n"
         f"default_inventory_group: r42_student\n",
         encoding="utf-8",
@@ -59,7 +59,7 @@ def test_debian_box_selects_a_debian_trixie_template(fake_catalog):
                       template_vm="template-vm-debian-trixie-small")
     catalog = _load(fake_catalog)
     spec = ScenarioSpec.model_validate({
-        "name": "deb_lab", "subnet_layout": "default-3zone", "boxes": [{"template": "deb-box"}],
+        "name": "deb_lab", "subnet_layout": "default-3zone", "boxes": [{"template": "deb-box", "subnet": "student"}],
     })
     box = allocate(spec, catalog).boxes[0]
     assert box.image == "debian_trixie"
@@ -75,7 +75,7 @@ def test_unknown_template_vm_blocks_allocation(fake_catalog):
     catalog = _load(fake_catalog)
     spec = ScenarioSpec.model_validate({
         "name": "ghost_lab", "subnet_layout": "default-3zone",
-        "boxes": [{"template": "ghost-vm-box"}],
+        "boxes": [{"template": "ghost-vm-box", "subnet": "student"}],
     })
     with pytest.raises(CompileError, match="template-vm-does-not-exist"):
         allocate(spec, catalog)
@@ -93,7 +93,7 @@ def test_admin_box_gets_demo_lab_slot(fake_catalog):
 
 
 def test_student_box_uses_student_base_octet(fake_catalog):
-    alloc = _alloc(load_catalog(fake_catalog), boxes=[{"template": "student-box"}])
+    alloc = _alloc(load_catalog(fake_catalog), boxes=[{"template": "student-box", "subnet": "student"}])
     box = alloc.boxes[0]
     assert box.vm_id == 1160
     assert box.ip == "192.168.143.160"
@@ -102,7 +102,7 @@ def test_student_box_uses_student_base_octet(fake_catalog):
 def test_octet_rule_holds_for_every_placed_box(fake_catalog):
     alloc = _alloc(
         load_catalog(fake_catalog),
-        boxes=[{"template": "admin-wazuh"}, {"template": "vuln-box", "count": 5}],
+        boxes=[{"template": "admin-wazuh", "subnet": "admin"}, {"template": "vuln-box", "count": 5, "subnet": "ctf"}],
     )
     for box in alloc.boxes:
         assert C.octet_matches_vm_id(box.vm_id, box.ip), box
@@ -111,7 +111,7 @@ def test_octet_rule_holds_for_every_placed_box(fake_catalog):
 # --- count expansion -------------------------------------------------------
 
 def test_count_expands_to_zero_padded_names(fake_catalog):
-    alloc = _alloc(load_catalog(fake_catalog), boxes=[{"template": "vuln-box", "count": 5}])
+    alloc = _alloc(load_catalog(fake_catalog), boxes=[{"template": "vuln-box", "count": 5, "subnet": "ctf"}])
     names = [b.vm_name for b in alloc.boxes]
     assert names == ["vuln-box-00", "vuln-box-01", "vuln-box-02", "vuln-box-03", "vuln-box-04"]
     ids = [b.vm_id for b in alloc.boxes]
@@ -121,12 +121,12 @@ def test_count_expands_to_zero_padded_names(fake_catalog):
 
 
 def test_count_one_keeps_bare_template_name(fake_catalog):
-    alloc = _alloc(load_catalog(fake_catalog), boxes=[{"template": "vuln-box"}])
+    alloc = _alloc(load_catalog(fake_catalog), boxes=[{"template": "vuln-box", "subnet": "ctf"}])
     assert alloc.boxes[0].vm_name == "vuln-box"
 
 
 def test_box_resolves_clone_template_vm_id(fake_catalog):
-    alloc = _alloc(load_catalog(fake_catalog), boxes=[{"template": "vuln-box"}])
+    alloc = _alloc(load_catalog(fake_catalog), boxes=[{"template": "vuln-box", "subnet": "ctf"}])
     box = alloc.boxes[0]
     assert box.template_vm_id == 9221  # lowest 1cpu/4gb/32gb
 
@@ -136,6 +136,7 @@ def test_attachments_merge_template_defaults_and_spec_additions(fake_catalog):
         load_catalog(fake_catalog),
         boxes=[{
             "template": "vuln-box",
+            "subnet": "ctf",
             "attachments_add": [
                 {"kind": "role", "catalog_ref": "software.install.extra", "params": {}},
             ],
@@ -156,7 +157,7 @@ def test_other_scenario_vm_id_collision_bumps_band(fake_catalog, reserved_factor
     ]))
     spec = ScenarioSpec.model_validate({
         "name": "gen_lab", "subnet_layout": "default-3zone",
-        "network_policy": "air-gap-ctf", "boxes": [{"template": "vuln-box"}],
+        "network_policy": "air-gap-ctf", "boxes": [{"template": "vuln-box", "subnet": "ctf"}],
     })
     box = allocate(spec, load_catalog(fake_catalog), reserved).boxes[0]
     assert box.ip == "192.168.144.170"
@@ -170,7 +171,7 @@ def test_other_scenario_ip_collision_bumps_octet(fake_catalog, reserved_factory)
     ]))
     spec = ScenarioSpec.model_validate({
         "name": "gen_lab", "subnet_layout": "default-3zone",
-        "network_policy": "air-gap-ctf", "boxes": [{"template": "vuln-box"}],
+        "network_policy": "air-gap-ctf", "boxes": [{"template": "vuln-box", "subnet": "ctf"}],
     })
     box = allocate(spec, load_catalog(fake_catalog), reserved).boxes[0]
     assert box.ip == "192.168.144.171"
@@ -192,7 +193,7 @@ def test_template_rows_never_reallocated(fake_catalog, reserved_factory):
     reserved = ReservedIndex.from_file(reserved_factory(template_entries))
     spec = ScenarioSpec.model_validate({
         "name": "gen_lab", "subnet_layout": "default-3zone",
-        "network_policy": "air-gap-ctf", "boxes": [{"template": "vuln-box", "count": 3}],
+        "network_policy": "air-gap-ctf", "boxes": [{"template": "vuln-box", "count": 3, "subnet": "ctf"}],
     })
     alloc = allocate(spec, catalog, reserved)
     for box in alloc.boxes:
@@ -205,7 +206,7 @@ def test_manifest_matches_demo_lab_schema(fake_catalog):
     alloc = _alloc(
         load_catalog(fake_catalog),
         name="demo_clone",
-        boxes=[{"template": "admin-wazuh"}, {"template": "vuln-box", "count": 5}],
+        boxes=[{"template": "admin-wazuh", "subnet": "admin"}, {"template": "vuln-box", "count": 5, "subnet": "ctf"}],
     )
     m = manifest_dict(alloc)
     assert m["scenario"] == "demo_clone"
@@ -213,7 +214,7 @@ def test_manifest_matches_demo_lab_schema(fake_catalog):
     assert {"scenario", "version", "description", "vms", "templates"} == set(m)
     # vms sorted by vm_id, demo_lab row shape
     assert m["vms"] == sorted(m["vms"], key=lambda v: v["vm_id"])
-    assert set(m["vms"][0]) == {"vm_id", "vm_name", "ip", "role", "bridge", "image"}
+    assert set(m["vms"][0]) == {"vm_id", "vm_name", "ip", "subnet", "bridge", "image"}
     assert all(v["image"] == "ubuntu_noble" for v in m["vms"])  # fake_catalog boxes default
 
 
@@ -234,7 +235,7 @@ def test_manifest_templates_multi_image(fake_catalog):
                       template_vm="template-vm-debian-trixie-small")
     alloc = _alloc(
         load_catalog(fake_catalog),
-        boxes=[{"template": "admin-wazuh"}, {"template": "deb-box2"}],
+        boxes=[{"template": "admin-wazuh", "subnet": "admin"}, {"template": "deb-box2", "subnet": "student"}],
     )
     m = manifest_dict(alloc)
     assert {t["image"] for t in m["templates"]} == {"ubuntu_noble", "debian_trixie"}
@@ -245,7 +246,7 @@ def test_unknown_box_template_raises(fake_catalog):
     catalog = load_catalog(fake_catalog)
     spec = ScenarioSpec.model_validate({
         "name": "gen_lab", "subnet_layout": "default-3zone",
-        "network_policy": "air-gap-ctf", "boxes": [{"template": "ghost-box"}],
+        "network_policy": "air-gap-ctf", "boxes": [{"template": "ghost-box", "subnet": "admin"}],
     })
     with pytest.raises(CatalogNotFoundError):
         allocate(spec, catalog)
@@ -253,8 +254,8 @@ def test_unknown_box_template_raises(fake_catalog):
 
 def test_allocation_is_deterministic(fake_catalog):
     catalog = load_catalog(fake_catalog)
-    a1 = _alloc(catalog, boxes=[{"template": "vuln-box", "count": 3}])
-    a2 = _alloc(catalog, boxes=[{"template": "vuln-box", "count": 3}])
+    a1 = _alloc(catalog, boxes=[{"template": "vuln-box", "count": 3, "subnet": "ctf"}])
+    a2 = _alloc(catalog, boxes=[{"template": "vuln-box", "count": 3, "subnet": "ctf"}])
     assert isinstance(a1, Allocation)
     assert manifest_dict(a1) == manifest_dict(a2)
 
@@ -271,7 +272,7 @@ def test_missing_template_subnet_raises(fake_catalog):
     catalog = load_catalog(fake_catalog)
     spec = ScenarioSpec.model_validate({
         "name": "bad_lab", "subnet_layout": "no-tpl-subnet",
-        "boxes": [{"template": "admin-wazuh"}],
+        "boxes": [{"template": "admin-wazuh", "subnet": "admin"}],
     })
     with pytest.raises(CompileError, match="no template_subnet"):
         allocate(spec, catalog)

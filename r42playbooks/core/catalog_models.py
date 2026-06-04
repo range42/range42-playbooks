@@ -78,7 +78,7 @@ class ImageDef(BaseModel):
 # --- box templates ---------------------------------------------------------
 
 class BoxTemplate(BaseModel):
-    """A VM/box archetype: role, template VM reference, inventory group, attachments.
+    """A VM/box archetype: template VM reference, inventory group, attachments.
 
     ``template_vm`` is the ``vm_name`` of a :class:`ProxmoxTemplateSpec` entry in
     the catalog's ``01_image_layer``.  It uniquely identifies both the clone source
@@ -91,7 +91,6 @@ class BoxTemplate(BaseModel):
     id: str = Field(pattern=C.TEMPLATE_ID_RE.pattern)
     api_version: int = 1
     description: str = ""
-    role: Literal["admin", "ctf", "team", "student", "template"]
     template_vm: str = Field(pattern=C.TEMPLATE_ID_RE.pattern)
     default_inventory_group: str = Field(pattern=C.INVENTORY_GROUP_RE.pattern)
     default_attachments: list[Attachment] = Field(default_factory=list)

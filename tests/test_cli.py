@@ -67,7 +67,7 @@ def test_list_scenarios_shows_generated(tmp_path, fake_catalog):
             "--policy",
             "air-gap-ctf",
             "--box",
-            "admin-wazuh",
+            "admin-wazuh:subnet=admin",
             "--catalog",
             str(fake_catalog),
             "-o",
@@ -88,7 +88,6 @@ def test_list_scenarios_shows_generated(tmp_path, fake_catalog):
 def test_show_box_template_details(fake_catalog):
     res = runner.invoke(app, ["show", "vuln-box", "--catalog", str(fake_catalog)])
     assert res.exit_code == 0, res.output
-    assert "ctf" in res.output  # role
     assert "template-vm-ubuntu-noble-small-01-4g-32g" in res.output  # template_vm
     assert "ubuntu_noble" in res.output  # resolved image
     assert "9221" in res.output  # resolved vm_id
@@ -132,9 +131,9 @@ def test_new_from_flags_writes_deployable_tree(tmp_path, fake_catalog):
             "--policy",
             "air-gap-ctf",
             "--box",
-            "admin-wazuh",
+            "admin-wazuh:subnet=admin",
             "--box",
-            "vuln-box:count=3",
+            "vuln-box:subnet=ctf,count=3",
             "--catalog",
             str(fake_catalog),
             "-o",
@@ -164,7 +163,7 @@ def test_new_existing_dir_warns_then_force_overwrites(tmp_path, fake_catalog):
         "--policy",
         "air-gap-ctf",
         "--box",
-        "admin-wazuh",
+        "admin-wazuh:subnet=admin",
         "--catalog",
         str(fake_catalog),
         "-o",
@@ -190,7 +189,7 @@ def test_new_bad_box_ref_exits_nonzero(tmp_path, fake_catalog):
             "--policy",
             "air-gap-ctf",
             "--box",
-            "no-such-box",
+            "no-such-box:subnet=admin",
             "--catalog",
             str(fake_catalog),
             "-o",
@@ -238,7 +237,7 @@ def test_new_generated_tree_revalidates(tmp_path, fake_catalog):
             "--policy",
             "air-gap-ctf",
             "--box",
-            "admin-wazuh",
+            "admin-wazuh:subnet=admin",
             "--catalog",
             str(fake_catalog),
             "-o",
@@ -288,7 +287,7 @@ def test_validate_generated_scenario_r42_yml(tmp_path, fake_catalog):
             "--subnet",
             "default-3zone",
             "--box",
-            "admin-wazuh",
+            "admin-wazuh:subnet=admin",
             "--catalog",
             str(fake_catalog),
             "-o",
@@ -309,7 +308,7 @@ def test_validate_bad_spec_exits_nonzero(tmp_path, fake_catalog):
         "schema_version": 1,
         "name": "bad",
         "subnet_layout": "no-such-layout",
-        "boxes": [{"template": "vuln-box"}],
+        "boxes": [{"template": "vuln-box", "subnet": "ctf"}],
     }
     spec_path = tmp_path / "bad.r42.yml"
     spec_path.write_text(yaml.safe_dump(bad), encoding="utf-8")
@@ -332,7 +331,7 @@ def test_new_autodetects_reserved_json(tmp_path, fake_catalog):
     }
     (out / "_reserved.json").write_text(json.dumps(entry) + "\n", encoding="utf-8")
     res = runner.invoke(app, [
-        "new", "my_lab", "--subnet", "default-3zone", "--box", "vuln-box",
+        "new", "my_lab", "--subnet", "default-3zone", "--box", "vuln-box:subnet=ctf",
         "--catalog", str(fake_catalog), "-o", str(out),
     ])
     assert res.exit_code == 0, res.output

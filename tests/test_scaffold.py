@@ -20,8 +20,9 @@ def test_scaffold_picks_box_template_by_role(fake_catalog):
     t = scaffold_topology(cat, scenario="lab1", layout_id="default-3zone",
                           policy_id="air-gap-ctf")
     templates = {b.box_template for b in t.boxes}
-    assert "admin-wazuh" in templates  # admin zone
-    assert "vuln-box" in templates     # ctf zone
+    assert "admin-wazuh" in templates  # admin zone gets the admin-prefixed template
+    # Each zone gets a distinct template (one per zone, no duplicates)
+    assert len(templates) == len(t.boxes)
 
 
 def test_scaffold_respects_octet_rule(fake_catalog):

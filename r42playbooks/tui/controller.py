@@ -28,7 +28,7 @@ class ScenarioComposerController:
         self.name: str = ""
         self.subnet_layout: str = ""
         self.network_policy: str = ""
-        self._boxes: list[tuple[str, int]] = []
+        self._boxes: list[tuple[str, int, str | None]] = []
 
     # -- catalog choices --
 
@@ -47,11 +47,16 @@ class ScenarioComposerController:
     def containers(self) -> list[str]:
         return sorted(self.catalog.containers)
 
+    def subnets_for_layout(self, layout_id: str) -> list[str]:
+        """Return subnet names available in *layout_id* (empty if layout unknown)."""
+        layout = self.catalog.subnet_layouts.get(layout_id)
+        return [s.name for s in layout.subnets] if layout else []
+
     # -- composition state --
 
     @property
-    def boxes(self) -> list[tuple[str, int]]:
-        """The composed (template, count) pairs, in insertion order (a copy)."""
+    def boxes(self) -> list[tuple[str, int, str | None]]:
+        """The composed (template, count, subnet) triples, in insertion order (a copy)."""
         return list(self._boxes)
 
     def set_name(self, name: str) -> None:
@@ -63,8 +68,8 @@ class ScenarioComposerController:
     def set_policy(self, policy_id: str) -> None:
         self.network_policy = policy_id
 
-    def add_box(self, template: str, count: int = 1) -> None:
-        self._boxes.append((template, count))
+    def add_box(self, template: str, count: int = 1, subnet: str | None = None) -> None:
+        self._boxes.append((template, count, subnet))
 
     def remove_box(self, index: int) -> None:
         self._boxes = [b for i, b in enumerate(self._boxes) if i != index]
@@ -93,10 +98,16 @@ class ScenarioComposerController:
         missing = self._missing()
         if missing:
             raise TopologyError("; ".join(missing))
+        boxes = []
+        for t, c, s in self._boxes:
+            entry: dict = {"template": t, "count": c}
+            if s:
+                entry["subnet"] = s
+            boxes.append(entry)
         data = {
             "name": self.name,
             "subnet_layout": self.subnet_layout,
-            "boxes": [{"template": t, "count": c} for t, c in self._boxes],
+            "boxes": boxes,
         }
         if self.network_policy:  # optional + ignored by the generator
             data["network_policy"] = self.network_policy
@@ -126,13 +137,16 @@ class ScenarioComposerController:
         allocated VMs. Never raises: validation gaps and allocation errors are
         returned as text so the TUI shows them in-pane instead of crashing.
         """
-        total_vms = sum(count for _t, count in self._boxes)
+        total_vms = sum(count for _t, count, _s in self._boxes)
         lines = [
             f"name:   {self.name or '(unset)'}",
             f"subnet layout: {self.subnet_layout or '(unset)'}",
             f"boxes:  {total_vms} VM(s) from {len(self._boxes)} pick(s)",
         ]
-        lines += [f"  - {template} ×{count}" for template, count in self._boxes]
+        lines += [
+            f"  - {t} ×{c}" + (f" → {s}" if s else "")
+            for t, c, s in self._boxes
+        ]
 
         problems = self.validate()
         if problems:
@@ -148,7 +162,7 @@ class ScenarioComposerController:
 
         lines += ["", "ready — allocation:"]
         lines += [
-            f"  - {b.vm_name}  id={b.vm_id} ip={b.ip} role={b.role}" for b in alloc.boxes
+            f"  - {b.vm_name}  id={b.vm_id} ip={b.ip} subnet={b.subnet_name}" for b in alloc.boxes
         ]
         return "\n".join(lines)
 

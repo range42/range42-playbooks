@@ -125,7 +125,7 @@ def test_class_b_templates_present_and_parametrised(rendered):
 # --- per-section / per-box shape ------------------------------------------
 
 def test_sections_match_composed_roles(rendered):
-    """admin box -> 02_admin, ctf box -> 04_ctf; no student section emitted."""
+    """admin box -> 02_admin, ctf box -> 04_ctf; no student section emitted (subnet-driven)."""
     _spec, _alloc, root = rendered
     assert (root / "02_admin_infrastructure").is_dir()
     assert (root / "04_ctf_infrastructure").is_dir()
@@ -136,9 +136,8 @@ def test_sections_match_composed_roles(rendered):
 
 def test_each_box_has_stage00_and_stage01_playbooks(rendered):
     _spec, alloc, root = rendered
-    section_of = {"admin": "02_admin_infrastructure", "ctf": "04_ctf_infrastructure"}
     for box in alloc.boxes:
-        section = section_of[box.role]
+        section = box.section
         assert (root / section / "stage_00" / f"{box.vm_name}.yml").is_file()
         assert (root / section / "stage_01" / f"{box.vm_name}.yml").is_file()
 
@@ -171,6 +170,7 @@ def test_stage01_emits_attachment_params_as_vars(fake_catalog, spec_factory, tmp
     """An attachment's params (e.g. firewall_rules) land in its stage_01 play's vars."""
     spec = ScenarioSpec.model_validate(spec_factory(boxes=[{
         "template": "vuln-box",
+        "subnet": "ctf",
         "attachments_add": [{
             "kind": "role", "catalog_ref": "software.configure.firewalls",
             "params": {"firewall_rules": [{"ip": "all", "port": 8080, "protocol": "tcp"}]},
@@ -187,6 +187,7 @@ def test_stage01_container_attachment_emits_docker_compose_play(fake_catalog, sp
     """A container attachment renders a docker-compose play wiring the stack."""
     spec = ScenarioSpec.model_validate(spec_factory(boxes=[{
         "template": "vuln-box",
+        "subnet": "ctf",
         "attachments_add": [{"kind": "container", "catalog_ref": "cve/web/dvwa", "params": {}}],
     }]))
     root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, catalog=load_catalog(fake_catalog), dest=tmp_path / "s")
@@ -279,12 +280,12 @@ def test_init_proxmox_is_os_selective_debian(fake_catalog, tmp_path):
     layer = fake_catalog / "05_topology_layer" / "box_templates" / "deb-box" / "v1.0.0"
     layer.mkdir(parents=True)
     (layer / "template.yml").write_text(
-        "id: deb-box\napi_version: 1\nrole: student\n"
+        "id: deb-box\napi_version: 1\n"
         "template_vm: \"template-vm-debian-trixie-small\"\n"
         "default_inventory_group: r42_student\n", encoding="utf-8",
     )
     spec = ScenarioSpec.model_validate({
-        "name": "deb_lab", "subnet_layout": "default-3zone", "boxes": [{"template": "deb-box"}],
+        "name": "deb_lab", "subnet_layout": "default-3zone", "boxes": [{"template": "deb-box", "subnet": "student"}],
     })
     root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, catalog=load_catalog(fake_catalog), dest=tmp_path / "s")
     init = root / "01_init_proxmox"

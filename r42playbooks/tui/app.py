@@ -31,6 +31,7 @@ class ScenarioComposerApp(App):
     #output { width: 1fr; height: 1fr; padding: 1; border: round $accent; }
     Select, Input { width: 1fr; }
     .row { height: auto; }
+    #subnet { width: 1fr; }
     """
 
     def __init__(
@@ -50,6 +51,32 @@ class ScenarioComposerApp(App):
             return Select(opts, id=widget_id, allow_blank=False, value=opts[0][1])
         return Select(opts, id=widget_id)
 
+    def _subnet_select(self) -> Select:
+        """Build the subnet Select populated from the current layout selection."""
+        layout = self._current_layout_id()
+        subnets = self.controller.subnets_for_layout(layout) if layout else []
+        opts = [(s, s) for s in subnets]
+        if opts:
+            return Select(opts, id="subnet", allow_blank=False, value=opts[0][1])
+        return Select(opts, id="subnet", allow_blank=True)
+
+    def _current_layout_id(self) -> str | None:
+        try:
+            value = self.query_one("#layout", Select).value
+            return None if value is Select.BLANK else str(value)
+        except Exception:
+            return None
+
+    def _refresh_subnet_options(self) -> None:
+        """Repopulate #subnet when the chosen layout changes."""
+        layout = self._current_layout_id()
+        subnets = self.controller.subnets_for_layout(layout) if layout else []
+        opts = [(s, s) for s in subnets]
+        sel = self.query_one("#subnet", Select)
+        sel.set_options(opts)
+        if opts:
+            sel.value = opts[0][1]
+
     def compose(self) -> ComposeResult:
         yield Header()
         with Horizontal(id="body"):
@@ -58,10 +85,11 @@ class ScenarioComposerApp(App):
                 yield Input(placeholder="my_lab", id="scenario")
                 yield Label("Subnet layout")
                 yield self._select(self.controller.layouts(), "layout")
-                yield Label("Box  (template, count)")
+                yield Label("Box  (template, count, subnet)")
                 with Horizontal(classes="row"):
                     yield self._select(self.controller.box_templates(), "box")
                     yield Input(value=_DEFAULT_COUNT, id="count")
+                yield self._subnet_select()
                 yield Button("Add box", id="add", variant="primary")
                 yield Button("Preview", id="preview")
                 yield Button("Generate", id="generate", variant="success")
@@ -76,6 +104,8 @@ class ScenarioComposerApp(App):
     def on_mount(self) -> None:
         # Focus the name field so typing works immediately.
         self.query_one("#scenario", Input).focus()
+        # Populate subnet options from the initial layout selection.
+        self._refresh_subnet_options()
 
     # -- helpers --
 
@@ -100,6 +130,10 @@ class ScenarioComposerApp(App):
 
     # -- events --
 
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id == "layout":
+            self._refresh_subnet_options()
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle every button — fired by a mouse click or Enter/Space when focused."""
         handlers = {
@@ -122,7 +156,8 @@ class ScenarioComposerApp(App):
         if template is None:
             self._set_output("⚠ pick a box template first")
             return
-        self.controller.add_box(template, self._count())
+        subnet = self._selected("subnet")
+        self.controller.add_box(template, self._count(), subnet)
         self._do_preview()
 
     def _do_clear(self) -> None:

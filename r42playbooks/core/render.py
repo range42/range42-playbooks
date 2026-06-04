@@ -38,22 +38,6 @@ from r42playbooks.core.io import atomic_write_text
 from r42playbooks.core.models import Attachment
 from r42playbooks.core.spec import ScenarioSpec, dumps_spec
 
-# Role -> emitted section directory (plan §7.1 / H4; 'team' shares the student
-# section). 'template' is never a placed box (templates come from TEMPLATE_TABLE).
-SECTION_BY_ROLE: dict[str, str] = {
-    "admin": "02_admin_infrastructure",
-    "student": "03_student_infrastructure",
-    "team": "03_student_infrastructure",
-    "ctf": "04_ctf_infrastructure",
-}
-# Human label used in stage_00 task names (cosmetic, mirrors demo_lab wording).
-SECTION_LABEL: dict[str, str] = {
-    "admin": "ADMIN INFRASTRUCTURE INIT",
-    "student": "TRAINEE INFRASTRUCTURE INIT",
-    "team": "TEAM INFRASTRUCTURE INIT",
-    "ctf": "CTF INFRASTRUCTURE INIT",
-}
-
 _DEFAULT_PROXMOX_NODE = "pve"
 _NETMASK = "24"
 _EXEC_MODE = 0o755
@@ -193,7 +177,7 @@ def _render_box(
     box: AllocatedBox, section_dir: Path, scenario: str, proxmox_node: str
 ) -> None:
     """Emit stage_00 + stage_01 + devkit for one VM."""
-    label = SECTION_LABEL[box.role]
+    label = box.label
 
     stage00 = A.fill(
         A.STAGE00_CLONE,
@@ -240,7 +224,7 @@ def _sections_for(alloc: Allocation) -> dict[str, list[AllocatedBox]]:
     """Group placed boxes by their emitted section dir (sorted by section number)."""
     grouped: dict[str, list[AllocatedBox]] = {}
     for box in alloc.boxes:
-        section = SECTION_BY_ROLE[box.role]
+        section = box.section
         grouped.setdefault(section, []).append(box)
     return {name: grouped[name] for name in sorted(grouped)}
 
@@ -427,9 +411,9 @@ def _render_templates_class_b(root: Path, scenario: str) -> None:
 
 
 def _render_readme(root: Path, spec: ScenarioSpec, alloc: Allocation) -> None:
-    rows = ["| box | role | image | vm_id | ip |", "|---|---|---|---|---|"]
+    rows = ["| box | subnet | image | vm_id | ip |", "|---|---|---|---|---|"]
     rows += [
-        f"| `{b.vm_name}` | {b.role} | {b.image} | {b.vm_id} | {b.ip} |"
+        f"| `{b.vm_name}` | {b.subnet_name} | {b.image} | {b.vm_id} | {b.ip} |"
         for b in alloc.boxes
     ]
     notes_line = f"\n> {spec.notes}\n" if spec.notes else ""
@@ -489,7 +473,7 @@ def _stage00_import(box: AllocatedBox) -> str:
         VM_NAME=box.vm_name,
         VM_ID=box.vm_id,
         IP=box.ip,
-        TAG=box.role,
+        TAG=box.subnet_name,
         DESCRIPTION=box.box_template,
         TEMPLATE_VM_ID=box.template_vm_id,
         TEMPLATE_NAME=box.template_name,

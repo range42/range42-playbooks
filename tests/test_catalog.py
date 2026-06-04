@@ -17,7 +17,6 @@ def test_load_catalog_indexes_all_categories(fake_catalog):
 def test_box_template_fields_parsed(fake_catalog):
     cat = load_catalog(fake_catalog)
     vb = cat.box_templates["vuln-box"]
-    assert vb.role == "ctf"
     assert vb.default_inventory_group == "r42_vuln_box_group"
     assert vb.default_attachments[0].catalog_ref == "software.install.wazuh-agent"
 

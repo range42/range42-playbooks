@@ -67,10 +67,11 @@ def valid_spec_dict() -> dict:
         "proxmox_node": "px-testing",
         "notes": "demo composition",
         "boxes": [
-            {"template": "admin-wazuh"},
+            {"template": "admin-wazuh", "subnet": "admin"},
             {
                 "template": "vuln-box",
                 "count": 5,
+                "subnet": "ctf",
                 "attachments_add": [
                     {
                         "kind": "role",
@@ -130,9 +131,9 @@ id: default-3zone
 api_version: 1
 description: admin + ctf + student subnets
 subnets:
-  - {name: admin, cidr: "192.168.142.0/24", bridge: vmbr142, gateway: "192.168.142.1"}
-  - {name: ctf, cidr: "192.168.144.0/24", bridge: vmbr144}
-  - {name: student, cidr: "192.168.143.0/24", bridge: vmbr143}
+  - {name: admin, cidr: "192.168.142.0/24", bridge: vmbr142, gateway: "192.168.142.1", base_octet: 100, section: 02_admin_infrastructure, label: "ADMIN INFRASTRUCTURE INIT"}
+  - {name: ctf, cidr: "192.168.144.0/24", bridge: vmbr144, base_octet: 170, section: 04_ctf_infrastructure, label: "CTF INFRASTRUCTURE INIT"}
+  - {name: student, cidr: "192.168.143.0/24", bridge: vmbr143, base_octet: 160, section: 03_student_infrastructure, label: "TRAINEE INFRASTRUCTURE INIT"}
 template_subnet: {cidr: "192.168.140.0/24", bridge: vmbr140}
 """.lstrip(),
     )
@@ -143,7 +144,6 @@ template_subnet: {cidr: "192.168.140.0/24", bridge: vmbr140}
 id: vuln-box
 api_version: 1
 description: CTF vulnerable target
-role: ctf
 template_vm: "template-vm-ubuntu-noble-small-01-4g-32g"
 default_inventory_group: r42_vuln_box_group
 default_attachments:
@@ -157,7 +157,6 @@ default_attachments:
 id: admin-wazuh
 api_version: 1
 description: Wazuh SIEM admin box
-role: admin
 template_vm: "template-vm-ubuntu-noble-medium-04-8g-64g"
 default_inventory_group: r42_admin_group
 """.lstrip(),
@@ -169,7 +168,6 @@ default_inventory_group: r42_admin_group
 id: student-box
 api_version: 1
 description: student workstation
-role: student
 template_vm: "template-vm-ubuntu-noble-micro-01-2g-24g"
 default_inventory_group: r42_student_group
 """.lstrip(),

@@ -105,12 +105,11 @@ def list_cmd(
 
     cat = _load_catalog(catalog)
     if kind is ListKind.boxes:
-        rows = [(name, cat.box_templates[name].role, cat.box_templates[name].template_vm)
+        rows = [(name, cat.box_templates[name].template_vm)
                 for name in sorted(cat.box_templates)]
         w0 = max(len(r[0]) for r in rows)
-        w1 = max(len(r[1]) for r in rows)
-        for name, role, tvm in rows:
-            typer.echo(f"{name:<{w0}}  {role:<{w1}}  {tvm}")
+        for name, tvm in rows:
+            typer.echo(f"{name:<{w0}}  {tvm}")
     elif kind is ListKind.subnets:
         for name in sorted(cat.subnet_layouts):
             typer.echo(name)
@@ -151,7 +150,6 @@ def show(
         typer.secho(f"box-template: {bt.id}", bold=True)
         if bt.description:
             typer.echo(f"  {bt.description}")
-        typer.echo(f"  role:            {bt.role}")
         typer.echo(f"  inventory group: {bt.default_inventory_group}")
         resolved = find_template_vm(cat, bt.template_vm)
         if resolved:
@@ -222,24 +220,27 @@ def _print_manifest_summary(root: Path) -> None:
         col = max(len(v["vm_name"]) for v in vms)
         for v in vms:
             typer.echo(
-                f"    {v['vm_id']}  {v['vm_name']:<{col}}  {v['role']:<8}  {v['ip']}"
+                f"    {v['vm_id']}  {v['vm_name']:<{col}}  {v['subnet']:<8}  {v['ip']}"
             )
 
 
 def _parse_box(raw: str) -> dict:
-    """Parse a ``--box`` flag: ``template`` or ``template:count=5,template_vm_id=9244``."""
+    """Parse a ``--box`` flag: ``template`` or ``template:subnet=admin,count=5``."""
     template, _, rest = raw.partition(":")
     box: dict = {"template": template}
     if rest:
         for pair in rest.split(","):
             key, _, value = pair.partition("=")
             key = key.strip()
-            if key not in ("count", "template_vm_id"):
+            if key == "subnet":
+                box[key] = value.strip()
+            elif key in ("count", "template_vm_id"):
+                try:
+                    box[key] = int(value)
+                except ValueError:
+                    _fail(f"error: --box {raw!r}: {key} must be an integer")
+            else:
                 _fail(f"error: unknown box option {key!r} in --box {raw!r}")
-            try:
-                box[key] = int(value)
-            except ValueError:
-                _fail(f"error: --box {raw!r}: {key} must be an integer")
     return box
 
 

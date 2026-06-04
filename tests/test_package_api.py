@@ -39,7 +39,7 @@ def test_load_spec_then_render(fake_catalog, valid_spec_dict, tmp_path):
 
 
 def test_unknown_catalog_ref_raises_core_error(fake_catalog, spec_factory, tmp_path):
-    bad = spec_factory(boxes=[{"template": "ghost-box"}])
+    bad = spec_factory(boxes=[{"template": "ghost-box", "subnet": "admin"}])
     spec = r.ScenarioSpec.model_validate(bad)
     catalog = r.load_catalog(fake_catalog)
     # validate_refs surfaces it as a message...

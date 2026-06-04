@@ -49,9 +49,10 @@ class AllocatedBox:
     vm_id: int
     vm_name: str
     ip: str
-    role: str
     bridge: str
     subnet_name: str
+    section: str          # playbook directory (e.g. "02_admin_infrastructure")
+    label: str            # human task label (e.g. "ADMIN INFRASTRUCTURE INIT")
     gateway: str | None
     inventory_group: str
     box_template: str           # the catalog box-template id (e.g. "vuln-box")
@@ -125,14 +126,12 @@ def _allocate_box(
 ) -> list[AllocatedBox]:
     """Resolve and place every replica of one composed box."""
     bt = catalog.resolve_box_template(box.template)  # raises CatalogNotFoundError
-    if bt.role == "template":
-        raise CompileError(f"box template {box.template!r} has role 'template' and is not placeable")
 
-    subnet_name = C.ROLE_SUBNET_NAME.get(bt.role)
+    subnet_name = box.subnet
     subnet = subnets_by_name.get(subnet_name) if subnet_name else None
     if subnet is None:
         raise CompileError(
-            f"subnet layout has no {subnet_name!r} subnet for role {bt.role!r} "
+            f"subnet layout has no {subnet_name!r} subnet "
             f"(box {box.template!r})"
         )
 
@@ -156,7 +155,7 @@ def _allocate_box(
         tmpl_vm_name = tpl_spec.vm_name
 
     attachments = tuple(bt.default_attachments) + tuple(box.attachments_add)
-    base_octet = C.ROLE_BASE_OCTET[bt.role]
+    base_octet = subnet.base_octet
 
     placed: list[AllocatedBox] = []
     for name in _expand_names(box.template, box.count):
@@ -169,9 +168,10 @@ def _allocate_box(
             vm_id=vm_id,
             vm_name=name,
             ip=ip,
-            role=bt.role,
             bridge=subnet.bridge,
             subnet_name=subnet.name,
+            section=subnet.section,
+            label=subnet.label,
             gateway=subnet.gateway,
             inventory_group=bt.default_inventory_group,
             box_template=box.template,
@@ -247,7 +247,7 @@ def manifest_dict(alloc: Allocation) -> dict[str, Any]:
     """Project an Allocation into the demo_lab ``scenario_vms.json`` dict."""
     vms = sorted(
         (
-            {"vm_id": b.vm_id, "vm_name": b.vm_name, "ip": b.ip, "role": b.role,
+            {"vm_id": b.vm_id, "vm_name": b.vm_name, "ip": b.ip, "subnet": b.subnet_name,
              "bridge": b.bridge, "image": b.image}
             for b in alloc.boxes
         ),
