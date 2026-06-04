@@ -249,8 +249,8 @@ def _render_init_proxmox(root: Path, used_images: list[str], catalog: Catalog) -
     init = root / "01_init_proxmox"
     used = [img for img in used_images if img in _IMAGE_SETS]
 
-    # static top orchestrator (imports both stages) + a clean reinstall helper
-    _copy_file(asset / "_main.yml", init / "_main.yml")
+    # top orchestrator (imports both stages) + a clean reinstall helper
+    _write(A.INIT_PROXMOX_MAIN_YML, init / "_main.yml")
     _write(A.INIT_REINSTALL_SH, init / "_main.reinstall.sh", executable=True)
 
     # stage_00: download base images — one cloudinit_<image>.yml rendered per used image

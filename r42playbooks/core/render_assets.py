@@ -495,6 +495,11 @@ MAIN_VMS_ONLY_HEADER = """\
 # lines). The cloudinit_<os>.yml downloads and templates/<os>/ trees are copied
 # from the vendored asset; these two files just wire up the used ones.
 
+INIT_PROXMOX_MAIN_YML = """\
+- import_playbook: ./stage_00-download_cloudinit_files/_main.yml
+- import_playbook: ./stage_01-create_templates/_main.yml
+"""
+
 STAGE_DOWNLOAD_MAIN = """\
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 # PROMOX INIT - download cloud-init base images (only the OS families used)
