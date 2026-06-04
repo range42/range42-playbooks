@@ -37,6 +37,12 @@ W_ZONE_ACCEPT = 200
 W_INTRA = 300
 W_ZONE_DROP = 500
 W_AIRGAP = 600
+# W_EGRESS_ACCEPT: used when dst resolves to None (wan/unbound zone).
+# Placed AFTER W_ZONE_DROP (500) and W_AIRGAP (600) so explicit zone DROPs
+# and airgap rules fire first, then remaining traffic is allowed to egress.
+# This enables deny-by-default with explicit internet-egress ACCEPT rows
+# without shadowing cross-zone DROP rules.
+W_EGRESS_ACCEPT = 700
 W_DEFAULT = 900
 
 _ACTION_JUMP = {"accept": "ACCEPT", "drop": "DROP", "reject": "REJECT"}
@@ -244,9 +250,12 @@ def _compile_matrix_rule(
             ))
         return out
 
-    # zone destination
+    # zone destination (dst=None when zone is wan/unbound — use egress band)
     dst = zsubnet.get(mr.dst)
-    weight = W_ZONE_ACCEPT if mr.action == "accept" else W_ZONE_DROP
+    if mr.action == "accept":
+        weight = W_EGRESS_ACCEPT if dst is None else W_ZONE_ACCEPT
+    else:
+        weight = W_ZONE_DROP
     if mr.ports:
         return [CompiledRule(weight=weight, proto=p.proto, source=src, destination=dst,
                              destination_port=_port_str(p), jump=jump, comment=comment)
