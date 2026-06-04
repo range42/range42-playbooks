@@ -1141,7 +1141,6 @@ NETWORK_ISOLATION_MAIN = """\
 
 - hosts: proxmox-cli
   gather_facts: false
-  become: true
   vars_files:
     - "../../secrets/default_vault.yml"
 
