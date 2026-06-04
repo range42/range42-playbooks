@@ -25,7 +25,12 @@ from pathlib import Path
 import yaml
 
 from r42playbooks.core import render_assets as A
-from r42playbooks.core.allocate import Allocation, AllocatedBox, ResolvedTemplate, manifest_json
+from r42playbooks.core.allocate import (
+    Allocation,
+    AllocatedBox,
+    ResolvedTemplate,
+    manifest_json,
+)
 from r42playbooks.core.catalog import Catalog
 from r42playbooks.core.errors import ScenarioExistsError, ValidationError
 from r42playbooks.core.io import atomic_write_text
@@ -48,7 +53,7 @@ SECTION_LABEL: dict[str, str] = {
     "ctf": "CTF INFRASTRUCTURE INIT",
 }
 
-_DEFAULT_PROXMOX_NODE = "px-testing"
+_DEFAULT_PROXMOX_NODE = "pve"
 _NETMASK = "24"
 _EXEC_MODE = 0o755
 
@@ -126,7 +131,11 @@ def _gateway(box: AllocatedBox) -> str:
 
 def _attachment_role(att: Attachment) -> str:
     """The catalog role an attachment applies (container -> shared docker-compose)."""
-    return "software.configure.docker-compose" if att.kind == "container" else att.catalog_ref
+    return (
+        "software.configure.docker-compose"
+        if att.kind == "container"
+        else att.catalog_ref
+    )
 
 
 def _attachment_vars(att: Attachment) -> dict:
@@ -142,7 +151,9 @@ def _attachment_vars(att: Attachment) -> dict:
     wiring = {
         "LABEL_PROJECT_TYPE": "CTF",
         "LABEL_PROJET_NAME": name,
-        "LOCAL__PROJECT_DIR": "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/" + att.catalog_ref + "/",
+        "LOCAL__PROJECT_DIR": "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/"
+        + att.catalog_ref
+        + "/",
         "REMOTE_PROJECT_DIR": f"/tmp/deploy-{name}",
         "OPERATOR_USER": "{{ default_admin_vm_ci_user }}",
     }
@@ -156,50 +167,73 @@ def _render_stage01(box: AllocatedBox) -> str:
     box_vars = dict(box.box_vars)
     plays = [
         A.fill(
-            A.STAGE01_PLAY, VM_NAME=box.vm_name, SSH_HOST=ssh,
+            A.STAGE01_PLAY,
+            VM_NAME=box.vm_name,
+            SSH_HOST=ssh,
             ROLE=_attachment_role(att),
             VARS_BLOCK=_vars_block({**box_vars, **_attachment_vars(att)}),
         )
         for att in box.attachments
     ]
     if not plays:
-        return A.fill(A.STAGE01_PLACEHOLDER, VM_NAME=box.vm_name, SSH_HOST=ssh,
-                      VARS_BLOCK=_vars_block(box_vars))
+        return A.fill(
+            A.STAGE01_PLACEHOLDER,
+            VM_NAME=box.vm_name,
+            SSH_HOST=ssh,
+            VARS_BLOCK=_vars_block(box_vars),
+        )
     return A.fill(A.STAGE01_HEADER, VM_NAME=box.vm_name) + "\n" + "\n".join(plays)
 
 
 # --- per-box -----------------------------------------------------------------
 
-def _render_box(box: AllocatedBox, section_dir: Path, scenario: str, proxmox_node: str) -> None:
+
+def _render_box(
+    box: AllocatedBox, section_dir: Path, scenario: str, proxmox_node: str
+) -> None:
     """Emit stage_00 + stage_01 + devkit for one VM."""
     label = SECTION_LABEL[box.role]
 
     stage00 = A.fill(
         A.STAGE00_CLONE,
-        SECTION_LABEL=label, VM_NAME=box.vm_name, VM_ID=box.vm_id, IP=box.ip,
-        TEMPLATE_NAME=box.template_name, NETMASK=_NETMASK,
-        GATEWAY=_gateway(box), BRIDGE=box.bridge,
+        SECTION_LABEL=label,
+        VM_NAME=box.vm_name,
+        VM_ID=box.vm_id,
+        IP=box.ip,
+        TEMPLATE_NAME=box.template_name,
+        NETMASK=_NETMASK,
+        GATEWAY=_gateway(box),
+        BRIDGE=box.bridge,
     )
     _write(stage00, section_dir / "stage_00" / f"{box.vm_name}.yml")
 
     _write(_render_stage01(box), section_dir / "stage_01" / f"{box.vm_name}.yml")
 
-    _render_devkit(box, section_dir / "stage_01" / f"{box.vm_name}.devkit", scenario, proxmox_node)
+    _render_devkit(
+        box, section_dir / "stage_01" / f"{box.vm_name}.devkit", scenario, proxmox_node
+    )
 
 
-def _render_devkit(box: AllocatedBox, devkit_dir: Path, scenario: str, proxmox_node: str) -> None:
+def _render_devkit(
+    box: AllocatedBox, devkit_dir: Path, scenario: str, proxmox_node: str
+) -> None:
     """Emit the per-box install / snapshot / revert scripts."""
     prefix = f"{_file_prefix(scenario)}.{box.vm_name}"
     scripts = {
         f"{prefix}.install.sh": A.fill(A.DEVKIT_INSTALL, VM_NAME=box.vm_name),
-        f"{prefix}.snapshot.sh": A.fill(A.DEVKIT_SNAPSHOT, VM_NAME=box.vm_name, PROXMOX_NODE=proxmox_node),
-        f"{prefix}.revert.sh": A.fill(A.DEVKIT_REVERT, VM_NAME=box.vm_name, PROXMOX_NODE=proxmox_node),
+        f"{prefix}.snapshot.sh": A.fill(
+            A.DEVKIT_SNAPSHOT, VM_NAME=box.vm_name, PROXMOX_NODE=proxmox_node
+        ),
+        f"{prefix}.revert.sh": A.fill(
+            A.DEVKIT_REVERT, VM_NAME=box.vm_name, PROXMOX_NODE=proxmox_node
+        ),
     }
     for name, body in scripts.items():
         _write(body, devkit_dir / name, executable=True)
 
 
 # --- sections ----------------------------------------------------------------
+
 
 def _sections_for(alloc: Allocation) -> dict[str, list[AllocatedBox]]:
     """Group placed boxes by their emitted section dir (sorted by section number)."""
@@ -210,19 +244,25 @@ def _sections_for(alloc: Allocation) -> dict[str, list[AllocatedBox]]:
     return {name: grouped[name] for name in sorted(grouped)}
 
 
-def _render_sections(alloc: Allocation, root: Path, scenario: str, proxmox_node: str) -> list[str]:
+def _render_sections(
+    alloc: Allocation, root: Path, scenario: str, proxmox_node: str
+) -> list[str]:
     """Emit every section dir + its boxes + reinstall script. Returns section names."""
     sections = _sections_for(alloc)
     for section, boxes in sections.items():
         section_dir = root / section
         for box in boxes:
             _render_box(box, section_dir, scenario, proxmox_node)
-        _write(A.fill(A.SECTION_REINSTALL, SECTION=section),
-                section_dir / "_main.reinstall.sh", executable=True)
+        _write(
+            A.fill(A.SECTION_REINSTALL, SECTION=section),
+            section_dir / "_main.reinstall.sh",
+            executable=True,
+        )
     return list(sections)
 
 
 # --- top level ---------------------------------------------------------------
+
 
 def _render_init_proxmox(
     root: Path, alloc_templates: tuple[ResolvedTemplate, ...], catalog: Catalog
@@ -264,8 +304,12 @@ def _render_init_proxmox(
             )
         ci = img_def.cloud_image
         _write(
-            A.fill(A.CLOUDINIT_DOWNLOAD_YML, IMAGE_ID=image_id,
-                   ISO_URL=ci.url, ISO_FILE_NAME=ci.filename),
+            A.fill(
+                A.CLOUDINIT_DOWNLOAD_YML,
+                IMAGE_ID=image_id,
+                ISO_URL=ci.url,
+                ISO_FILE_NAME=ci.filename,
+            ),
             dl / cloudinit_filename.format(image=image_id),
         )
 
@@ -275,7 +319,9 @@ def _render_init_proxmox(
         f"- import_playbook: ./templates/{i}/{_IMAGE_SETS[i]['main']}\n"
         for i in used_images
     )
-    _write(A.fill(A.STAGE_TEMPLATES_MAIN, IMPORTS=tpl_stage_imports), stage / "_main.yml")
+    _write(
+        A.fill(A.STAGE_TEMPLATES_MAIN, IMPORTS=tpl_stage_imports), stage / "_main.yml"
+    )
 
     for image_id in used_images:
         img_def = catalog.images.get(image_id)
@@ -314,20 +360,27 @@ def _render_init_proxmox(
         id_list = "".join(
             f"      - {t.vm_id}  # {t.vm_name}\n" for t in needed_templates
         )
-        _write(A.fill(A.APPLY_APT_PROXY_YML, IMAGE_ID=image_id, VM_ID_LIST=id_list),
-               img_dir / "_apply_apt_proxy.yml")
+        _write(
+            A.fill(A.APPLY_APT_PROXY_YML, IMAGE_ID=image_id, VM_ID_LIST=id_list),
+            img_dir / "_apply_apt_proxy.yml",
+        )
 
         # _main_<image>.yml imports only the needed template plays
         _write(
-            A.fill(A.MAIN_IMAGE_YML, IMAGE_ID=image_id, TEMPLATE_IMPORTS=tpl_imports_img),
+            A.fill(
+                A.MAIN_IMAGE_YML, IMAGE_ID=image_id, TEMPLATE_IMPORTS=tpl_imports_img
+            ),
             img_dir / _IMAGE_SETS[image_id]["main"],
         )
 
         # static helpers (read from manifest at runtime / pure Jinja2 — no ids)
-        _write(A.fill(A.UPDATE_TEMPLATES_YML, IMAGE_ID=image_id),
-               img_dir / "_update_templates.yml")
-        _write(A.TEMPLATE_BOOTSTRAP_YAML_J2,
-               img_dir / "range42-template-bootstrap.yaml.j2")
+        _write(
+            A.fill(A.UPDATE_TEMPLATES_YML, IMAGE_ID=image_id),
+            img_dir / "_update_templates.yml",
+        )
+        _write(
+            A.TEMPLATE_BOOTSTRAP_YAML_J2, img_dir / "range42-template-bootstrap.yaml.j2"
+        )
 
 
 def _render_main_playbooks(root: Path, scenario: str, sections: list[str]) -> None:
@@ -337,8 +390,10 @@ def _render_main_playbooks(root: Path, scenario: str, sections: list[str]) -> No
     # main.yml: create the template images (01_init_proxmox) then deploy the sections.
     _write(header + _INIT_MAIN_IMPORT + "\n\n" + section_imports, root / "main.yml")
     # main_vms_only.yml: skip 01_init_proxmox (templates already exist).
-    _write(A.fill(A.MAIN_VMS_ONLY_HEADER, SCENARIO=scenario) + section_imports,
-           root / "main_vms_only.yml")
+    _write(
+        A.fill(A.MAIN_VMS_ONLY_HEADER, SCENARIO=scenario) + section_imports,
+        root / "main_vms_only.yml",
+    )
 
 
 def _render_top_level_scripts(root: Path, scenario: str) -> None:
@@ -360,16 +415,27 @@ def _render_top_level_scripts(root: Path, scenario: str) -> None:
 
 def _render_templates_class_b(root: Path, scenario: str) -> None:
     """Emit the class-B templates/ files (the .j2 inventory/ssh-config are S5a)."""
-    _write(A.fill(A.ANSIBLE_VARS_YML, SCENARIO=scenario), root / "templates" / "ansible-vars.yml")
-    _write(A.fill(A.VAULT_EXAMPLE_YML, SCENARIO=scenario), root / "templates" / "vault-example.yml")
+    _write(
+        A.fill(A.ANSIBLE_VARS_YML, SCENARIO=scenario),
+        root / "templates" / "ansible-vars.yml",
+    )
+    _write(
+        A.fill(A.VAULT_EXAMPLE_YML, SCENARIO=scenario),
+        root / "templates" / "vault-example.yml",
+    )
 
 
 def _render_readme(root: Path, spec: ScenarioSpec, alloc: Allocation) -> None:
     rows = ["| box | role | image | vm_id | ip |", "|---|---|---|---|---|"]
-    rows += [f"| `{b.vm_name}` | {b.role} | {b.image} | {b.vm_id} | {b.ip} |" for b in alloc.boxes]
+    rows += [
+        f"| `{b.vm_name}` | {b.role} | {b.image} | {b.vm_id} | {b.ip} |"
+        for b in alloc.boxes
+    ]
     _write(
         A.fill(
-            A.README_MD, SCENARIO=spec.name, SUBNET_LAYOUT=spec.subnet_layout,
+            A.README_MD,
+            SCENARIO=spec.name,
+            SUBNET_LAYOUT=spec.subnet_layout,
             BOX_TABLE="\n".join(rows),
         ),
         root / "README.md",
@@ -377,6 +443,7 @@ def _render_readme(root: Path, spec: ScenarioSpec, alloc: Allocation) -> None:
 
 
 # --- class-A: manifest-derived artifacts (reflect THIS composition) ----------
+
 
 def _render_manifest(alloc: Allocation, root: Path) -> None:
     """Write manifest/scenario_vms.json (vms[] + populated templates[], H1)."""
@@ -407,15 +474,21 @@ def _render_ssh_config_j2(alloc: Allocation, root: Path) -> None:
     blocks = "\n\n".join(
         f"Host {_ssh_host(b.vm_name)}\n    Hostname {b.ip}" for b in alloc.boxes
     )
-    _write(A.fill(A.SSHCONFIG_J2, VM_BLOCKS=blocks), root / "templates" / "ssh-config.j2")
+    _write(
+        A.fill(A.SSHCONFIG_J2, VM_BLOCKS=blocks), root / "templates" / "ssh-config.j2"
+    )
 
 
 def _stage00_import(box: AllocatedBox) -> str:
     """One section-_main.yml stage_00 import + its per-VM global_* overrides."""
     return A.fill(
         A.SECTION_MAIN_STAGE00,
-        VM_NAME=box.vm_name, VM_ID=box.vm_id, IP=box.ip, TAG=box.role,
-        DESCRIPTION=box.box_template, TEMPLATE_VM_ID=box.template_vm_id,
+        VM_NAME=box.vm_name,
+        VM_ID=box.vm_id,
+        IP=box.ip,
+        TAG=box.role,
+        DESCRIPTION=box.box_template,
+        TEMPLATE_VM_ID=box.template_vm_id,
         TEMPLATE_NAME=box.template_name,
     )
 
@@ -431,7 +504,12 @@ def _render_section_mains(alloc: Allocation, root: Path) -> None:
 
 
 def render_scenario(
-    alloc: Allocation, spec: ScenarioSpec, *, catalog: Catalog, dest: Path, overwrite: bool = False
+    alloc: Allocation,
+    spec: ScenarioSpec,
+    *,
+    catalog: Catalog,
+    dest: Path,
+    overwrite: bool = False,
 ) -> Path:
     """Render *alloc*/*spec* into ``dest/<spec.name>/`` and return that path.
 
