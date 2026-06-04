@@ -76,6 +76,18 @@ _TEMPLATES_STAGE = "stage_01-create_templates"
 _ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 
 
+def _parse_spec(spec: str) -> tuple[int, int, str]:
+    """Parse ``'Xcpu/Ygb/Zgb'`` into ``(cores, memory_mb, disk_size)``.
+
+    ``memory_mb`` is ``Y * 1024``; ``disk_size`` is ``'Zg'`` (qemu-img / Proxmox format).
+    """
+    parts = spec.split("/")
+    cores = int(parts[0].replace("cpu", ""))
+    ram_mb = int(parts[1].replace("gb", "")) * 1024
+    disk = parts[2].replace("gb", "g")
+    return cores, ram_mb, disk
+
+
 def _write(text: str, path: Path, *, executable: bool = False) -> Path:
     """Atomic write; ``chmod +x`` for generated shell scripts."""
     atomic_write_text(text, path)
@@ -264,15 +276,65 @@ def _render_init_proxmox(root: Path, used_images: list[str], catalog: Catalog) -
         )
         _write(rendered, dl / cloudinit_filename.format(image=image_id))
 
-    # stage_01: create templates — one templates/<image>/<main> import per used image
+    # stage_01: create templates — rendered per-VM files + copied static helpers
     stage = init / _TEMPLATES_STAGE
     tpl_imports = "".join(
         f"- import_playbook: ./templates/{i}/{_IMAGE_SETS[i]['main']}\n" for i in used
     )
     _write(A.fill(A.STAGE_TEMPLATES_MAIN, IMPORTS=tpl_imports), stage / "_main.yml")
-    for i in used:
-        shutil.copytree(asset / _TEMPLATES_STAGE / "templates" / i,
-                        stage / "templates" / i, dirs_exist_ok=True)
+    for image_id in used:
+        img_def = catalog.images.get(image_id)
+        if img_def is None or not img_def.proxmox_templates:
+            raise ValidationError(
+                f"image {image_id!r} has no proxmox_templates in the catalog's 01_image_layer "
+                f"— add a proxmox_templates list to its image.yml"
+            )
+        if img_def.cloud_image is None:
+            raise ValidationError(
+                f"image {image_id!r} has no cloud_image in the catalog's 01_image_layer"
+            )
+        img_dir = stage / "templates" / image_id
+        image_path = f"/var/lib/vz/template/iso/{img_def.cloud_image.filename}"
+
+        # render one play per template VM
+        tpl_imports_img = ""
+        for tpl in img_def.proxmox_templates:
+            cores, memory_mb, disk_size = _parse_spec(tpl.spec)
+            ip_prefix = ".".join(tpl.ip.split(".")[:3])
+            rendered = A.fill(
+                A.TEMPLATE_VM_YML,
+                IMAGE_ID=image_id,
+                VM_ID=str(tpl.vm_id),
+                VM_NAME=tpl.vm_name,
+                VM_CORES=str(cores),
+                VM_MEMORY_MB=str(memory_mb),
+                VM_NET_BRIDGE=tpl.bridge,
+                VM_DISK_SIZE=disk_size,
+                CLOUDINIT_IMAGE_PATH=image_path,
+                VM_CI_IP=tpl.ip,
+                VM_CI_IP_GW=f"{ip_prefix}.1",
+            )
+            filename = f"{tpl.vm_name}.yml"
+            _write(rendered, img_dir / filename)
+            tpl_imports_img += f"- import_playbook: ./{filename}\n"
+
+        # render _apply_apt_proxy.yml with this image's vm_id list
+        id_list = "".join(
+            f"      - {t.vm_id}  # {t.vm_name}\n" for t in img_def.proxmox_templates
+        )
+        _write(A.fill(A.APPLY_APT_PROXY_YML, IMAGE_ID=image_id, VM_ID_LIST=id_list),
+               img_dir / "_apply_apt_proxy.yml")
+
+        # render _main_<image>.yml
+        _write(
+            A.fill(A.MAIN_IMAGE_YML, IMAGE_ID=image_id, TEMPLATE_IMPORTS=tpl_imports_img),
+            img_dir / _IMAGE_SETS[image_id]["main"],
+        )
+
+        # copy the two static helpers (read from manifest / pure Jinja2 — no hardcoded ids)
+        for static_file in ("_update_templates.yml", "range42-template-bootstrap.yaml.j2"):
+            _copy_file(asset / _TEMPLATES_STAGE / "templates" / image_id / static_file,
+                       img_dir / static_file)
 
 
 def _render_main_playbooks(root: Path, scenario: str, sections: list[str]) -> None:

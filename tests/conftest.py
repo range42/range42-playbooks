@@ -155,6 +155,11 @@ description: Ubuntu 24.04 LTS (Noble Numbat)
 cloud_image:
   url: "https://cloud-images.ubuntu.com/minimal/daily/noble/current/noble-minimal-cloudimg-amd64.img"
   filename: "noble-minimal-cloudimg-amd64.img"
+proxmox_templates:
+  - {vm_id: 9211, vm_name: "template-vm-micro-01-2g-24g", spec: "1cpu/2gb/24gb", ip: "192.168.140.211", bridge: "vmbr140"}
+  - {vm_id: 9221, vm_name: "template-vm-small-01-4g-32g", spec: "1cpu/4gb/32gb", ip: "192.168.140.221", bridge: "vmbr140"}
+  - {vm_id: 9232, vm_name: "template-vm-medium-02-8g-64g", spec: "2cpu/8gb/64gb", ip: "192.168.140.232", bridge: "vmbr140"}
+  - {vm_id: 9234, vm_name: "template-vm-medium-04-8g-64g", spec: "4cpu/8gb/64gb", ip: "192.168.140.234", bridge: "vmbr140"}
 """.lstrip())
     _write(root / "01_image_layer" / "debian_trixie" / "v1.0.0" / "image.yml", """
 id: debian_trixie
@@ -165,6 +170,9 @@ description: Debian 13 (Trixie)
 cloud_image:
   url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.raw"
   filename: "debian-13-genericcloud-amd64.img"
+proxmox_templates:
+  - {vm_id: 9321, vm_name: "template-vm-debian-small",  spec: "1cpu/4gb/32gb", ip: "192.168.140.121", bridge: "vmbr140"}
+  - {vm_id: 9331, vm_name: "template-vm-debian-medium", spec: "2cpu/8gb/64gb", ip: "192.168.140.131", bridge: "vmbr140"}
 """.lstrip())
 
     # two versions of a policy — loader must pick the highest (1.1.0)

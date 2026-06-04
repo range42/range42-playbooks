@@ -32,6 +32,23 @@ class CloudImageSpec(BaseModel):
     filename: str = Field(min_length=1)
 
 
+class ProxmoxTemplateSpec(BaseModel):
+    """One Proxmox 9xxx template VM entry — the render source for stage_01 create plays.
+
+    Mirrors a row in ``TEMPLATE_TABLE`` but lives in the catalog so the generator
+    renders ``stage_01-create_templates/templates/<image>/<vm_name>.yml`` without
+    any hardcoded data in the playbooks repo.
+    """
+
+    model_config = _STRICT
+
+    vm_id: int
+    vm_name: str = Field(min_length=1)
+    spec: str = Field(min_length=1)   # "Xcpu/Ygb/Zgb"
+    ip: str = Field(pattern=C.IPV4_RE.pattern)
+    bridge: str = Field(pattern=C.BRIDGE_RE.pattern, default="vmbr140")
+
+
 class ImageDef(BaseModel):
     """Base VM image descriptor — the canonical name + distro metadata.
 
@@ -40,6 +57,8 @@ class ImageDef(BaseModel):
     exists in the catalog's 01_image_layer.
     cloud_image carries the download coordinates used by the generator to
     render stage_00-download_cloudinit_files/<image>.yml.
+    proxmox_templates carries the per-VM create coordinates used to render
+    stage_01-create_templates/templates/<image>/<vm_name>.yml.
     """
 
     model_config = _STRICT
@@ -50,6 +69,7 @@ class ImageDef(BaseModel):
     codename: str = Field(pattern=r"^[a-z0-9]+$", min_length=1)
     description: str = ""
     cloud_image: CloudImageSpec | None = None
+    proxmox_templates: list[ProxmoxTemplateSpec] = Field(default_factory=list)
 
 
 # --- box templates ---------------------------------------------------------

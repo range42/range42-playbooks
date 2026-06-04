@@ -556,6 +556,229 @@ STAGE_TEMPLATES_MAIN = """\
 
 @@IMPORTS@@"""
 
+# --- stage_01 per-template-VM create play (rendered from catalog) ---
+# One file per ProxmoxTemplateSpec entry in 01_image_layer/<image>/image.yml.
+# Placeholders:
+#   @@IMAGE_ID@@            — image id (e.g. ubuntu_noble)
+#   @@VM_ID@@               — Proxmox vm_id (e.g. 9221)
+#   @@VM_NAME@@             — vm_name (e.g. template-vm-small-01-4g-32g)
+#   @@VM_CORES@@            — cpu cores (parsed from spec)
+#   @@VM_MEMORY_MB@@        — memory in MB (parsed from spec)
+#   @@VM_NET_BRIDGE@@       — network bridge (e.g. vmbr140)
+#   @@VM_DISK_SIZE@@        — disk size string for qemu-img (e.g. 32g)
+#   @@CLOUDINIT_IMAGE_PATH@@ — full path on Proxmox local storage
+#   @@VM_CI_IP@@            — cloud-init IP
+#   @@VM_CI_IP_GW@@         — cloud-init gateway (first 3 octets + .1)
+TEMPLATE_VM_YML = """\
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# PROXMOX INIT - create @@IMAGE_ID@@ template VM @@VM_NAME@@ (id @@VM_ID@@)
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "../../../../secrets/default_vault.yml"
+
+  tasks:
+    #### IDEMPOTENCE - skip if already finalized as template ####
+    - name: TEMPLATE @@VM_ID@@ - CHECK if already finalized as template
+      ansible.builtin.shell: qm config @@VM_ID@@ 2>/dev/null | grep -q '^template:'
+      register: tpl_@@VM_ID@@_is_template
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+
+    - name: TEMPLATE @@VM_ID@@ - WAIT for unlock if a parallel deploy holds the VM
+      ansible.builtin.shell: qm config @@VM_ID@@ | grep -q '^lock:'
+      register: tpl_@@VM_ID@@_lock
+      until: tpl_@@VM_ID@@_lock.rc != 0
+      retries: 30
+      delay: 10
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+      when: tpl_@@VM_ID@@_is_template.rc != 0
+
+    - name: TEMPLATE @@VM_ID@@ - SKIP all (already finalized as template)
+      ansible.builtin.debug:
+        msg: "Template @@VM_ID@@ is already a template - skipping. Run delete-everything to recreate."
+      when: tpl_@@VM_ID@@_is_template.rc == 0
+
+    #### vm_create idempotence: separate exists check ####
+    - name: TEMPLATE @@VM_ID@@ - CHECK if VM exists (vm_create idempotence)
+      ansible.builtin.shell: qm config @@VM_ID@@ 2>/dev/null
+      register: tpl_@@VM_ID@@_exists
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+      when: tpl_@@VM_ID@@_is_template.rc != 0
+
+    - name: PROXMOX INIT - TEMPLATES - CREATE TEMPLATE - @@VM_NAME@@
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "vm_create"
+        vm_id: @@VM_ID@@
+        vm_name: "@@VM_NAME@@"
+        vm_cpu: "host"
+        vm_cores: @@VM_CORES@@
+        vm_sockets: 1
+        vm_memory: @@VM_MEMORY_MB@@
+        vm_net_virtio_bridge: "@@VM_NET_BRIDGE@@"
+      when:
+        - tpl_@@VM_ID@@_is_template.rc != 0
+        - tpl_@@VM_ID@@_exists.rc != 0
+
+    - name: PROXMOX INIT - TEMPLATES - WAIT for vm_create to finish (lock-aware)
+      ansible.builtin.shell: qm config @@VM_ID@@ | grep -q '^lock:'
+      register: tpl_@@VM_ID@@_post_create_lock
+      until: tpl_@@VM_ID@@_post_create_lock.rc != 0
+      retries: 60
+      delay: 5
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+      when:
+        - tpl_@@VM_ID@@_is_template.rc != 0
+        - tpl_@@VM_ID@@_exists.rc != 0
+
+- hosts: proxmox-cli
+  gather_facts: false
+  vars_files:
+    - "../../../../secrets/default_vault.yml"
+
+  tasks:
+    - name: TEMPLATE @@VM_ID@@ - CHECK if already template (proxmox-cli play)
+      ansible.builtin.shell: qm config @@VM_ID@@ 2>/dev/null | grep -q '^template:'
+      register: tpl_@@VM_ID@@_is_template
+      failed_when: false
+      changed_when: false
+
+    - name: PROXMOX INIT - TEMPLATES - IMPORT CLOUD INIT DISK - @@VM_NAME@@
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "template_cloudinit_import_disk"
+        proxmox_node: "px-testing-cli"
+        cloudinit_image_full_path: "@@CLOUDINIT_IMAGE_PATH@@"
+        vm_id: @@VM_ID@@
+        vm_disk_size: "@@VM_DISK_SIZE@@"
+        proxmox_dest_vm_storage_name: "local-lvm"
+      when: tpl_@@VM_ID@@_is_template.rc != 0
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "../../../../secrets/default_vault.yml"
+
+  tasks:
+    - name: TEMPLATE @@VM_ID@@ - CHECK if already template (third play)
+      ansible.builtin.shell: qm config @@VM_ID@@ 2>/dev/null | grep -q '^template:'
+      register: tpl_@@VM_ID@@_is_template
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+
+    - name: PROXMOX INIT - TEMPLATES - SET CLOUD DEFAULT INIT VARIABLE - @@VM_NAME@@
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "cloudinit_set_variables"
+        vm_id: @@VM_ID@@
+        vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
+        vm_ci_password: "{{ default_trainee_vm_ci_password | default('supersecret') }}"
+        vm_ci_ssh_key: "{{ default_trainee_vm_ci_ssh_key }}"
+        vm_ci_dns_ips: "1.1.1.1"
+        vm_ci_ip: "@@VM_CI_IP@@"
+        vm_ci_netmask: "24"
+        vm_ci_ip_gw: "@@VM_CI_IP_GW@@"
+      when: tpl_@@VM_ID@@_is_template.rc != 0
+
+    - name: PROXMOX INIT - TEMPLATES - SET PROXMOX TAG
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "vm_set_tag"
+        vm_id: @@VM_ID@@
+        vm_tag_name: "template"
+      when: tpl_@@VM_ID@@_is_template.rc != 0
+"""
+
+# Apt proxy cicustom play — rendered per image with its full vm_id list.
+# @@VM_ID_LIST@@ — YAML sequence items, 6-space indent, e.g.:
+#   "      - 9221  # template-vm-small-01-4g-32g\n      - 9222  # ..."
+APPLY_APT_PROXY_YML = """\
+##
+## @@IMAGE_ID@@ - apt proxy via cloud-init cicustom (optional)
+##
+## Attaches /var/lib/vz/snippets/range42-apt-proxy.yaml as cloud-init vendor-data
+## to every template VM. All VMs cloned from these templates inherit the apt
+## proxy automatically via cloud-init at first boot.
+## Skipped (no-op) if apt_proxy_url is empty/unset. Idempotent.
+##
+
+- hosts: proxmox-cli
+  gather_facts: false
+  vars_files:
+    - "../../../../secrets/default_vault.yml"
+
+  vars:
+    bs2_template_vm_ids:
+@@VM_ID_LIST@@
+  tasks:
+    - name: APT-PROXY - SKIP (apt_proxy_url is empty)
+      ansible.builtin.debug:
+        msg: "apt_proxy_url is empty - cloud-init cicustom not applied to templates"
+      when: apt_proxy_url is not defined or (apt_proxy_url | length) == 0
+
+    - name: APT-PROXY - ATTACH cicustom vendor TO TEMPLATES
+      ansible.builtin.command:
+        cmd: qm set {{ item }} --cicustom "vendor=local:snippets/range42-apt-proxy.yaml"
+      loop: "{{ bs2_template_vm_ids }}"
+      register: qm_result
+      changed_when: qm_result.rc == 0
+      failed_when:
+        - qm_result.rc != 0
+        - "'does not exist' not in qm_result.stderr"
+      when: apt_proxy_url is defined and (apt_proxy_url | length) > 0
+
+    - name: APT-PROXY - DETACH cicustom vendor FROM TEMPLATES (apt_proxy_url unset)
+      ansible.builtin.command:
+        cmd: qm set {{ item }} --delete cicustom
+      loop: "{{ bs2_template_vm_ids }}"
+      register: qm_unset
+      changed_when: qm_unset.rc == 0
+      failed_when:
+        - qm_unset.rc != 0
+        - "'does not exist' not in qm_unset.stderr"
+      when: apt_proxy_url is not defined or (apt_proxy_url | length) == 0
+
+    - name: APT-PROXY - DISPLAY STATUS
+      ansible.builtin.debug:
+        msg: |
+          apt proxy: {{ apt_proxy_url if (apt_proxy_url is defined and (apt_proxy_url | length) > 0) else 'DISABLED' }}
+          cicustom : {{ 'attached to ' + (bs2_template_vm_ids | length | string) + ' templates' if (apt_proxy_url is defined and (apt_proxy_url | length) > 0) else 'detached from templates' }}
+"""
+
+# Per-image stage_01 orchestrator — imports all template VM plays + proxy + update.
+# @@IMAGE_ID@@        — image id
+# @@TEMPLATE_IMPORTS@@ — "- import_playbook: ./template-vm-nano.yml\n..." lines
+MAIN_IMAGE_YML = """\
+##
+## @@IMAGE_ID@@ — create + configure all Proxmox template VMs for this image
+##
+
+@@TEMPLATE_IMPORTS@@
+# apt proxy cicustom (no-op if apt_proxy_url empty)
+- import_playbook: ./_apply_apt_proxy.yml
+
+# pre-update: start each VM, run apt update + dist-upgrade via cloud-init poweroff,
+# then convert to template.
+- import_playbook: ./_update_templates.yml
+"""
+
 # Reinstall helper for the 01_init_proxmox stage (re-run template creation).
 INIT_REINSTALL_SH = """\
 #!/bin/bash
