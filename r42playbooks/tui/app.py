@@ -55,7 +55,7 @@ class ScenarioComposerApp(App):
         """Build the subnet Select populated from the current layout selection."""
         layout = self._current_layout_id()
         subnets = self.controller.subnets_for_layout(layout) if layout else []
-        opts = [(s, s) for s in subnets]
+        opts = [(f"{name}  {cidr}", name) for name, cidr in subnets]
         if opts:
             return Select(opts, id="subnet", allow_blank=False, value=opts[0][1])
         return Select(opts, id="subnet", allow_blank=True)
@@ -71,7 +71,7 @@ class ScenarioComposerApp(App):
         """Repopulate #subnet when the chosen layout changes."""
         layout = self._current_layout_id()
         subnets = self.controller.subnets_for_layout(layout) if layout else []
-        opts = [(s, s) for s in subnets]
+        opts = [(f"{name}  {cidr}", name) for name, cidr in subnets]
         sel = self.query_one("#subnet", Select)
         sel.set_options(opts)
         if opts:

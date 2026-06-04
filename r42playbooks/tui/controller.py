@@ -47,10 +47,10 @@ class ScenarioComposerController:
     def containers(self) -> list[str]:
         return sorted(self.catalog.containers)
 
-    def subnets_for_layout(self, layout_id: str) -> list[str]:
-        """Return subnet names available in *layout_id* (empty if layout unknown)."""
+    def subnets_for_layout(self, layout_id: str) -> list[tuple[str, str]]:
+        """Return (name, cidr) pairs for subnets in *layout_id* (empty if unknown)."""
         layout = self.catalog.subnet_layouts.get(layout_id)
-        return [s.name for s in layout.subnets] if layout else []
+        return [(s.name, s.cidr) for s in layout.subnets] if layout else []
 
     # -- composition state --
 
