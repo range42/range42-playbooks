@@ -27,3 +27,20 @@
             iso_url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.raw",
             iso_file_name: "debian-13-genericcloud-amd64.img",
           }
+
+# The download-url API is async (returns a UPID immediately). Poll on
+# proxmox-cli until the file is fully on disk before stage_01 imports it.
+- hosts: proxmox-cli
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: PROMOX INIT - WAIT for debian-13-genericcloud-amd64.img to be fully downloaded
+      ansible.builtin.stat:
+        path: "/var/lib/vz/template/iso/debian-13-genericcloud-amd64.img"
+      register: _debian_trixie_img
+      until: _debian_trixie_img.stat.exists and _debian_trixie_img.stat.size > 100000000
+      retries: 120   # 120 × 10 s = 20 min max
+      delay: 10
+      changed_when: false
