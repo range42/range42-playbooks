@@ -1,11 +1,12 @@
 """Typer CLI — the msfvenom-style scenario generator frontend.
 
 Commands:
-  list <kind>   enumerate pickable catalog modules (boxes/subnets/policies/
-                roles/containers) or existing generated scenarios
-  show <module> describe one catalog module
-  new <name>    compose a ScenarioSpec (from flags or --spec) and render a
-                deployable scenarios/<name>/ tree
+  list <kind>      enumerate catalog modules (boxes/subnets/policies/roles/
+                   containers/images) or existing generated scenarios
+  show <module>    describe one catalog module (box, subnet, policy, image…)
+  new <name>       compose a ScenarioSpec (from flags or --spec) and render a
+                   deployable scenarios/<name>/ tree
+  validate <spec>  typo-check a scenario.r42.yml against the catalog
 
 A thin shell over the frozen ``r42playbooks.api``: it parses args, prints, and
 maps core errors to exit codes. No business logic lives here.
@@ -284,6 +285,27 @@ def new(
         _fail(f"generate failed: {exc}")
     typer.secho(f"✓ generated {root}", fg=typer.colors.GREEN)
     _print_manifest_summary(root)
+
+
+@app.command()
+def validate(
+    spec: Path = typer.Argument(..., help="Path to a scenario.r42.yml spec file"),
+    catalog: Path = _CatalogOpt,
+) -> None:
+    """Validate a scenario.r42.yml spec against the catalog (no files written)."""
+    cat = _load_catalog(catalog)
+    try:
+        composed = api.load_spec(spec)
+    except TopologyError as exc:
+        _fail(f"error: {exc}")
+
+    problems = api.validate_refs(composed, cat)
+    if problems:
+        for p in problems:
+            typer.secho(f"  ✗ {p}", fg=typer.colors.RED)
+        _fail(f"{len(problems)} problem(s) found in {spec}")
+    typer.secho(f"✓ {spec.name} — spec valid ({len(composed.boxes)} box(es), {composed.subnet_layout})",
+                fg=typer.colors.GREEN)
 
 
 if __name__ == "__main__":

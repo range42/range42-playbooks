@@ -180,3 +180,37 @@ def test_new_generated_tree_revalidates(tmp_path, fake_catalog):
         "--catalog", str(fake_catalog), "-o", str(out),
     ])
     assert regen.exit_code == 0, regen.output
+
+
+# --- validate ------------------------------------------------------------------
+
+def test_validate_valid_spec_exits_zero(tmp_path, fake_catalog, valid_spec_dict):
+    import yaml
+    spec_path = tmp_path / "scenario.r42.yml"
+    spec_path.write_text(yaml.safe_dump(valid_spec_dict), encoding="utf-8")
+    res = runner.invoke(app, ["validate", str(spec_path), "--catalog", str(fake_catalog)])
+    assert res.exit_code == 0, res.output
+    assert "valid" in res.output
+
+
+def test_validate_generated_scenario_r42_yml(tmp_path, fake_catalog):
+    """The scenario.r42.yml written by `new` should pass `validate` cleanly."""
+    out = tmp_path / "scenarios"
+    runner.invoke(app, [
+        "new", "val_lab", "--subnet", "default-3zone",
+        "--box", "admin-wazuh", "--catalog", str(fake_catalog), "-o", str(out),
+    ])
+    spec_path = out / "val_lab" / "scenario.r42.yml"
+    res = runner.invoke(app, ["validate", str(spec_path), "--catalog", str(fake_catalog)])
+    assert res.exit_code == 0, res.output
+
+
+def test_validate_bad_spec_exits_nonzero(tmp_path, fake_catalog):
+    import yaml
+    bad = {"schema_version": 1, "name": "bad", "subnet_layout": "no-such-layout",
+           "boxes": [{"template": "vuln-box"}]}
+    spec_path = tmp_path / "bad.r42.yml"
+    spec_path.write_text(yaml.safe_dump(bad), encoding="utf-8")
+    res = runner.invoke(app, ["validate", str(spec_path), "--catalog", str(fake_catalog)])
+    assert res.exit_code != 0
+    assert "no-such-layout" in res.output
