@@ -150,6 +150,13 @@ def _allocate_box(
 
     prefix = _subnet_prefix(subnet.cidr)
 
+    if box.octet is not None and subnet.gateway is not None:
+        if f"{prefix}.{box.octet}" == subnet.gateway:
+            raise CompileError(
+                f"box {box.template!r} octet {box.octet} on subnet {subnet_name!r} "
+                f"conflicts with the subnet gateway {subnet.gateway}"
+            )
+
     # Resolve template VM from catalog (globally unique vm_name → image + spec).
     resolved = find_template_vm(catalog, bt.template_vm)
     if resolved is None:
@@ -211,6 +218,11 @@ def allocate(spec: ScenarioSpec, catalog: Catalog, reserved: ReservedIndex | Non
     subnet_index = {s.name: i for i, s in enumerate(layout.subnets)}
 
     taken_ids, taken_ips = _blocked(reserved, spec.name)
+
+    # Reserve gateway IPs — they belong to the Proxmox host, never to VMs.
+    for s in layout.subnets:
+        if s.gateway:
+            taken_ips.add(s.gateway)
 
     boxes: list[AllocatedBox] = []
     for box in spec.boxes:

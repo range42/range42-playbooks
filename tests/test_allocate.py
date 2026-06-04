@@ -294,3 +294,35 @@ def test_missing_template_subnet_raises(fake_catalog):
     })
     with pytest.raises(CompileError, match="no template_subnet"):
         allocate(spec, catalog)
+
+
+# --- gateway conflict validation -------------------------------------------
+
+def test_explicit_octet_conflicting_with_gateway_raises(fake_catalog):
+    """Explicit octet that matches the subnet gateway raises CompileError."""
+    # admin gateway in the fixture is 192.168.142.1 (octet 1)
+    with pytest.raises(CompileError, match="gateway"):
+        _alloc(load_catalog(fake_catalog),
+               boxes=[{"template": "admin-wazuh", "subnet": "admin", "octet": 1}])
+
+
+def test_auto_allocation_skips_gateway_ip(fake_catalog):
+    """Auto-allocation never assigns the gateway IP even when it falls at the start octet."""
+    layer = fake_catalog / "05_topology_layer" / "subnet_layouts" / "gw-at-ten" / "v1.0.0"
+    layer.mkdir(parents=True)
+    (layer / "template.yml").write_text(
+        "id: gw-at-ten\napi_version: 1\n"
+        "subnets:\n"
+        "  - {name: srv, cidr: 192.168.200.0/24, bridge: vmbr200, gateway: 192.168.200.10}\n"
+        "template_subnet: {cidr: 192.168.140.0/24, bridge: vmbr140}\n",
+        encoding="utf-8",
+    )
+    catalog = load_catalog(fake_catalog)
+    spec = ScenarioSpec.model_validate({
+        "name": "gw_test", "subnet_layout": "gw-at-ten",
+        "boxes": [{"template": "admin-wazuh", "subnet": "srv"}],
+    })
+    alloc = allocate(spec, catalog)
+    box = alloc.boxes[0]
+    assert box.ip != "192.168.200.10", "gateway IP must not be assigned to a VM"
+    assert box.ip == "192.168.200.11"  # skipped .10 (gateway), landed on .11
