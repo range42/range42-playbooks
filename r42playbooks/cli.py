@@ -38,7 +38,10 @@ _CatalogOpt = typer.Option(
 _OutputOpt = typer.Option(
     Path("scenarios"), "-o", "--output", help="Scenarios output dir"
 )
-_ReservedOpt = typer.Option(None, "--reserved", help="Path to scenarios/_reserved.json")
+_ReservedOpt = typer.Option(
+    None, "--reserved",
+    help="Path to _reserved.json (auto-detected from output dir if present)",
+)
 
 
 class ListKind(str, Enum):
