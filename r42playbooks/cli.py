@@ -1,4 +1,4 @@
-"""Typer CLI — the msfvenom-style scenario generator frontend.
+"""Typer CLI — the scenario generator frontend.
 
 Commands:
   list <kind>      enumerate catalog modules (boxes/subnets/policies/roles/
@@ -25,14 +25,19 @@ from r42playbooks.core.errors import ScenarioExistsError, TopologyError
 from r42playbooks.core.idalloc import ReservedIndex
 from r42playbooks.core.spec import ScenarioSpec
 
-app = typer.Typer(help="range42 scenario generator (compose labs from the catalog)",
-                  no_args_is_help=True)
+app = typer.Typer(
+    help="range42 scenario generator (compose labs from the catalog)",
+    no_args_is_help=True,
+)
 
 _CatalogOpt = typer.Option(
-    Path("../range42-catalog"), "--catalog",
+    Path("../range42-catalog"),
+    "--catalog",
     help="Path to the range42-catalog checkout",
 )
-_OutputOpt = typer.Option(Path("scenarios"), "-o", "--output", help="Scenarios output dir")
+_OutputOpt = typer.Option(
+    Path("scenarios"), "-o", "--output", help="Scenarios output dir"
+)
 _ReservedOpt = typer.Option(None, "--reserved", help="Path to scenarios/_reserved.json")
 
 
@@ -70,6 +75,7 @@ def _reserved(path: Path | None) -> ReservedIndex | None:
 
 
 # --- list ------------------------------------------------------------------
+
 
 @app.command("list")
 def list_cmd(
@@ -114,14 +120,19 @@ def list_cmd(
     elif kind is ListKind.images:
         for image_id in sorted(cat.images):
             img = cat.images[image_id]
-            typer.echo(f"{image_id}\t{img.distro}/{img.codename}\t{len(img.proxmox_templates)} template(s)")
+            typer.echo(
+                f"{image_id}\t{img.distro}/{img.codename}\t{len(img.proxmox_templates)} template(s)"
+            )
 
 
 # --- show ------------------------------------------------------------------
 
+
 @app.command()
 def show(
-    module: str = typer.Argument(..., help="A box / subnet / policy / role / container name"),
+    module: str = typer.Argument(
+        ..., help="A box / subnet / policy / role / container name"
+    ),
     catalog: Path = _CatalogOpt,
 ) -> None:
     """Describe a single catalog module (auto-detects its kind)."""
@@ -137,11 +148,15 @@ def show(
         resolved = find_template_vm(cat, bt.template_vm)
         if resolved:
             image_id, tpl = resolved
-            typer.echo(f"  template_vm:     {bt.template_vm}  [{image_id}  vm_id={tpl.vm_id}  {tpl.spec}]")
+            typer.echo(
+                f"  template_vm:     {bt.template_vm}  [{image_id}  vm_id={tpl.vm_id}  {tpl.spec}]"
+            )
         else:
             typer.echo(f"  template_vm:     {bt.template_vm}")
         attachments = bt.default_attachments or []
-        typer.echo(f"  default roles:   {', '.join(a.catalog_ref for a in attachments) or '(none)'}")
+        typer.echo(
+            f"  default roles:   {', '.join(a.catalog_ref for a in attachments) or '(none)'}"
+        )
     elif module in cat.subnet_layouts:
         sl = cat.subnet_layouts[module]
         typer.secho(f"subnet-layout: {sl.id}", bold=True)
@@ -179,9 +194,11 @@ def show(
 
 # --- new -------------------------------------------------------------------
 
+
 def _print_manifest_summary(root: Path) -> None:
     """Print a compact VM/template table from the generated manifest."""
     import json
+
     manifest_path = root / "manifest" / "scenario_vms.json"
     if not manifest_path.is_file():
         return
@@ -196,7 +213,9 @@ def _print_manifest_summary(root: Path) -> None:
         typer.echo(f"\n  boxes ({len(vms)}):")
         col = max(len(v["vm_name"]) for v in vms)
         for v in vms:
-            typer.echo(f"    {v['vm_id']}  {v['vm_name']:<{col}}  {v['role']:<8}  {v['ip']}")
+            typer.echo(
+                f"    {v['vm_id']}  {v['vm_name']:<{col}}  {v['role']:<8}  {v['ip']}"
+            )
 
 
 def _parse_box(raw: str) -> dict:
@@ -217,8 +236,13 @@ def _parse_box(raw: str) -> dict:
 
 
 def _build_spec(
-    name: str, subnet: str | None, policy: str | None, boxes: list[str],
-    spec_file: Path | None, proxmox_node: str | None, notes: str | None,
+    name: str,
+    subnet: str | None,
+    policy: str | None,
+    boxes: list[str],
+    spec_file: Path | None,
+    proxmox_node: str | None,
+    notes: str | None,
 ) -> ScenarioSpec:
     """Build a ScenarioSpec from --spec (name-overridden) or from flags."""
     if spec_file is not None:
@@ -235,10 +259,13 @@ def _build_spec(
         if not boxes:
             _fail("error: at least one --box is required (or pass --spec)")
         data = {
-            "name": name, "subnet_layout": subnet,
+            "name": name,
+            "subnet_layout": subnet,
             "boxes": [_parse_box(b) for b in boxes],
         }
-        if policy:  # optional + ignored by the generator (isolation = per-box firewall roles)
+        if (
+            policy
+        ):  # optional + ignored by the generator (isolation = per-box firewall roles)
             data["network_policy"] = policy
         if proxmox_node:
             data["proxmox_node"] = proxmox_node
@@ -254,13 +281,24 @@ def _build_spec(
 def new(
     name: str = typer.Argument(..., help="Scenario name (no dots)"),
     subnet: str = typer.Option(None, "--subnet", help="subnet_layout template id"),
-    policy: str = typer.Option(None, "--policy",
-                               help="network_policy id (optional, currently unused by the generator)"),
-    box: list[str] = typer.Option(None, "--box", help="template[:count=N,template_vm_id=ID]"),
-    spec: Path = typer.Option(None, "--spec", help="Load a scenario.r42.yml instead of flags"),
-    proxmox_node: str = typer.Option(None, "--proxmox-node", help="Target Proxmox node"),
+    policy: str = typer.Option(
+        None,
+        "--policy",
+        help="network_policy id (optional, currently unused by the generator)",
+    ),
+    box: list[str] = typer.Option(
+        None, "--box", help="template[:count=N,template_vm_id=ID]"
+    ),
+    spec: Path = typer.Option(
+        None, "--spec", help="Load a scenario.r42.yml instead of flags"
+    ),
+    proxmox_node: str = typer.Option(
+        None, "--proxmox-node", help="Target Proxmox node"
+    ),
     notes: str = typer.Option(None, "--notes", help="Free-text notes"),
-    force: bool = typer.Option(False, "--force", help="Overwrite an existing scenario dir"),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite an existing scenario dir"
+    ),
     catalog: Path = _CatalogOpt,
     output: Path = _OutputOpt,
     reserved: Path = _ReservedOpt,
@@ -277,7 +315,11 @@ def new(
 
     try:
         root = api.render_scenario(
-            composed, catalog=cat, dest=output, reserved=_reserved(reserved), overwrite=force
+            composed,
+            catalog=cat,
+            dest=output,
+            reserved=_reserved(reserved),
+            overwrite=force,
         )
     except ScenarioExistsError as exc:
         _fail(f"{exc}\n  pass --force to overwrite it")
@@ -304,8 +346,10 @@ def validate(
         for p in problems:
             typer.secho(f"  ✗ {p}", fg=typer.colors.RED)
         _fail(f"{len(problems)} problem(s) found in {spec}")
-    typer.secho(f"✓ {spec.name} — spec valid ({len(composed.boxes)} box(es), {composed.subnet_layout})",
-                fg=typer.colors.GREEN)
+    typer.secho(
+        f"✓ {spec.name} — spec valid ({len(composed.boxes)} box(es), {composed.subnet_layout})",
+        fg=typer.colors.GREEN,
+    )
 
 
 if __name__ == "__main__":
