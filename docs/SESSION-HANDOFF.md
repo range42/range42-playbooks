@@ -1,7 +1,7 @@
 # Session handoff — r42playbooks generator
 
-**Date:** 2026-06-04. **Continue:** next session on a **different PC** → everything
-below is **pushed** (both repos), don't rely on local-only state or `.claude` memory.
+**Date:** 2026-06-04 (session 2). **Continue:** next session on a **different PC** →
+everything below is **pushed** (both repos), don't rely on local-only state or `.claude` memory.
 
 ## Repos & branches
 | repo | branch | resume with |
@@ -10,97 +10,89 @@ below is **pushed** (both repos), don't rely on local-only state or `.claude` me
 | `range42-catalog` | `feat/topology-layer-templates` | `git fetch && git checkout feat/topology-layer-templates` |
 
 Setup: `cd range42-playbooks && python3 -m venv .venv && .venv/bin/pip install -e ".[dev,cli,tui]"`
-then `.venv/bin/python -m pytest -q` → **190 green**.
+then `.venv/bin/python -m pytest -q` → **197 green**.
 
 Generator entry point:
 ```
-.venv/bin/python -m r42playbooks.cli new my_lab \
-  --subnet default-3zone --box vuln-box:count=2 --box debian-jump \
+.venv/bin/r42playbooks new my_lab \
+  --subnet default-3zone --box "vuln-box:count=2" --box debian-jump \
   --catalog ../range42-catalog -o scenarios/
 ```
 
-## What changed THIS session (major refactors)
+## What changed THIS session (CLI polish pass)
 
-### 1. `01_image_layer` created in the catalog
-The catalog now owns ALL ingredients — `01_image_layer/<image>/image.yml` carries:
-- `cloud_image: {url, filename}` — download coordinates for stage_00
-- `proxmox_templates: [{vm_id, vm_name, spec, ip_octet}]` — Proxmox template VM specs
-  for stage_01; vm_names follow `template-vm-{distro}-{codename}-*` convention
-- `ip_octet` only (last octet) — full IP derived at allocation from `template_subnet`
+### 1. `--force` cleanup fix (render.py)
+`render_scenario(overwrite=True)` now calls `shutil.rmtree(root)` before re-rendering,
+so stale files from a prior generator run (e.g. old numbered `00-template-vm-*.yml`) do
+not survive alongside the new output.  Test added (`test_render_overwrite_removes_stale_files`).
 
-### 2. `BoxTemplate` refactored: `spec` + `image` → `template_vm`
-`BoxTemplate.template_vm` is a direct reference to a `ProxmoxTemplateSpec` by `vm_name`
-(globally unique across all images). The generator resolves `template_vm` → image + spec
-via `find_template_vm(catalog, vm_name)`. No more fuzzy `select_template` / `TEMPLATE_TABLE`.
+### 2. Enriched `show` command
+- `show <box>`: now shows description + resolved template VM inline:
+  `template_vm: template-vm-debian-trixie-small  [debian_trixie  vm_id=9321  1cpu/4gb/32gb]`
+- `show <subnet>`: shows description + `template_subnet` (bridge+CIDR).
 
-### 3. Selective template rendering
-`alloc.templates` is now the **deduplicated set of template VMs the scenario actually
-needs** (not the full image table). A scenario with only `debian-jump` creates only
-`template-vm-debian-trixie-small` (9321) — no ubuntu_noble files at all.
+### 3. Manifest summary printed after `new`
+After `r42playbooks new` succeeds, a compact table is printed:
+```
+  templates (2):
+    9221  template-vm-ubuntu-noble-small-01-4g-32g  [ubuntu_noble  1cpu/4gb/32gb]
+    9321  template-vm-debian-trixie-small  [debian_trixie  1cpu/4gb/32gb]
 
-### 4. `template_subnet` in SubnetLayout
-`SubnetLayout.template_subnet: TemplateSubnet | None` carries the Proxmox infrastructure
-subnet (bridge + cidr) used for template VM creation. Separate from lab zones (the
-"3" in `default-3zone` remains accurate). The renderer derives template VM IPs as
-`{template_subnet.cidr_prefix}.{tpl.ip_octet}`.
+  boxes (3):
+    1160  debian-jump  student   192.168.143.160
+    1170  vuln-box-00  ctf       192.168.144.170
+    1171  vuln-box-01  ctf       192.168.144.171
+```
+Read from the generated manifest — no allocation re-run needed.
 
-### 5. `assets/` directory eliminated
-ALL `01_init_proxmox` content is now rendered from catalog data or `render_assets.py`
-constants. No static asset files remain. `templates_table.py` deleted.
+### 4. `list images` + `show <image>`
+- `r42playbooks list images` → enumerates `debian_trixie`, `ubuntu_noble` with distro/count.
+- `r42playbooks show ubuntu_noble` → full image details incl. all 12 template VMs.
 
-### 6. Devkit bug fixed (PR #112, branch `fix/devkit-codename-host-pattern-non-tty-stdin`)
-Two bugs in `range42-ansible_roles-debug-devkit` broke `range42-context delete-everything`:
-- `proxmox_node` (PVE node name) was used as Ansible `- hosts:` pattern; should be the
-  codename (`RANGE42_INFRASTRUCTURE_CODENAME`). Fix in `proxmox__inc.jsons.basic_vm_actions`.
-- `[ -t 0 ]` inside `$()` means non-TTY → `cat -` returns empty → no JSON output.
-  Fix in `devkit_proxmox.STDIN.stdin_or_jsons`.
-Fix is applied on the deployer and pushed. PR #112 open targeting `dev`, closes issue #111.
+### 5. Enriched `list scenarios`
+Now shows `<name>\t<subnet_layout>\t[box×count, ...]` one-liner read from `scenario.r42.yml`.
+
+### 6. `validate` command
+`r42playbooks validate <spec.r42.yml>` runs `validate_refs` against the catalog
+and exits 0/non-zero — useful for CI or pre-deploy guards.  Three tests added.
+
+### 7. Notes in README
+`--notes` string is now rendered as a blockquote in the generated `README.md`.
+
+### 8. Dead code removal in `allocate.py`
+Removed unused `override = find_template_vm(...)` in `_place_box` when
+`template_vm_id` is overridden.
 
 ## Architecture decisions LOCKED
-(See previous handoffs for the full list — all still apply.)
-
-- **`template_vm` reference**: box_template → `ProxmoxTemplateSpec.vm_name` (catalog-owned).
-  No more spec-based lookup or fuzzy fallback. Adding a new VM size = add to catalog only.
-- **`ip_octet` in catalog**: only the last octet (deployment-independent). Full IP =
-  `{template_subnet.prefix}.{ip_octet}`. Bridge from `template_subnet.bridge`.
-- **Selective templates**: `alloc.templates` is scenario-specific. The manifest and
-  stage_01 only contain the template VMs actually used.
-- **Playbooks → catalog direction** holds with no exception.
+(Same as before — all still apply.)
 
 ## Known architecture debt
-- **`--force` flag on `cli new` doesn't clean first**: generated scenario gets old files
-  mixed with new ones (old numbered `00-template-vm-*.yml` stay alongside new
-  `template-vm-ubuntu-noble-*.yml`). The `_main_*.yml` only imports new names so it's
-  harmless, but worth fixing: add `shutil.rmtree(root)` before writing when `overwrite=True`.
 - **`bundles/core/proxmox/configure/default/vms`**: dead code, superseded by the generator.
-  Add deprecation READMEs when confirmed by a real Proxmox deploy.
+  Add deprecation READMEs **after confirmed by a real Proxmox deploy**.
+- **box `cpu`/`ram` override**: spec fields exist but the renderer doesn't pass them to
+  the clone play (clones template as-is). Future enhancement: `qm set` after clone.
 
 ## Current state on the deployer (hv-lab-01)
-- **Proxmox**: clean — 0 VMs, 0 templates, clean iptables
-- **Scenario `test_gen_lab`**: regenerated with latest code, correct manifest:
-  - templates: 2 only (9221 `template-vm-ubuntu-noble-small-01-4g-32g`,
-    9321 `template-vm-debian-trixie-small`)
-  - vms: 3 (debian-jump, vuln-box-00, vuln-box-01)
-- **Workspace**: `hv-lab-01-test_gen_lab` configured — activate with:
-  `range42-context use hv-lab-01 test_gen_lab`
-- **Repos**: both at latest commit
+- **Scenario `test_gen_lab`**: still on the deployer, needs re-pull to get latest generator.
+- **Repos**: both at latest commit (pushed this session).
+- To sync the deployer: `git pull` in both `range42-playbooks` and `range42-catalog`.
 
 ## NEXT STEPS (priority order)
-1. ⭐ **Validate on real Proxmox** — run `range42-context deploy` on the deployer.
-   Full flow: template creation (9221 ubuntu + 9321 debian), VM cloning, roles.
-   Key validation: `software.configure.firewalls` (ufw install on Ubuntu minimal cloud image).
-2. **Fix `--force` overwrite**: `render_scenario(overwrite=True)` should clean first
-   (`shutil.rmtree(root)` before writing).
-3. **Deprecate dead bundles**: `bundles/core/proxmox/configure/default/vms/create-vms-*`.
+1. ⭐ **Validate on real Proxmox** — `range42-context use hv-lab-01 test_gen_lab` then
+   `range42-context deploy`.  Full flow: template creation (9221 ubuntu + 9321 debian),
+   VM cloning, roles.  Key validation: `software.configure.firewalls` (ufw on Ubuntu minimal).
+2. **Fix `list boxes` display** — currently tab-separated; could use aligned columns.
+3. **Deprecate dead bundles** — `bundles/core/proxmox/configure/default/vms/` — add
+   deprecation READMEs once Proxmox deploy is confirmed working.
 4. **Merge devkit PR #112** once reviewed.
 5. **Reusable role profiles** (deferred): `05_topology_layer/role_profiles/` in catalog.
 
 ## Key files
 `core/render.py`, `core/render_assets.py`, `core/allocate.py`, `core/catalog.py`,
-`core/catalog_models.py`
+`core/catalog_models.py`, `cli.py`
 
 ## Notes / gotchas
 - Catalog is a separate gitignored sibling repo; tests use `fake_catalog` fixture.
-- 190 tests green (was 195; delta = 5 deleted `select_template` tests from removed
-  `templates_table.py`).
+- 197 tests green (was 190; +7 from this session's new tests).
 - `scenarios/test_gen_lab` on the deployer is gitignored throwaway output — not committed.
+- The linter (ruff) auto-reformats on commit — don't be surprised by spacing diffs.
