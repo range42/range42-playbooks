@@ -1,0 +1,230 @@
+---
+##
+## catalog_try - element deploy (copy + run + smoke check)
+##
+## Invoked by `range42-context catalog-try <path>` after the test VM is up.
+## Replaces the ssh / scp / docker shell calls previously done in
+## _r42_catalog_try (range42-context.sh).
+##
+## All docker operations use become:true (passwordless sudo on alice). The
+## file copy stays as alice (no become) so the catalog files are user-owned
+## and inspectable via `range42-context ssh r42.catalog-try-vm-docker`.
+##
+## Required extra-vars :
+##   catalog_try_element_src      : absolute path to the catalog element dir
+##   catalog_try_mode             : "oneshot" | "service"
+##   catalog_try_use_makefile     : "true" | "false"
+##   vm_ip                        : VM IP (used by HTTP smoke check)
+##
+## Optional extra-vars :
+##   catalog_try_exit_signature   : string (oneshot mode)
+##   catalog_try_port             : int    (service mode)
+##   catalog_try_endpoint         : string (service mode, default "/")
+##   catalog_try_init_timeout     : int seconds (default 60, max 600)
+##
+
+- hosts: r42_catalog_try_group
+  gather_facts: false
+  become: false
+
+  vars:
+    catalog_try_remote_dir: "/home/alice/catalog-try-element"
+    _ct_endpoint: "{{ catalog_try_endpoint | default('/') }}"
+    _ct_timeout: "{{ [(catalog_try_init_timeout | default(60) | int), 600] | min }}"
+    _ct_retries: "{{ ((_ct_timeout | int) / 5) | int }}"
+    _ct_use_make: "{{ catalog_try_use_makefile | default(false) | bool }}"
+
+  pre_tasks:
+    - name: assert required vars
+      ansible.builtin.assert:
+        that:
+          - catalog_try_element_src is defined
+          - catalog_try_element_src | length > 0
+          - catalog_try_mode is defined
+          - catalog_try_mode in ['oneshot', 'service']
+
+    # Load catalog_try.yml directly via Ansible's native YAML parser (handles
+    # int, list, nested, anything) instead of relying on the shell-side
+    # grep/sed parser in range42-context.sh which can only extract scalar
+    # inline values. Loaded into the `_ct_yml` namespace to avoid clashing
+    # with the extra-vars passed by the shell (those have higher precedence
+    # than include_vars per Ansible's variable precedence rules).
+    - name: load catalog_try.yml from element source (controller-side)
+      ansible.builtin.include_vars:
+        file: "{{ catalog_try_element_src }}/catalog_try.yml"
+        name: _ct_yml
+      delegate_to: localhost
+      when: catalog_try_element_src is defined
+
+    # Normalise `_ct_yml.catalog_try_port` to a list. The element-side
+    # `catalog_try.yml` may use single int (legacy : `catalog_try_port: 3000`)
+    # OR list syntax (future-friendly : `catalog_try_port: [3000, 2222]`). Both
+    # supported transparently. `set_fact` preserves native types (the value
+    # stored in `_ct_ports` is an actual Python list, iterable by `loop:`).
+    - name: compute _ct_ports (normalised port list from catalog_try.yml)
+      ansible.builtin.set_fact:
+        _ct_ports: >-
+          {{ [_ct_yml.catalog_try_port]
+             if (_ct_yml is defined and _ct_yml.catalog_try_port is defined and _ct_yml.catalog_try_port is integer)
+             else (_ct_yml.catalog_try_port if (_ct_yml is defined and _ct_yml.catalog_try_port is defined) else []) }}
+
+  tasks:
+
+    # ===== COPY =====
+
+    - name: ensure remote element dir exists
+      ansible.builtin.file:
+        path: "{{ catalog_try_remote_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: copy catalog element to test VM
+      ansible.builtin.copy:
+        src: "{{ catalog_try_element_src }}/"
+        dest: "{{ catalog_try_remote_dir }}/"
+        mode: preserve
+
+    # ===== ENV SEED =====
+    # If the element ships a `.env.example` (standard Docker pattern, used by
+    # docker-compose `${VAR:?...}` or `${VAR:-...}` interpolation) and no `.env`
+    # is already present, seed `.env` from `.env.example`. Compose then picks
+    # up the operator-intended defaults without the operator having to
+    # `cp .env.example .env` by hand on the catalog-try VM.
+    #
+    # `.env` always wins over `.env.example` : if the contributor shipped a
+    # real `.env` (rare), the copy step above already placed it on the VM
+    # and this seed task skips.
+
+    - name: detect .env.example on remote
+      ansible.builtin.stat:
+        path: "{{ catalog_try_remote_dir }}/.env.example"
+      register: _ct_env_example
+
+    - name: detect existing .env on remote
+      ansible.builtin.stat:
+        path: "{{ catalog_try_remote_dir }}/.env"
+      register: _ct_env_existing
+
+    - name: seed .env from .env.example (when present and .env absent)
+      ansible.builtin.copy:
+        src: "{{ catalog_try_remote_dir }}/.env.example"
+        dest: "{{ catalog_try_remote_dir }}/.env"
+        remote_src: true
+        mode: '0644'
+      when:
+        - _ct_env_example.stat.exists
+        - not _ct_env_existing.stat.exists
+
+    # ===== RUN =====
+
+    - name: run element - Makefile detected
+      become: true
+      ansible.builtin.shell: make up
+      args:
+        chdir: "{{ catalog_try_remote_dir }}"
+      when: _ct_use_make | bool
+
+    - name: run element - docker compose (oneshot, foreground)
+      become: true
+      ansible.builtin.shell: docker compose up --abort-on-container-exit
+      args:
+        chdir: "{{ catalog_try_remote_dir }}"
+      when:
+        - not (_ct_use_make | bool)
+        - catalog_try_mode == 'oneshot'
+
+    - name: run element - docker compose (service, detached)
+      become: true
+      ansible.builtin.shell: docker compose up -d
+      args:
+        chdir: "{{ catalog_try_remote_dir }}"
+      when:
+        - not (_ct_use_make | bool)
+        - catalog_try_mode == 'service'
+
+    # ===== FIREWALL =====
+    # The catalog-try VM hardening enables UFW with only port 22 open. The L2
+    # service smoke check polls `http://<vm_ip>:<catalog_try_port>` from the
+    # deployer-cli (delegate_to: localhost), which is an EXTERNAL request to
+    # the VM and gets blocked by UFW. Open the element's declared port before
+    # the smoke check fires. Rule persists for the lifetime of the disposable
+    # VM (no cleanup needed - the VM is destroyed on next catalog-try run).
+
+    - name: firewall - allow catalog_try ports through UFW (service mode)
+      become: true
+      ansible.builtin.command: "ufw allow {{ item }}/tcp"
+      register: _ct_ufw_result
+      changed_when: "'Rules updated' in (_ct_ufw_result.stdout | default(''))"
+      loop: "{{ _ct_ports }}"
+      when:
+        - catalog_try_mode == 'service'
+        - _ct_ports | length > 0
+
+    # ===== SMOKE CHECK =====
+
+    # L2 oneshot - grep exit_signature in container logs
+    - name: smoke check - oneshot exit_signature
+      become: true
+      ansible.builtin.shell: "docker compose logs 2>&1 | grep -F -- '{{ catalog_try_exit_signature }}'"
+      args:
+        chdir: "{{ catalog_try_remote_dir }}"
+      register: smoke_signature
+      changed_when: false
+      when:
+        - catalog_try_mode == 'oneshot'
+        - catalog_try_exit_signature | default('') | length > 0
+
+    # L2 service - verify container is running AND ALL declared ports are listening.
+    # Replaces the previous HTTP poll which exposed catalog-try smoke to
+    # cross-cutting filter concerns (UFW, Host header trust, OAuth callbacks).
+    # The check runs locally on the catalog-try VM (no delegate_to: localhost),
+    # so it bypasses host-network filters entirely.
+    #   1. `docker ps --filter status=running` : at least one container of the
+    #      compose stack is RUNNING (stricter than L1 `docker ps -a` which also
+    #      counts exited containers).
+    #   2. For EACH port in `_ct_ports` : `ss -tplln | grep ':<port>'` confirms
+    #      the port is bound on the host (Docker port-mapping is live + the
+    #      service inside the container has actually started listening). All
+    #      ports must pass ; a single missing port fails the smoke.
+    # Retries until both conditions pass OR `_ct_retries` exhausted.
+    - name: smoke check - service container running + all declared ports listening
+      become: true
+      ansible.builtin.shell: |
+        set -e
+        docker ps --filter "status=running" --format '{{ '{{' }}.Names{{ '}}' }}' | grep -q .
+        {% for p in _ct_ports %}
+        ss -tplln | grep -qE ':{{ p }}\b'
+        {% endfor %}
+      args:
+        chdir: "{{ catalog_try_remote_dir }}"
+      register: smoke_listen
+      changed_when: false
+      retries: "{{ _ct_retries | int }}"
+      delay: 5
+      until: smoke_listen.rc == 0
+      when:
+        - catalog_try_mode == 'service'
+        - _ct_ports | length > 0
+
+    # L1 default fallback : runs whenever NO specific contract applies
+    # (no exit_signature for oneshot, no port for service). Uses `docker ps -a`
+    # to accept both running AND exited containers - the question L1 answers is
+    # "did anything happen at all ?", not "is the service still alive ?".
+    # If you need running-only / HTTP-200 / signature checks, declare them in
+    # catalog_try.yml (port for service, exit_signature for oneshot).
+    - name: smoke check - L1 default (docker ps -a)
+      become: true
+      ansible.builtin.shell: "docker ps -a --format '{{ '{{' }}.Names{{ '}}' }} {{ '{{' }}.Status{{ '}}' }}'"
+      register: smoke_l1
+      changed_when: false
+      failed_when: smoke_l1.stdout | length == 0
+      when:
+        - (catalog_try_mode == 'oneshot' and (catalog_try_exit_signature | default('') | length == 0)) or
+          (catalog_try_mode == 'service' and (catalog_try_port | default('') | length == 0))
+
+    - name: smoke L1 - display container list
+      ansible.builtin.debug:
+        msg: "{{ smoke_l1.stdout_lines | default([]) }}"
+      when:
+        - smoke_l1.stdout is defined
+        - smoke_l1.stdout | length > 0

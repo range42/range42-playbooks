@@ -90,6 +90,8 @@
 {"vm_id":9244,"vm_name":"template-vm-large-04-8g-64g","spec":"4cpu/8gb/64gb","ip":"192.168.140.244","bridge":"vmbr140","scenario":"blank_scenario_6_subnets","role":"template"}
 {"vm_id":9246,"vm_name":"template-vm-large-06-8g-64g","spec":"6cpu/8gb/64gb","ip":"192.168.140.246","bridge":"vmbr140","scenario":"blank_scenario_6_subnets","role":"template"}
 {"vm_id":9248,"vm_name":"template-vm-large-08-8g-64g","spec":"8cpu/8gb/64gb","ip":"192.168.140.248","bridge":"vmbr140","scenario":"blank_scenario_6_subnets","role":"template"}
+{"vm_id":1250,"vm_name":"catalog-try-vm-docker","ip":"192.168.142.250","role":"catalog-try","bridge":"vmbr142","scenario":"catalog_try"}
+{"vm_id":9221,"vm_name":"template-vm-small-01-4g-32g","spec":"1cpu/4gb/32gb","ip":"192.168.142.221","bridge":"vmbr140","scenario":"catalog_try","role":"template"}
 {"vm_id":8001,"vm_name":"dsa-vm-01","ip":"192.168.147.250","role":"debug","bridge":"vmbr147","scenario":"debug_scenario_a"}
 {"vm_id":9903,"vm_name":"template-vm-alpine-nano","spec":"1cpu/512mb/4gb","ip":"192.168.142.203","bridge":"vmbr140","scenario":"debug_scenario_a","role":"template"}
 {"vm_id":8501,"vm_name":"dsb-vm-01","ip":"192.168.148.250","role":"debug","bridge":"vmbr148","scenario":"debug_scenario_b"}
