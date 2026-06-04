@@ -150,7 +150,6 @@ def show(
         typer.secho(f"box-template: {bt.id}", bold=True)
         if bt.description:
             typer.echo(f"  {bt.description}")
-        typer.echo(f"  inventory group: {bt.default_inventory_group}")
         resolved = find_template_vm(cat, bt.template_vm)
         if resolved:
             image_id, tpl = resolved

@@ -90,7 +90,7 @@ def scaffold_topology(
             ip=_ip_with_octet(subnet.cidr, octet),
             zone=subnet.name,
             box_template=template.id,
-            inventory_group=template.default_inventory_group,
+            inventory_group=f"r42_{subnet.name}_group",
         ))
 
     if not boxes:

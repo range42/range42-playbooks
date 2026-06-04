@@ -173,7 +173,7 @@ def _allocate_box(
             section=subnet.section,
             label=subnet.label,
             gateway=subnet.gateway,
-            inventory_group=bt.default_inventory_group,
+            inventory_group=f"r42_{subnet_name}_group",
             box_template=box.template,
             image=image_id,
             template_vm_id=tmpl_vm_id,

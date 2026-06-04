@@ -53,7 +53,7 @@ def test_inventory_lists_composed_hosts_under_their_groups(rendered):
     _spec, _alloc, root = rendered
     inv = _read(root, "templates/ansible-inventory.j2")
     assert "r42_admin_group:" in inv
-    assert "r42_vuln_box_group:" in inv
+    assert "r42_ctf_group:" in inv
     assert "r42.admin-wazuh:" in inv
     assert "r42.vuln-box-00:" in inv
     assert "r42.vuln-box-04:" in inv
@@ -75,7 +75,7 @@ def test_inventory_is_valid_yaml_when_jinja_neutralised(rendered):
     neutral = re.sub(r"\{\{.*?\}\}", "PLACEHOLDER", inv)
     data = yaml.safe_load(neutral)
     groups = data["all"]["children"]["range42_infrastructure"]["children"]
-    assert "r42_admin_group" in groups and "r42_vuln_box_group" in groups
+    assert "r42_admin_group" in groups and "r42_ctf_group" in groups
 
 
 # --- ssh-config (.j2) ------------------------------------------------------

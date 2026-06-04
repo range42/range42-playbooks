@@ -15,9 +15,7 @@ SCENARIO_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*$")
 # vm_name / inventory host leaf — lowercase kebab, bounded length.
 VM_NAME_RE = re.compile(r"^[a-z0-9-]{1,40}$")
 
-# Ansible inventory group — lowercase snake. Hyphenated groups (e.g. proxmox-cli)
-# are intentional and hard-coded by the compiler, never sourced from a topology,
-# because ansible.cfg sets force_valid_group_names=never (see workspace CLAUDE.md).
+# Ansible inventory group — lowercase snake (used by the legacy Box model).
 INVENTORY_GROUP_RE = re.compile(r"^[a-z0-9_]+$")
 
 # Catalog reference — role/stack ids MAY contain dots (e.g. software.install.wazuh),

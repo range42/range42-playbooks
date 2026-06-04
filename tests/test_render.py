@@ -260,7 +260,7 @@ def test_no_group_level_richness_generated(rendered):
     files = [str(p.relative_to(root)) for p in root.rglob("*")]
     assert not any("_testing" in f for f in files)
     assert not any("builder_" in f for f in files)
-    # no group playbook like _r42_admin_group.yml / _r42_vuln_box_group.yml
+    # no group playbook like _r42_admin_group.yml / _r42_ctf_group.yml
     assert not any(Path(f).name.startswith("_r42_") and f.endswith(".yml") for f in files)
 
 
@@ -281,8 +281,7 @@ def test_init_proxmox_is_os_selective_debian(fake_catalog, tmp_path):
     layer.mkdir(parents=True)
     (layer / "template.yml").write_text(
         "id: deb-box\napi_version: 1\n"
-        "template_vm: \"template-vm-debian-trixie-small\"\n"
-        "default_inventory_group: r42_student\n", encoding="utf-8",
+        "template_vm: \"template-vm-debian-trixie-small\"\n", encoding="utf-8",
     )
     spec = ScenarioSpec.model_validate({
         "name": "deb_lab", "subnet_layout": "default-3zone", "boxes": [{"template": "deb-box", "subnet": "student"}],

@@ -46,8 +46,7 @@ def _add_box_template(fake_catalog, *, box_id: str, template_vm: str) -> None:
     layer.mkdir(parents=True)
     (layer / "template.yml").write_text(
         f"id: {box_id}\napi_version: 1\n"
-        f"template_vm: \"{template_vm}\"\n"
-        f"default_inventory_group: r42_student\n",
+        f"template_vm: \"{template_vm}\"\n",
         encoding="utf-8",
     )
 

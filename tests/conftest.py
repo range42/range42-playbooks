@@ -145,7 +145,6 @@ id: vuln-box
 api_version: 1
 description: CTF vulnerable target
 template_vm: "template-vm-ubuntu-noble-small-01-4g-32g"
-default_inventory_group: r42_vuln_box_group
 default_attachments:
   - {kind: role, catalog_ref: software.install.wazuh-agent, params: {}}
 """.lstrip(),
@@ -158,7 +157,6 @@ id: admin-wazuh
 api_version: 1
 description: Wazuh SIEM admin box
 template_vm: "template-vm-ubuntu-noble-medium-04-8g-64g"
-default_inventory_group: r42_admin_group
 """.lstrip(),
     )
 
@@ -169,7 +167,6 @@ id: student-box
 api_version: 1
 description: student workstation
 template_vm: "template-vm-ubuntu-noble-micro-01-2g-24g"
-default_inventory_group: r42_student_group
 """.lstrip(),
     )
 

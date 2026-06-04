@@ -25,7 +25,7 @@ def test_validate_refs_flags_unknown_default_attachment_role():
         network_policies={"policy": object()},
         box_templates={
             "leaky-box": BoxTemplate(
-                id="leaky-box", default_inventory_group="r42_ctf",
+                id="leaky-box",
                 template_vm="template-vm-ubuntu-noble-small-01-4g-32g",
                 default_attachments=[
                     Attachment(kind="role", catalog_ref="software.install.ghost"),
@@ -125,7 +125,7 @@ def test_validate_refs_flags_unknown_template_vm(fake_catalog, spec_factory):
     """A box template referencing an unknown template_vm is flagged when 01_image_layer is loaded."""
     catalog = load_catalog(fake_catalog)
     catalog.box_templates["ghost-vm-box"] = BoxTemplate(
-        id="ghost-vm-box", default_inventory_group="r42_ctf",
+        id="ghost-vm-box",
         template_vm="template-vm-does-not-exist",
     )
     data = spec_factory(boxes=[{"template": "ghost-vm-box", "subnet": "admin"}])
@@ -138,7 +138,7 @@ def test_validate_refs_accepts_known_template_vm(fake_catalog, spec_factory):
     """A box template referencing a known template_vm resolves cleanly."""
     catalog = load_catalog(fake_catalog)
     catalog.box_templates["deb-box"] = BoxTemplate(
-        id="deb-box", default_inventory_group="r42_student",
+        id="deb-box",
         template_vm="template-vm-debian-trixie-small",
     )
     data = spec_factory(boxes=[{"template": "deb-box", "subnet": "student"}])
@@ -153,7 +153,7 @@ def test_validate_refs_skips_template_vm_check_when_layer_absent(spec_factory):
         network_policies={},
         box_templates={
             "any-box": BoxTemplate(
-                id="any-box", default_inventory_group="r42_ctf",
+                id="any-box",
                 template_vm="template-vm-unknown",
             )
         },
