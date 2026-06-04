@@ -230,6 +230,19 @@ def allocate(spec: ScenarioSpec, catalog: Catalog, reserved: ReservedIndex | Non
             _allocate_box(box, catalog, subnets_by_name, subnet_index, spec.name, taken_ids, taken_ips)
         )
 
+    # Detect duplicate vm_names — two boxes with the same name produce identical
+    # SSH aliases (r42.<name>) and Ansible inventory entries, causing silent
+    # routing to whichever host happens to match first.
+    seen_names: dict[str, str] = {}  # vm_name -> subnet_name of first occurrence
+    for b in boxes:
+        if b.vm_name in seen_names:
+            raise CompileError(
+                f"vm_name {b.vm_name!r} is used on both subnet "
+                f"{seen_names[b.vm_name]!r} and {b.subnet_name!r} — "
+                f"use 'count: 2' on one subnet, or choose different template names"
+            )
+        seen_names[b.vm_name] = b.subnet_name
+
     # Resolve template subnet for IP/bridge derivation.
     tpl_subnet = layout.template_subnet
     if tpl_subnet is None:

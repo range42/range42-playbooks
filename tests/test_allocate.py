@@ -326,3 +326,14 @@ def test_auto_allocation_skips_gateway_ip(fake_catalog):
     box = alloc.boxes[0]
     assert box.ip != "192.168.200.10", "gateway IP must not be assigned to a VM"
     assert box.ip == "192.168.200.11"  # skipped .10 (gateway), landed on .11
+
+
+# --- duplicate vm_name validation -------------------------------------------------
+
+def test_duplicate_vm_name_across_subnets_raises(fake_catalog):
+    """Same template on two different subnets with count=1 produces identical vm_names."""
+    with pytest.raises(CompileError, match="vm_name.*admin-wazuh.*is used on both subnet"):
+        _alloc(load_catalog(fake_catalog), boxes=[
+            {"template": "admin-wazuh", "subnet": "admin"},
+            {"template": "admin-wazuh", "subnet": "ctf"},
+        ])
