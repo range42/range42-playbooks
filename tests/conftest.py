@@ -104,6 +104,7 @@ subnets:
   - {name: admin, cidr: "192.168.142.0/24", bridge: vmbr142, gateway: "192.168.142.1"}
   - {name: ctf, cidr: "192.168.144.0/24", bridge: vmbr144}
   - {name: student, cidr: "192.168.143.0/24", bridge: vmbr143}
+template_subnet: {cidr: "192.168.140.0/24", bridge: vmbr140}
 """.lstrip())
 
     _write(layer / "box_templates" / "vuln-box" / "v1.0.0" / "template.yml", """
@@ -111,8 +112,8 @@ id: vuln-box
 api_version: 1
 description: CTF vulnerable target
 role: ctf
+template_vm: "template-vm-ubuntu-noble-small-01-4g-32g"
 default_inventory_group: r42_vuln_box_group
-spec: "1cpu/4gb/32gb"
 default_attachments:
   - {kind: role, catalog_ref: software.install.wazuh-agent, params: {}}
 """.lstrip())
@@ -122,8 +123,8 @@ id: admin-wazuh
 api_version: 1
 description: Wazuh SIEM admin box
 role: admin
+template_vm: "template-vm-ubuntu-noble-medium-04-8g-64g"
 default_inventory_group: r42_admin_group
-spec: "4cpu/8gb/64gb"
 """.lstrip())
 
     _write(layer / "box_templates" / "student-box" / "v1.0.0" / "template.yml", """
@@ -131,8 +132,8 @@ id: student-box
 api_version: 1
 description: student workstation
 role: student
+template_vm: "template-vm-ubuntu-noble-micro-01-2g-24g"
 default_inventory_group: r42_student_group
-spec: "1cpu/2gb/24gb"
 """.lstrip())
 
     # 02_ansible_layer: reusable roles, referenced by name (<category>.<action>.<target>).
@@ -156,10 +157,10 @@ cloud_image:
   url: "https://cloud-images.ubuntu.com/minimal/daily/noble/current/noble-minimal-cloudimg-amd64.img"
   filename: "noble-minimal-cloudimg-amd64.img"
 proxmox_templates:
-  - {vm_id: 9211, vm_name: "template-vm-micro-01-2g-24g", spec: "1cpu/2gb/24gb", ip: "192.168.140.211", bridge: "vmbr140"}
-  - {vm_id: 9221, vm_name: "template-vm-small-01-4g-32g", spec: "1cpu/4gb/32gb", ip: "192.168.140.221", bridge: "vmbr140"}
-  - {vm_id: 9232, vm_name: "template-vm-medium-02-8g-64g", spec: "2cpu/8gb/64gb", ip: "192.168.140.232", bridge: "vmbr140"}
-  - {vm_id: 9234, vm_name: "template-vm-medium-04-8g-64g", spec: "4cpu/8gb/64gb", ip: "192.168.140.234", bridge: "vmbr140"}
+  - {vm_id: 9211, vm_name: "template-vm-ubuntu-noble-micro-01-2g-24g",  spec: "1cpu/2gb/24gb", ip_octet: 211}
+  - {vm_id: 9221, vm_name: "template-vm-ubuntu-noble-small-01-4g-32g",  spec: "1cpu/4gb/32gb", ip_octet: 221}
+  - {vm_id: 9232, vm_name: "template-vm-ubuntu-noble-medium-02-8g-64g", spec: "2cpu/8gb/64gb", ip_octet: 232}
+  - {vm_id: 9234, vm_name: "template-vm-ubuntu-noble-medium-04-8g-64g", spec: "4cpu/8gb/64gb", ip_octet: 234}
 """.lstrip())
     _write(root / "01_image_layer" / "debian_trixie" / "v1.0.0" / "image.yml", """
 id: debian_trixie
@@ -171,8 +172,8 @@ cloud_image:
   url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.raw"
   filename: "debian-13-genericcloud-amd64.img"
 proxmox_templates:
-  - {vm_id: 9321, vm_name: "template-vm-debian-small",  spec: "1cpu/4gb/32gb", ip: "192.168.140.121", bridge: "vmbr140"}
-  - {vm_id: 9331, vm_name: "template-vm-debian-medium", spec: "2cpu/8gb/64gb", ip: "192.168.140.131", bridge: "vmbr140"}
+  - {vm_id: 9321, vm_name: "template-vm-debian-trixie-small",  spec: "1cpu/4gb/32gb", ip_octet: 121}
+  - {vm_id: 9331, vm_name: "template-vm-debian-trixie-medium", spec: "2cpu/8gb/64gb", ip_octet: 131}
 """.lstrip())
 
     # two versions of a policy — loader must pick the highest (1.1.0)

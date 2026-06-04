@@ -26,7 +26,7 @@ def test_validate_refs_flags_unknown_default_attachment_role():
         box_templates={
             "leaky-box": BoxTemplate(
                 id="leaky-box", role="ctf", default_inventory_group="r42_ctf",
-                spec="1cpu/2gb/24gb",
+                template_vm="template-vm-ubuntu-noble-small-01-4g-32g",
                 default_attachments=[
                     Attachment(kind="role", catalog_ref="software.install.ghost"),
                 ],
@@ -121,40 +121,40 @@ def test_validate_refs_accepts_known_role_and_container(fake_catalog, valid_spec
     assert validate_refs(spec, catalog) == []
 
 
-def test_validate_refs_flags_unknown_base_image(fake_catalog, spec_factory):
-    """A box template with an unrecognised image is flagged when 01_image_layer is loaded."""
+def test_validate_refs_flags_unknown_template_vm(fake_catalog, spec_factory):
+    """A box template referencing an unknown template_vm is flagged when 01_image_layer is loaded."""
     catalog = load_catalog(fake_catalog)
-    catalog.box_templates["ghost-os-box"] = BoxTemplate(
-        id="ghost-os-box", role="ctf", default_inventory_group="r42_ctf",
-        spec="1cpu/4gb/32gb", image="debian_forky",
+    catalog.box_templates["ghost-vm-box"] = BoxTemplate(
+        id="ghost-vm-box", role="ctf", default_inventory_group="r42_ctf",
+        template_vm="template-vm-does-not-exist",
     )
-    data = spec_factory(boxes=[{"template": "ghost-os-box"}])
+    data = spec_factory(boxes=[{"template": "ghost-vm-box"}])
     spec = ScenarioSpec.model_validate(data)
     problems = validate_refs(spec, catalog)
-    assert any("debian_forky" in p for p in problems)
+    assert any("template-vm-does-not-exist" in p for p in problems)
 
 
-def test_validate_refs_accepts_known_base_image(fake_catalog, spec_factory):
-    """A box template with image=debian_trixie resolves cleanly when layer is loaded."""
+def test_validate_refs_accepts_known_template_vm(fake_catalog, spec_factory):
+    """A box template referencing a known template_vm resolves cleanly."""
     catalog = load_catalog(fake_catalog)
     catalog.box_templates["deb-box"] = BoxTemplate(
         id="deb-box", role="student", default_inventory_group="r42_student",
-        spec="1cpu/2gb/24gb", image="debian_trixie",
+        template_vm="template-vm-debian-trixie-small",
     )
     data = spec_factory(boxes=[{"template": "deb-box"}])
     spec = ScenarioSpec.model_validate(data)
     assert validate_refs(spec, catalog) == []
 
 
-def test_validate_refs_skips_image_check_when_layer_absent(spec_factory):
-    """When 01_image_layer is not loaded (images={}), image names are not validated."""
+def test_validate_refs_skips_template_vm_check_when_layer_absent(spec_factory):
+    """When 01_image_layer is not loaded (images={}), template_vm names are not validated."""
     catalog = Catalog(
         subnet_layouts={"layout": object()},
         network_policies={},
         box_templates={
             "any-box": BoxTemplate(
                 id="any-box", role="ctf", default_inventory_group="r42_ctf",
-                spec="1cpu/4gb/32gb", image="unknown_distro",
+                template_vm="template-vm-unknown",
             )
         },
         roles=set(),

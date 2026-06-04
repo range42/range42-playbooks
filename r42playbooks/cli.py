@@ -84,7 +84,7 @@ def list_cmd(
     if kind is ListKind.boxes:
         for name in sorted(cat.box_templates):
             bt = cat.box_templates[name]
-            typer.echo(f"{name}\t{bt.role}\t{bt.spec}")
+            typer.echo(f"{name}\t{bt.role}\t{bt.template_vm}")
     elif kind is ListKind.subnets:
         for name in sorted(cat.subnet_layouts):
             typer.echo(name)
@@ -113,9 +113,8 @@ def show(
         bt = cat.box_templates[module]
         typer.secho(f"box-template: {bt.id}", bold=True)
         typer.echo(f"  role:            {bt.role}")
-        typer.echo(f"  image:           {bt.image}")
+        typer.echo(f"  template_vm:     {bt.template_vm}")
         typer.echo(f"  inventory group: {bt.default_inventory_group}")
-        typer.echo(f"  spec:            {bt.spec}")
         attachments = bt.default_attachments or []
         typer.echo(f"  default roles:   {', '.join(a.catalog_ref for a in attachments) or '(none)'}")
     elif module in cat.subnet_layouts:

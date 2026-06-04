@@ -64,8 +64,8 @@ def test_list_scenarios_shows_generated(tmp_path, fake_catalog):
 def test_show_box_template_details(fake_catalog):
     res = runner.invoke(app, ["show", "vuln-box", "--catalog", str(fake_catalog)])
     assert res.exit_code == 0, res.output
-    assert "ctf" in res.output            # role
-    assert "1cpu/4gb/32gb" in res.output  # spec
+    assert "ctf" in res.output                                    # role
+    assert "template-vm-ubuntu-noble-small-01-4g-32g" in res.output  # template_vm
 
 
 def test_show_unknown_module_exits_nonzero(fake_catalog):

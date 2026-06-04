@@ -17,12 +17,29 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 from r42playbooks.core import constants as C
-from r42playbooks.core.catalog import Catalog
-from r42playbooks.core.errors import CompileError
+from r42playbooks.core.catalog import Catalog, find_template_vm
+from r42playbooks.core.catalog_models import ProxmoxTemplateSpec
+from r42playbooks.core.errors import CompileError, ValidationError
 from r42playbooks.core.idalloc import ReservedIndex
 from r42playbooks.core.models import Attachment, Subnet
 from r42playbooks.core.spec import BoxSpec, ScenarioSpec
-from r42playbooks.core.templates_table import TEMPLATE_TABLE, ProxmoxTemplate, select_template
+
+
+@dataclass(frozen=True)
+class ResolvedTemplate:
+    """A concrete Proxmox template VM resolved from the catalog for this scenario.
+
+    Contains only the template VMs actually referenced by boxes in the scenario
+    (selective — not the full image table). The renderer uses this to emit only
+    the needed ``stage_01-create_templates`` create plays.
+    """
+
+    vm_id: int
+    vm_name: str
+    spec: str
+    ip: str
+    bridge: str
+    image: str   # image_id this template belongs to (e.g. "ubuntu_noble")
 
 
 @dataclass(frozen=True)
@@ -52,7 +69,7 @@ class Allocation:
     scenario: str
     description: str
     boxes: tuple[AllocatedBox, ...]
-    templates: tuple[ProxmoxTemplate, ...]
+    templates: tuple[ResolvedTemplate, ...]   # only the VMs this scenario actually needs
     subnets: tuple[Subnet, ...]
 
 
@@ -120,7 +137,24 @@ def _allocate_box(
         )
 
     prefix = _subnet_prefix(subnet.cidr)
-    tmpl = select_template(bt.spec, image=bt.image, override_vm_id=box.template_vm_id)
+
+    # Resolve template VM from catalog (globally unique vm_name → image + spec).
+    resolved = find_template_vm(catalog, bt.template_vm)
+    if resolved is None:
+        raise CompileError(
+            f"box template {box.template!r} references unknown template_vm "
+            f"{bt.template_vm!r} — add it to the catalog's 01_image_layer"
+        )
+    image_id, tpl_spec = resolved
+    # BoxSpec.template_vm_id overrides the catalog reference for ad-hoc pinning.
+    if box.template_vm_id is not None:
+        override = find_template_vm(catalog, bt.template_vm)  # keep image_id
+        tmpl_vm_id = box.template_vm_id
+        tmpl_vm_name = bt.template_vm  # best-effort name
+    else:
+        tmpl_vm_id = tpl_spec.vm_id
+        tmpl_vm_name = tpl_spec.vm_name
+
     attachments = tuple(bt.default_attachments) + tuple(box.attachments_add)
     base_octet = C.ROLE_BASE_OCTET[bt.role]
 
@@ -141,9 +175,9 @@ def _allocate_box(
             gateway=subnet.gateway,
             inventory_group=bt.default_inventory_group,
             box_template=box.template,
-            image=bt.image,
-            template_vm_id=tmpl.vm_id,
-            template_name=tmpl.vm_name,
+            image=image_id,
+            template_vm_id=tmpl_vm_id,
+            template_name=tmpl_vm_name,
             attachments=attachments,
             box_vars=MappingProxyType(dict(box.vars)),
         ))
@@ -170,11 +204,41 @@ def allocate(spec: ScenarioSpec, catalog: Catalog, reserved: ReservedIndex | Non
             _allocate_box(box, catalog, subnets_by_name, spec.name, taken_ids, taken_ips)
         )
 
+    # Resolve template subnet for IP/bridge derivation.
+    tpl_subnet = layout.template_subnet
+    if tpl_subnet is None:
+        raise CompileError(
+            f"subnet layout {spec.subnet_layout!r} has no template_subnet — add "
+            f"template_subnet: {{cidr: '192.168.140.0/24', bridge: vmbr140}} to it"
+        )
+    tpl_prefix = _subnet_prefix(tpl_subnet.cidr)
+    tpl_bridge = tpl_subnet.bridge
+
+    # Build the deduplicated set of template VMs actually needed by this scenario.
+    seen_tpl_ids: set[int] = set()
+    resolved_templates: list[ResolvedTemplate] = []
+    for box in boxes:
+        if box.template_vm_id in seen_tpl_ids:
+            continue
+        result = find_template_vm(catalog, box.template_name)
+        if result is None:
+            continue  # template_vm_id override without catalog entry — skip manifest entry
+        image_id, tpl_spec = result
+        seen_tpl_ids.add(box.template_vm_id)
+        resolved_templates.append(ResolvedTemplate(
+            vm_id=tpl_spec.vm_id,
+            vm_name=tpl_spec.vm_name,
+            spec=tpl_spec.spec,
+            ip=f"{tpl_prefix}.{tpl_spec.ip_octet}",
+            bridge=tpl_bridge,
+            image=image_id,
+        ))
+
     return Allocation(
         scenario=spec.name,
         description=spec.notes,
         boxes=tuple(boxes),
-        templates=TEMPLATE_TABLE,
+        templates=tuple(sorted(resolved_templates, key=lambda t: t.vm_id)),
         subnets=tuple(layout.subnets),
     )
 
@@ -189,11 +253,14 @@ def manifest_dict(alloc: Allocation) -> dict[str, Any]:
         ),
         key=lambda v: v["vm_id"],
     )
-    templates = [
-        {"vm_id": t.vm_id, "vm_name": t.vm_name, "spec": t.spec, "ip": t.ip,
-         "bridge": t.bridge, "image": t.image}
-        for t in alloc.templates
-    ]
+    templates = sorted(
+        [
+            {"vm_id": t.vm_id, "vm_name": t.vm_name, "spec": t.spec, "ip": t.ip,
+             "bridge": t.bridge, "image": t.image}
+            for t in alloc.templates
+        ],
+        key=lambda t: t["vm_id"],
+    )
     return {
         "scenario": alloc.scenario,
         "version": 2,

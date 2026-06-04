@@ -25,7 +25,7 @@ from pathlib import Path
 import yaml
 
 from r42playbooks.core import render_assets as A
-from r42playbooks.core.allocate import Allocation, AllocatedBox, manifest_json
+from r42playbooks.core.allocate import Allocation, AllocatedBox, ResolvedTemplate, manifest_json
 from r42playbooks.core.catalog import Catalog
 from r42playbooks.core.errors import ScenarioExistsError, ValidationError
 from r42playbooks.core.io import atomic_write_text
@@ -224,103 +224,106 @@ def _render_sections(alloc: Allocation, root: Path, scenario: str, proxmox_node:
 
 # --- top level ---------------------------------------------------------------
 
-def _render_init_proxmox(root: Path, used_images: list[str], catalog: Catalog) -> None:
-    """Emit 01_init_proxmox (staged) for ONLY the image sets the composition uses.
+def _render_init_proxmox(
+    root: Path, alloc_templates: tuple[ResolvedTemplate, ...], catalog: Catalog
+) -> None:
+    """Emit 01_init_proxmox for ONLY the template VMs the scenario actually needs.
 
-    Mirrors the ``_init_lab`` layout: a top ``_main.yml`` imports the download and
-    template-creation stages, each of which imports only the used images. A
-    ubuntu_noble-only lab never carries debian_trixie files, and vice versa (H3).
-
-    The stage_00 ``cloudinit_<image>.yml`` is rendered from the catalog's
-    ``01_image_layer/<image>.cloud_image`` spec instead of being copied from a
-    static asset — keeping download coordinates in the catalog, not the playbooks.
+    ``alloc_templates`` is the selective set from the allocation — a scenario with
+    one ``debian-jump`` box only creates ``template-vm-debian-small`` (9321), not
+    all 14 ubuntu_noble templates. Both images share their stage_00 download play;
+    stage_01 renders only the referenced template VM create plays.
     """
-    init = root / "01_init_proxmox"
-    used = [img for img in used_images if img in _IMAGE_SETS]
+    from collections import defaultdict
 
-    # top orchestrator (imports both stages) + a clean reinstall helper
+    # Group needed template VMs by image.
+    by_image: dict[str, list[ResolvedTemplate]] = defaultdict(list)
+    for tpl in alloc_templates:
+        by_image[tpl.image].append(tpl)
+    used_images = sorted(by_image.keys())
+
+    init = root / "01_init_proxmox"
+
+    # top orchestrator + reinstall helper
     _write(A.INIT_PROXMOX_MAIN_YML, init / "_main.yml")
     _write(A.INIT_REINSTALL_SH, init / "_main.reinstall.sh", executable=True)
 
-    # stage_00: download base images — one cloudinit_<image>.yml rendered per used image
+    # stage_00: download — one cloudinit_<image>.yml per used image
     dl = init / _DOWNLOAD_DIR
     cloudinit_filename = "cloudinit_{image}.yml"
     dl_imports = "".join(
-        f"- import_playbook: ./{cloudinit_filename.format(image=i)}\n" for i in used
+        f"- import_playbook: ./{cloudinit_filename.format(image=i)}\n"
+        for i in used_images
     )
     _write(A.fill(A.STAGE_DOWNLOAD_MAIN, IMPORTS=dl_imports), dl / "_main.yml")
-    for image_id in used:
+    for image_id in used_images:
         img_def = catalog.images.get(image_id)
         if img_def is None or img_def.cloud_image is None:
             raise ValidationError(
-                f"image {image_id!r} has no cloud_image in the catalog's 01_image_layer "
-                f"— add a cloud_image: {{url: ..., filename: ...}} block to its image.yml"
+                f"image {image_id!r} has no cloud_image in the catalog's 01_image_layer"
             )
         ci = img_def.cloud_image
-        rendered = A.fill(
-            A.CLOUDINIT_DOWNLOAD_YML,
-            IMAGE_ID=image_id,
-            ISO_URL=ci.url,
-            ISO_FILE_NAME=ci.filename,
+        _write(
+            A.fill(A.CLOUDINIT_DOWNLOAD_YML, IMAGE_ID=image_id,
+                   ISO_URL=ci.url, ISO_FILE_NAME=ci.filename),
+            dl / cloudinit_filename.format(image=image_id),
         )
-        _write(rendered, dl / cloudinit_filename.format(image=image_id))
 
-    # stage_01: create templates — rendered per-VM files + copied static helpers
+    # stage_01: create templates — ONLY the VMs this scenario references
     stage = init / _TEMPLATES_STAGE
-    tpl_imports = "".join(
-        f"- import_playbook: ./templates/{i}/{_IMAGE_SETS[i]['main']}\n" for i in used
+    tpl_stage_imports = "".join(
+        f"- import_playbook: ./templates/{i}/{_IMAGE_SETS[i]['main']}\n"
+        for i in used_images
     )
-    _write(A.fill(A.STAGE_TEMPLATES_MAIN, IMPORTS=tpl_imports), stage / "_main.yml")
-    for image_id in used:
+    _write(A.fill(A.STAGE_TEMPLATES_MAIN, IMPORTS=tpl_stage_imports), stage / "_main.yml")
+
+    for image_id in used_images:
         img_def = catalog.images.get(image_id)
-        if img_def is None or not img_def.proxmox_templates:
-            raise ValidationError(
-                f"image {image_id!r} has no proxmox_templates in the catalog's 01_image_layer "
-                f"— add a proxmox_templates list to its image.yml"
-            )
-        if img_def.cloud_image is None:
+        if img_def is None or img_def.cloud_image is None:
             raise ValidationError(
                 f"image {image_id!r} has no cloud_image in the catalog's 01_image_layer"
             )
         img_dir = stage / "templates" / image_id
         image_path = f"/var/lib/vz/template/iso/{img_def.cloud_image.filename}"
+        needed_templates = by_image[image_id]
 
-        # render one play per template VM
+        # render one play per NEEDED template VM (not the full image set)
         tpl_imports_img = ""
-        for tpl in img_def.proxmox_templates:
+        for tpl in needed_templates:
             cores, memory_mb, disk_size = _parse_spec(tpl.spec)
             ip_prefix = ".".join(tpl.ip.split(".")[:3])
-            rendered = A.fill(
-                A.TEMPLATE_VM_YML,
-                IMAGE_ID=image_id,
-                VM_ID=str(tpl.vm_id),
-                VM_NAME=tpl.vm_name,
-                VM_CORES=str(cores),
-                VM_MEMORY_MB=str(memory_mb),
-                VM_NET_BRIDGE=tpl.bridge,
-                VM_DISK_SIZE=disk_size,
-                CLOUDINIT_IMAGE_PATH=image_path,
-                VM_CI_IP=tpl.ip,
-                VM_CI_IP_GW=f"{ip_prefix}.1",
+            _write(
+                A.fill(
+                    A.TEMPLATE_VM_YML,
+                    IMAGE_ID=image_id,
+                    VM_ID=str(tpl.vm_id),
+                    VM_NAME=tpl.vm_name,
+                    VM_CORES=str(cores),
+                    VM_MEMORY_MB=str(memory_mb),
+                    VM_NET_BRIDGE=tpl.bridge,
+                    VM_DISK_SIZE=disk_size,
+                    CLOUDINIT_IMAGE_PATH=image_path,
+                    VM_CI_IP=tpl.ip,
+                    VM_CI_IP_GW=f"{ip_prefix}.1",
+                ),
+                img_dir / f"{tpl.vm_name}.yml",
             )
-            filename = f"{tpl.vm_name}.yml"
-            _write(rendered, img_dir / filename)
-            tpl_imports_img += f"- import_playbook: ./{filename}\n"
+            tpl_imports_img += f"- import_playbook: ./{tpl.vm_name}.yml\n"
 
-        # render _apply_apt_proxy.yml with this image's vm_id list
+        # _apply_apt_proxy only for the needed template VMs
         id_list = "".join(
-            f"      - {t.vm_id}  # {t.vm_name}\n" for t in img_def.proxmox_templates
+            f"      - {t.vm_id}  # {t.vm_name}\n" for t in needed_templates
         )
         _write(A.fill(A.APPLY_APT_PROXY_YML, IMAGE_ID=image_id, VM_ID_LIST=id_list),
                img_dir / "_apply_apt_proxy.yml")
 
-        # render _main_<image>.yml
+        # _main_<image>.yml imports only the needed template plays
         _write(
             A.fill(A.MAIN_IMAGE_YML, IMAGE_ID=image_id, TEMPLATE_IMPORTS=tpl_imports_img),
             img_dir / _IMAGE_SETS[image_id]["main"],
         )
 
-        # write the two static helpers from render_assets constants
+        # static helpers (read from manifest at runtime / pure Jinja2 — no ids)
         _write(A.fill(A.UPDATE_TEMPLATES_YML, IMAGE_ID=image_id),
                img_dir / "_update_templates.yml")
         _write(A.TEMPLATE_BOOTSTRAP_YAML_J2,
@@ -449,8 +452,7 @@ def render_scenario(
     proxmox_node = spec.proxmox_node or _DEFAULT_PROXMOX_NODE
 
     # class B — verbatim-with-param boilerplate
-    used_images = sorted({box.image for box in alloc.boxes})
-    _render_init_proxmox(root, used_images, catalog)
+    _render_init_proxmox(root, alloc.templates, catalog)
     sections = _render_sections(alloc, root, spec.name, proxmox_node)
     _render_main_playbooks(root, spec.name, sections)
     _render_top_level_scripts(root, spec.name)

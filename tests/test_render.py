@@ -279,8 +279,9 @@ def test_init_proxmox_is_os_selective_debian(fake_catalog, tmp_path):
     layer = fake_catalog / "05_topology_layer" / "box_templates" / "deb-box" / "v1.0.0"
     layer.mkdir(parents=True)
     (layer / "template.yml").write_text(
-        "id: deb-box\napi_version: 1\nrole: student\nimage: debian_trixie\n"
-        "default_inventory_group: r42_student\nspec: \"2cpu/4gb/32gb\"\n", encoding="utf-8",
+        "id: deb-box\napi_version: 1\nrole: student\n"
+        "template_vm: \"template-vm-debian-trixie-small\"\n"
+        "default_inventory_group: r42_student\n", encoding="utf-8",
     )
     spec = ScenarioSpec.model_validate({
         "name": "deb_lab", "subnet_layout": "default-3zone", "boxes": [{"template": "deb-box"}],

@@ -35,9 +35,13 @@ class CloudImageSpec(BaseModel):
 class ProxmoxTemplateSpec(BaseModel):
     """One Proxmox 9xxx template VM entry — the render source for stage_01 create plays.
 
-    Mirrors a row in ``TEMPLATE_TABLE`` but lives in the catalog so the generator
-    renders ``stage_01-create_templates/templates/<image>/<vm_name>.yml`` without
+    Lives in the catalog so the generator renders
+    ``stage_01-create_templates/templates/<image>/<vm_name>.yml`` without
     any hardcoded data in the playbooks repo.
+
+    ``ip_octet`` is the fixed last octet of this VM's address within the
+    templates subnet (e.g. 221 for .221). The full IP and bridge are resolved at
+    allocation time from the subnet layout's ``templates`` subnet.
     """
 
     model_config = _STRICT
@@ -45,8 +49,7 @@ class ProxmoxTemplateSpec(BaseModel):
     vm_id: int
     vm_name: str = Field(min_length=1)
     spec: str = Field(min_length=1)   # "Xcpu/Ygb/Zgb"
-    ip: str = Field(pattern=C.IPV4_RE.pattern)
-    bridge: str = Field(pattern=C.BRIDGE_RE.pattern, default="vmbr140")
+    ip_octet: int = Field(ge=1, le=254)
 
 
 class ImageDef(BaseModel):
@@ -75,7 +78,13 @@ class ImageDef(BaseModel):
 # --- box templates ---------------------------------------------------------
 
 class BoxTemplate(BaseModel):
-    """A VM/box archetype: role, OS, default inventory group, spec, attachments."""
+    """A VM/box archetype: role, template VM reference, inventory group, attachments.
+
+    ``template_vm`` is the ``vm_name`` of a :class:`ProxmoxTemplateSpec` entry in
+    the catalog's ``01_image_layer``.  It uniquely identifies both the clone source
+    and its base image (vm_names are globally unique across all images).  The
+    generator resolves it at allocation time to derive the image, vm_id, and spec.
+    """
 
     model_config = _STRICT
 
@@ -83,22 +92,34 @@ class BoxTemplate(BaseModel):
     api_version: int = 1
     description: str = ""
     role: Literal["admin", "ctf", "team", "student", "template"]
-    # Versioned base image the box clones, named ``<distro>_<codename>`` (e.g.
-    # ``ubuntu_noble``, ``debian_trixie``) = the 01_init_proxmox templates/<image>/
-    # set. Drives clone-image selection at authoring time (cpu/ram are clone-time
-    # settings; the disk image carries the OS+version). The runtime role dispatch
-    # still self-detects via ``ansible_facts.distribution``, so it agrees with the
-    # cloned image. Defaults to ``ubuntu_noble`` (every existing box).
-    image: str = Field(default="ubuntu_noble", pattern=C.IMAGE_RE.pattern)
+    template_vm: str = Field(pattern=C.TEMPLATE_ID_RE.pattern)
     default_inventory_group: str = Field(pattern=C.INVENTORY_GROUP_RE.pattern)
-    spec: str = Field(min_length=1)
     default_attachments: list[Attachment] = Field(default_factory=list)
 
 
 # --- subnet layouts --------------------------------------------------------
 
+class TemplateSubnet(BaseModel):
+    """The Proxmox infrastructure subnet used for template VM creation.
+
+    Separate from lab ``subnets`` (which define the scenario's zone topology).
+    The generator reads ``cidr`` and ``bridge`` here to derive template VM IPs
+    (``{prefix}.{ProxmoxTemplateSpec.ip_octet}``) and network attachments.
+    """
+
+    model_config = _STRICT
+
+    cidr: str = Field(pattern=C.IPV4_CIDR_RE.pattern)
+    bridge: str = Field(pattern=C.BRIDGE_RE.pattern)
+
+
 class SubnetLayout(BaseModel):
-    """A reusable set of subnet/bridge declarations a topology can adopt."""
+    """A reusable set of subnet/bridge declarations a topology can adopt.
+
+    ``subnets`` lists the lab zones (admin, student, ctf …).
+    ``template_subnet`` defines the separate Proxmox infrastructure subnet
+    for template VM creation — not counted as a lab zone.
+    """
 
     model_config = _STRICT
 
@@ -106,6 +127,7 @@ class SubnetLayout(BaseModel):
     api_version: int = 1
     description: str = ""
     subnets: list[Subnet] = Field(min_length=1)
+    template_subnet: TemplateSubnet | None = None
 
 
 # --- network policy templates ---------------------------------------------

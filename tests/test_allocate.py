@@ -15,10 +15,9 @@ import pytest
 from r42playbooks.core import constants as C
 from r42playbooks.core.allocate import Allocation, allocate, manifest_dict
 from r42playbooks.core.catalog import load_catalog
-from r42playbooks.core.errors import CatalogNotFoundError, ValidationError
+from r42playbooks.core.errors import CatalogNotFoundError, CompileError, ValidationError
 from r42playbooks.core.idalloc import ReservedIndex
 from r42playbooks.core.spec import ScenarioSpec
-from r42playbooks.core.templates_table import TEMPLATE_TABLE, select_template
 
 
 def _alloc(catalog, **spec_overrides):
@@ -32,94 +31,53 @@ def _alloc(catalog, **spec_overrides):
     return allocate(ScenarioSpec.model_validate(base), catalog)
 
 
-# --- template table / selection (H2) --------------------------------------
+# --- template VM resolution (catalog-driven) --------------------------------
 
-def test_select_template_picks_lowest_matching_vm_id():
-    # 9234 and 9244 both match 4cpu/8gb/64gb -> lowest wins
-    t = select_template("4cpu/8gb/64gb")
-    assert t.vm_id == 9234
-
-
-def test_select_template_override_by_vm_id():
-    t = select_template("4cpu/8gb/64gb", override_vm_id=9244)
-    assert t.vm_id == 9244
-
-
-def test_select_template_unknown_spec_raises():
-    with pytest.raises(ValidationError):
-        select_template("999cpu/1tb/1pb")
-
-
-def test_select_template_ram_disk_fallback():
-    """No exact cpu/ram/disk match -> clone the template with the same ram/disk.
-
-    Real catalog boxes use e.g. ``2cpu/4gb/32gb`` (cpu is a clone-time setting);
-    the baked template is the ``…/4gb/32gb`` small image (9221, lowest match).
-    """
-    t = select_template("2cpu/4gb/32gb")
-    assert _ram_disk_ok(t.spec)
-    assert t.vm_id == 9221
-
-
-def _ram_disk_ok(spec: str) -> bool:
-    return spec.split("/")[1:] == ["4gb", "32gb"]
-
-
-def test_select_template_no_ramdisk_match_still_raises():
-    with pytest.raises(ValidationError):
-        select_template("1cpu/999gb/999gb")
-
-
-def test_select_template_scopes_by_image():
-    assert select_template("4cpu/8gb/64gb").image == "ubuntu_noble"   # default
-    # debian_trixie image set exists -> ram/disk fallback to the 8gb/64gb image
-    deb = select_template("4cpu/8gb/64gb", image="debian_trixie")
-    assert deb.image == "debian_trixie" and deb.vm_id == 9331
-    # an image set that doesn't exist -> a clear error (not a silent clone)
-    with pytest.raises(ValidationError, match="debian_forky"):
-        select_template("4cpu/8gb/64gb", image="debian_forky")
-
-
-def test_box_image_defaults_to_ubuntu_noble_and_lands_in_manifest(fake_catalog):
+def test_box_image_resolved_from_template_vm(fake_catalog):
+    """template_vm reference on BoxTemplate drives image resolution."""
     alloc = _alloc(load_catalog(fake_catalog))
+    # admin-wazuh → template-vm-ubuntu-noble-medium-04-8g-64g → ubuntu_noble
     assert all(b.image == "ubuntu_noble" for b in alloc.boxes)
-    assert {t.image for t in alloc.templates} == {"ubuntu_noble", "debian_trixie"}
+    assert {t.image for t in alloc.templates} == {"ubuntu_noble"}
 
 
-def _add_box_template(fake_catalog, *, box_id: str, image: str, spec: str = "2cpu/4gb/32gb") -> None:
+def _add_box_template(fake_catalog, *, box_id: str, template_vm: str) -> None:
     layer = fake_catalog / "05_topology_layer" / "box_templates" / box_id / "v1.0.0"
     layer.mkdir(parents=True)
     (layer / "template.yml").write_text(
-        f"id: {box_id}\napi_version: 1\nrole: student\nimage: {image}\n"
-        f"default_inventory_group: r42_student\nspec: \"{spec}\"\n",
+        f"id: {box_id}\napi_version: 1\nrole: student\n"
+        f"template_vm: \"{template_vm}\"\n"
+        f"default_inventory_group: r42_student\n",
         encoding="utf-8",
     )
 
 
 def test_debian_box_selects_a_debian_trixie_template(fake_catalog):
-    """A box declaring image=debian_trixie clones a debian_trixie image."""
+    """A box referencing a debian_trixie template_vm clones that image."""
     from r42playbooks.core.catalog import load_catalog as _load
-    _add_box_template(fake_catalog, box_id="deb-box", image="debian_trixie", spec="2cpu/4gb/32gb")
+    _add_box_template(fake_catalog, box_id="deb-box",
+                      template_vm="template-vm-debian-trixie-small")
     catalog = _load(fake_catalog)
-    assert catalog.box_templates["deb-box"].image == "debian_trixie"
     spec = ScenarioSpec.model_validate({
         "name": "deb_lab", "subnet_layout": "default-3zone", "boxes": [{"template": "deb-box"}],
     })
     box = allocate(spec, catalog).boxes[0]
     assert box.image == "debian_trixie"
-    assert box.template_vm_id == 9321  # debian small (4gb/32gb via ram/disk fallback)
-    assert box.template_name == "template-vm-debian-small"
+    assert box.template_vm_id == 9321
+    assert box.template_name == "template-vm-debian-trixie-small"
 
 
-def test_unknown_image_blocks_allocation(fake_catalog):
-    """A box pointing at an image set that doesn't exist yet -> blocked, clearly."""
+def test_unknown_template_vm_blocks_allocation(fake_catalog):
+    """A box referencing a template_vm that doesn't exist raises CompileError."""
     from r42playbooks.core.catalog import load_catalog as _load
-    _add_box_template(fake_catalog, box_id="forky-box", image="debian_forky")
+    _add_box_template(fake_catalog, box_id="ghost-vm-box",
+                      template_vm="template-vm-does-not-exist")
     catalog = _load(fake_catalog)
     spec = ScenarioSpec.model_validate({
-        "name": "forky_lab", "subnet_layout": "default-3zone", "boxes": [{"template": "forky-box"}],
+        "name": "ghost_lab", "subnet_layout": "default-3zone",
+        "boxes": [{"template": "ghost-vm-box"}],
     })
-    with pytest.raises(ValidationError, match="debian_forky"):
+    with pytest.raises(CompileError, match="template-vm-does-not-exist"):
         allocate(spec, catalog)
 
 
@@ -221,15 +179,22 @@ def test_other_scenario_ip_collision_bumps_octet(fake_catalog, reserved_factory)
 
 def test_template_rows_never_reallocated(fake_catalog, reserved_factory):
     # _reserved.json carries 9xxx template rows; no placed box may land in 9xxx.
-    reserved = ReservedIndex.from_file(reserved_factory([
+    catalog = load_catalog(fake_catalog)
+    # Use the actual template VMs from the catalog as the reserved set.
+    template_entries = [
         {"vm_id": t.vm_id, "vm_name": t.vm_name, "ip": t.ip, "bridge": t.bridge,
-         "role": "template", "scenario": "other_lab"} for t in TEMPLATE_TABLE
-    ]))
+         "role": "template", "scenario": "other_lab"}
+        for img in catalog.images.values()
+        for t_spec in img.proxmox_templates
+        for t in [type("T", (), {"vm_id": t_spec.vm_id, "vm_name": t_spec.vm_name,
+                                  "ip": f"192.168.140.{t_spec.ip_octet}", "bridge": "vmbr140"})()]
+    ]
+    reserved = ReservedIndex.from_file(reserved_factory(template_entries))
     spec = ScenarioSpec.model_validate({
         "name": "gen_lab", "subnet_layout": "default-3zone",
         "network_policy": "air-gap-ctf", "boxes": [{"template": "vuln-box", "count": 3}],
     })
-    alloc = allocate(spec, load_catalog(fake_catalog), reserved)
+    alloc = allocate(spec, catalog, reserved)
     for box in alloc.boxes:
         assert box.vm_id < 9000
 
@@ -252,13 +217,28 @@ def test_manifest_matches_demo_lab_schema(fake_catalog):
     assert all(v["image"] == "ubuntu_noble" for v in m["vms"])  # fake_catalog boxes default
 
 
-def test_manifest_templates_populated_not_empty(fake_catalog):
-    # H1 guard: the old compiler hard-coded templates:[]; here it must be full.
+def test_manifest_templates_selective_not_full_table(fake_catalog):
+    """templates[] contains only the VMs the scenario actually needs (not the full table)."""
     alloc = _alloc(load_catalog(fake_catalog))
     m = manifest_dict(alloc)
-    assert len(m["templates"]) == len(TEMPLATE_TABLE)
-    assert {t["image"] for t in m["templates"]} == {"ubuntu_noble", "debian_trixie"}
+    # admin-wazuh needs template-vm-ubuntu-noble-medium-04-8g-64g only
+    assert len(m["templates"]) == 1
+    assert m["templates"][0]["vm_id"] == 9234
+    assert m["templates"][0]["image"] == "ubuntu_noble"
     assert set(m["templates"][0]) == {"vm_id", "vm_name", "spec", "ip", "bridge", "image"}
+
+
+def test_manifest_templates_multi_image(fake_catalog):
+    """A scenario with both ubuntu and debian boxes has both images in templates[]."""
+    _add_box_template(fake_catalog, box_id="deb-box2",
+                      template_vm="template-vm-debian-trixie-small")
+    alloc = _alloc(
+        load_catalog(fake_catalog),
+        boxes=[{"template": "admin-wazuh"}, {"template": "deb-box2"}],
+    )
+    m = manifest_dict(alloc)
+    assert {t["image"] for t in m["templates"]} == {"ubuntu_noble", "debian_trixie"}
+    assert len(m["templates"]) == 2
 
 
 def test_unknown_box_template_raises(fake_catalog):

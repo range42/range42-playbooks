@@ -25,6 +25,7 @@ from r42playbooks.core.catalog_models import (
     BoxTemplate,
     ImageDef,
     NetworkPolicyTemplate,
+    ProxmoxTemplateSpec,
     SubnetLayout,
 )
 from r42playbooks.core.errors import CatalogNotFoundError, ValidationError
@@ -204,6 +205,33 @@ def _load_image_layer(catalog_root: Path, catalog: Catalog) -> None:
 
         catalog.images[image_id] = model
 
+    # Enforce global uniqueness of template vm_names across all images.
+    seen: dict[str, str] = {}  # vm_name -> image_id
+    for image_id, img_def in catalog.images.items():
+        for tpl in img_def.proxmox_templates:
+            if tpl.vm_name in seen:
+                raise ValidationError(
+                    f"template vm_name {tpl.vm_name!r} appears in both "
+                    f"{seen[tpl.vm_name]!r} and {image_id!r} — vm_names must be "
+                    f"globally unique so box_template.template_vm can resolve unambiguously"
+                )
+            seen[tpl.vm_name] = image_id
+
+
+def find_template_vm(
+    catalog: "Catalog", vm_name: str
+) -> "tuple[str, ProxmoxTemplateSpec] | None":
+    """Return ``(image_id, ProxmoxTemplateSpec)`` for *vm_name*, or ``None``.
+
+    vm_names are globally unique across all images (enforced by ``_load_image_layer``),
+    so the first match is the only match.
+    """
+    for image_id, img_def in catalog.images.items():
+        for tpl in img_def.proxmox_templates:
+            if tpl.vm_name == vm_name:
+                return image_id, tpl
+    return None
+
 
 def list_images(catalog_root: Path) -> list[str]:
     """Enumerate base image ids from ``01_image_layer/``.
@@ -310,10 +338,10 @@ def validate_refs(spec: "ScenarioSpec", catalog: Catalog) -> list[str]:
         if bt is None:
             problems.append(f"unknown box template: {box.template!r}")
         default_attachments = bt.default_attachments if bt else []
-        # Validate base image when 01_image_layer is loaded (optional layer).
-        if bt is not None and catalog.images and bt.image not in catalog.images:
+        # Validate template_vm resolves when 01_image_layer is loaded (optional layer).
+        if bt is not None and catalog.images and find_template_vm(catalog, bt.template_vm) is None:
             problems.append(
-                f"unknown base image {bt.image!r} (box template {box.template!r})"
+                f"unknown template_vm {bt.template_vm!r} (box template {box.template!r})"
             )
         for att in list(default_attachments) + list(box.attachments_add):
             if att.kind == "role" and att.catalog_ref not in catalog.roles:
