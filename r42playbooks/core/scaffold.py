@@ -13,9 +13,7 @@ from r42playbooks.core.catalog import Catalog
 from r42playbooks.core.errors import ValidationError
 from r42playbooks.core.models import Box, NetworkPolicyRef, Topology, Zone
 
-# subnet name -> default last-octet for the first box in that zone
-_SUBNET_OCTET = {"admin": 100, "ctf": 170, "student": 160}
-_DEFAULT_OCTET = 200
+_DEFAULT_OCTET = 10  # starting octet for scaffolded boxes
 
 # Subnet names to skip (infrastructure subnets, not lab zones)
 _SKIP_SUBNETS = {"template"}
@@ -71,8 +69,7 @@ def scaffold_topology(
     used_templates: set = set()  # track globally-used template ids for uniqueness
 
     for subnet in layout.subnets:
-        # Use subnet.base_octet if set, else fall back to legacy name-based table
-        base = subnet.base_octet if subnet.base_octet else _SUBNET_OCTET.get(subnet.name, _DEFAULT_OCTET)
+        base = _DEFAULT_OCTET
         role = subnet.name if subnet.name in ("admin", "ctf", "student", "team") else "team"
         zones.append(Zone(name=subnet.name, subnet=subnet.name, role=role))
         if subnet.name in _SKIP_SUBNETS:

@@ -326,8 +326,8 @@ def test_new_autodetects_reserved_json(tmp_path, fake_catalog):
     out = tmp_path / "scenarios"
     out.mkdir()
     entry = {
-        "vm_id": 1170, "ip": "192.168.144.170", "vm_name": "vuln-box-00",
-        "role": "ctf", "bridge": "vmbr144", "scenario": "other_lab",
+        "vm_id": 1010, "ip": "192.168.144.10", "vm_name": "vuln-box-00",
+        "subnet": "ctf", "bridge": "vmbr144", "scenario": "other_lab",
     }
     (out / "_reserved.json").write_text(json.dumps(entry) + "\n", encoding="utf-8")
     res = runner.invoke(app, [
@@ -337,5 +337,5 @@ def test_new_autodetects_reserved_json(tmp_path, fake_catalog):
     assert res.exit_code == 0, res.output
     manifest = json.loads((out / "my_lab" / "manifest" / "scenario_vms.json").read_text())
     vm_ids = {v["vm_id"] for v in manifest["vms"]}
-    assert 1170 not in vm_ids, "blocked vm_id 1170 was allocated despite _reserved.json"
-    assert 1171 in vm_ids
+    assert 1010 not in vm_ids, "blocked vm_id 1010 was allocated despite _reserved.json"
+    assert 1011 in vm_ids

@@ -131,9 +131,9 @@ id: default-3zone
 api_version: 1
 description: admin + ctf + student subnets
 subnets:
-  - {name: admin, cidr: "192.168.142.0/24", bridge: vmbr142, gateway: "192.168.142.1", base_octet: 100, section: 02_admin_infrastructure, label: "ADMIN INFRASTRUCTURE INIT"}
-  - {name: ctf, cidr: "192.168.144.0/24", bridge: vmbr144, base_octet: 170, section: 04_ctf_infrastructure, label: "CTF INFRASTRUCTURE INIT"}
-  - {name: student, cidr: "192.168.143.0/24", bridge: vmbr143, base_octet: 160, section: 03_student_infrastructure, label: "TRAINEE INFRASTRUCTURE INIT"}
+  - {name: admin, cidr: "192.168.142.0/24", bridge: vmbr142, gateway: "192.168.142.1", section: 02_admin_infrastructure, label: "ADMIN INFRASTRUCTURE INIT"}
+  - {name: ctf, cidr: "192.168.144.0/24", bridge: vmbr144, section: 04_ctf_infrastructure, label: "CTF INFRASTRUCTURE INIT"}
+  - {name: student, cidr: "192.168.143.0/24", bridge: vmbr143, section: 03_student_infrastructure, label: "TRAINEE INFRASTRUCTURE INIT"}
 template_subnet: {cidr: "192.168.140.0/24", bridge: vmbr140}
 """.lstrip(),
     )

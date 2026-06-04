@@ -74,6 +74,9 @@ class Allocation:
     subnets: tuple[Subnet, ...]
 
 
+_DEFAULT_OCTET = 10  # starting octet for auto-allocated boxes (no explicit octet set)
+
+
 def _subnet_prefix(cidr: str) -> str:
     """Return the leading 3 octets of a /24 CIDR (host octet stripped)."""
     return cidr.split("/", 1)[0].rsplit(".", 1)[0]
@@ -155,11 +158,11 @@ def _allocate_box(
         tmpl_vm_name = tpl_spec.vm_name
 
     attachments = tuple(bt.default_attachments) + tuple(box.attachments_add)
-    base_octet = subnet.base_octet
+    start_octet = box.octet if box.octet is not None else _DEFAULT_OCTET
 
     placed: list[AllocatedBox] = []
     for name in _expand_names(box.template, box.count):
-        octet = _next_free_octet(base_octet, prefix, taken_ips)
+        octet = _next_free_octet(start_octet, prefix, taken_ips)
         vm_id = _next_free_vm_id(octet, taken_ids)
         ip = f"{prefix}.{octet}"
         taken_ips.add(ip)

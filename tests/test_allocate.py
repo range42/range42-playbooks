@@ -80,22 +80,41 @@ def test_unknown_template_vm_blocks_allocation(fake_catalog):
         allocate(spec, catalog)
 
 
-# --- octet rule + base octets ---------------------------------------------
+# --- octet assignment -----------------------------------------------------
 
-def test_admin_box_gets_demo_lab_slot(fake_catalog):
+def test_auto_box_starts_at_default_octet(fake_catalog):
+    """Without an explicit octet, allocation starts at .10."""
     alloc = _alloc(load_catalog(fake_catalog))
     box = alloc.boxes[0]
     assert box.vm_name == "admin-wazuh"
-    assert box.vm_id == 1100
-    assert box.ip == "192.168.142.100"
+    assert box.vm_id == 1010
+    assert box.ip == "192.168.142.10"
     assert box.bridge == "vmbr142"
 
 
-def test_student_box_uses_student_base_octet(fake_catalog):
+def test_explicit_octet_pins_ip(fake_catalog):
+    """BoxSpec.octet pins the starting last octet within the subnet."""
+    alloc = _alloc(load_catalog(fake_catalog), boxes=[{"template": "admin-wazuh", "subnet": "admin", "octet": 100}])
+    box = alloc.boxes[0]
+    assert box.ip == "192.168.142.100"
+    assert box.vm_id == 1100
+    assert C.octet_matches_vm_id(box.vm_id, box.ip)
+
+
+def test_explicit_octet_with_count_assigns_sequentially(fake_catalog):
+    """count>1 with explicit octet: .N, .N+1, .N+2 …"""
+    alloc = _alloc(load_catalog(fake_catalog), boxes=[{"template": "vuln-box", "count": 3, "subnet": "ctf", "octet": 50}])
+    ips = [b.ip for b in alloc.boxes]
+    ids = [b.vm_id for b in alloc.boxes]
+    assert ips == ["192.168.144.50", "192.168.144.51", "192.168.144.52"]
+    assert ids == [1050, 1051, 1052]
+
+
+def test_auto_box_on_any_subnet_starts_at_ten(fake_catalog):
     alloc = _alloc(load_catalog(fake_catalog), boxes=[{"template": "student-box", "subnet": "student"}])
     box = alloc.boxes[0]
-    assert box.vm_id == 1160
-    assert box.ip == "192.168.143.160"
+    assert box.vm_id == 1010
+    assert box.ip == "192.168.143.10"
 
 
 def test_octet_rule_holds_for_every_placed_box(fake_catalog):
@@ -114,9 +133,9 @@ def test_count_expands_to_zero_padded_names(fake_catalog):
     names = [b.vm_name for b in alloc.boxes]
     assert names == ["vuln-box-00", "vuln-box-01", "vuln-box-02", "vuln-box-03", "vuln-box-04"]
     ids = [b.vm_id for b in alloc.boxes]
-    assert ids == [1170, 1171, 1172, 1173, 1174]
+    assert ids == [1010, 1011, 1012, 1013, 1014]
     ips = [b.ip for b in alloc.boxes]
-    assert ips == [f"192.168.144.{o}" for o in range(170, 175)]
+    assert ips == [f"192.168.144.{o}" for o in range(10, 15)]
 
 
 def test_count_one_keeps_bare_template_name(fake_catalog):
@@ -149,32 +168,32 @@ def test_attachments_merge_template_defaults_and_spec_additions(fake_catalog):
 # --- _reserved.json uniqueness --------------------------------------------
 
 def test_other_scenario_vm_id_collision_bumps_band(fake_catalog, reserved_factory):
-    # another scenario owns vm_id 1170, but on a different IP -> octet .170 still
-    # free for our ctf subnet, so the band bumps (2170) keeping the octet rule.
+    # another scenario owns vm_id 1010, but on a different IP -> octet .10 still
+    # free for our ctf subnet, so the band bumps (2010) keeping the octet rule.
     reserved = ReservedIndex.from_file(reserved_factory([
-        {"vm_id": 1170, "ip": "10.9.9.9", "scenario": "other_lab"},
+        {"vm_id": 1010, "ip": "10.9.9.9", "scenario": "other_lab"},
     ]))
     spec = ScenarioSpec.model_validate({
         "name": "gen_lab", "subnet_layout": "default-3zone",
         "network_policy": "air-gap-ctf", "boxes": [{"template": "vuln-box", "subnet": "ctf"}],
     })
     box = allocate(spec, load_catalog(fake_catalog), reserved).boxes[0]
-    assert box.ip == "192.168.144.170"
-    assert box.vm_id == 2170
+    assert box.ip == "192.168.144.10"
+    assert box.vm_id == 2010
     assert C.octet_matches_vm_id(box.vm_id, box.ip)
 
 
 def test_other_scenario_ip_collision_bumps_octet(fake_catalog, reserved_factory):
     reserved = ReservedIndex.from_file(reserved_factory([
-        {"vm_id": 1170, "ip": "192.168.144.170", "scenario": "other_lab"},
+        {"vm_id": 1010, "ip": "192.168.144.10", "scenario": "other_lab"},
     ]))
     spec = ScenarioSpec.model_validate({
         "name": "gen_lab", "subnet_layout": "default-3zone",
         "network_policy": "air-gap-ctf", "boxes": [{"template": "vuln-box", "subnet": "ctf"}],
     })
     box = allocate(spec, load_catalog(fake_catalog), reserved).boxes[0]
-    assert box.ip == "192.168.144.171"
-    assert box.vm_id == 1171
+    assert box.ip == "192.168.144.11"
+    assert box.vm_id == 1011
 
 
 def test_template_rows_never_reallocated(fake_catalog, reserved_factory):

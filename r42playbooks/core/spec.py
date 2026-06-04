@@ -40,6 +40,8 @@ class BoxSpec(BaseModel):
     count: int = Field(default=1, ge=1, le=C.BOX_COUNT_MAX)
     # subnet name (e.g. "ctf"); must be explicitly set — no role-based fallback.
     subnet: str = Field(pattern=C.TEMPLATE_ID_RE.pattern)
+    # explicit last IP octet within the subnet (1-254); None → sequential from .10.
+    octet: int | None = Field(default=None, ge=1, le=254)
     # extra catalog attachments layered on top of the template's defaults.
     attachments_add: list[Attachment] = Field(default_factory=list)
     # free-form Ansible vars merged into the box (Jinja render surface -> guarded).
