@@ -432,11 +432,13 @@ def _render_readme(root: Path, spec: ScenarioSpec, alloc: Allocation) -> None:
         f"| `{b.vm_name}` | {b.role} | {b.image} | {b.vm_id} | {b.ip} |"
         for b in alloc.boxes
     ]
+    notes_line = f"\n> {spec.notes}\n" if spec.notes else ""
     _write(
         A.fill(
             A.README_MD,
             SCENARIO=spec.name,
             SUBNET_LAYOUT=spec.subnet_layout,
+            NOTES_LINE=notes_line,
             BOX_TABLE="\n".join(rows),
         ),
         root / "README.md",
