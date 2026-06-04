@@ -26,12 +26,13 @@ class ScenarioComposerApp(App):
 
     CSS = """
     #body   { height: 1fr; }
-    #form   { width: 44; height: 1fr; padding: 1; }
+    #form   { width: 60; height: 1fr; padding: 1; }
     #form Button { height: 1; min-height: 1; border: none; margin: 0; width: 100%; }
     #output { width: 1fr; height: 1fr; padding: 1; border: round $accent; }
     Select, Input { width: 1fr; }
     .row { height: auto; }
-    #subnet { width: 1fr; }
+    #count  { width: 8; }
+    #octet  { width: 10; }
     """
 
     def __init__(
