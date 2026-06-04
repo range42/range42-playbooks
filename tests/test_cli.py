@@ -64,6 +64,8 @@ def test_list_scenarios_shows_generated(tmp_path, fake_catalog):
     res = runner.invoke(app, ["list", "scenarios", "-o", str(out)])
     assert res.exit_code == 0, res.output
     assert "scen_a" in res.output
+    assert "default-3zone" in res.output   # subnet layout shown in summary
+    assert "admin-wazuh" in res.output    # box template shown in summary
 
 
 # --- show ------------------------------------------------------------------

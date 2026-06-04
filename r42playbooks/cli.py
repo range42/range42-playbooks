@@ -78,8 +78,19 @@ def list_cmd(
 ) -> None:
     """List pickable catalog modules, or existing generated scenarios."""
     if kind is ListKind.scenarios:
-        for path in sorted(Path(output).glob("*/scenario.r42.yml")):
-            typer.echo(path.parent.name)
+        paths = sorted(Path(output).glob("*/scenario.r42.yml"))
+        if not paths:
+            return
+        for path in paths:
+            try:
+                spec = api.load_spec(path)
+                boxes_summary = ", ".join(
+                    f"{b.template}" + (f"×{b.count}" if b.count > 1 else "")
+                    for b in spec.boxes
+                )
+                typer.echo(f"{spec.name}\t{spec.subnet_layout}\t[{boxes_summary}]")
+            except Exception:
+                typer.echo(path.parent.name)
         return
 
     cat = _load_catalog(catalog)

@@ -147,10 +147,10 @@ def _allocate_box(
         )
     image_id, tpl_spec = resolved
     # BoxSpec.template_vm_id overrides the catalog reference for ad-hoc pinning.
+    # image_id is kept from the catalog-resolved template_vm; only the numeric id changes.
     if box.template_vm_id is not None:
-        override = find_template_vm(catalog, bt.template_vm)  # keep image_id
         tmpl_vm_id = box.template_vm_id
-        tmpl_vm_name = bt.template_vm  # best-effort name
+        tmpl_vm_name = bt.template_vm  # best-effort: catalog name may differ from override id
     else:
         tmpl_vm_id = tpl_spec.vm_id
         tmpl_vm_name = tpl_spec.vm_name
