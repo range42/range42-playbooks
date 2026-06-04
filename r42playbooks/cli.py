@@ -102,9 +102,12 @@ def list_cmd(
 
     cat = _load_catalog(catalog)
     if kind is ListKind.boxes:
-        for name in sorted(cat.box_templates):
-            bt = cat.box_templates[name]
-            typer.echo(f"{name}\t{bt.role}\t{bt.template_vm}")
+        rows = [(name, cat.box_templates[name].role, cat.box_templates[name].template_vm)
+                for name in sorted(cat.box_templates)]
+        w0 = max(len(r[0]) for r in rows)
+        w1 = max(len(r[1]) for r in rows)
+        for name, role, tvm in rows:
+            typer.echo(f"{name:<{w0}}  {role:<{w1}}  {tvm}")
     elif kind is ListKind.subnets:
         for name in sorted(cat.subnet_layouts):
             typer.echo(name)
@@ -118,11 +121,13 @@ def list_cmd(
         for name in sorted(cat.containers):
             typer.echo(name)
     elif kind is ListKind.images:
-        for image_id in sorted(cat.images):
-            img = cat.images[image_id]
-            typer.echo(
-                f"{image_id}\t{img.distro}/{img.codename}\t{len(img.proxmox_templates)} template(s)"
-            )
+        rows_img = [(image_id, f"{cat.images[image_id].distro}/{cat.images[image_id].codename}",
+                     f"{len(cat.images[image_id].proxmox_templates)} template(s)")
+                    for image_id in sorted(cat.images)]
+        w0 = max(len(r[0]) for r in rows_img)
+        w1 = max(len(r[1]) for r in rows_img)
+        for image_id, distro_codename, tpl_count in rows_img:
+            typer.echo(f"{image_id:<{w0}}  {distro_codename:<{w1}}  {tpl_count}")
 
 
 # --- show ------------------------------------------------------------------
