@@ -1,9 +1,10 @@
-"""Pydantic models for the catalog templates under 05_topology_layer/.
+"""Pydantic models for catalog layers.
 
-Three template kinds, all authored as YAML, validated here:
-  - BoxTemplate           (box_templates/)    VM/box archetypes
-  - NetworkPolicyTemplate (network_policies/) symbolic isolation policies
-  - SubnetLayout          (subnet_layouts/)   subnet/bridge layouts
+Loaded artifacts:
+  - ImageDef              (01_image_layer/)    base VM image descriptors
+  - BoxTemplate           (box_templates/)     VM/box archetypes
+  - NetworkPolicyTemplate (network_policies/)  symbolic isolation policies
+  - SubnetLayout          (subnet_layouts/)    subnet/bridge layouts
 
 Templates carry *symbolic* structure only (zone names, service ports) — no
 concrete per-scenario IPs beyond declared params/defaults. The compiler (P3)
@@ -18,6 +19,25 @@ from r42playbooks.core import constants as C
 from r42playbooks.core.models import Attachment, Subnet
 
 _STRICT = ConfigDict(extra="forbid")
+
+
+# --- base images (01_image_layer) -----------------------------------------
+
+class ImageDef(BaseModel):
+    """Base VM image descriptor — the canonical name + distro metadata.
+
+    id matches ``<distro>_<codename>`` (IMAGE_RE), e.g. ``ubuntu_noble``.
+    Box templates reference images by id; validate_refs checks that the id
+    exists in the catalog's 01_image_layer.
+    """
+
+    model_config = _STRICT
+
+    id: str = Field(pattern=C.IMAGE_RE.pattern)
+    api_version: int = 1
+    distro: str = Field(pattern=r"^[a-z0-9]+$", min_length=1)
+    codename: str = Field(pattern=r"^[a-z0-9]+$", min_length=1)
+    description: str = ""
 
 
 # --- box templates ---------------------------------------------------------

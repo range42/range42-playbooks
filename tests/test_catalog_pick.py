@@ -119,3 +119,49 @@ def test_validate_refs_accepts_known_role_and_container(fake_catalog, valid_spec
     ]
     spec = ScenarioSpec.model_validate(valid_spec_dict)
     assert validate_refs(spec, catalog) == []
+
+
+def test_validate_refs_flags_unknown_base_image(fake_catalog, spec_factory):
+    """A box template with an unrecognised image is flagged when 01_image_layer is loaded."""
+    catalog = load_catalog(fake_catalog)
+    catalog.box_templates["ghost-os-box"] = BoxTemplate(
+        id="ghost-os-box", role="ctf", default_inventory_group="r42_ctf",
+        spec="1cpu/4gb/32gb", image="debian_forky",
+    )
+    data = spec_factory(boxes=[{"template": "ghost-os-box"}])
+    spec = ScenarioSpec.model_validate(data)
+    problems = validate_refs(spec, catalog)
+    assert any("debian_forky" in p for p in problems)
+
+
+def test_validate_refs_accepts_known_base_image(fake_catalog, spec_factory):
+    """A box template with image=debian_trixie resolves cleanly when layer is loaded."""
+    catalog = load_catalog(fake_catalog)
+    catalog.box_templates["deb-box"] = BoxTemplate(
+        id="deb-box", role="student", default_inventory_group="r42_student",
+        spec="1cpu/2gb/24gb", image="debian_trixie",
+    )
+    data = spec_factory(boxes=[{"template": "deb-box"}])
+    spec = ScenarioSpec.model_validate(data)
+    assert validate_refs(spec, catalog) == []
+
+
+def test_validate_refs_skips_image_check_when_layer_absent(spec_factory):
+    """When 01_image_layer is not loaded (images={}), image names are not validated."""
+    catalog = Catalog(
+        subnet_layouts={"layout": object()},
+        network_policies={},
+        box_templates={
+            "any-box": BoxTemplate(
+                id="any-box", role="ctf", default_inventory_group="r42_ctf",
+                spec="1cpu/4gb/32gb", image="unknown_distro",
+            )
+        },
+        roles=set(),
+        containers=set(),
+        # images is empty — layer not loaded
+    )
+    data = spec_factory(subnet_layout="layout", boxes=[{"template": "any-box"}])
+    data.pop("network_policy", None)
+    spec = ScenarioSpec.model_validate(data)
+    assert validate_refs(spec, catalog) == []

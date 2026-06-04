@@ -14,6 +14,7 @@ from r42playbooks.core.allocate import Allocation, allocate
 from r42playbooks.core.catalog import (
     Catalog,
     list_containers,
+    list_images,
     list_roles,
     load_catalog,
     validate_refs,
@@ -30,6 +31,7 @@ from r42playbooks.core.validate import semantic_problems
 __all__ = [
     # generator surface (FROZEN at S5a — consumed by the CLI/TUI/backend)
     "load_catalog",
+    "list_images",
     "list_roles",
     "list_containers",
     "validate_refs",

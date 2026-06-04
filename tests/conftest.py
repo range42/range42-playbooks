@@ -145,6 +145,22 @@ spec: "1cpu/2gb/24gb"
     _write(root / "03_container_layer" / "docker" / "_ctf" / "misconfiguration" / "network" / "open-smb" / "compose.yml",
            "services: {}\n")
 
+    # 01_image_layer: base VM image descriptors (ubuntu_noble + debian_trixie)
+    _write(root / "01_image_layer" / "ubuntu_noble" / "v1.0.0" / "image.yml", """
+id: ubuntu_noble
+api_version: 1
+distro: ubuntu
+codename: noble
+description: Ubuntu 24.04 LTS (Noble Numbat)
+""".lstrip())
+    _write(root / "01_image_layer" / "debian_trixie" / "v1.0.0" / "image.yml", """
+id: debian_trixie
+api_version: 1
+distro: debian
+codename: trixie
+description: Debian 13 (Trixie)
+""".lstrip())
+
     # two versions of a policy — loader must pick the highest (1.1.0)
     for ver, comment in (("v1.0.0", "v1"), ("v1.1.0", "v1.1")):
         _write(layer / "network_policies" / "air-gap-ctf" / ver / "template.yml", f"""

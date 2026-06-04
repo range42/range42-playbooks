@@ -90,7 +90,12 @@ IMAGE_RE = re.compile(r"^[a-z0-9]+(?:_[a-z0-9]+)+$")
 # Version directory under a template id, e.g. "v1.0.0".
 VERSION_DIR_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 
-# Catalog layout: the new topology layer and its categories.
+# Catalog layout: numbered layers (foundational → composed).
+#   01_image_layer  — base VM images (ubuntu_noble, debian_trixie …)
+#   02_ansible_layer — Ansible roles
+#   03_container_layer — Docker stacks + LXC
+#   05_topology_layer — box_templates / subnet_layouts / network_policies
+IMAGE_LAYER_DIR = "01_image_layer"
 TOPOLOGY_LAYER_DIR = "05_topology_layer"
 CATEGORY_BOX_TEMPLATES = "box_templates"
 CATEGORY_NETWORK_POLICIES = "network_policies"

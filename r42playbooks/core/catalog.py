@@ -23,6 +23,7 @@ from pydantic import ValidationError as _PydValidationError
 from r42playbooks.core import constants as C
 from r42playbooks.core.catalog_models import (
     BoxTemplate,
+    ImageDef,
     NetworkPolicyTemplate,
     SubnetLayout,
 )
@@ -49,8 +50,11 @@ class _Resolved:
 
 @dataclass
 class Catalog:
-    """In-memory index of validated topology-layer templates + pickable refs."""
+    """In-memory index of validated catalog templates + pickable refs."""
 
+    # 01_image_layer — base VM image descriptors (optional; empty when layer absent)
+    images: dict[str, ImageDef] = field(default_factory=dict)
+    # 05_topology_layer categories
     box_templates: dict[str, BoxTemplate] = field(default_factory=dict)
     network_policies: dict[str, NetworkPolicyTemplate] = field(default_factory=dict)
     subnet_layouts: dict[str, SubnetLayout] = field(default_factory=dict)
@@ -163,6 +167,62 @@ def _load_category(layer_root: Path, category: str, catalog: Catalog) -> None:
         )
 
 
+def _load_image_layer(catalog_root: Path, catalog: Catalog) -> None:
+    """Load every image descriptor from ``01_image_layer/`` into *catalog*.
+
+    The layer is optional — absent dirs are silently skipped so old/minimal
+    catalogs remain loadable. Each ``<name>/v*/image.yml`` file is validated
+    against :class:`~r42playbooks.core.catalog_models.ImageDef`.
+    """
+    layer_root = (Path(catalog_root) / C.IMAGE_LAYER_DIR).resolve()
+    if not layer_root.is_dir():
+        return
+
+    for image_dir in sorted(layer_root.iterdir()):
+        if not image_dir.is_dir():
+            continue
+        image_id = image_dir.name
+        if not C.IMAGE_RE.fullmatch(image_id):
+            raise ValidationError(f"invalid image id directory: {image_id!r}")
+
+        version_dir, _ = _highest_version_dir(image_dir)
+        image_file = (version_dir / "image.yml").resolve(strict=True)
+        if not image_file.is_relative_to(layer_root):
+            raise CatalogNotFoundError(f"image escapes layer root: {image_file}")
+
+        raw = image_file.read_bytes()
+        data = yaml.safe_load(raw.decode("utf-8"))
+        try:
+            model = ImageDef.model_validate(data)
+        except _PydValidationError as exc:
+            raise ValidationError(f"invalid image {image_id!r}: {exc}") from exc
+
+        if model.id != image_id:
+            raise ValidationError(
+                f"image id {model.id!r} does not match directory {image_id!r}"
+            )
+
+        catalog.images[image_id] = model
+
+
+def list_images(catalog_root: Path) -> list[str]:
+    """Enumerate base image ids from ``01_image_layer/``.
+
+    Returns a sorted list of image id strings (e.g. ``["debian_trixie",
+    "ubuntu_noble"]``).  Returns an empty list when the layer is absent.
+    """
+    layer_root = (Path(catalog_root) / C.IMAGE_LAYER_DIR).resolve()
+    if not layer_root.is_dir():
+        return []
+    ids: list[str] = []
+    for image_dir in sorted(layer_root.iterdir()):
+        if not image_dir.is_dir():
+            continue
+        if C.IMAGE_RE.fullmatch(image_dir.name):
+            ids.append(image_dir.name)
+    return ids
+
+
 def list_roles(catalog_root: Path) -> list[str]:
     """Enumerate reusable Ansible role names under ``02_ansible_layer/**/roles/``.
 
@@ -206,10 +266,13 @@ def list_containers(catalog_root: Path) -> list[str]:
 
 
 def load_catalog(catalog_root: Path) -> Catalog:
-    """Load + validate all topology-layer templates from a catalog checkout.
+    """Load + validate all catalog layers from a catalog checkout.
+
+    Loads (in order): 01_image_layer (optional), 05_topology_layer (required),
+    02_ansible_layer roles, 03_container_layer containers.
 
     :param catalog_root: path that contains ``05_topology_layer/``.
-    :raises CatalogNotFoundError: if the layer dir is absent.
+    :raises CatalogNotFoundError: if ``05_topology_layer`` is absent.
     :raises ValidationError: if any template file fails schema validation.
     """
     layer_root = (Path(catalog_root) / C.TOPOLOGY_LAYER_DIR).resolve()
@@ -217,6 +280,7 @@ def load_catalog(catalog_root: Path) -> Catalog:
         raise CatalogNotFoundError(f"missing {C.TOPOLOGY_LAYER_DIR} under {catalog_root}")
 
     catalog = Catalog()
+    _load_image_layer(catalog_root, catalog)
     for category in _CATEGORY_MODEL:
         _load_category(layer_root, category, catalog)
     catalog.roles = set(list_roles(catalog_root))
@@ -228,11 +292,12 @@ def validate_refs(spec: "ScenarioSpec", catalog: Catalog) -> list[str]:
     """Return human-readable messages for every spec ref missing from *catalog*.
 
     A typo guard for ``scenario.r42.yml``: checks the subnet layout, network
-    policy, each box template, and every attachment that becomes a generated role
-    name — both the box's catalog ``default_attachments`` and the spec's
-    ``attachments_add`` (the renderer emits both, so both must resolve). An empty
-    list means every referenced module exists. ``gamification`` attachments are
-    not enumerated here and are skipped (cannot be validated by name yet).
+    policy, each box template, its base image (when 01_image_layer is loaded),
+    and every attachment that becomes a generated role name — both the box's
+    catalog ``default_attachments`` and the spec's ``attachments_add`` (the
+    renderer emits both, so both must resolve). An empty list means every
+    referenced module exists. ``gamification`` attachments are not enumerated
+    here and are skipped (cannot be validated by name yet).
     """
     problems: list[str] = []
     if spec.subnet_layout not in catalog.subnet_layouts:
@@ -245,6 +310,11 @@ def validate_refs(spec: "ScenarioSpec", catalog: Catalog) -> list[str]:
         if bt is None:
             problems.append(f"unknown box template: {box.template!r}")
         default_attachments = bt.default_attachments if bt else []
+        # Validate base image when 01_image_layer is loaded (optional layer).
+        if bt is not None and catalog.images and bt.image not in catalog.images:
+            problems.append(
+                f"unknown base image {bt.image!r} (box template {box.template!r})"
+            )
         for att in list(default_attachments) + list(box.attachments_add):
             if att.kind == "role" and att.catalog_ref not in catalog.roles:
                 problems.append(f"unknown role: {att.catalog_ref!r}")

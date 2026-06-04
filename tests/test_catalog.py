@@ -2,7 +2,7 @@
 
 import pytest
 
-from r42playbooks.core.catalog import load_catalog
+from r42playbooks.core.catalog import list_images, load_catalog
 from r42playbooks.core.errors import CatalogNotFoundError
 
 
@@ -11,6 +11,7 @@ def test_load_catalog_indexes_all_categories(fake_catalog):
     assert set(cat.box_templates) == {"vuln-box", "admin-wazuh", "student-box"}
     assert set(cat.network_policies) == {"air-gap-ctf"}
     assert set(cat.subnet_layouts) == {"default-3zone"}
+    assert set(cat.images) == {"ubuntu_noble", "debian_trixie"}
 
 
 def test_box_template_fields_parsed(fake_catalog):
@@ -63,10 +64,43 @@ def test_template_id_traversal_rejected(fake_catalog):
 
 
 def test_shipped_catalog_validates():
-    """The real range42-catalog/05_topology_layer (sibling repo) must load if present."""
+    """The real range42-catalog (sibling repo) must load if present."""
     from pathlib import Path
     sibling = Path(__file__).resolve().parents[2] / "range42-catalog"
     if not (sibling / "05_topology_layer").is_dir():
         pytest.skip("range42-catalog sibling not checked out")
     cat = load_catalog(sibling)
     assert cat.box_templates and cat.network_policies and cat.subnet_layouts
+    assert cat.images, "01_image_layer must be present in the shipped catalog"
+
+
+def test_image_fields_parsed(fake_catalog):
+    cat = load_catalog(fake_catalog)
+    noble = cat.images["ubuntu_noble"]
+    assert noble.distro == "ubuntu"
+    assert noble.codename == "noble"
+    trixie = cat.images["debian_trixie"]
+    assert trixie.distro == "debian"
+    assert trixie.codename == "trixie"
+
+
+def test_image_layer_absent_is_ok(tmp_path):
+    """load_catalog succeeds when 01_image_layer is absent — layer is optional."""
+    from pathlib import Path
+    # Minimal catalog with only the topology layer
+    layer = tmp_path / "cat" / "05_topology_layer"
+    (layer / "subnet_layouts" / "s" / "v1.0.0").mkdir(parents=True)
+    (layer / "subnet_layouts" / "s" / "v1.0.0" / "template.yml").write_text(
+        "id: s\napi_version: 1\ndescription: x\nsubnets:\n  - {name: a, cidr: 10.0.0.0/24, bridge: vmbr0}\n"
+    )
+    cat = load_catalog(tmp_path / "cat")
+    assert cat.images == {}
+
+
+def test_list_images(fake_catalog):
+    imgs = list_images(fake_catalog)
+    assert imgs == ["debian_trixie", "ubuntu_noble"]  # sorted
+
+
+def test_list_images_absent_returns_empty(tmp_path):
+    assert list_images(tmp_path / "empty") == []

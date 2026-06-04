@@ -29,6 +29,7 @@ from r42playbooks.api import (
     allocate,
     dump_spec_atomic,
     list_containers,
+    list_images,
     list_roles,
     load_catalog,
     load_spec,
@@ -40,6 +41,7 @@ from r42playbooks.core.models import Topology
 __all__ = [
     # generator surface (the stable import-only contract)
     "load_catalog",
+    "list_images",
     "list_roles",
     "list_containers",
     "validate_refs",
