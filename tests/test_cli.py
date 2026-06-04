@@ -318,3 +318,25 @@ def test_validate_bad_spec_exits_nonzero(tmp_path, fake_catalog):
     )
     assert res.exit_code != 0
     assert "no-such-layout" in res.output
+
+
+def test_new_autodetects_reserved_json(tmp_path, fake_catalog):
+    """When _reserved.json exists in the output dir, `new` uses it without --reserved."""
+    import json
+
+    out = tmp_path / "scenarios"
+    out.mkdir()
+    entry = {
+        "vm_id": 1170, "ip": "192.168.144.170", "vm_name": "vuln-box-00",
+        "role": "ctf", "bridge": "vmbr144", "scenario": "other_lab",
+    }
+    (out / "_reserved.json").write_text(json.dumps(entry) + "\n", encoding="utf-8")
+    res = runner.invoke(app, [
+        "new", "my_lab", "--subnet", "default-3zone", "--box", "vuln-box",
+        "--catalog", str(fake_catalog), "-o", str(out),
+    ])
+    assert res.exit_code == 0, res.output
+    manifest = json.loads((out / "my_lab" / "manifest" / "scenario_vms.json").read_text())
+    vm_ids = {v["vm_id"] for v in manifest["vms"]}
+    assert 1170 not in vm_ids, "blocked vm_id 1170 was allocated despite _reserved.json"
+    assert 1171 in vm_ids

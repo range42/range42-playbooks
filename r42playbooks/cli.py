@@ -318,12 +318,16 @@ def new(
             typer.secho(f"  ✗ {p}", fg=typer.colors.RED)
         _fail(f"{len(problems)} unknown catalog reference(s)")
 
+    # Auto-detect _reserved.json in the output dir when not explicitly passed.
+    auto = output / "_reserved.json"
+    effective_reserved = reserved if reserved is not None else (auto if auto.is_file() else None)
+
     try:
         root = api.render_scenario(
             composed,
             catalog=cat,
             dest=output,
-            reserved=_reserved(reserved),
+            reserved=_reserved(effective_reserved),
             overwrite=force,
         )
     except ScenarioExistsError as exc:
