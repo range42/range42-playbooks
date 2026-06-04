@@ -34,7 +34,7 @@ def rendered(fake_catalog, valid_spec_dict, tmp_path):
     catalog = load_catalog(fake_catalog)
     alloc = allocate(spec, catalog)
     dest = tmp_path / "scenarios"
-    root = render_scenario(alloc, spec, dest=dest)
+    root = render_scenario(alloc, spec, catalog=catalog, dest=dest)
     return spec, alloc, root
 
 
@@ -50,12 +50,15 @@ def test_render_returns_scenario_root_dir(rendered):
     assert root.name == spec.name  # dest/<name>
 
 
-def test_init_proxmox_subtree_copied_verbatim(rendered):
-    """H3: the vendored 01_init_proxmox/ (staged _init_lab layout) is present."""
+def test_init_proxmox_subtree_present(rendered):
+    """H3: the 01_init_proxmox/ subtree is present; download play is rendered from catalog."""
     _spec, _alloc, root = rendered
     init = root / "01_init_proxmox"
     assert (init / "_main.yml").is_file()
-    assert (init / "stage_00-download_cloudinit_files" / "cloudinit_ubuntu_noble.yml").is_file()
+    dl = init / "stage_00-download_cloudinit_files"
+    assert (dl / "cloudinit_ubuntu_noble.yml").is_file()
+    download = (dl / "cloudinit_ubuntu_noble.yml").read_text(encoding="utf-8")
+    assert "noble-minimal-cloudimg-amd64.img" in download   # URL comes from catalog
     assert (init / "stage_01-create_templates" / "templates"
             / "ubuntu_noble" / "_main_ubuntu_noble.yml").is_file()
 
@@ -173,7 +176,7 @@ def test_stage01_emits_attachment_params_as_vars(fake_catalog, spec_factory, tmp
             "params": {"firewall_rules": [{"ip": "all", "port": 8080, "protocol": "tcp"}]},
         }],
     }]))
-    root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, dest=tmp_path / "s")
+    root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, catalog=load_catalog(fake_catalog), dest=tmp_path / "s")
     stage01 = _read(root, "04_ctf_infrastructure/stage_01/vuln-box.yml")
     assert "- software.configure.firewalls" in stage01
     assert "firewall_rules:" in stage01
@@ -186,7 +189,7 @@ def test_stage01_container_attachment_emits_docker_compose_play(fake_catalog, sp
         "template": "vuln-box",
         "attachments_add": [{"kind": "container", "catalog_ref": "cve/web/dvwa", "params": {}}],
     }]))
-    root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, dest=tmp_path / "s")
+    root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, catalog=load_catalog(fake_catalog), dest=tmp_path / "s")
     stage01 = _read(root, "04_ctf_infrastructure/stage_01/vuln-box.yml")
     assert "- software.configure.docker-compose" in stage01
     assert "cve/web/dvwa" in stage01                       # stack path wired
@@ -228,7 +231,7 @@ def test_scenario_name_with_slash_keeps_files_in_leaf(fake_catalog, valid_spec_d
     from r42playbooks.core.render import render_scenario
     spec = ScenarioSpec.model_validate({**valid_spec_dict, "name": "ctf/web1"})
     catalog = load_catalog(fake_catalog)
-    root = render_scenario(allocate(spec, catalog), spec, dest=tmp_path / "scenarios")
+    root = render_scenario(allocate(spec, catalog), spec, catalog=catalog, dest=tmp_path / "scenarios")
     assert root == tmp_path / "scenarios" / "ctf" / "web1"
     assert (root / "web1.setup.sh").is_file()        # leaf prefix, not ctf/web1.setup.sh
     assert not (root / "ctf").exists()               # no extra nested dir inside root
@@ -282,7 +285,7 @@ def test_init_proxmox_is_os_selective_debian(fake_catalog, tmp_path):
     spec = ScenarioSpec.model_validate({
         "name": "deb_lab", "subnet_layout": "default-3zone", "boxes": [{"template": "deb-box"}],
     })
-    root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, dest=tmp_path / "s")
+    root = render_scenario(allocate(spec, load_catalog(fake_catalog)), spec, catalog=load_catalog(fake_catalog), dest=tmp_path / "s")
     init = root / "01_init_proxmox"
     templates = init / "stage_01-create_templates" / "templates"
     assert (templates / "debian_trixie").is_dir()
@@ -306,10 +309,10 @@ def test_render_refuses_existing_dir_then_overwrites(fake_catalog, valid_spec_di
     catalog = load_catalog(fake_catalog)
     alloc = allocate(spec, catalog)
     dest = tmp_path / "scenarios"
-    render_scenario(alloc, spec, dest=dest)
+    render_scenario(alloc, spec, catalog=catalog, dest=dest)
     with pytest.raises(ScenarioExistsError):
-        render_scenario(alloc, spec, dest=dest)                 # default: refuse
-    root = render_scenario(alloc, spec, dest=dest, overwrite=True)  # explicit: ok
+        render_scenario(alloc, spec, catalog=catalog, dest=dest)                 # default: refuse
+    root = render_scenario(alloc, spec, catalog=catalog, dest=dest, overwrite=True)  # explicit: ok
     assert (root / "main.yml").is_file()
 
 
@@ -318,8 +321,8 @@ def test_render_is_deterministic(fake_catalog, valid_spec_dict, tmp_path):
     spec = ScenarioSpec.model_validate(valid_spec_dict)
     catalog = load_catalog(fake_catalog)
     alloc = allocate(spec, catalog)
-    a = render_scenario(alloc, spec, dest=tmp_path / "a")
-    b = render_scenario(alloc, spec, dest=tmp_path / "b")
+    a = render_scenario(alloc, spec, catalog=catalog, dest=tmp_path / "a")
+    b = render_scenario(alloc, spec, catalog=catalog, dest=tmp_path / "b")
     files_a = sorted(p.relative_to(a).as_posix() for p in a.rglob("*") if p.is_file())
     files_b = sorted(p.relative_to(b).as_posix() for p in b.rglob("*") if p.is_file())
     assert files_a == files_b

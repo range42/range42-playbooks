@@ -27,7 +27,8 @@ import yaml
 
 from r42playbooks.core import render_assets as A
 from r42playbooks.core.allocate import Allocation, AllocatedBox, manifest_json
-from r42playbooks.core.errors import ScenarioExistsError
+from r42playbooks.core.catalog import Catalog
+from r42playbooks.core.errors import ScenarioExistsError, ValidationError
 from r42playbooks.core.io import atomic_write_text
 from r42playbooks.core.models import Attachment
 from r42playbooks.core.spec import ScenarioSpec, dumps_spec
@@ -55,17 +56,17 @@ _EXEC_MODE = 0o755
 # 01_init_proxmox uses the _init_lab STAGED layout, keyed by versioned image name
 # (``<distro>_<codename>``), which IS the templates/<image>/ dir:
 #   _main.yml                         -> imports stage_00 + stage_01
-#   stage_00-download_cloudinit_files/ cloudinit_<image>.yml  (download base image)
+#   stage_00-download_cloudinit_files/ cloudinit_<image>.yml  (rendered from catalog)
 #   stage_01-create_templates/        templates/<image>/<main> + per-size files
 # A scenario only downloads/creates the image sets its composition uses
 # (image-selective): the two stage _main.yml are generated with just those
 # imports, and only the matching cloudinit_<image>.yml + templates/<image>/ are
-# copied. Per image:  cloudinit — stage_00 download filename; main — orchestrator.
-# An image set that doesn't exist is blocked earlier at allocation
-# (select_template), so render never sees it.
+# emitted. Per image: "main" is the stage_01 orchestrator (vendored asset).
+# The download play (stage_00) is rendered from the catalog's cloud_image spec —
+# NOT copied from a static asset file.
 _IMAGE_SETS: dict[str, dict] = {
-    "ubuntu_noble": {"cloudinit": "cloudinit_ubuntu_noble.yml", "main": "_main_ubuntu_noble.yml"},
-    "debian_trixie": {"cloudinit": "cloudinit_debian_trixie.yml", "main": "_main_debian_trixie.yml"},
+    "ubuntu_noble": {"main": "_main_ubuntu_noble.yml"},
+    "debian_trixie": {"main": "_main_debian_trixie.yml"},
 }
 _INIT_MAIN_IMPORT = "- import_playbook: ./01_init_proxmox/_main.yml"
 _DOWNLOAD_DIR = "stage_00-download_cloudinit_files"
@@ -221,12 +222,16 @@ def _copy_file(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
 
 
-def _render_init_proxmox(root: Path, used_images: list[str]) -> None:
+def _render_init_proxmox(root: Path, used_images: list[str], catalog: Catalog) -> None:
     """Emit 01_init_proxmox (staged) for ONLY the image sets the composition uses.
 
     Mirrors the ``_init_lab`` layout: a top ``_main.yml`` imports the download and
     template-creation stages, each of which imports only the used images. A
     ubuntu_noble-only lab never carries debian_trixie files, and vice versa (H3).
+
+    The stage_00 ``cloudinit_<image>.yml`` is rendered from the catalog's
+    ``01_image_layer/<image>.cloud_image`` spec instead of being copied from a
+    static asset — keeping download coordinates in the catalog, not the playbooks.
     """
     asset = _ASSETS_DIR / "scenario" / "01_init_proxmox"
     init = root / "01_init_proxmox"
@@ -236,12 +241,28 @@ def _render_init_proxmox(root: Path, used_images: list[str]) -> None:
     _copy_file(asset / "_main.yml", init / "_main.yml")
     _write(A.INIT_REINSTALL_SH, init / "_main.reinstall.sh", executable=True)
 
-    # stage_00: download base images — one cloudinit_<image>.yml import per used image
+    # stage_00: download base images — one cloudinit_<image>.yml rendered per used image
     dl = init / _DOWNLOAD_DIR
-    dl_imports = "".join(f"- import_playbook: ./{_IMAGE_SETS[i]['cloudinit']}\n" for i in used)
+    cloudinit_filename = "cloudinit_{image}.yml"
+    dl_imports = "".join(
+        f"- import_playbook: ./{cloudinit_filename.format(image=i)}\n" for i in used
+    )
     _write(A.fill(A.STAGE_DOWNLOAD_MAIN, IMPORTS=dl_imports), dl / "_main.yml")
-    for i in used:
-        _copy_file(asset / _DOWNLOAD_DIR / _IMAGE_SETS[i]["cloudinit"], dl / _IMAGE_SETS[i]["cloudinit"])
+    for image_id in used:
+        img_def = catalog.images.get(image_id)
+        if img_def is None or img_def.cloud_image is None:
+            raise ValidationError(
+                f"image {image_id!r} has no cloud_image in the catalog's 01_image_layer "
+                f"— add a cloud_image: {{url: ..., filename: ...}} block to its image.yml"
+            )
+        ci = img_def.cloud_image
+        rendered = A.fill(
+            A.CLOUDINIT_DOWNLOAD_YML,
+            IMAGE_ID=image_id,
+            ISO_URL=ci.url,
+            ISO_FILE_NAME=ci.filename,
+        )
+        _write(rendered, dl / cloudinit_filename.format(image=image_id))
 
     # stage_01: create templates — one templates/<image>/<main> import per used image
     stage = init / _TEMPLATES_STAGE
@@ -355,7 +376,7 @@ def _render_section_mains(alloc: Allocation, root: Path) -> None:
 
 
 def render_scenario(
-    alloc: Allocation, spec: ScenarioSpec, *, dest: Path, overwrite: bool = False
+    alloc: Allocation, spec: ScenarioSpec, *, catalog: Catalog, dest: Path, overwrite: bool = False
 ) -> Path:
     """Render *alloc*/*spec* into ``dest/<spec.name>/`` and return that path.
 
@@ -363,9 +384,12 @@ def render_scenario(
     artifacts (S5a: manifest, inventory/ssh-config templates, section _main.yml).
     Never creates ``secrets/`` (deploy-time symlink, §4.2). Deterministic.
 
+    :param catalog: the loaded catalog; its ``01_image_layer`` cloud_image specs
+        are used to render ``stage_00-download_cloudinit_files/<image>.yml``.
     :param overwrite: if False (default) and ``dest/<name>/`` already exists,
         raise :class:`ScenarioExistsError` rather than silently clobbering it.
     :raises ScenarioExistsError: target exists and ``overwrite`` is False.
+    :raises ValidationError: if a used image has no cloud_image in the catalog.
     """
     root = Path(dest) / spec.name
     if root.exists() and not overwrite:
@@ -374,7 +398,7 @@ def render_scenario(
 
     # class B — verbatim-with-param boilerplate
     used_images = sorted({box.image for box in alloc.boxes})
-    _render_init_proxmox(root, used_images)
+    _render_init_proxmox(root, used_images, catalog)
     sections = _render_sections(alloc, root, spec.name, proxmox_node)
     _render_main_playbooks(root, spec.name, sections)
     _render_top_level_scripts(root, spec.name)

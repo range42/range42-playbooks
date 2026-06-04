@@ -502,6 +502,52 @@ STAGE_DOWNLOAD_MAIN = """\
 
 @@IMPORTS@@"""
 
+# Rendered per image from the catalog's 01_image_layer cloud_image spec.
+# @@IMAGE_ID@@      — the image id (e.g. ubuntu_noble)
+# @@ISO_URL@@       — download URL
+# @@ISO_FILE_NAME@@ — filename on Proxmox local storage (/var/lib/vz/template/iso/)
+CLOUDINIT_DOWNLOAD_YML = """\
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# PROXMOX INIT - download cloud init image for @@IMAGE_ID@@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: PROMOX INIT - DOWNLOAD - CLOUD INIT images
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "storage_download_iso"
+        proxmox_storage: "local"
+        iso_file_content_type: "iso"
+        iso_url: "@@ISO_URL@@"
+        iso_file_name: "@@ISO_FILE_NAME@@"
+
+# The download-url API is async (returns a UPID immediately). Poll on
+# proxmox-cli until the file is fully on disk before stage_01 imports it.
+- hosts: proxmox-cli
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: PROMOX INIT - WAIT for @@ISO_FILE_NAME@@ to be fully downloaded
+      ansible.builtin.stat:
+        path: "/var/lib/vz/template/iso/@@ISO_FILE_NAME@@"
+      register: _cloudinit_img
+      until: _cloudinit_img.stat.exists and _cloudinit_img.stat.size > 100000000
+      retries: 120   # 120 x 10 s = 20 min max
+      delay: 10
+      changed_when: false
+"""
+
 STAGE_TEMPLATES_MAIN = """\
 ---
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

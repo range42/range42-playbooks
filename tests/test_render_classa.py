@@ -27,7 +27,7 @@ def rendered(fake_catalog, valid_spec_dict, tmp_path):
     spec = ScenarioSpec.model_validate(valid_spec_dict)
     catalog = load_catalog(fake_catalog)
     alloc = allocate(spec, catalog)
-    root = render_scenario(alloc, spec, dest=tmp_path / "scenarios")
+    root = render_scenario(alloc, spec, catalog=catalog, dest=tmp_path / "scenarios")
     return spec, alloc, root
 
 

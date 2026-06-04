@@ -23,12 +23,23 @@ _STRICT = ConfigDict(extra="forbid")
 
 # --- base images (01_image_layer) -----------------------------------------
 
+class CloudImageSpec(BaseModel):
+    """A cloud image download target: URL to fetch + filename on Proxmox local storage."""
+
+    model_config = _STRICT
+
+    url: str = Field(min_length=1)
+    filename: str = Field(min_length=1)
+
+
 class ImageDef(BaseModel):
     """Base VM image descriptor — the canonical name + distro metadata.
 
     id matches ``<distro>_<codename>`` (IMAGE_RE), e.g. ``ubuntu_noble``.
     Box templates reference images by id; validate_refs checks that the id
     exists in the catalog's 01_image_layer.
+    cloud_image carries the download coordinates used by the generator to
+    render stage_00-download_cloudinit_files/<image>.yml.
     """
 
     model_config = _STRICT
@@ -38,6 +49,7 @@ class ImageDef(BaseModel):
     distro: str = Field(pattern=r"^[a-z0-9]+$", min_length=1)
     codename: str = Field(pattern=r"^[a-z0-9]+$", min_length=1)
     description: str = ""
+    cloud_image: CloudImageSpec | None = None
 
 
 # --- box templates ---------------------------------------------------------

@@ -152,6 +152,9 @@ api_version: 1
 distro: ubuntu
 codename: noble
 description: Ubuntu 24.04 LTS (Noble Numbat)
+cloud_image:
+  url: "https://cloud-images.ubuntu.com/minimal/daily/noble/current/noble-minimal-cloudimg-amd64.img"
+  filename: "noble-minimal-cloudimg-amd64.img"
 """.lstrip())
     _write(root / "01_image_layer" / "debian_trixie" / "v1.0.0" / "image.yml", """
 id: debian_trixie
@@ -159,6 +162,9 @@ api_version: 1
 distro: debian
 codename: trixie
 description: Debian 13 (Trixie)
+cloud_image:
+  url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.raw"
+  filename: "debian-13-genericcloud-amd64.img"
 """.lstrip())
 
     # two versions of a policy — loader must pick the highest (1.1.0)

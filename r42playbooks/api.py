@@ -79,7 +79,7 @@ def render_scenario(
     :raises ScenarioExistsError: target exists and ``overwrite`` is False.
     """
     alloc = allocate(spec, catalog, reserved)
-    return _render_scenario(alloc, spec, dest=Path(dest), overwrite=overwrite)
+    return _render_scenario(alloc, spec, catalog=catalog, dest=Path(dest), overwrite=overwrite)
 
 
 def author_topology(spec: dict, *, catalog: Catalog) -> Topology:
