@@ -19,7 +19,6 @@ output depends only on the ``Allocation`` + ``ScenarioSpec`` (no clock/randomnes
 """
 
 import os
-import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -71,9 +70,6 @@ _IMAGE_SETS: dict[str, dict] = {
 _INIT_MAIN_IMPORT = "- import_playbook: ./01_init_proxmox/_main.yml"
 _DOWNLOAD_DIR = "stage_00-download_cloudinit_files"
 _TEMPLATES_STAGE = "stage_01-create_templates"
-
-# The vendored boilerplate copied verbatim into every scenario (plan H3).
-_ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 
 
 def _parse_spec(spec: str) -> tuple[int, int, str]:
@@ -228,12 +224,6 @@ def _render_sections(alloc: Allocation, root: Path, scenario: str, proxmox_node:
 
 # --- top level ---------------------------------------------------------------
 
-def _copy_file(src: Path, dst: Path) -> None:
-    """Copy a single asset file, creating parent dirs."""
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dst)
-
-
 def _render_init_proxmox(root: Path, used_images: list[str], catalog: Catalog) -> None:
     """Emit 01_init_proxmox (staged) for ONLY the image sets the composition uses.
 
@@ -245,7 +235,6 @@ def _render_init_proxmox(root: Path, used_images: list[str], catalog: Catalog) -
     ``01_image_layer/<image>.cloud_image`` spec instead of being copied from a
     static asset — keeping download coordinates in the catalog, not the playbooks.
     """
-    asset = _ASSETS_DIR / "scenario" / "01_init_proxmox"
     init = root / "01_init_proxmox"
     used = [img for img in used_images if img in _IMAGE_SETS]
 
@@ -331,10 +320,11 @@ def _render_init_proxmox(root: Path, used_images: list[str], catalog: Catalog) -
             img_dir / _IMAGE_SETS[image_id]["main"],
         )
 
-        # copy the two static helpers (read from manifest / pure Jinja2 — no hardcoded ids)
-        for static_file in ("_update_templates.yml", "range42-template-bootstrap.yaml.j2"):
-            _copy_file(asset / _TEMPLATES_STAGE / "templates" / image_id / static_file,
-                       img_dir / static_file)
+        # write the two static helpers from render_assets constants
+        _write(A.fill(A.UPDATE_TEMPLATES_YML, IMAGE_ID=image_id),
+               img_dir / "_update_templates.yml")
+        _write(A.TEMPLATE_BOOTSTRAP_YAML_J2,
+               img_dir / "range42-template-bootstrap.yaml.j2")
 
 
 def _render_main_playbooks(root: Path, scenario: str, sections: list[str]) -> None:
