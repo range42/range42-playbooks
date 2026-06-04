@@ -150,6 +150,26 @@ def show(
 
 # --- new -------------------------------------------------------------------
 
+def _print_manifest_summary(root: Path) -> None:
+    """Print a compact VM/template table from the generated manifest."""
+    import json
+    manifest_path = root / "manifest" / "scenario_vms.json"
+    if not manifest_path.is_file():
+        return
+    data = json.loads(manifest_path.read_text())
+    templates = data.get("templates", [])
+    vms = data.get("vms", [])
+    if templates:
+        typer.echo(f"\n  templates ({len(templates)}):")
+        for t in templates:
+            typer.echo(f"    {t['vm_id']}  {t['vm_name']}  [{t['image']}  {t['spec']}]")
+    if vms:
+        typer.echo(f"\n  boxes ({len(vms)}):")
+        col = max(len(v["vm_name"]) for v in vms)
+        for v in vms:
+            typer.echo(f"    {v['vm_id']}  {v['vm_name']:<{col}}  {v['role']:<8}  {v['ip']}")
+
+
 def _parse_box(raw: str) -> dict:
     """Parse a ``--box`` flag: ``template`` or ``template:count=5,template_vm_id=9244``."""
     template, _, rest = raw.partition(":")
@@ -235,6 +255,7 @@ def new(
     except TopologyError as exc:
         _fail(f"generate failed: {exc}")
     typer.secho(f"✓ generated {root}", fg=typer.colors.GREEN)
+    _print_manifest_summary(root)
 
 
 if __name__ == "__main__":

@@ -95,6 +95,7 @@ def test_new_from_flags_writes_deployable_tree(tmp_path, fake_catalog):
         "--catalog", str(fake_catalog), "-o", str(out),
     ])
     assert res.exit_code == 0, res.output
+    assert "templates" in res.output and "boxes" in res.output  # manifest summary printed
     root = out / "cli_lab"
     assert (root / "main.yml").is_file()
     assert (root / "manifest" / "scenario_vms.json").is_file()
