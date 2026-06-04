@@ -101,6 +101,24 @@ def test_controller_generate_refuses_existing_then_overwrites(fake_catalog, tmp_
     assert (root / "main.yml").is_file()
 
 
+def test_controller_generate_autodetects_reserved_json(fake_catalog, tmp_path):
+    import json
+    out = tmp_path / "scenarios"
+    out.mkdir()
+    entry = {"vm_id": 1170, "ip": "192.168.144.170", "vm_name": "vuln-box-00",
+             "role": "ctf", "bridge": "vmbr144", "scenario": "other_lab"}
+    (out / "_reserved.json").write_text(json.dumps(entry) + "\n", encoding="utf-8")
+    ctl = ScenarioComposerController(fake_catalog)
+    ctl.set_name("tui_lab2")
+    ctl.set_subnet("default-3zone")
+    ctl.add_box("vuln-box")
+    root = ctl.generate(out)
+    manifest = json.loads((root / "manifest" / "scenario_vms.json").read_text())
+    vm_ids = {v["vm_id"] for v in manifest["vms"]}
+    assert 1170 not in vm_ids
+    assert 1171 in vm_ids
+
+
 def test_app_generate_warns_on_existing_then_overwrites(fake_catalog, tmp_path):
     """Two-press overwrite: first Generate warns, second overwrites (no crash)."""
     import asyncio
