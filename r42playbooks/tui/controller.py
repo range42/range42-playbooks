@@ -28,7 +28,7 @@ class ScenarioComposerController:
         self.name: str = ""
         self.subnet_layout: str = ""
         self.network_policy: str = ""
-        self._boxes: list[tuple[str, int, str | None]] = []
+        self._boxes: list[tuple[str, int, str | None, int | None]] = []
 
     # -- catalog choices --
 
@@ -55,8 +55,8 @@ class ScenarioComposerController:
     # -- composition state --
 
     @property
-    def boxes(self) -> list[tuple[str, int, str | None]]:
-        """The composed (template, count, subnet) triples, in insertion order (a copy)."""
+    def boxes(self) -> list[tuple[str, int, str | None, int | None]]:
+        """The composed (template, count, subnet, octet) 4-tuples, in insertion order (a copy)."""
         return list(self._boxes)
 
     def set_name(self, name: str) -> None:
@@ -68,8 +68,8 @@ class ScenarioComposerController:
     def set_policy(self, policy_id: str) -> None:
         self.network_policy = policy_id
 
-    def add_box(self, template: str, count: int = 1, subnet: str | None = None) -> None:
-        self._boxes.append((template, count, subnet))
+    def add_box(self, template: str, count: int = 1, subnet: str | None = None, octet: int | None = None) -> None:
+        self._boxes.append((template, count, subnet, octet))
 
     def remove_box(self, index: int) -> None:
         self._boxes = [b for i, b in enumerate(self._boxes) if i != index]
@@ -99,10 +99,12 @@ class ScenarioComposerController:
         if missing:
             raise TopologyError("; ".join(missing))
         boxes = []
-        for t, c, s in self._boxes:
+        for t, c, s, o in self._boxes:
             entry: dict = {"template": t, "count": c}
             if s:
                 entry["subnet"] = s
+            if o is not None:
+                entry["octet"] = o
             boxes.append(entry)
         data = {
             "name": self.name,
@@ -137,15 +139,15 @@ class ScenarioComposerController:
         allocated VMs. Never raises: validation gaps and allocation errors are
         returned as text so the TUI shows them in-pane instead of crashing.
         """
-        total_vms = sum(count for _t, count, _s in self._boxes)
+        total_vms = sum(count for _t, count, _s, _o in self._boxes)
         lines = [
             f"name:   {self.name or '(unset)'}",
             f"subnet layout: {self.subnet_layout or '(unset)'}",
             f"boxes:  {total_vms} VM(s) from {len(self._boxes)} pick(s)",
         ]
         lines += [
-            f"  - {t} ×{c}" + (f" → {s}" if s else "")
-            for t, c, s in self._boxes
+            f"  - {t} ×{c}" + (f" → {s}" if s else "") + (f" @.{o}" if o is not None else "")
+            for t, c, s, o in self._boxes
         ]
 
         problems = self.validate()

@@ -42,7 +42,7 @@ def test_controller_compose_builds_spec(fake_catalog):
 def test_controller_remove_and_clear_boxes(fake_catalog):
     ctl = _composed(fake_catalog)
     ctl.remove_box(0)
-    assert [t for t, _c, _s in ctl.boxes] == ["vuln-box"]
+    assert [t for t, _c, _s, _o in ctl.boxes] == ["vuln-box"]
     ctl.clear_boxes()
     assert ctl.boxes == []
 
@@ -215,7 +215,7 @@ def test_app_layout_buttons_and_output_visible(fake_catalog):
 
     The tall single-column layout used to squeeze #output to height 0 and push
     the buttons below the fold, so only Quit (which closes the app) had a visible
-    effect. Guard the side-by-side layout at a standard 80x24.
+    effect. Guard the side-by-side layout at 80x28 (form has grown by one row).
     """
     import asyncio
     from textual.widgets import Button, Static
@@ -223,7 +223,7 @@ def test_app_layout_buttons_and_output_visible(fake_catalog):
 
     async def _go():
         app = ScenarioComposerApp(ScenarioComposerController(fake_catalog))
-        async with app.run_test(size=(80, 24)) as pilot:
+        async with app.run_test(size=(80, 28)) as pilot:
             await pilot.pause()
             out = app.query_one("#output", Static)
             assert out.size.height > 0 and out.size.width > 0   # output is visible

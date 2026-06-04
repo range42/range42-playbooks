@@ -233,7 +233,7 @@ def _parse_box(raw: str) -> dict:
             key = key.strip()
             if key == "subnet":
                 box[key] = value.strip()
-            elif key in ("count", "template_vm_id"):
+            elif key in ("count", "template_vm_id", "octet"):
                 try:
                     box[key] = int(value)
                 except ValueError:

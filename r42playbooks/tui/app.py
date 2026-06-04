@@ -85,10 +85,11 @@ class ScenarioComposerApp(App):
                 yield Input(placeholder="my_lab", id="scenario")
                 yield Label("Subnet layout")
                 yield self._select(self.controller.layouts(), "layout")
-                yield Label("Box  (template, count, subnet)")
+                yield Label("Box  (template · count · start octet · subnet)")
                 with Horizontal(classes="row"):
                     yield self._select(self.controller.box_templates(), "box")
                     yield Input(value=_DEFAULT_COUNT, id="count")
+                    yield Input(placeholder="octet", id="octet")
                 yield self._subnet_select()
                 yield Button("Add box", id="add", variant="primary")
                 yield Button("Preview", id="preview")
@@ -121,6 +122,14 @@ class ScenarioComposerApp(App):
             return max(1, int(self.query_one("#count", Input).value or _DEFAULT_COUNT))
         except ValueError:
             return 1
+
+    def _octet(self) -> int | None:
+        raw = self.query_one("#octet", Input).value.strip()
+        try:
+            v = int(raw)
+            return v if 1 <= v <= 254 else None
+        except ValueError:
+            return None
 
     def _sync_header_fields(self) -> None:
         """Push the name/layout/policy widgets into the controller."""
@@ -157,7 +166,8 @@ class ScenarioComposerApp(App):
             self._set_output("⚠ pick a box template first")
             return
         subnet = self._selected("subnet")
-        self.controller.add_box(template, self._count(), subnet)
+        octet = self._octet()
+        self.controller.add_box(template, self._count(), subnet, octet)
         self._do_preview()
 
     def _do_clear(self) -> None:
