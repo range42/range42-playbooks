@@ -42,6 +42,13 @@ def test_list_subnets_and_policies(fake_catalog):
     assert res.exit_code == 0 and "air-gap-ctf" in res.output
 
 
+def test_list_images_shows_base_images(fake_catalog):
+    res = runner.invoke(app, ["list", "images", "--catalog", str(fake_catalog)])
+    assert res.exit_code == 0, res.output
+    assert "ubuntu_noble" in res.output and "debian_trixie" in res.output
+    assert "template(s)" in res.output
+
+
 def test_list_bad_catalog_exits_nonzero(tmp_path):
     res = runner.invoke(app, ["list", "boxes", "--catalog", str(tmp_path / "nope")])
     assert res.exit_code != 0
@@ -77,6 +84,15 @@ def test_show_subnet_layout_details(fake_catalog):
     assert res.exit_code == 0, res.output
     assert "admin" in res.output and "192.168.142.0/24" in res.output   # lab zones
     assert "vmbr140" in res.output                                      # template_subnet bridge
+
+
+def test_show_image_details(fake_catalog):
+    res = runner.invoke(app, ["show", "ubuntu_noble", "--catalog", str(fake_catalog)])
+    assert res.exit_code == 0, res.output
+    assert "ubuntu/noble" in res.output
+    assert "noble-minimal-cloudimg" in res.output   # cloud_image filename
+    assert "9221" in res.output                      # one of the template vm_ids
+    assert "proxmox_templates" in res.output
 
 
 def test_show_unknown_module_exits_nonzero(fake_catalog):

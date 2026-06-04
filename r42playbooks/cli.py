@@ -41,6 +41,7 @@ class ListKind(str, Enum):
     policies = "policies"
     roles = "roles"
     containers = "containers"
+    images = "images"
     scenarios = "scenarios"
 
 
@@ -98,6 +99,10 @@ def list_cmd(
     elif kind is ListKind.containers:
         for name in sorted(cat.containers):
             typer.echo(name)
+    elif kind is ListKind.images:
+        for image_id in sorted(cat.images):
+            img = cat.images[image_id]
+            typer.echo(f"{image_id}\t{img.distro}/{img.codename}\t{len(img.proxmox_templates)} template(s)")
 
 
 # --- show ------------------------------------------------------------------
@@ -140,6 +145,18 @@ def show(
         typer.secho(f"network-policy: {pol.id}", bold=True)
         typer.echo(f"  zones:    {', '.join(z.name for z in pol.zones)}")
         typer.echo(f"  services: {len(pol.services)}  matrix rules: {len(pol.matrix)}")
+    elif module in cat.images:
+        img = cat.images[module]
+        typer.secho(f"image: {img.id}", bold=True)
+        if img.description:
+            typer.echo(f"  {img.description}")
+        typer.echo(f"  distro/codename: {img.distro}/{img.codename}")
+        if img.cloud_image:
+            typer.echo(f"  cloud_image:     {img.cloud_image.filename}")
+        if img.proxmox_templates:
+            typer.echo(f"  proxmox_templates ({len(img.proxmox_templates)}):")
+            for tpl in img.proxmox_templates:
+                typer.echo(f"    vm_id={tpl.vm_id}  {tpl.vm_name}  {tpl.spec}")
     elif module in cat.roles:
         typer.secho(f"role: {module}", bold=True)
     elif module in cat.containers:
