@@ -54,7 +54,7 @@ def scaffold_topology(
     scenario: str,
     layout_id: str,
     policy_id: str,
-    proxmox_node: str = "px-testing",
+    proxmox_node: str = "pve",
     description: str = "",
 ) -> Topology:
     """Build a minimal valid Topology from a subnet layout + network policy.
