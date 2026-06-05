@@ -336,6 +336,82 @@ def lint_segmentation(
     return problems
 
 
+def lint_compiled_policy_from_alloc(
+    compiled: CompiledNetworkPolicy,
+    policy: NetworkPolicyTemplate,
+    alloc: "Allocation",
+) -> list[str]:
+    """Topology-free lint for the generator (alloc) path. Returns problems ([] == safe).
+
+    Equivalent to ``lint_segmentation`` but derives zone→subnet/bridge maps from
+    ``alloc.subnets`` instead of a ``Topology`` object (not available in render path).
+    """
+    subnet_by_name = {s.name: s for s in alloc.subnets}
+    zsubnet: dict[str, str] = {}
+    zbridge: dict[str, str] = {}
+    for zone in policy.zones:
+        if zone.wan:
+            continue
+        subnet = subnet_by_name.get(zone.name)
+        if subnet is None:
+            continue
+        zsubnet[zone.name] = subnet.cidr
+        zbridge[zone.name] = subnet.bridge
+
+    problems: list[str] = []
+    rules = compiled.rules
+
+    if any(r.chain != "FORWARD" for r in rules):
+        problems.append("non-FORWARD rule present (host INPUT must not be modified)")
+
+    drop_weights = [r.weight for r in rules if r.jump in ("DROP", "REJECT")]
+    first_drop = min(drop_weights) if drop_weights else None
+
+    if policy.defaults.accept_established_related:
+        est = [r for r in rules if r.ctstate and "ESTABLISHED" in r.ctstate and r.jump == "ACCEPT"]
+        if not est:
+            problems.append("missing ESTABLISHED,RELATED ACCEPT")
+        elif first_drop is not None and min(r.weight for r in est) > first_drop:
+            problems.append("ESTABLISHED accept does not precede DROP rules")
+
+    accepts = [r for r in rules if r.jump == "ACCEPT"]
+    for d in rules:
+        if d.jump not in ("DROP", "REJECT") or _is_catch_all(d):
+            continue
+        for a in accepts:
+            if a.weight < d.weight and _shadows(a, d):
+                problems.append(
+                    f"ACCEPT (w{a.weight}) shadows DROP (w{d.weight}) for "
+                    f"{a.source or '*'}->{a.destination or a.out_interface or '*'} "
+                    f"({d.comment})"
+                )
+                break
+
+    for mr in policy.matrix:
+        if mr.action not in ("drop", "reject") or mr.dst.startswith(_SVC) or mr.src == "*":
+            continue
+        src, dst = zsubnet.get(mr.src), zsubnet.get(mr.dst)
+        if src is None or dst is None:
+            continue
+        if not any(r.source == src and r.destination == dst and r.jump in ("DROP", "REJECT")
+                   for r in rules):
+            problems.append(f"deny {mr.src}->{mr.dst} produced no DROP rule")
+
+    for zname in policy.defaults.airgap_zones:
+        bridge = zbridge.get(zname)
+        if bridge is None:
+            problems.append(f"air-gap zone {zname!r} not bound in alloc — air-gap absent")
+        elif not any(r.in_interface == bridge and r.out_interface and r.jump == "DROP"
+                     for r in rules):
+            problems.append(f"air-gap zone {zname!r} missing wan DROP")
+
+    if policy.defaults.default_action in ("drop", "reject"):
+        if not rules or rules[-1].jump not in ("DROP", "REJECT"):
+            problems.append("default-deny is not the terminal rule")
+
+    return problems
+
+
 def _is_catch_all(rule: CompiledRule) -> bool:
     """True for a rule with no match fields — the intended terminal default."""
     return (rule.source is None and rule.destination is None

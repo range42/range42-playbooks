@@ -898,7 +898,7 @@ TEMPLATE_VM_YML = """\
         name: range42-ansible_roles-proxmox_controller
       vars:
         proxmox_vm_action: "template_cloudinit_import_disk"
-        proxmox_node: "px-testing-cli"
+        proxmox_node: "@@PROXMOX_NODE@@"
         cloudinit_image_full_path: "@@CLOUDINIT_IMAGE_PATH@@"
         vm_id: @@VM_ID@@
         vm_disk_size: "@@VM_DISK_SIZE@@"

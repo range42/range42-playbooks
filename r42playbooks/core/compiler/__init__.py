@@ -22,7 +22,7 @@ from r42playbooks.core.compiler import scenario_vms as _scenario_vms
 from r42playbooks.core.compiler import stages as _stages
 from r42playbooks.core.errors import CompileError
 from r42playbooks.core.idalloc import ReservedIndex, validate_allocation
-from r42playbooks.core.io import dump_topology
+from r42playbooks.core.io import atomic_write_text, dump_topology
 from r42playbooks.core.models import Topology
 from r42playbooks.core.validate import semantic_problems
 
@@ -41,7 +41,7 @@ class CompileResult:
 
 def _write_json(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    atomic_write_text(text, path)
 
 
 def compile_topology(

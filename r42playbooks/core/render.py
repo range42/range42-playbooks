@@ -37,8 +37,9 @@ from r42playbooks.core.catalog import Catalog
 from r42playbooks.core.compiler.network_policy import (
     CompiledRule,
     compile_network_policy_from_alloc,
+    lint_compiled_policy_from_alloc,
 )
-from r42playbooks.core.errors import ScenarioExistsError, ValidationError
+from r42playbooks.core.errors import CompileError, ScenarioExistsError, ValidationError
 from r42playbooks.core.io import atomic_write_text
 from r42playbooks.core.models import Attachment
 from r42playbooks.core.spec import ScenarioSpec, dumps_spec
@@ -73,9 +74,16 @@ def _parse_spec(spec: str) -> tuple[int, int, str]:
     ``memory_mb`` is ``Y * 1024``; ``disk_size`` is ``'Zg'`` (qemu-img / Proxmox format).
     """
     parts = spec.split("/")
-    cores = int(parts[0].replace("cpu", ""))
-    ram_mb = int(parts[1].replace("gb", "")) * 1024
-    disk = parts[2].replace("gb", "g")
+    if len(parts) != 3:
+        raise CompileError(
+            f"malformed template spec {spec!r}: expected format Xcpu/Ygb/Zgb"
+        )
+    try:
+        cores = int(parts[0].replace("cpu", ""))
+        ram_mb = int(parts[1].replace("gb", "")) * 1024
+        disk = parts[2].replace("gb", "g")
+    except ValueError as exc:
+        raise CompileError(f"malformed template spec {spec!r}: {exc}") from exc
     return cores, ram_mb, disk
 
 
@@ -140,7 +148,7 @@ def _attachment_vars(att: Attachment) -> dict:
     name = att.catalog_ref.rsplit("/", 1)[-1]
     wiring = {
         "LABEL_PROJECT_TYPE": "CTF",
-        "LABEL_PROJET_NAME": name,
+        "LABEL_PROJECT_NAME": name,
         "LOCAL__PROJECT_DIR": "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/"
         + att.catalog_ref
         + "/",
@@ -255,7 +263,10 @@ def _render_sections(
 
 
 def _render_init_proxmox(
-    root: Path, alloc_templates: tuple[ResolvedTemplate, ...], catalog: Catalog
+    root: Path,
+    alloc_templates: tuple[ResolvedTemplate, ...],
+    catalog: Catalog,
+    proxmox_node: str,
 ) -> None:
     """Emit 01_init_proxmox for ONLY the template VMs the scenario actually needs.
 
@@ -305,6 +316,12 @@ def _render_init_proxmox(
 
     # stage_01: create templates — ONLY the VMs this scenario references
     stage = init / _TEMPLATES_STAGE
+    for i in used_images:
+        if i not in _IMAGE_SETS:
+            raise CompileError(
+                f"image {i!r} has no render config in _IMAGE_SETS; "
+                "add an entry or add the image to the render registry"
+            )
     tpl_stage_imports = "".join(
         f"- import_playbook: ./templates/{i}/{_IMAGE_SETS[i]['main']}\n"
         for i in used_images
@@ -341,6 +358,7 @@ def _render_init_proxmox(
                     CLOUDINIT_IMAGE_PATH=image_path,
                     VM_CI_IP=tpl.ip,
                     VM_CI_IP_GW=f"{ip_prefix}.1",
+                    PROXMOX_NODE=proxmox_node,
                 ),
                 img_dir / f"{tpl.vm_name}.yml",
             )
@@ -424,6 +442,12 @@ def _render_network_isolation(
     compiled = compile_network_policy_from_alloc(
         alloc, policy, version=version, wan_interface=wan_interface
     )
+    problems = lint_compiled_policy_from_alloc(compiled, policy, alloc)
+    if problems:
+        raise CompileError(
+            f"network policy {spec.network_policy!r} failed safety lint: "
+            + "; ".join(problems)
+        )
 
     rule_tasks = "\n\n".join(
         _iptables_task(r, i) for i, r in enumerate(compiled.rules)
@@ -599,7 +623,7 @@ def render_scenario(
     proxmox_node = spec.proxmox_node or _DEFAULT_PROXMOX_NODE
 
     # class B — verbatim-with-param boilerplate
-    _render_init_proxmox(root, alloc.templates, catalog)
+    _render_init_proxmox(root, alloc.templates, catalog, proxmox_node)
     sections = _render_sections(alloc, root, spec.name, proxmox_node)
     has_isolation = _render_network_isolation(alloc, spec, root, catalog)
     _render_main_playbooks(root, spec.name, sections, network_isolation=has_isolation)

@@ -70,7 +70,7 @@ def scaffold_topology(
 
     for subnet in layout.subnets:
         base = _DEFAULT_OCTET
-        role = subnet.name if subnet.name in ("admin", "ctf", "student", "team") else "team"
+        role = subnet.name if subnet.name in ("admin", "ctf", "student", "team", "template") else "team"
         zones.append(Zone(name=subnet.name, subnet=subnet.name, role=role))
         if subnet.name in _SKIP_SUBNETS:
             continue

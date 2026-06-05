@@ -11,9 +11,9 @@ concrete per-scenario IPs beyond declared params/defaults. The compiler (P3)
 binds symbols to a topology's concrete subnets/IPs.
 """
 
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from r42playbooks.core import constants as C
 from r42playbooks.core.models import Attachment, Subnet
@@ -139,6 +139,15 @@ class PortSpec(BaseModel):
     proto: Literal["tcp", "udp", "icmp"]
     port: int | None = Field(default=None, ge=1, le=65535)
     port_end: int | None = Field(default=None, ge=1, le=65535)
+
+    @model_validator(mode="after")
+    def _port_range_valid(self) -> Self:
+        if self.port is not None and self.port_end is not None:
+            if self.port_end < self.port:
+                raise ValueError(
+                    f"port_end ({self.port_end}) must be >= port ({self.port})"
+                )
+        return self
 
 
 class ZoneDecl(BaseModel):

@@ -19,7 +19,7 @@ from typing import Any, Mapping
 from r42playbooks.core import constants as C
 from r42playbooks.core.catalog import Catalog, find_template_vm
 from r42playbooks.core.catalog_models import ProxmoxTemplateSpec
-from r42playbooks.core.errors import CompileError, ValidationError
+from r42playbooks.core.errors import CompileError, TopologyError, ValidationError
 from r42playbooks.core.idalloc import ReservedIndex
 from r42playbooks.core.models import Attachment, Subnet
 from r42playbooks.core.spec import BoxSpec, ScenarioSpec
@@ -110,10 +110,20 @@ def _next_free_vm_id(octet: int, taken_ids: set[int]) -> int:
 
 def _blocked(reserved: ReservedIndex, scenario: str) -> tuple[set[int], set[str]]:
     """vm_ids/IPs owned by *other* scenarios (our own rows do not block a re-run)."""
-    ids = {int(e["vm_id"]) for e in reserved.entries
-           if "vm_id" in e and e.get("scenario") != scenario}
-    ips = {str(e["ip"]) for e in reserved.entries
-           if "ip" in e and e.get("scenario") != scenario}
+    ids: set[int] = set()
+    ips: set[str] = set()
+    for e in reserved.entries:
+        if e.get("scenario") == scenario:
+            continue
+        if "vm_id" in e:
+            try:
+                ids.add(int(e["vm_id"]))
+            except (TypeError, ValueError) as exc:
+                raise TopologyError(
+                    f"_reserved.json has invalid vm_id {e['vm_id']!r}: {exc}"
+                ) from exc
+        if "ip" in e:
+            ips.add(str(e["ip"]))
     return ids, ips
 
 
@@ -251,7 +261,7 @@ def allocate(spec: ScenarioSpec, catalog: Catalog, reserved: ReservedIndex | Non
         image_id, tpl_spec = result
         seen_tpl_ids.add(box.template_vm_id)
         resolved_templates.append(ResolvedTemplate(
-            vm_id=tpl_spec.vm_id,
+            vm_id=box.template_vm_id,
             vm_name=tpl_spec.vm_name,
             spec=tpl_spec.spec,
             ip=f"{tpl_prefix}.{tpl_spec.ip_octet}",

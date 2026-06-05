@@ -99,7 +99,8 @@ def list_cmd(
                     for b in spec.boxes
                 )
                 typer.echo(f"{spec.name}\t{spec.subnet_layout}\t[{boxes_summary}]")
-            except Exception:
+            except Exception as exc:
+                typer.secho(f"warning: could not parse {path}: {exc}", fg=typer.colors.YELLOW, err=True)
                 typer.echo(path.parent.name)
         return
 

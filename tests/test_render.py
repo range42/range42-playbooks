@@ -195,7 +195,7 @@ def test_stage01_container_attachment_emits_docker_compose_play(fake_catalog, sp
     assert "- software.configure.docker-compose" in stage01
     assert "cve/web/dvwa" in stage01                       # stack path wired
     assert "RANGE42_INVENTORY__DOCKER__CTF" in stage01     # env-based project dir
-    assert "LABEL_PROJET_NAME: dvwa" in stage01
+    assert "LABEL_PROJECT_NAME: dvwa" in stage01
 
 
 def test_stage01_without_roles_is_valid_noop_play(rendered):
