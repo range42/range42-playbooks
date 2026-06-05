@@ -52,6 +52,13 @@ class ScenarioComposerApp(App):
             return Select(opts, id=widget_id, allow_blank=False, value=opts[0][1])
         return Select(opts, id=widget_id)
 
+    def _policy_select(self) -> Select:
+        """Build the policy Select (optional — first option is blank/none)."""
+        opts = [("(none — no isolation)", "")] + [
+            (p, p) for p in self.controller.policies()
+        ]
+        return Select(opts, id="policy", allow_blank=False, value="")
+
     def _subnet_select(self) -> Select:
         """Build the subnet Select populated from the current layout selection."""
         layout = self._current_layout_id()
@@ -86,6 +93,8 @@ class ScenarioComposerApp(App):
                 yield Input(placeholder="my_lab", id="scenario")
                 yield Label("Subnet layout")
                 yield self._select(self.controller.layouts(), "layout")
+                yield Label("Network policy (optional)")
+                yield self._policy_select()
                 yield Label("Box  (template · count · start octet · subnet)")
                 with Horizontal(classes="row"):
                     yield self._select(self.controller.box_templates(), "box")
@@ -137,6 +146,8 @@ class ScenarioComposerApp(App):
         self.controller.set_name(self.query_one("#scenario", Input).value)
         if (layout := self._selected("layout")) is not None:
             self.controller.set_subnet(layout)
+        policy = self._selected("policy")
+        self.controller.set_policy(policy or "")
 
     # -- events --
 

@@ -141,9 +141,10 @@ class ScenarioComposerController:
         """
         total_vms = sum(count for _t, count, _s, _o in self._boxes)
         lines = [
-            f"name:   {self.name or '(unset)'}",
+            f"name:          {self.name or '(unset)'}",
             f"subnet layout: {self.subnet_layout or '(unset)'}",
-            f"boxes:  {total_vms} VM(s) from {len(self._boxes)} pick(s)",
+            f"network policy:{' ' + self.network_policy if self.network_policy else ' (none)'}",
+            f"boxes:         {total_vms} VM(s) from {len(self._boxes)} pick(s)",
         ]
         lines += [
             f"  - {t} ×{c}" + (f" → {s}" if s else "") + (f" @.{o}" if o is not None else "")
