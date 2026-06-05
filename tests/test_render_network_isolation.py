@@ -191,6 +191,48 @@ def test_isolation_is_deterministic(fake_catalog, valid_spec_dict, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# teardown.yml
+# ---------------------------------------------------------------------------
+
+def test_policy_creates_teardown_yml(rendered_with_policy):
+    _, _, root = rendered_with_policy
+    assert (root / "05_network_isolation" / "teardown.yml").is_file()
+
+
+def test_no_policy_no_teardown_yml(rendered_no_policy):
+    _, _, root = rendered_no_policy
+    assert not (root / "05_network_isolation" / "teardown.yml").exists()
+
+
+def test_teardown_targets_proxmox_cli(rendered_with_policy):
+    _, _, root = rendered_with_policy
+    text = (root / "05_network_isolation" / "teardown.yml").read_text()
+    assert "hosts: proxmox-cli" in text
+
+
+def test_teardown_references_vault(rendered_with_policy):
+    _, _, root = rendered_with_policy
+    text = (root / "05_network_isolation" / "teardown.yml").read_text()
+    assert "../../secrets/default_vault.yml" in text
+
+
+def test_teardown_unhooks_and_deletes_chain(rendered_with_policy):
+    _, _, root = rendered_with_policy
+    text = (root / "05_network_isolation" / "teardown.yml").read_text()
+    assert "chain: FORWARD" in text
+    assert "state: absent" in text
+    assert "chain_management: true" in text
+    assert "flush: true" in text
+    assert "ignore_errors: true" in text
+
+
+def test_teardown_contains_scenario_name(rendered_with_policy):
+    spec, _, root = rendered_with_policy
+    text = (root / "05_network_isolation" / "teardown.yml").read_text()
+    assert spec.name in text
+
+
+# ---------------------------------------------------------------------------
 # compile_network_policy_from_alloc unit tests
 # ---------------------------------------------------------------------------
 

@@ -450,6 +450,8 @@ def _render_network_isolation(
         RULE_TASKS=rule_tasks,
     )
     _write(body, root / "05_network_isolation" / "_main.yml")
+    teardown_body = A.fill(A.NETWORK_ISOLATION_TEARDOWN, SCENARIO=spec.name)
+    _write(teardown_body, root / "05_network_isolation" / "teardown.yml")
     return True
 
 
