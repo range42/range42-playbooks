@@ -59,10 +59,6 @@ _EXEC_MODE = 0o755
 # emitted. Per image: "main" is the stage_01 orchestrator (vendored asset).
 # The download play (stage_00) is rendered from the catalog's cloud_image spec —
 # NOT copied from a static asset file.
-_IMAGE_SETS: dict[str, dict] = {
-    "ubuntu_noble": {"main": "_main_ubuntu_noble.yml"},
-    "debian_trixie": {"main": "_main_debian_trixie.yml"},
-}
 _INIT_MAIN_IMPORT = "- import_playbook: ./01_init_proxmox/_main.yml"
 _DOWNLOAD_DIR = "stage_00-download_cloudinit_files"
 _TEMPLATES_STAGE = "stage_01-create_templates"
@@ -316,14 +312,8 @@ def _render_init_proxmox(
 
     # stage_01: create templates — ONLY the VMs this scenario references
     stage = init / _TEMPLATES_STAGE
-    for i in used_images:
-        if i not in _IMAGE_SETS:
-            raise CompileError(
-                f"image {i!r} has no render config in _IMAGE_SETS; "
-                "add an entry or add the image to the render registry"
-            )
     tpl_stage_imports = "".join(
-        f"- import_playbook: ./templates/{i}/{_IMAGE_SETS[i]['main']}\n"
+        f"- import_playbook: ./templates/{i}/_main_{i}.yml\n"
         for i in used_images
     )
     _write(
@@ -378,7 +368,7 @@ def _render_init_proxmox(
             A.fill(
                 A.MAIN_IMAGE_YML, IMAGE_ID=image_id, TEMPLATE_IMPORTS=tpl_imports_img
             ),
-            img_dir / _IMAGE_SETS[image_id]["main"],
+            img_dir / f"_main_{image_id}.yml",
         )
 
         # static helpers (read from manifest at runtime / pure Jinja2 — no ids)
