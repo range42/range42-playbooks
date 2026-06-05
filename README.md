@@ -108,8 +108,9 @@ cd ~/range42/range42-playbooks/scenarios/demo_lab/
 | `demo_lab` | **functional** | Full cyber range — admin, student, CTF infrastructure | [README](scenarios/demo_lab/README.md) |
 | `_init_lab` | **functional** | Shared init — VM templates + init VMs | [README](scenarios/_init_lab/README.md) |
 | `forensics_lab` | coming soon | Forensics training | |
-| `kunai_lab` | coming soon | Kunai-based detection lab | |
-| `misp_lab` | coming soon | MISP threat intel lab | |
+| `kunai_lab` | **in progress** | Kunai-based detection lab | [README](scenarios/kunai_lab/README.md) |
+| `misp_lab` | **in progress** | MISP threat intel lab | [README](scenarios/misp_lab/README.md) |
+| `dev_deployer_ui_lab` | **in progress** | Dev lab for deployer-ui integration | [README](scenarios/dev_deployer_ui_lab/README.md) |
 
 Other scenario directories are placeholders — new scenarios are actively being developed.
 Each scenario will get its own README with deployment details once available.
@@ -179,8 +180,9 @@ scenarios/
 │   ├── secrets/                       # Symlink → workspace secrets (gitignored)
 │   └── demo_lab.*.sh                 # Deploy, delete, reset scripts
 ├── forensics_lab/                     # Placeholder
-├── kunai_lab/                         # Placeholder
-├── misp_lab/                          # Placeholder
+├── kunai_lab/                         # In progress
+├── misp_lab/                          # In progress
+├── dev_deployer_ui_lab/               # In progress - deployer-ui integration
 └── _init_lab/                         # Shared init playbooks
 
 bundles/                               # Reusable actions (work in progress)
