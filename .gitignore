@@ -13,6 +13,9 @@ __pycache__/
 dist/
 build/
 
+# Claude session files (local only — handoffs, design notes)
+.claude/
+
 # Scratch compiler artifacts (flat-workspace outputs, never committed)
 /topology.json
 /hosts.yml
