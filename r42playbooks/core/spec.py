@@ -15,7 +15,7 @@ atomic writer.
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic import ValidationError as _PydanticValidationError
 
 import yaml
@@ -77,6 +77,16 @@ class BoxSpec(BaseModel):
     _guard_vars = field_validator("vars")(C.reject_injection_nested)
 
 
+# Known apt-provider box template IDs and their service mode.
+# When a spec contains exactly one of these and services is not explicitly set,
+# services.apt is auto-injected (wire_to=all) so callers don't need to set it.
+_APT_PROVIDER_MODES: dict[str, str] = {
+    "apt-cache":            "proxy",
+    "apt-mirror":           "mirror",
+    "apt-mirror-airgapped": "mirror",
+}
+
+
 class ScenarioSpec(BaseModel):
     """The composed lab: catalog picks the renderer turns into a scenario tree."""
 
@@ -96,6 +106,24 @@ class ScenarioSpec(BaseModel):
 
     _guard_name = field_validator("name")(_no_injection)
     _guard_notes = field_validator("notes")(_no_injection)
+
+    @model_validator(mode="after")
+    def _auto_wire_apt_services(self) -> "ScenarioSpec":
+        """Auto-inject services.apt when exactly one apt-provider box is present.
+
+        Only fires when services is None (not set). Explicit services: {apt: null}
+        is respected as an intentional opt-out.
+        """
+        if self.services is not None:
+            return self
+        providers = [b.template for b in self.boxes if b.template in _APT_PROVIDER_MODES]
+        if len(providers) != 1:
+            return self
+        tpl = providers[0]
+        self.services = ServicesSpec(apt=AptServiceSpec(
+            box=tpl, wire_to="all", mode=_APT_PROVIDER_MODES[tpl]
+        ))
+        return self
 
 
 def dumps_spec(spec: ScenarioSpec) -> str:

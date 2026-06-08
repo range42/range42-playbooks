@@ -64,6 +64,9 @@ def resolve_services(
             if b.box_template in wire_set and i != server_idx
         ]
 
+    if not client_indices:
+        return alloc
+
     # Mirror mode: derive suite flags from client images and patch server attachment.
     if apt_svc.mode == "mirror" and client_indices:
         needed: dict[str, bool] = {}

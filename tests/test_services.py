@@ -399,5 +399,8 @@ def test_spec_services_invalid_mode_rejected():
 
 
 def test_spec_services_none_is_valid():
+    # Omitting services is valid; auto-inject populates it when an apt provider is present.
     spec = ScenarioSpec.model_validate(_spec_dict("apt-cache"))
-    assert spec.services is None
+    assert spec.services is not None
+    assert spec.services.apt is not None
+    assert spec.services.apt.box == "apt-cache"
