@@ -18,7 +18,6 @@ from typing import Any, Mapping
 
 from r42playbooks.core import constants as C
 from r42playbooks.core.catalog import Catalog, find_template_vm
-from r42playbooks.core.catalog_models import ProxmoxTemplateSpec
 from r42playbooks.core.errors import CompileError, TopologyError, ValidationError
 from r42playbooks.core.idalloc import ReservedIndex
 from r42playbooks.core.models import Attachment, Subnet
@@ -260,11 +259,12 @@ def allocate(spec: ScenarioSpec, catalog: Catalog, reserved: ReservedIndex | Non
             continue  # template_vm_id override without catalog entry — skip manifest entry
         image_id, tpl_spec = result
         seen_tpl_ids.add(box.template_vm_id)
+        box_octet = int(box.ip.rsplit(".", 1)[1])
         resolved_templates.append(ResolvedTemplate(
             vm_id=box.template_vm_id,
             vm_name=tpl_spec.vm_name,
             spec=tpl_spec.spec,
-            ip=f"{tpl_prefix}.{tpl_spec.ip_octet}",
+            ip=f"{tpl_prefix}.{box_octet}",
             bridge=tpl_bridge,
             image=image_id,
         ))

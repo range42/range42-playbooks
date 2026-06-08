@@ -348,4 +348,19 @@ def validate_refs(spec: "ScenarioSpec", catalog: Catalog) -> list[str]:
                 problems.append(f"unknown role: {att.catalog_ref!r}")
             elif att.kind == "container" and att.catalog_ref not in catalog.containers:
                 problems.append(f"unknown container: {att.catalog_ref!r}")
+    if spec.services is not None and spec.services.apt is not None:
+        apt_svc = spec.services.apt
+        box_templates = {b.template for b in spec.boxes}
+        if apt_svc.box not in box_templates:
+            problems.append(
+                f"services.apt.box {apt_svc.box!r} is not in spec boxes"
+            )
+        if isinstance(apt_svc.wire_to, list):
+            for ref in apt_svc.wire_to:
+                if ref not in box_templates:
+                    problems.append(
+                        f"services.apt.wire_to ref {ref!r} is not in spec boxes"
+                    )
+        if "software.configure.apt_mirror_client" not in catalog.roles:
+            problems.append("unknown role: 'software.configure.apt_mirror_client'")
     return problems

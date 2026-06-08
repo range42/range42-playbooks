@@ -11,6 +11,7 @@ from pathlib import Path
 from pydantic import ValidationError as _PydanticValidationError
 
 from r42playbooks.core.allocate import Allocation, allocate
+from r42playbooks.core.compiler.services import resolve_services as _resolve_services
 from r42playbooks.core.catalog import (
     Catalog,
     list_containers,
@@ -79,6 +80,7 @@ def render_scenario(
     :raises ScenarioExistsError: target exists and ``overwrite`` is False.
     """
     alloc = allocate(spec, catalog, reserved)
+    alloc = _resolve_services(alloc, spec, catalog)
     return _render_scenario(alloc, spec, catalog=catalog, dest=Path(dest), overwrite=overwrite)
 
 

@@ -218,10 +218,10 @@ cloud_image:
   url: "https://cloud-images.ubuntu.com/minimal/daily/noble/current/noble-minimal-cloudimg-amd64.img"
   filename: "noble-minimal-cloudimg-amd64.img"
 proxmox_templates:
-  - {vm_id: 9211, vm_name: "template-vm-ubuntu-noble-micro-01-2g-24g",  spec: "1cpu/2gb/24gb", ip_octet: 211}
-  - {vm_id: 9221, vm_name: "template-vm-ubuntu-noble-small-01-4g-32g",  spec: "1cpu/4gb/32gb", ip_octet: 221}
-  - {vm_id: 9232, vm_name: "template-vm-ubuntu-noble-medium-02-8g-64g", spec: "2cpu/8gb/64gb", ip_octet: 232}
-  - {vm_id: 9234, vm_name: "template-vm-ubuntu-noble-medium-04-8g-64g", spec: "4cpu/8gb/64gb", ip_octet: 234}
+  - {vm_id: 9211, vm_name: "template-vm-ubuntu-noble-micro-01-2g-24g",  spec: "1cpu/2gb/24gb"}
+  - {vm_id: 9221, vm_name: "template-vm-ubuntu-noble-small-01-4g-32g",  spec: "1cpu/4gb/32gb"}
+  - {vm_id: 9232, vm_name: "template-vm-ubuntu-noble-medium-02-8g-64g", spec: "2cpu/8gb/64gb"}
+  - {vm_id: 9234, vm_name: "template-vm-ubuntu-noble-medium-04-8g-64g", spec: "4cpu/8gb/64gb"}
 """.lstrip(),
     )
     _write(
@@ -236,8 +236,8 @@ cloud_image:
   url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.raw"
   filename: "debian-13-genericcloud-amd64.img"
 proxmox_templates:
-  - {vm_id: 9321, vm_name: "template-vm-debian-trixie-small",  spec: "1cpu/4gb/32gb", ip_octet: 121}
-  - {vm_id: 9331, vm_name: "template-vm-debian-trixie-medium", spec: "2cpu/8gb/64gb", ip_octet: 131}
+  - {vm_id: 9321, vm_name: "template-vm-debian-trixie-small",  spec: "1cpu/4gb/32gb"}
+  - {vm_id: 9331, vm_name: "template-vm-debian-trixie-medium", spec: "2cpu/8gb/64gb"}
 """.lstrip(),
     )
 

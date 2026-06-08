@@ -13,7 +13,7 @@ atomic writer.
 """
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic import ValidationError as _PydanticValidationError
@@ -27,6 +27,31 @@ from r42playbooks.core.models import Attachment
 
 _STRICT = ConfigDict(extra="forbid")
 _no_injection = C.reject_injection
+
+
+class AptServiceSpec(BaseModel):
+    """Wire an apt-cache or apt-mirror server box to a set of client boxes.
+
+    The compiler resolves the server IP post-allocation and injects
+    ``software.configure.apt_mirror_client`` into each client box's attachments.
+    Suite flags (apt_mirror_ubuntu_2404 etc.) are auto-detected from client images
+    and merged into the server box's apt_mirror attachment params (mirror mode only).
+    """
+
+    model_config = _STRICT
+
+    # Box template id of the deployed apt server (e.g. "apt-cache" or "apt-mirror").
+    box: str = Field(pattern=C.TEMPLATE_ID_RE.pattern)
+    # "all" wires every box except the server; list of template ids to target a subset.
+    wire_to: list[Annotated[str, Field(pattern=C.TEMPLATE_ID_RE.pattern)]] | Literal["all"] = "all"
+    # proxy → apt-cacher-ng (port 3142); mirror → apt-mirror nginx (port 80, airgapped).
+    mode: Literal["proxy", "mirror"] = "proxy"
+
+
+class ServicesSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    apt: AptServiceSpec | None = None
 
 
 class BoxSpec(BaseModel):
@@ -67,6 +92,7 @@ class ScenarioSpec(BaseModel):
     boxes: list[BoxSpec] = Field(min_length=1)
     proxmox_node: str | None = Field(default=None, pattern=C.PROXMOX_NODE_RE.pattern)
     notes: str = Field(default="", max_length=255)
+    services: ServicesSpec | None = Field(default=None)
 
     _guard_name = field_validator("name")(_no_injection)
     _guard_notes = field_validator("notes")(_no_injection)

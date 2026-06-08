@@ -201,12 +201,10 @@ def test_template_rows_never_reallocated(fake_catalog, reserved_factory):
     catalog = load_catalog(fake_catalog)
     # Use the actual template VMs from the catalog as the reserved set.
     template_entries = [
-        {"vm_id": t.vm_id, "vm_name": t.vm_name, "ip": t.ip, "bridge": t.bridge,
+        {"vm_id": t_spec.vm_id, "vm_name": t_spec.vm_name, "bridge": "vmbr140",
          "role": "template", "scenario": "other_lab"}
         for img in catalog.images.values()
         for t_spec in img.proxmox_templates
-        for t in [type("T", (), {"vm_id": t_spec.vm_id, "vm_name": t_spec.vm_name,
-                                  "ip": f"192.168.140.{t_spec.ip_octet}", "bridge": "vmbr140"})()]
     ]
     reserved = ReservedIndex.from_file(reserved_factory(template_entries))
     spec = ScenarioSpec.model_validate({

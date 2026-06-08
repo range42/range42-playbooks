@@ -39,9 +39,9 @@ class ProxmoxTemplateSpec(BaseModel):
     ``stage_01-create_templates/templates/<image>/<vm_name>.yml`` without
     any hardcoded data in the playbooks repo.
 
-    ``ip_octet`` is the fixed last octet of this VM's address within the
-    templates subnet (e.g. 221 for .221). The full IP and bridge are resolved at
-    allocation time from the subnet layout's ``templates`` subnet.
+    The template VM IP is resolved at allocation time from the first allocated
+    box that uses this template: its last octet is mirrored onto the
+    ``template_subnet`` prefix.  No octet is stored here.
     """
 
     model_config = _STRICT
@@ -49,7 +49,6 @@ class ProxmoxTemplateSpec(BaseModel):
     vm_id: int
     vm_name: str = Field(min_length=1)
     spec: str = Field(min_length=1)   # "Xcpu/Ygb/Zgb"
-    ip_octet: int = Field(ge=1, le=254)
 
 
 class ImageDef(BaseModel):
@@ -103,7 +102,7 @@ class TemplateSubnet(BaseModel):
 
     Separate from lab ``subnets`` (which define the scenario's zone topology).
     The generator reads ``cidr`` and ``bridge`` here to derive template VM IPs
-    (``{prefix}.{ProxmoxTemplateSpec.ip_octet}``) and network attachments.
+    (``{prefix}.{first_box_octet}``) and network attachments.
     """
 
     model_config = _STRICT
