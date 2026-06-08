@@ -2,3 +2,17 @@
 **/secret/
 CLAUDE.md
 **/CLAUDE.md
+.claude
+
+# Python build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+.venv/
