@@ -24,7 +24,7 @@ context_auto_generate_ssh_keys: "YES"
 context_auto_generate_vm_passwords: "YES"
 
 # no student extras for misp_lab (single-VM host scenario)
-student_additional_keys_count: 0
+student_additionnal_keys_count: 0
 
 
 #### CLOUD-INIT USERNAMES ####
