@@ -1,0 +1,39 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# PROXMOX INIT - download cloud init image for ubuntu_resolute
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: PROMOX INIT - DOWNLOAD - CLOUD INIT images
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "storage_download_iso"
+        proxmox_storage: "local"
+        iso_file_content_type: "iso"
+        iso_url: "https://cloud-images.ubuntu.com/minimal/daily/resolute/current/resolute-minimal-cloudimg-amd64.img"
+        iso_file_name: "resolute-minimal-cloudimg-amd64.img"
+
+# The download-url API is async (returns a UPID immediately). Poll on
+# proxmox-cli until the file is fully on disk before stage_01 imports it.
+- hosts: proxmox-cli
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: PROMOX INIT - WAIT for resolute-minimal-cloudimg-amd64.img to be fully downloaded
+      ansible.builtin.stat:
+        path: "/var/lib/vz/template/iso/resolute-minimal-cloudimg-amd64.img"
+      register: _cloudinit_img
+      until: _cloudinit_img.stat.exists and _cloudinit_img.stat.size > 100000000
+      retries: 120   # 120 x 10 s = 20 min max
+      delay: 10
+      changed_when: false

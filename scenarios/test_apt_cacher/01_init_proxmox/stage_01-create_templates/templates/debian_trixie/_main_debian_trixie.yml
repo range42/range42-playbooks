@@ -1,0 +1,12 @@
+##
+## debian_trixie — create + configure all Proxmox template VMs for this image
+##
+
+- import_playbook: ./template-vm-debian-trixie-small.yml
+
+# apt proxy cicustom (no-op if apt_proxy_url empty)
+- import_playbook: ./_apply_apt_proxy.yml
+
+# pre-update: start each VM, run apt update + dist-upgrade via cloud-init poweroff,
+# then convert to template.
+- import_playbook: ./_update_templates.yml
