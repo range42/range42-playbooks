@@ -24,14 +24,14 @@ INFRASTRUCTURE_SCENARIO: "kunai_lab"
 context_auto_generate_ssh_keys: "YES"
 context_auto_generate_vm_passwords: "YES"
 
-# no student extras for kunai_lab (operator user bob is created on each
-# student VM by the stage_01 dotfiles role - one user per VM, not extras)
-student_additional_keys_count: 0
+# number of additional student ssh keys (bob_1 .. bob_N)
+# no student extras for kunai_lab (single in-VM user alice on every VM, project convention)
+student_additionnal_keys_count: 0
 
 
 #### CLOUD-INIT USERNAMES ####
 
 # admin vm user (not secret - password and ssh key are in vault)
-# cloud-init user stays alice on all 6 VMs (medium template default) ; the
-# bob application user on the 5 student VMs is created by stage_01.
+# cloud-init user is alice on all 6 VMs (medium template default, project
+# convention - matches demo_lab and the blank scenarios)
 default_admin_vm_ci_user: "alice"

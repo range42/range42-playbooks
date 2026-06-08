@@ -8,13 +8,13 @@
 ## utilities, firewall opening port 22 only) plus the kunai-project ecosystem
 ## repositories pre-cloned in the operator home.
 ##
-## Topology :
-##   - admin-trainer-kunai (192.168.142.104, VMID 1104, user alice)  - trainer
-##   - student-kunai-01    (192.168.142.105, VMID 1105, user bob)    - student
-##   - student-kunai-02    (192.168.142.106, VMID 1106, user bob)    - student
-##   - student-kunai-03    (192.168.142.107, VMID 1107, user bob)    - student
-##   - student-kunai-04    (192.168.142.108, VMID 1108, user bob)    - student
-##   - student-kunai-05    (192.168.142.109, VMID 1109, user bob)    - student
+## Topology (single in-VM user alice on every VM, project convention) :
+##   - admin-trainer-kunai (192.168.142.104, VMID 1104)  - trainer
+##   - student-kunai-01    (192.168.142.105, VMID 1105)  - student
+##   - student-kunai-02    (192.168.142.106, VMID 1106)  - student
+##   - student-kunai-03    (192.168.142.107, VMID 1107)  - student
+##   - student-kunai-04    (192.168.142.108, VMID 1108)  - student
+##   - student-kunai-05    (192.168.142.109, VMID 1109)  - student
 ##
 ## Stages :
 ##   01_init_proxmox                            : download cloud-init image + create template 9232 (idempotent skip if already present)

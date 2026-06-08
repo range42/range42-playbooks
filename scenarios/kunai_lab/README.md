@@ -2,7 +2,7 @@
 
 Multi-VM training scenario that delivers 6 Ubuntu LTS hosts (1 trainer + 5 students) pre-provisioned with the Docker baseline plus the [kunai-project](https://github.com/kunai-project) ecosystem repositories pre-cloned in the operator home. Designed to run the kunai workshops out of the box.
 
-The 6 VMs are cloned from the project standard medium Ubuntu noble template (VMID 9232 - 2cpu / 8gb RAM / 64gb disk) onto the shared services bridge `vmbr142`. The trainer VM is provisioned with operator user `alice` (admin role) ; the 5 student VMs each carry operator user `bob`.
+The 6 VMs are cloned from the project standard medium Ubuntu noble template (VMID 9232 - 2cpu / 8gb RAM / 64gb disk) onto the shared services bridge `vmbr142`. Single in-VM user `alice` on every VM (project convention - matches demo_lab and the blank scenarios). The kunai-project repos are pre-cloned into `/home/alice/kunai-project/` on the trainer and on each student VM.
 
 ## Scope
 
@@ -13,13 +13,12 @@ The 6 VMs are cloned from the project standard medium Ubuntu noble template (VMI
 - Basic utilities : curl, git, jq, vim, network diagnostic tools
 - UFW firewall enabled with port 22 open
 - NTP time sync
-- 5 kunai-project repositories cloned into the operator home on each VM :
+- 5 kunai-project repositories cloned into `/home/alice/kunai-project/` on every VM (trainer + 5 students) :
   - `workshops`
   - `kunai-doc`
   - `kunai-build-docker`
   - `community-rules`
   - `pykunai`
-  cloned into `/home/alice/kunai-project/` on the trainer, `/home/bob/kunai-project/` on each student.
 
 **Out of scope (follow-up step) :**
 - Building the kunai binary (`kunai-build-docker` provides the build environment ; the trainer runs the build per workshop instructions)
@@ -36,26 +35,28 @@ Once kunai_lab is deployed, the trainer walks through the workshops with the stu
               |
               +-- vmbr142 (shared services bridge - 192.168.142.0/24, gw .1)
                      |
-                     +-- admin-trainer-kunai (.104)  ........  VMID 1104  (user alice)
-                     +-- student-kunai-01    (.105)  ........  VMID 1105  (user bob)
-                     +-- student-kunai-02    (.106)  ........  VMID 1106  (user bob)
-                     +-- student-kunai-03    (.107)  ........  VMID 1107  (user bob)
-                     +-- student-kunai-04    (.108)  ........  VMID 1108  (user bob)
-                     +-- student-kunai-05    (.109)  ........  VMID 1109  (user bob)
+                     +-- admin-trainer-kunai (.104)  ........  VMID 1104
+                     +-- student-kunai-01    (.105)  ........  VMID 1105
+                     +-- student-kunai-02    (.106)  ........  VMID 1106
+                     +-- student-kunai-03    (.107)  ........  VMID 1107
+                     +-- student-kunai-04    (.108)  ........  VMID 1108
+                     +-- student-kunai-05    (.109)  ........  VMID 1109
 ```
 
 No dedicated subnet. The 6 VMs live on `vmbr142`, the shared services bridge. The `.104`-`.109` slots are reserved by kunai_lab.
 
 ## VM details
 
-| VM Name              | VM ID | IP                | Bridge   | Operator user | Role     | Template                              |
+| VM Name              | VM ID | IP                | Bridge   | In-VM user    | Role     | Template                              |
 |----------------------|-------|-------------------|----------|---------------|----------|---------------------------------------|
 | admin-trainer-kunai  | 1104  | 192.168.142.104   | vmbr142  | alice         | trainer  | template-vm-medium-02-8g-64g (9232)   |
-| student-kunai-01     | 1105  | 192.168.142.105   | vmbr142  | bob           | student  | template-vm-medium-02-8g-64g (9232)   |
-| student-kunai-02     | 1106  | 192.168.142.106   | vmbr142  | bob           | student  | template-vm-medium-02-8g-64g (9232)   |
-| student-kunai-03     | 1107  | 192.168.142.107   | vmbr142  | bob           | student  | template-vm-medium-02-8g-64g (9232)   |
-| student-kunai-04     | 1108  | 192.168.142.108   | vmbr142  | bob           | student  | template-vm-medium-02-8g-64g (9232)   |
-| student-kunai-05     | 1109  | 192.168.142.109   | vmbr142  | bob           | student  | template-vm-medium-02-8g-64g (9232)   |
+| student-kunai-01     | 1105  | 192.168.142.105   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
+| student-kunai-02     | 1106  | 192.168.142.106   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
+| student-kunai-03     | 1107  | 192.168.142.107   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
+| student-kunai-04     | 1108  | 192.168.142.108   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
+| student-kunai-05     | 1109  | 192.168.142.109   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
+
+Single in-VM user `alice` on every VM (project convention - matches demo_lab and the blank scenarios). SSH transport user is also `alice` on every VM.
 
 Source of truth : `manifest/scenario_vms.json`.
 
@@ -105,8 +106,8 @@ range42-context delete            # same as delete-vms here (template 9232 is sh
 Once the playbook completes :
 
 ```
-ssh r42.admin-trainer-kunai   # trainer VM, user alice, repos under /home/alice/kunai-project/
-ssh r42.student-kunai-01      # student VM 01, user bob, repos under /home/bob/kunai-project/
+ssh r42.admin-trainer-kunai   # trainer, SSH as alice, repos under /home/alice/kunai-project/
+ssh r42.student-kunai-01      # student 01, SSH as alice, repos under /home/alice/kunai-project/
 # ... and so on for student-kunai-02 .. 05
 ```
 

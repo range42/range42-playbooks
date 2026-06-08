@@ -12,9 +12,8 @@
 #
 #   template : template-vm-medium-02-8g-64g - id : 9232
 #
-# Student VM (03 of 05) for the kunai_lab classroom. Cloud-init user stays
-# alice (medium template default) ; the bob application user is created
-# later by the stage_01 dotfiles role (OPERATOR_USER=bob handles user creation).
+# Student VM (03 of 05) for the kunai_lab classroom. Single in-VM user
+# alice (medium template default - project convention).
 # All VM-specific values driven via global_* vars overridden in main.yml.
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

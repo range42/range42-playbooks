@@ -9,14 +9,11 @@
 ##   r42_kunai_lab_trainer_group   (1 host  : r42.admin-trainer-kunai)
 ##   r42_kunai_lab_students_group  (5 hosts : r42.student-kunai-01..05)
 ##
-## The first 3 plays (basics, dotfiles, firewall) target BOTH groups via a
-## comma-separated host pattern so the Docker baseline is delivered identically
-## on the 6 VMs. The dotfiles play uses OPERATOR_USER=alice on the trainer pass
-## and OPERATOR_USER=bob on the students pass - this is what creates the bob
-## application user on the student VMs (the cloud-init user stays alice on all 6).
-## The 2 final plays clone the 5 kunai-project repos into the correct operator
-## home : /home/alice/kunai-project/ on the trainer, /home/bob/kunai-project/
-## on each student.
+## All plays target BOTH groups via a comma-separated host pattern so the
+## Docker baseline is delivered identically on the 6 VMs. SSH transport AND
+## in-VM operator user is alice on every VM (project convention - matches
+## demo_lab and the blank scenarios). The 5 kunai-project repos are cloned
+## into /home/alice/kunai-project/ on every VM.
 ##
 ## Application ports (kunai live tap, classroom dashboards, etc.) are NOT
 ## pre-opened by this scenario - they are opened when the corresponding
@@ -47,27 +44,14 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: install dot files - trainer (alice)
-  hosts: r42_kunai_lab_trainer_group
+- name: install dot files - all VMs (alice)
+  hosts: r42_kunai_lab_trainer_group,r42_kunai_lab_students_group
   become: true
   roles:
     - software.install.warmup.dot_files
 
   vars:
     OPERATOR_USER: alice
-    INSTALL_VIM_DOTFILES: "YES"
-    INSTALL_ZSH_DOTFILES: "YES"
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- name: install dot files - students (bob)
-  hosts: r42_kunai_lab_students_group
-  become: true
-  roles:
-    - software.install.warmup.dot_files
-
-  vars:
-    OPERATOR_USER: bob
     INSTALL_VIM_DOTFILES: "YES"
     INSTALL_ZSH_DOTFILES: "YES"
 
@@ -87,51 +71,13 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: clone kunai-project repos - trainer (alice)
-  hosts: r42_kunai_lab_trainer_group
+- name: clone kunai-project repos - all VMs (alice)
+  hosts: r42_kunai_lab_trainer_group,r42_kunai_lab_students_group
   become: true
   gather_facts: false
 
   vars:
     OPERATOR_USER: alice
-    kunai_repos_dir: "/home/{{ OPERATOR_USER }}/kunai-project"
-    kunai_repos:
-      - { name: "workshops",          repo: "https://github.com/kunai-project/workshops.git" }
-      - { name: "kunai-doc",          repo: "https://github.com/kunai-project/kunai-doc.git" }
-      - { name: "kunai-build-docker", repo: "https://github.com/kunai-project/kunai-build-docker.git" }
-      - { name: "community-rules",    repo: "https://github.com/kunai-project/community-rules.git" }
-      - { name: "pykunai",            repo: "https://github.com/kunai-project/pykunai.git" }
-
-  tasks:
-    - name: ensure kunai-project parent directory exists ({{ kunai_repos_dir }})
-      ansible.builtin.file:
-        path: "{{ kunai_repos_dir }}"
-        state: directory
-        owner: "{{ OPERATOR_USER }}"
-        group: "{{ OPERATOR_USER }}"
-        mode: "0755"
-
-    - name: clone kunai-project repositories ({{ OPERATOR_USER }})
-      ansible.builtin.git:
-        repo: "{{ item.repo }}"
-        dest: "{{ kunai_repos_dir }}/{{ item.name }}"
-        depth: 1
-        update: true
-        accept_hostkey: true
-      become_user: "{{ OPERATOR_USER }}"
-      loop: "{{ kunai_repos }}"
-      loop_control:
-        label: "{{ item.name }}"
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- name: clone kunai-project repos - students (bob)
-  hosts: r42_kunai_lab_students_group
-  become: true
-  gather_facts: false
-
-  vars:
-    OPERATOR_USER: bob
     kunai_repos_dir: "/home/{{ OPERATOR_USER }}/kunai-project"
     kunai_repos:
       - { name: "workshops",          repo: "https://github.com/kunai-project/workshops.git" }

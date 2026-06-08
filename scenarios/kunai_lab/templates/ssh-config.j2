@@ -71,7 +71,7 @@ Host r42.student-kunai-05
     Hostname 192.168.142.109
 
 Host r42.student-kunai-01 r42.student-kunai-02 r42.student-kunai-03 r42.student-kunai-04 r42.student-kunai-05
-    User bob
-    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_bob
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
     Port 22
     ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
