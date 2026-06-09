@@ -13,6 +13,8 @@ skip_list:
   - name[missing]
   # Jinja template syntax in task names is intentional (loop items, vars)
   - name[template]
+  # pre-existing {{ item.ID}} spacing in generated bundles — cosmetic only
+  - jinja[spacing]
 
 warn_list:
   - yaml[line-length]
@@ -25,9 +27,20 @@ mock_roles:
   - range42-ansible_roles-proxmox_controller
   - ansible.utils
   - indexer
+  - software.configure.docker-compose
+  - software.configure.firewalls
   - software.configure.tailscale_disable_nftables
+  - software.install.nodejs_app_systemd
+  - software.install.symlinks_farm
   - software.install.tailscale
+  - software.install.warmup.basic_packages
+  - software.install.warmup.dot_files
   - software.install.wazuh-dashboard
   - software.install.wazuh-filebeat-oss
   - software.install.wazuh-indexer
   - software.install.wazuh-manager
+  - systems.configure.add_user
+
+# vars defined at runtime via inventory/group_vars — stub for CI syntax-check
+extra_vars:
+  global_vm_ssh_name: ci_mock
