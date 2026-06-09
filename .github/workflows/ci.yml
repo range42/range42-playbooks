@@ -29,6 +29,6 @@ jobs:
       - if: "steps.pycheck.outputs.exists == 'true'"
         run: pip install --no-cache-dir -e ".[dev]"
       - if: "steps.pycheck.outputs.exists == 'true'"
-        run: ruff check .
+        run: ruff check --select ALL .
       - if: "steps.pycheck.outputs.exists == 'true'"
         run: pytest tests/ --tb=short -q
