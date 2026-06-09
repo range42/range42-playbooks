@@ -40,6 +40,7 @@ mock_roles:
   - software.install.wazuh-indexer
   - software.install.wazuh-manager
   - systems.configure.add_user
+  - software.install.wazuh-agent
 
 # vars defined at runtime via inventory/group_vars — stub for CI syntax-check
 extra_vars:
