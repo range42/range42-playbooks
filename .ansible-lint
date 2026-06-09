@@ -5,8 +5,6 @@ skip_list:
   - var-naming[pattern]
   # noun.verb role naming is the documented convention
   - role-name
-  # bundles reference roles from range42-catalog, which is not checked out in CI
-  - syntax-check
   # generated scenario playbooks do not require play-level names
   - name[play]
   # pre-existing task naming convention: lowercase names throughout bundles
@@ -21,3 +19,15 @@ warn_list:
   - yaml[empty-lines]
   - yaml[trailing-spaces]
   - risky-shell-pipe
+
+# catalog and cross-repo roles not checked out in CI — stub so syntax-check passes
+mock_roles:
+  - range42-ansible_roles-proxmox_controller
+  - ansible.utils
+  - indexer
+  - software.configure.tailscale_disable_nftables
+  - software.install.tailscale
+  - software.install.wazuh-dashboard
+  - software.install.wazuh-filebeat-oss
+  - software.install.wazuh-indexer
+  - software.install.wazuh-manager
