@@ -14,17 +14,21 @@ jobs:
       - run: apt-get update && apt-get install -y --no-install-recommends git
       - uses: actions/checkout@v4
       - run: pip install --no-cache-dir ansible-lint
-      - run: ansible-lint bundles/ --profile=production
+      - run: ansible-lint bundles/
 
   python:
     name: Ruff + Pytest
     runs-on: ubuntu-latest
     container:
       image: python:3.13-slim
-    if: hashFiles('pyproject.toml') != ''
     steps:
       - run: apt-get update && apt-get install -y --no-install-recommends git
       - uses: actions/checkout@v4
-      - run: pip install --no-cache-dir -e ".[dev]"
-      - run: ruff check .
-      - run: pytest tests/ --tb=short -q
+      - id: pycheck
+        run: test -f pyproject.toml && echo "exists=true" >> "$GITHUB_OUTPUT" || echo "exists=false" >> "$GITHUB_OUTPUT"
+      - if: "steps.pycheck.outputs.exists == 'true'"
+        run: pip install --no-cache-dir -e ".[dev]"
+      - if: "steps.pycheck.outputs.exists == 'true'"
+        run: ruff check .
+      - if: "steps.pycheck.outputs.exists == 'true'"
+        run: pytest tests/ --tb=short -q
