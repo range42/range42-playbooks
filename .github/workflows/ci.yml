@@ -12,7 +12,7 @@ jobs:
       image: python:3.13-slim
     steps:
       - run: apt-get update && apt-get install -y --no-install-recommends git
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: pip install --no-cache-dir ansible-lint
       - run: ansible-lint bundles/
 
@@ -23,7 +23,7 @@ jobs:
       image: python:3.13-slim
     steps:
       - run: apt-get update && apt-get install -y --no-install-recommends git
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - id: pycheck
         run: test -f pyproject.toml && echo "exists=true" >> "$GITHUB_OUTPUT" || echo "exists=false" >> "$GITHUB_OUTPUT"
       - if: "steps.pycheck.outputs.exists == 'true'"
