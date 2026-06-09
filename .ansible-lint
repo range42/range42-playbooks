@@ -5,7 +5,19 @@ skip_list:
   - var-naming[pattern]
   # noun.verb role naming is the documented convention
   - role-name
+  # bundles reference roles from range42-catalog, which is not checked out in CI
+  - syntax-check
+  # generated scenario playbooks do not require play-level names
+  - name[play]
+  # pre-existing task naming convention: lowercase names throughout bundles
+  - name[casing]
+  # generated bundles include tasks without explicit names
+  - name[missing]
+  # Jinja template syntax in task names is intentional (loop items, vars)
+  - name[template]
 
 warn_list:
   - yaml[line-length]
+  - yaml[empty-lines]
+  - yaml[trailing-spaces]
   - risky-shell-pipe
