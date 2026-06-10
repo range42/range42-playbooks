@@ -1,0 +1,48 @@
+---
+# Feature flags for demo_lab - optional components that can be toggled on/off
+# at deploy time via `-e enable_<name>=true|false`.
+#
+# This file is the single source of truth :
+#   - the deploy TUI (range42-context --tui) reads `features` to render the
+#     checkbox modal before invoking `range42-context deploy`
+#   - the playbooks read the `enable_<name>` variables via
+#     `when: enable_<name> | default(<from-this-file>) | bool` on the relevant
+#     `import_playbook` / `block:` entries
+#
+# To add a new optional component :
+#   1. append a row under `features:` with id + label + description + default
+#   2. wire the playbook tasks under `when: enable_<id> | default(<bool>) | bool`
+#   3. the TUI picks it up automatically on next launch
+
+features:
+  - id: wazuh
+    label: "Wazuh stack - SIEM + agents services"
+    description: "Deploys the wazuh-indexer / wazuh-server VM + post-create configuration. Skipping leaves the admin-wazuh VM uncreated and removes the agent install on student boxes."
+    default: true
+
+  #
+  # for upcoming POCs not yet ready
+  #
+  - id: misp
+    label: "MISP - threat intel services"
+    description: "Deploys ...."
+    default: false
+
+  - id: gitea
+    label: "Gitea - code services"
+    description: "Deploys ...."
+    default: false
+
+  - id: rocketchat
+    label: "RocketChat - chat services"
+    description: "Deploys ...."
+    default: false
+
+  - id: mattermost
+    label: "Mattermost - chat services"
+    default: false
+
+  - id: nextcloud
+    label: "Nextcloud - files storage services"
+    description: "Deploys ...."
+    default: false

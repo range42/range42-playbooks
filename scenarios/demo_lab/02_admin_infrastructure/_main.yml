@@ -22,6 +22,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - import_playbook: ./stage_00/mon_wazuh.yml
+  when: enable_wazuh | default(true) | bool
 
   vars:
     global_vm_name: "admin-wazuh"
@@ -144,5 +145,6 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - import_playbook: ./stage_01/mon_wazuh.yml
+  when: enable_wazuh | default(true) | bool
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

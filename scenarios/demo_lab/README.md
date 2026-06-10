@@ -73,3 +73,18 @@ Each infrastructure section follows staged deployment:
 | `demo_lab.delete_vms_only.sh` | Destroy VMs only (keep templates) |
 | `demo_lab.reset.setup.sh` | Delete all + redeploy from scratch |
 | `demo_lab.reset.ssh_keys.sh` | Reset SSH keys only |
+
+## Optional components - feature flags
+
+The optional components shipped with this scenario can be toggled on/off at deploy
+time. The catalog lives in [`manifest/feature_flags.yml`](manifest/feature_flags.yml) ;
+the deploy scripts forward any trailing `-e enable_<name>=<bool>` to `ansible-playbook`.
+
+Example — deploy everything except wazuh :
+
+```bash
+range42-context deploy      -e enable_wazuh=false   # full deploy without wazuh
+range42-context deploy-vms  -e enable_wazuh=false   # VMs-only redeploy without wazuh
+```
+
+The same flags surface as checkboxes in `range42-context --tui` (deploy / deploy-vms entries).
