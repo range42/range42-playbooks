@@ -32,6 +32,6 @@
     - "../../secrets/default_vault.yml"
   vars:
     apt_mirror_enabled: true
-    apt_proxy_url: http://192.168.150.10:3142
+    apt_proxy_url: http://192.168.150.11:3142
   roles:
     - software.configure.apt_mirror_client

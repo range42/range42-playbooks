@@ -10,10 +10,10 @@
   vars:
     global_vm_name: "lan1-apt-mirror-00"
     global_vm_ssh_name: "r42.lan1-apt-mirror-00"
-    global_vm_id: 1010
+    global_vm_id: 2011
     global_vm_description: "apt-mirror"
     global_vm_tag_name: "lan1"
-    global_vm_ci_ip: "192.168.150.10"
+    global_vm_ci_ip: "192.168.150.11"
     global_template_vm_id: 9341
     global_template_name: "template-vm-debian-trixie-large - id 9341"
 

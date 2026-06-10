@@ -3,8 +3,8 @@
 # LAN1 INFRASTRUCTURE INIT - CLONE + CLOUD-INIT
 #
 #   hostname : lan1-apt-cache-00
-#   vm_id    : 1010
-#   ip       : 192.168.150.10
+#   vm_id    : 2011
+#   ip       : 192.168.150.11
 #   template : template-vm-debian-trixie-small
 #
 # global_* vars are supplied by ../_main.yml (kept here as Jinja references).

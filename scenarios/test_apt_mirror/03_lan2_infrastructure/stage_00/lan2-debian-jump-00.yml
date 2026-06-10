@@ -3,8 +3,8 @@
 # LAN2 INFRASTRUCTURE INIT - CLONE + CLOUD-INIT
 #
 #   hostname : lan2-debian-jump-00
-#   vm_id    : 2010
-#   ip       : 192.168.151.10
+#   vm_id    : 1012
+#   ip       : 192.168.151.12
 #   template : template-vm-debian-trixie-small
 #
 # global_* vars are supplied by ../_main.yml (kept here as Jinja references).
