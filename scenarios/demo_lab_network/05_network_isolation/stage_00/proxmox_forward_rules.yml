@@ -1,0 +1,113 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# NETWORK ISOLATION — PROXMOX HOST FORWARD RULES
+#
+#   Enforces zone isolation between the admin and CTF bridges by installing
+#   iptables FORWARD chain rules directly on the Proxmox host via SSH (proxmox-cli).
+#
+#   Rule table (evaluated in order):
+#
+#     ESTABLISHED,RELATED  → FORWARD  ACCEPT   (return traffic for existing flows)
+#     admin (vmbr142)      → ctf      ACCEPT   (admin manages vuln boxes)
+#     ctf   (vmbr144)      → wazuh :1514 ACCEPT (agent event reporting)
+#     ctf   (vmbr144)      → wazuh :1515 ACCEPT (agent enrollment)
+#     ctf   (vmbr144)      → admin    DROP     (zone isolation)
+#     ctf   (vmbr144)      → WAN      DROP     (air-gap — no internet from vuln boxes during lab)
+#
+#   Rules are persisted via iptables-persistent / netfilter-persistent.
+#   Re-running this playbook is idempotent (ansible.builtin.iptables checks
+#   before inserting).
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: proxmox-cli
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  vars:
+    admin_subnet: "192.168.142.0/24"
+    ctf_subnet: "192.168.144.0/24"
+    wazuh_ip: "192.168.142.100"
+    ctf_bridge: "vmbr144"
+    wan_interface: "{{ infrastructure_proxmox_default_network_card_interface | default('vmbr0') }}"
+
+  handlers:
+    - name: persist iptables rules
+      ansible.builtin.command: netfilter-persistent save
+      changed_when: true
+
+  tasks:
+
+    #### #### PREREQ ####
+
+    - name: NETWORK ISOLATION - Install iptables-persistent
+      ansible.builtin.apt:
+        name: iptables-persistent
+        state: present
+        update_cache: false
+
+    #### #### FORWARD ACCEPT rules (must precede DROP rules) ####
+
+    - name: NETWORK ISOLATION - Allow established/related connections (FORWARD)
+      ansible.builtin.iptables:
+        chain: FORWARD
+        ctstate: ESTABLISHED,RELATED
+        jump: ACCEPT
+        action: insert
+        rule_num: 1
+        comment: "r42: allow established"
+      notify: persist iptables rules
+
+    - name: NETWORK ISOLATION - Allow Admin (vmbr142) → CTF (vmbr144)
+      ansible.builtin.iptables:
+        chain: FORWARD
+        source: "{{ admin_subnet }}"
+        destination: "{{ ctf_subnet }}"
+        jump: ACCEPT
+        comment: "r42: admin to ctf"
+      notify: persist iptables rules
+
+    - name: NETWORK ISOLATION - Allow CTF → Wazuh TCP 1514 (agent events)
+      ansible.builtin.iptables:
+        chain: FORWARD
+        source: "{{ ctf_subnet }}"
+        destination: "{{ wazuh_ip }}"
+        protocol: tcp
+        destination_port: "1514"
+        jump: ACCEPT
+        comment: "r42: ctf wazuh events"
+      notify: persist iptables rules
+
+    - name: NETWORK ISOLATION - Allow CTF → Wazuh TCP 1515 (agent enrollment)
+      ansible.builtin.iptables:
+        chain: FORWARD
+        source: "{{ ctf_subnet }}"
+        destination: "{{ wazuh_ip }}"
+        protocol: tcp
+        destination_port: "1515"
+        jump: ACCEPT
+        comment: "r42: ctf wazuh enrollment"
+      notify: persist iptables rules
+
+    #### #### FORWARD DROP rules ####
+
+    - name: NETWORK ISOLATION - Drop CTF (vmbr144) → Admin (vmbr142) — zone isolation
+      ansible.builtin.iptables:
+        chain: FORWARD
+        source: "{{ ctf_subnet }}"
+        destination: "{{ admin_subnet }}"
+        jump: DROP
+        comment: "r42: block ctf to admin"
+      notify: persist iptables rules
+
+    - name: NETWORK ISOLATION - Drop CTF (vmbr144) → WAN — air-gap
+      ansible.builtin.iptables:
+        chain: FORWARD
+        in_interface: "{{ ctf_bridge }}"
+        out_interface: "{{ wan_interface }}"
+        jump: DROP
+        comment: "r42: ctf air-gap"
+      notify: persist iptables rules

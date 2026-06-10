@@ -1,0 +1,33 @@
+---
+##
+## demo_lab_network — demo_lab VMs + inter-bridge iptables isolation
+##
+## Network zones:
+##   admin  (vmbr142 · 192.168.142.0/24)  — deployer platform + wazuh
+##   ctf    (vmbr144 · 192.168.144.0/24)  — vulnerable targets, air-gapped
+##
+## Adds on top of demo_lab:
+##   FORWARD DROP  ctf → admin             (zone isolation)
+##   FORWARD DROP  ctf → internet          (air-gap)
+##   FORWARD ACCEPT ctf → wazuh :1514/1515 (agent reporting)
+##   FORWARD ACCEPT admin → ctf            (management access)
+##
+
+- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
+- import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+
+####
+
+- import_playbook: ./02_admin_infrastructure/_main.yml
+
+####
+
+#- import_playbook: ./03_student_infrastructure/_main.yml
+
+# Lift air-gap so CTF VMs can reach the internet during cloud-init + package install
+- import_playbook: ./05_network_isolation/stage_pre/lift_ctf_airgap.yml
+
+- import_playbook: ./04_ctf_infrastructure/_main.yml
+
+# Restore air-gap after CTF setup is complete
+- import_playbook: ./05_network_isolation/_main.yml
