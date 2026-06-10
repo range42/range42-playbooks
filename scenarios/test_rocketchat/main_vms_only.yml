@@ -1,0 +1,7 @@
+---
+##
+## test_rocketchat — deploy VMs only (templates already exist; skip 01_init_proxmox)
+##
+
+- import_playbook: ./02_lan1_infrastructure/_main.yml
+- import_playbook: ./03_lan2_infrastructure/_main.yml
