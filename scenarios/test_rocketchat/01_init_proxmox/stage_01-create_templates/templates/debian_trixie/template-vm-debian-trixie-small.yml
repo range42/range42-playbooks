@@ -119,7 +119,7 @@
         vm_ci_password: "{{ default_trainee_vm_ci_password | default('supersecret') }}"
         vm_ci_ssh_key: "{{ default_trainee_vm_ci_ssh_key }}"
         vm_ci_dns_ips: "{{ default_vm_ci_dns_ips | default('1.1.1.1') }}"
-        vm_ci_ip: "192.168.140.2"
+        vm_ci_ip: "192.168.140.3"
         vm_ci_netmask: "24"
         vm_ci_ip_gw: "192.168.140.1"
       when: tpl_9321_is_template.rc != 0
