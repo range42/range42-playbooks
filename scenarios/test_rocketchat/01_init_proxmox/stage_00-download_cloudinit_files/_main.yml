@@ -1,0 +1,5 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# PROMOX INIT - download cloud-init base images (only the OS families used)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./cloudinit_debian_trixie.yml
