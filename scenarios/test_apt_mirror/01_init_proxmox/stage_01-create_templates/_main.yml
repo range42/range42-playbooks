@@ -1,0 +1,7 @@
+---
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+# PROMOX INIT - create the Proxmox template images (only the OS families used)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./templates/debian_trixie/_main_debian_trixie.yml
+- import_playbook: ./templates/ubuntu_resolute/_main_ubuntu_resolute.yml

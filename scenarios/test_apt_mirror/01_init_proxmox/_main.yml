@@ -1,0 +1,2 @@
+- import_playbook: ./stage_00-download_cloudinit_files/_main.yml
+- import_playbook: ./stage_01-create_templates/_main.yml
