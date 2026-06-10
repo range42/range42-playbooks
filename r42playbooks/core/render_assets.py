@@ -434,6 +434,12 @@ student_additionnal_keys_count: 5
 
 default_admin_vm_ci_user: "alice"
 default_trainee_vm_ci_user: "bob"
+
+
+#### CLOUD-INIT DNS ####
+# default resolver for lab VMs; range42-init.py substitutes the Proxmox node
+# resolver here at workspace creation. 1.1.1.1 is the portable fallback.
+default_vm_ci_dns_ips: "1.1.1.1"
 """
 
 VAULT_EXAMPLE_YML = """\
@@ -459,6 +465,12 @@ default_admin_vm_ci_password: "REPLACE_ME"
 default_admin_vm_ci_ssh_key: "ssh-ed25519 AAAA... alice CODENAME-SCENARIO"
 default_trainee_vm_ci_password: "REPLACE_ME"
 default_trainee_vm_ci_ssh_key: "ssh-ed25519 AAAA... bob CODENAME-SCENARIO"
+
+
+#### CLOUD-INIT DNS ####
+# default resolver for lab VMs; range42-init.py substitutes the Proxmox node
+# resolver here at workspace creation. 1.1.1.1 is the portable fallback.
+default_vm_ci_dns_ips: "1.1.1.1"
 
 
 #### TAILSCALE ####
