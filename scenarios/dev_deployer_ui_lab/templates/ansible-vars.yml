@@ -32,3 +32,8 @@ student_additional_keys_count: 0
 
 # admin vm user (not secret - password and ssh key are in vault)
 default_admin_vm_ci_user: "alice"
+
+#### CLOUD-INIT DNS ####
+# default resolver for lab VMs; range42-init.py substitutes the Proxmox node
+# resolver here at workspace creation. 1.1.1.1 is the portable fallback.
+default_vm_ci_dns_ips: "1.1.1.1"

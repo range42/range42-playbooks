@@ -63,3 +63,8 @@ WAZUH_PASSWORD: "REPLACE_ME"
 
 # deployer-cli known_hosts path (not really secret, but stored in vault historically)
 deployer_cli_user_ssh_known_hosts: "/home/your_deployer_cli_username/.ssh/known_hosts"
+
+#### CLOUD-INIT DNS ####
+# default resolver for lab VMs; range42-init.py substitutes the Proxmox node
+# resolver here at workspace creation. 1.1.1.1 is the portable fallback.
+default_vm_ci_dns_ips: "1.1.1.1"
