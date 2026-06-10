@@ -22,6 +22,12 @@ default_trainee_vm_ci_password: "REPLACE_ME"
 default_trainee_vm_ci_ssh_key: "ssh-ed25519 AAAA... bob CODENAME-SCENARIO"
 
 
+#### CLOUD-INIT DNS ####
+# default resolver for lab VMs; range42-init.py substitutes the Proxmox node
+# resolver here at workspace creation. 1.1.1.1 is the portable fallback.
+default_vm_ci_dns_ips: "1.1.1.1"
+
+
 #### TAILSCALE ####
 infrastructure_tailscale_authkey: "tskey-auth-REPLACE_ME"
 infrastructure_tailscale_apikey: "tskey-api-REPLACE_ME"
