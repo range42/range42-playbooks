@@ -78,13 +78,15 @@ Each infrastructure section follows staged deployment:
 
 The optional components shipped with this scenario can be toggled on/off at deploy
 time. The catalog lives in [`manifest/feature_flags.yml`](manifest/feature_flags.yml) ;
-the deploy scripts forward any trailing `-e enable_<name>=<bool>` to `ansible-playbook`.
+the deploy scripts forward any trailing `-e INSTALL_<NAME>=<YES|NO>` to `ansible-playbook`
+(same convention as the pre-existing `INSTALL_TAILSCALE` variable used elsewhere
+in the scenario).
 
-Example — deploy everything except wazuh :
+Example - deploy everything except wazuh, and force tailscale off on all groups :
 
 ```bash
-range42-context deploy      -e enable_wazuh=false   # full deploy without wazuh
-range42-context deploy-vms  -e enable_wazuh=false   # VMs-only redeploy without wazuh
+range42-context deploy      -e INSTALL_WAZUH=NO
+range42-context deploy-vms  -e INSTALL_WAZUH=NO -e INSTALL_TAILSCALE=NO
 ```
 
 The same flags surface as checkboxes in `range42-context --tui` (deploy / deploy-vms entries).

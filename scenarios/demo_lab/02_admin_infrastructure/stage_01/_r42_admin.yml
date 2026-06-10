@@ -95,7 +95,7 @@
       loop: "{{ tailscale_hostnames }}"
       loop_control:
         loop_var: tailscale_hostname
-      when: INSTALL_TAILSCALE == "YES"
+      when: INSTALL_TAILSCALE | upper == "YES"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -117,4 +117,4 @@
         - include_role:
             name: software.configure.tailscale_disable_nftables
 
-      when: INSTALL_TAILSCALE == "YES"
+      when: INSTALL_TAILSCALE | upper == "YES"
