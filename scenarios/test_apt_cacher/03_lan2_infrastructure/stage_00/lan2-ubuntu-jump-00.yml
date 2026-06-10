@@ -3,8 +3,8 @@
 # LAN2 INFRASTRUCTURE INIT - CLONE + CLOUD-INIT
 #
 #   hostname : lan2-ubuntu-jump-00
-#   vm_id    : 1011
-#   ip       : 192.168.151.11
+#   vm_id    : 1013
+#   ip       : 192.168.151.13
 #   template : template-vm-ubuntu-resolute-small-01-4g-32g
 #
 # global_* vars are supplied by ../_main.yml (kept here as Jinja references).
