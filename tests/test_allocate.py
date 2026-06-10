@@ -41,6 +41,34 @@ def test_box_image_resolved_from_template_vm(fake_catalog):
     assert {t.image for t in alloc.templates} == {"ubuntu_noble"}
 
 
+def test_distinct_templates_get_unique_ips_when_boxes_share_octet(fake_catalog):
+    """Regression: two boxes in different subnets sharing an octet must not make
+    their distinct templates collide on the single template subnet.
+
+    Template build VMs boot concurrently during 01_init_proxmox; a shared IP
+    collides on the bridge so the loser's cloud-init can't reach the network and
+    its apt-get update stalls forever (the VM never auto-powers-off and the
+    deploy hangs at 'WAIT for cloud-init to auto-poweroff'). Two boxes can
+    legitimately share an octet across different lab subnets, so the template IP
+    must not be derived from the box octet.
+    """
+    alloc = _alloc(
+        load_catalog(fake_catalog),
+        boxes=[
+            {"template": "admin-wazuh", "subnet": "admin", "octet": 2},  # → medium template
+            {"template": "vuln-box", "subnet": "ctf", "octet": 2},       # → small template
+        ],
+    )
+    # Two distinct templates resolved (different template_vm ids).
+    assert len({t.vm_id for t in alloc.templates}) == 2
+    tpl_ips = [t.ip for t in alloc.templates]
+    # Their build IPs are unique — no collision on the template subnet.
+    assert len(set(tpl_ips)) == len(tpl_ips), f"template IPs collided: {tpl_ips}"
+    # All on the template subnet (192.168.140.0/24), never the gateway (.1).
+    assert all(ip.rsplit(".", 1)[0] == "192.168.140" for ip in tpl_ips)
+    assert "192.168.140.1" not in tpl_ips
+
+
 def _add_box_template(fake_catalog, *, box_id: str, template_vm: str) -> None:
     layer = fake_catalog / "05_topology_layer" / "box_templates" / box_id / "v1.0.0"
     layer.mkdir(parents=True)

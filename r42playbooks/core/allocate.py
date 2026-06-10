@@ -74,6 +74,7 @@ class Allocation:
 
 
 _DEFAULT_OCTET = 10  # starting octet for auto-allocated boxes (no explicit octet set)
+_TEMPLATE_IP_BASE = 2  # first host octet for template build IPs on the template subnet (gw is .1)
 
 
 def _subnet_prefix(cidr: str) -> str:
@@ -249,6 +250,16 @@ def allocate(spec: ScenarioSpec, catalog: Catalog, reserved: ReservedIndex | Non
     tpl_bridge = tpl_subnet.bridge
 
     # Build the deduplicated set of template VMs actually needed by this scenario.
+    # Each distinct template needs a UNIQUE IP on the (single) template subnet:
+    # the templates are started concurrently during 01_init_proxmox, so a shared
+    # IP collides on the bridge and the loser's cloud-init can't reach the network
+    # (apt-get update stalls → it never auto-powers-off → deploy hangs). Deriving
+    # the template IP from the box octet is unsafe because two boxes in *different*
+    # lab subnets can legitimately share an octet (e.g. dual-lan .150.2 + .151.2),
+    # which would map their two distinct templates onto the same template-subnet
+    # IP. Allocate sequentially on the template subnet instead, skipping the gw.
+    tpl_gateway = f"{tpl_prefix}.1"
+    taken_tpl_ips: set[str] = {tpl_gateway}
     seen_tpl_ids: set[int] = set()
     resolved_templates: list[ResolvedTemplate] = []
     for box in boxes:
@@ -259,12 +270,14 @@ def allocate(spec: ScenarioSpec, catalog: Catalog, reserved: ReservedIndex | Non
             continue  # template_vm_id override without catalog entry — skip manifest entry
         image_id, tpl_spec = result
         seen_tpl_ids.add(box.template_vm_id)
-        box_octet = int(box.ip.rsplit(".", 1)[1])
+        tpl_octet = _next_free_octet(_TEMPLATE_IP_BASE, tpl_prefix, taken_tpl_ips)
+        tpl_ip = f"{tpl_prefix}.{tpl_octet}"
+        taken_tpl_ips.add(tpl_ip)
         resolved_templates.append(ResolvedTemplate(
             vm_id=box.template_vm_id,
             vm_name=tpl_spec.vm_name,
             spec=tpl_spec.spec,
-            ip=f"{tpl_prefix}.{box_octet}",
+            ip=tpl_ip,
             bridge=tpl_bridge,
             image=image_id,
         ))
