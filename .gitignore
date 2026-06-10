@@ -2,3 +2,21 @@
 **/secret/
 CLAUDE.md
 **/CLAUDE.md
+
+# Python (r42playbooks module)
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+dist/
+build/
+
+# Claude session files (local only — handoffs, design notes)
+.claude/
+
+# Scratch compiler artifacts (flat-workspace outputs, never committed)
+/topology.json
+/hosts.yml
+/expanded.json

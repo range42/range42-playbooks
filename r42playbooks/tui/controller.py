@@ -1,0 +1,188 @@
+"""Pure controller behind the Textual TUI — no Textual imports here.
+
+Wraps the frozen ``r42playbooks.api`` so the view stays a thin shell and the
+compose→generate logic is unit-testable (and reusable by the range42 deployment
+TUI). Holds the in-progress composition: a scenario name, a subnet layout, a
+network policy, and an ordered list of boxes (template + count).
+"""
+
+from pathlib import Path
+
+from pydantic import ValidationError as _PydValidationError
+
+from r42playbooks import api
+from r42playbooks.core.allocate import allocate
+from r42playbooks.core.errors import TopologyError
+from r42playbooks.core.idalloc import ReservedIndex
+from r42playbooks.core.spec import ScenarioSpec
+
+
+class ScenarioComposerController:
+    """Stateful façade the TUI drives: pick layout/policy, add boxes, generate."""
+
+    def __init__(self, catalog_root: Path, reserved_path: Path | None = None) -> None:
+        self.catalog = api.load_catalog(catalog_root)
+        self.reserved: ReservedIndex | None = (
+            ReservedIndex.from_file(reserved_path) if reserved_path else None
+        )
+        self.name: str = ""
+        self.subnet_layout: str = ""
+        self.network_policy: str = ""
+        self._boxes: list[tuple[str, int, str | None, int | None]] = []
+
+    # -- catalog choices --
+
+    def layouts(self) -> list[str]:
+        return sorted(self.catalog.subnet_layouts)
+
+    def policies(self) -> list[str]:
+        return sorted(self.catalog.network_policies)
+
+    def box_templates(self) -> list[str]:
+        return sorted(self.catalog.box_templates)
+
+    def roles(self) -> list[str]:
+        return sorted(self.catalog.roles)
+
+    def containers(self) -> list[str]:
+        return sorted(self.catalog.containers)
+
+    def subnets_for_layout(self, layout_id: str) -> list[tuple[str, str]]:
+        """Return (name, cidr) pairs for subnets in *layout_id* (empty if unknown)."""
+        layout = self.catalog.subnet_layouts.get(layout_id)
+        return [(s.name, s.cidr) for s in layout.subnets] if layout else []
+
+    # -- composition state --
+
+    @property
+    def boxes(self) -> list[tuple[str, int, str | None, int | None]]:
+        """The composed (template, count, subnet, octet) 4-tuples, in insertion order (a copy)."""
+        return list(self._boxes)
+
+    def set_name(self, name: str) -> None:
+        self.name = name.strip()
+
+    def set_subnet(self, layout_id: str) -> None:
+        self.subnet_layout = layout_id
+
+    def set_policy(self, policy_id: str) -> None:
+        self.network_policy = policy_id
+
+    def add_box(self, template: str, count: int = 1, subnet: str | None = None, octet: int | None = None) -> None:
+        self._boxes.append((template, count, subnet, octet))
+
+    def remove_box(self, index: int) -> None:
+        self._boxes = [b for i, b in enumerate(self._boxes) if i != index]
+
+    def clear_boxes(self) -> None:
+        self._boxes = []
+
+    # -- spec / validation --
+
+    def _missing(self) -> list[str]:
+        """Structural gaps that stop a spec from being built (pre-schema)."""
+        problems: list[str] = []
+        if not self.name:
+            problems.append("scenario name is required")
+        if not self.subnet_layout:
+            problems.append("a subnet layout must be selected")
+        if not self._boxes:
+            problems.append("add at least one box")
+        return problems
+
+    def build_spec(self) -> ScenarioSpec:
+        """Assemble the in-progress composition into a ``ScenarioSpec``.
+
+        :raises TopologyError: if the composition is incomplete or schema-invalid.
+        """
+        missing = self._missing()
+        if missing:
+            raise TopologyError("; ".join(missing))
+        boxes = []
+        for t, c, s, o in self._boxes:
+            entry: dict = {"template": t, "count": c}
+            if s:
+                entry["subnet"] = s
+            if o is not None:
+                entry["octet"] = o
+            boxes.append(entry)
+        data = {
+            "name": self.name,
+            "subnet_layout": self.subnet_layout,
+            "boxes": boxes,
+        }
+        if self.network_policy:  # optional + ignored by the generator
+            data["network_policy"] = self.network_policy
+        try:
+            return ScenarioSpec.model_validate(data)
+        except _PydValidationError as exc:
+            raise TopologyError(f"invalid composition: {exc}") from exc
+
+    def validate(self) -> list[str]:
+        """Return all problems with the current composition ([] == ready)."""
+        missing = self._missing()
+        if missing:
+            return missing
+        try:
+            spec = self.build_spec()
+        except TopologyError as exc:
+            return [str(exc)]
+        return api.validate_refs(spec, self.catalog)
+
+    # -- preview / generate --
+
+    def preview(self) -> str:
+        """A plain-text preview of the current composition.
+
+        Always shows the picked header + the boxes added so far (so every
+        ``add_box`` gives visible feedback), then the readiness verdict or the
+        allocated VMs. Never raises: validation gaps and allocation errors are
+        returned as text so the TUI shows them in-pane instead of crashing.
+        """
+        total_vms = sum(count for _t, count, _s, _o in self._boxes)
+        lines = [
+            f"name:          {self.name or '(unset)'}",
+            f"subnet layout: {self.subnet_layout or '(unset)'}",
+            f"network policy:{' ' + self.network_policy if self.network_policy else ' (none)'}",
+            f"boxes:         {total_vms} VM(s) from {len(self._boxes)} pick(s)",
+        ]
+        lines += [
+            f"  - {t} ×{c}" + (f" → {s}" if s else "") + (f" @.{o}" if o is not None else "")
+            for t, c, s, o in self._boxes
+        ]
+
+        problems = self.validate()
+        if problems:
+            lines += ["", "not ready:"] + [f"  ✗ {p}" for p in problems]
+            return "\n".join(lines)
+
+        try:
+            spec = self.build_spec()
+            alloc = allocate(spec, self.catalog, self.reserved)
+        except TopologyError as exc:
+            lines += ["", f"✗ cannot allocate: {exc}"]
+            return "\n".join(lines)
+
+        lines += ["", "ready — allocation:"]
+        lines += [
+            f"  - {b.vm_name}  id={b.vm_id} ip={b.ip} subnet={b.subnet_name}" for b in alloc.boxes
+        ]
+        return "\n".join(lines)
+
+    def generate(self, dest: Path, *, overwrite: bool = False) -> Path:
+        """Render the composition into ``dest/<name>/`` and return that path.
+
+        :param overwrite: replace an existing ``dest/<name>/`` (default False).
+        :raises ScenarioExistsError: target exists and ``overwrite`` is False.
+        :raises TopologyError: if the composition is incomplete/invalid or a ref
+            cannot be resolved/placed.
+        """
+        spec = self.build_spec()
+        dest = Path(dest)
+        reserved = self.reserved
+        if reserved is None:
+            auto = dest / "_reserved.json"
+            if auto.is_file():
+                reserved = ReservedIndex.from_file(auto)
+        return api.render_scenario(spec, catalog=self.catalog, dest=dest,
+                                   reserved=reserved, overwrite=overwrite)
