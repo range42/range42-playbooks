@@ -66,7 +66,10 @@
         method: PUT
         headers:
           Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
-        validate_certs: false
+        # Lab Proxmox hosts use self-signed certs; verification is disabled
+        # repo-wide (proxmox_controller role does the same). Overridable so a
+        # hardened deployment can enable it. Systemic TLS pinning: backend #85.
+        validate_certs: "{{ proxmox_validate_certs | default(false) }}"
         status_code: 200
 
     - name: "Network: ensure idempotent NAT MASQUERADE for the subnet"
