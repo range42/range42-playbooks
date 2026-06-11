@@ -1,0 +1,19 @@
+all:
+  children:
+    range42_infrastructure:
+      children:
+        r42_lan1_group:
+          hosts:
+            r42.lan1-admin-nextcloud-00:
+        r42_lan2_group:
+          hosts:
+            r42.lan2-debian-jump-00:
+        proxmox:
+          hosts:
+            {{ INFRASTRUCTURE_CODENAME }}:
+              ansible_host: {{ INFRASTRUCTURE_PROXMOX_ADDRESS | mandatory }}:8006
+              ansible_connection: local
+              ansible_python_interpreter: /usr/bin/python3
+        proxmox-cli:
+          hosts:
+            {{ INFRASTRUCTURE_CODENAME }}-cli:

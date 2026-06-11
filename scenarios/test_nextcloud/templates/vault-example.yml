@@ -1,0 +1,37 @@
+---
+################################################################################
+# range42 — vault secrets (test_nextcloud)
+#
+# Copy to vault.yml, fill real values, then: ansible-vault encrypt vault.yml
+# Never commit the unencrypted version.
+################################################################################
+
+
+#### PROXMOX API SECRET ####
+proxmox_api_token_secret: "REPLACE_ME"
+
+
+#### JUMP HOST ####
+jump_password: "REPLACE_ME"
+
+
+#### CLOUD-INIT PASSWORDS ####
+default_admin_vm_ci_password: "REPLACE_ME"
+default_admin_vm_ci_ssh_key: "ssh-ed25519 AAAA... alice CODENAME-SCENARIO"
+default_trainee_vm_ci_password: "REPLACE_ME"
+default_trainee_vm_ci_ssh_key: "ssh-ed25519 AAAA... bob CODENAME-SCENARIO"
+
+
+#### CLOUD-INIT DNS ####
+# default resolver for lab VMs; range42-init.py substitutes the Proxmox node
+# resolver here at workspace creation. 1.1.1.1 is the portable fallback.
+default_vm_ci_dns_ips: "1.1.1.1"
+
+
+#### TAILSCALE ####
+infrastructure_tailscale_authkey: "tskey-auth-REPLACE_ME"
+infrastructure_tailscale_apikey: "tskey-api-REPLACE_ME"
+
+
+#### MISC ####
+deployer_cli_user_ssh_known_hosts: "/home/your_deployer_cli_username/.ssh/known_hosts"
