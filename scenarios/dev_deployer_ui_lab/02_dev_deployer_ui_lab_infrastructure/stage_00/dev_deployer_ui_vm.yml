@@ -1,0 +1,132 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# PROXMOX INIT INFRASTRUCTURE - DEV-DEPLOYER-UI VM
+#
+#   hostname : dev-deployer-ui
+#   vm_id    : 1190
+#   cpu core : 2
+#   ram      : 8g
+#   disk     : 64g
+#   ip       : 192.168.142.190
+#   bridge   : vmbr142
+#
+#   template : template-vm-medium-02-8g-64g - id : 9232
+#
+# Hosts the deployer-ui frontend in a follow-up docker-compose step.
+# Lifted from misp_lab/02_misp_lab_infrastructure/stage_00/misp_lab_vm.yml shape.
+# All VM-specific values driven via global_* vars overridden in main.yml.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+##
+##
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  vars:
+    #
+    # variables will be overwritten by values in main.yml
+    #
+
+  tasks:
+    #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+    - name: DEV-DEPLOYER-UI INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - "{{ global_template_name }}"
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "vm_clone"
+        vm_id: "{{ global_template_vm_id }}"
+        vm_new_id: "{{ global_vm_id }}"
+        vm_name: "{{ global_vm_name }}"
+        vm_description: "{{ global_vm_description }}"
+
+    ####
+    - name: INFRASTRUCTURE INIT - WAITING FOR PROXMOX UNLOCK TO CLEAR (slow setup)
+      ansible.builtin.shell: qm config {{ global_vm_id }} | grep -q '^lock:'
+      register: clone_lock_check
+      until: clone_lock_check.rc != 0
+      retries: 60                # 60 x 5s = 5 min max safety
+      delay: 5
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+    ####
+
+    - name: DEV-DEPLOYER-UI INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROXMOX TAG
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "vm_set_tag"
+        vm_id: "{{ global_vm_id }}"
+        vm_tag_name: "{{ global_vm_tag_name }}"
+
+    #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+    - name: DEV-DEPLOYER-UI INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET CLOUD DEFAULT INIT VARIABLE
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "cloudinit_set_variables"
+
+        vm_id: "{{ global_vm_id }}"
+        vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
+        vm_ci_password: "{{ default_admin_vm_ci_password | default('supersecret') }}"
+        vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key  }}"
+        vm_ci_dns_ips: "1.1.1.1"
+        vm_ci_ip: "{{ global_vm_ci_ip }}"
+        vm_ci_netmask: "24"
+        vm_ci_ip_gw: "192.168.142.1"
+        vm_net_virtio_bridge: "vmbr142"
+
+    #
+    - name: DEV-DEPLOYER-UI INFRASTRUCTURE INIT - "{{ global_vm_name }}" - START VM
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "vm_start"
+        vm_id: "{{ global_vm_id }}"
+
+    # #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: "{{ global_vm_ssh_name }}"
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  vars:
+    ARG_vm_ssh_name: "{{ global_vm_ssh_name }}"
+
+    requested_tasks:
+      - wait/openssh_server/is_reachable.yml
+      - wait/cloudinit/is_boot_finished.yml
+
+  pre_tasks:
+    # Pin the vault var as a concrete fact (precedence #19) BEFORE include_role.
+    # The previous pattern `deployer_cli_user_ssh_known_hosts: "{{ deployer_cli_user_ssh_known_hosts }}"`
+    # in play vars: triggered Jinja recursion when the wait-for-SSH task retried
+    # multiple times on slower VM boots (Ubuntu noble is slower than Alpine, more
+    # retries means more re-evaluations of the self-ref template). set_fact resolves
+    # from vars_files once, freezes the value as a concrete string, and survives
+    # delegation (delegate_to: localhost in ansible.utils' wait-for-SSH task) cleanly.
+    - name: pin deployer_cli_user_ssh_known_hosts into fact (avoid template recursion)
+      ansible.builtin.set_fact:
+        deployer_cli_user_ssh_known_hosts: "{{ deployer_cli_user_ssh_known_hosts }}"
+
+  tasks:
+    #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+    - name: TASK DYNAMIC INCLUDE FROM ansible.utils
+      include_role:
+        name: ansible.utils

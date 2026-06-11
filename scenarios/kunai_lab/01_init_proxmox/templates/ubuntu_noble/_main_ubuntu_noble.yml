@@ -1,0 +1,7 @@
+##
+## kunai_lab - create only template 9232 (template-vm-medium-02-8g-64g).
+## kunai_lab needs only the medium-02 (2cpu / 8gb / 64gb) to host the 6 VMs
+## (1 trainer + 5 students) with Docker plus the kunai-project repos.
+##
+
+- import_playbook: ./03-template-vm-medium-02-8g-64g.yml

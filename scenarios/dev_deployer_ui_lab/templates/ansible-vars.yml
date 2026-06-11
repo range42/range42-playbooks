@@ -1,0 +1,34 @@
+---
+################################################################################
+# range42 - scenario-specific variables (dev_deployer_ui_lab)
+#
+# These variables are specific to this scenario. dev_deployer_ui_lab is a 3-VM
+# scenario delivering Ubuntu LTS hosts pre-provisioned with the Docker baseline,
+# intended to host the deployer-ui platform (frontend, backend API, Kong API
+# gateway) via docker-compose in a follow-up step.
+#
+# For shared variables -> group_vars/all/vars.yml
+# For secrets -> vault.yml (see vault.yml.example)
+#
+################################################################################
+
+
+#### SCENARIO IDENTIFICATION ####
+
+INFRASTRUCTURE_SCENARIO: "dev_deployer_ui_lab"
+
+
+#### CREDENTIAL GENERATION ####
+
+# auto-generate ssh keys and passwords (YES/NO)
+context_auto_generate_ssh_keys: "YES"
+context_auto_generate_vm_passwords: "YES"
+
+# no student extras for dev_deployer_ui_lab (3-VM platform host scenario)
+student_additional_keys_count: 0
+
+
+#### CLOUD-INIT USERNAMES ####
+
+# admin vm user (not secret - password and ssh key are in vault)
+default_admin_vm_ci_user: "alice"

@@ -1,0 +1,73 @@
+---
+##
+## misp_lab - main playbook
+##
+## Provisions a single Ubuntu LTS VM (admin-misp-standalone) on vmbr142 from the project
+## standard medium template (VMID 9232 : 2cpu / 8gb / 64gb). The VM is
+## delivered with the Docker baseline pre-installed (docker, docker compose,
+## zsh dotfiles, basic utilities, firewall opening port 22 only).
+##
+## MISP itself is intentionally NOT installed by this scenario - the goal here
+## is to have a ready-to-use Docker host. The MISP docker-compose stack is
+## deployed in a later step (range42-catalog element or a follow-up playbook).
+##
+## Mirrors the catalog_try single-VM pattern :
+##   01_init_proxmox                 : download cloud-init image + create template 9232 (idempotent skip if already present)
+##   02_misp_lab_infrastructure      : VM clone + cloud-init + start + wait-for-SSH + Docker baseline
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 01_init_proxmox - template creation #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
+- import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 02_misp_lab_infrastructure - STAGE 00 #### #### #### ##
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_misp_lab_infrastructure/stage_00/misp_lab_vm.yml
+
+  vars:
+    global_vm_name: "admin-misp-standalone"
+    global_vm_ssh_name: "r42.admin-misp-standalone"
+    global_vm_id: 1180
+    global_vm_description: "misp_lab - Ubuntu LTS host for MISP via docker-compose"
+    global_vm_tag_name: "misp-lab"
+    global_vm_ci_ip: "192.168.142.180"
+    #
+    global_template_vm_id: 9232
+    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 02_misp_lab_infrastructure - STAGE 01 #### #### #### ##
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_misp_lab_infrastructure/stage_01/_r42_misp_lab_group.yml
+
+  vars:
+    OPERATOR_USER: alice
+
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "YES"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+
+    INSTALL_TAILSCALE: "NO"
+
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

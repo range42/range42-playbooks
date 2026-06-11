@@ -1,0 +1,37 @@
+---
+################################################################################
+# range42 - scenario-specific variables (kunai_lab)
+#
+# These variables are specific to this scenario. kunai_lab is a 6-VM training
+# scenario delivering Ubuntu LTS hosts pre-provisioned with the Docker baseline
+# plus the kunai-project ecosystem repositories pre-cloned in the operator home
+# (alice on the trainer VM, bob on the 5 student VMs).
+#
+# For shared variables -> group_vars/all/vars.yml
+# For secrets -> vault.yml (see vault.yml.example)
+#
+################################################################################
+
+
+#### SCENARIO IDENTIFICATION ####
+
+INFRASTRUCTURE_SCENARIO: "kunai_lab"
+
+
+#### CREDENTIAL GENERATION ####
+
+# auto-generate ssh keys and passwords (YES/NO)
+context_auto_generate_ssh_keys: "YES"
+context_auto_generate_vm_passwords: "YES"
+
+# number of additional student ssh keys (bob_1 .. bob_N)
+# no student extras for kunai_lab (single in-VM user alice on every VM, project convention)
+student_additionnal_keys_count: 0
+
+
+#### CLOUD-INIT USERNAMES ####
+
+# admin vm user (not secret - password and ssh key are in vault)
+# cloud-init user is alice on all 6 VMs (medium template default, project
+# convention - matches demo_lab and the blank scenarios)
+default_admin_vm_ci_user: "alice"

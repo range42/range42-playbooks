@@ -1,0 +1,61 @@
+---
+# Feature flags for demo_lab - optional components that can be toggled on/off
+# at deploy time via `-e INSTALL_<NAME>=YES|NO` (aligned with the existing
+# `INSTALL_TAILSCALE` convention used elsewhere in the scenario).
+#
+# This file is the single source of truth :
+#   - the deploy TUI (range42-context --tui) reads `features` to render the
+#     checkbox modal before invoking `range42-context deploy`
+#   - the playbooks read the `INSTALL_<NAME>` variables via
+#     `when: INSTALL_<NAME> | default("YES"|"NO") | upper == "YES"` on the
+#     relevant `import_playbook` / `block:` entries
+#
+# Convention :
+#   - `id` is UPPERCASE (matches the variable name : `id: WAZUH` -> `INSTALL_WAZUH`)
+#   - `default: true|false` is the checkbox initial state in the TUI
+#   - the playbook `default("YES"|"NO")` fallback should align with this
+#   - `| upper` makes the check case-insensitive : YES / yes / Yes all match
+#
+# To add a new optional component :
+#   1. append a row under `features:` with id + label + description + default
+#   2. wire the playbook tasks under
+#      `when: INSTALL_<ID> | default("YES"|"NO") | upper == "YES"`
+#   3. the TUI picks it up automatically on next launch
+
+features:
+  - id: WAZUH
+    label: "Wazuh stack - SIEM + agents services"
+    description: "Deploys the wazuh-indexer / wazuh-server VM + post-create configuration. Skipping leaves the admin-wazuh VM uncreated and removes the agent install on student boxes."
+    default: true
+
+  - id: TAILSCALE
+    label: "Tailscale VPN client"
+    description: "Per-group install (admin=NO / student=YES / ctf=NO by default in the scenario). Checking forces YES on all groups via -e INSTALL_TAILSCALE=YES ; unchecking forces NO everywhere."
+    default: false
+
+  #
+  # for upcoming POCs not yet ready
+  #
+  - id: MISP
+    label: "MISP - threat intel services"
+    description: "Deploys ...."
+    default: false
+
+  - id: GITEA
+    label: "Gitea - code services"
+    description: "Deploys ...."
+    default: false
+
+  - id: ROCKETCHAT
+    label: "RocketChat - chat services"
+    description: "Deploys ...."
+    default: false
+
+  - id: MATTERMOST
+    label: "Mattermost - chat services"
+    default: false
+
+  - id: NEXTCLOUD
+    label: "Nextcloud - files storage services"
+    description: "Deploys ...."
+    default: false

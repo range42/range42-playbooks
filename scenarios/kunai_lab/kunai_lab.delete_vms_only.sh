@@ -1,7 +1,13 @@
 #!/bin/bash
 
 ##
-## reset — delete this scenario's VMs (filter by vm_id from manifest) then re-deploy
+## kunai_lab.delete_vms_only.sh - destroy the kunai_lab VMs, keep templates
+##
+## VM IDs are read from the scenario manifest :
+##   manifest/scenario_vms.json
+##
+## Lifted from dev_deployer_ui_lab.delete_vms_only.sh, scoped to the kunai_lab
+## manifest (6 VMs : admin-trainer-kunai 1104 + student-kunai-01..05 1105..1109).
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,15 +18,18 @@ if [[ ! -f "$MANIFEST" ]]; then
     exit 1
 fi
 
+# extract VM IDs + IPs from the manifest (templates kept untouched)
 mapfile -t SCENARIO_VM_IDS  < <(jq -r '.vms[].vm_id' "$MANIFEST")
 mapfile -t INFRASTRUCTURE_IP < <(jq -r '.vms[].ip'   "$MANIFEST")
 ID_REGEX=$(printf '|%s' "${SCENARIO_VM_IDS[@]}" | sed 's/^|//')
 
-echo ":: stopping and deleting scenario VMs (vm_ids: ${SCENARIO_VM_IDS[*]})..."
+echo ":: stopping and deleting kunai_lab VMs (keeping templates)..."
+echo ":: kunai_lab VMs: ${SCENARIO_VM_IDS[*]}"
+echo ""
 
 VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
 if [ -z "$VM_LIST_JSON" ]; then
-    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) — aborting" >&2
+    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) - aborting" >&2
     printf "output: %.200s\n" "$VM_LIST_JSON" >&2
     exit 1
 fi
@@ -32,14 +41,7 @@ for ip in "${INFRASTRUCTURE_IP[@]}"; do
     ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
 done
 
-##
-## Trailing "$@" propagates any extra args to ansible-playbook.
-## Typical use : feature flag overrides from the TUI, e.g.
-##   demo_lab.reset.setup.sh -e enable_wazuh=false
-## See ./manifest/feature_flags.yml for the list of toggleable features.
-##
-
-ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \
-	-l "all" \
-	"./main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set — run: range42-context use <codename> <scenario>}" \
-	"$@"
+echo ""
+echo ":: done - templates preserved"
+echo ":: redeploy with: range42-context deploy-vms  (or ./kunai_lab.setup_vms_only.sh)"
+echo ""
