@@ -35,7 +35,7 @@
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - hosts: r42.admin-wazuh
-  become: true
+  become: yes
   become_user: root
   roles:
     - role: software.install.wazuh-indexer
@@ -63,7 +63,7 @@
 # # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - hosts: r42.admin-wazuh
-  become: true
+  become: yes
   vars_files:
     - "../../secrets/default_vault.yml"
   vars:
@@ -81,7 +81,7 @@
 
 - name: EXEC wazuh-passwords-tool.sh - if CHANGE_WAZUH_PASSWORD is true
   hosts: r42.admin-wazuh
-  become: true
+  become: yes
   become_user: root
   vars_files:
     - "../../secrets/default_vault.yml"
@@ -110,7 +110,7 @@
 # wazuh deploy agent
 
 - hosts: r42_admin_wazuh_clients
-  become: true
+  become: yes
   become_user: root
   roles:
     - software.install.wazuh-agent

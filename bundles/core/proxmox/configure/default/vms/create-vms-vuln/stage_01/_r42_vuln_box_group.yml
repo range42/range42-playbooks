@@ -102,9 +102,10 @@
     INSTALL_TAILSCALE: "NO" # variables defined in main
 
   tasks:
-    - when: INSTALL_TAILSCALE == "YES"
-      block:
+    - block:
         - include_role:
             name: software.install.tailscale
         - include_role:
             name: software.configure.tailscale_disable_nftables
+
+      when: INSTALL_TAILSCALE == "YES"

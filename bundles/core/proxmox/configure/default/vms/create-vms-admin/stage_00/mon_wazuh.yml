@@ -19,9 +19,9 @@
 - hosts: proxmox
   gather_facts: false
   vars_files:
-    - "../../secrets/default_vault.yml"
+      - "../../secrets/default_vault.yml"
 
-  vars: {}
+  vars:
     #
     # variables will be overwrited by values  in _main.yml
     #

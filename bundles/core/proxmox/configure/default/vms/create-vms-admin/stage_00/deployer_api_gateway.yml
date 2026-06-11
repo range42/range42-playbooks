@@ -21,7 +21,7 @@
   vars_files:
     - "../../secrets/default_vault.yml"
 
-  vars: {}
+  vars:
     #
     # variables will be overwrited by values  in _main.yml
     #
