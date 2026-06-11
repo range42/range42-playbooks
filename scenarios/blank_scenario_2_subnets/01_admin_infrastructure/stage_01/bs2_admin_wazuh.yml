@@ -47,7 +47,7 @@
 
   vars:
     local_certs_path: "/tmp/certificates/"
-    WAZUH_SERVER_IP: 192.168.142.100 # MOVE TO VAULT ?
+    WAZUH_SERVER_IP: 192.168.142.120 # MOVE TO VAULT ?
     single_node: true
     indexer_network_host: "{{ WAZUH_SERVER_IP }}"
     indexer_cluster_nodes:
@@ -69,7 +69,7 @@
     - name: Wait for wazuh-indexer API on port 9200
       ansible.builtin.wait_for:
         port: 9200
-        host: 192.168.142.100
+        host: 192.168.142.120
         delay: 5
         timeout: 120
 
@@ -87,7 +87,7 @@
 
   vars:
     local_certs_path: "/tmp/certificates/"
-    WAZUH_SERVER_IP: 192.168.142.100 # MOVE TO VAULT ?
+    WAZUH_SERVER_IP: 192.168.142.120 # MOVE TO VAULT ?
     single_node: true
     indexer_network_host: "{{ WAZUH_SERVER_IP }}"
     indexer_cluster_nodes:
@@ -106,7 +106,7 @@
   vars_files:
     - "../../secrets/default_vault.yml"
   vars:
-    WAZUH_SERVER_IP: 192.168.142.100 # MOVE TO VAULT ?
+    WAZUH_SERVER_IP: 192.168.142.120 # MOVE TO VAULT ?
     local_certs_path: "/tmp/certificates/"
 
   roles:
@@ -180,7 +180,7 @@
     - software.install.wazuh-agent
 
   vars:
-    WAZUH_SERVER_IP: 192.168.142.100 # MOVE TO VAULT !!
+    WAZUH_SERVER_IP: 192.168.142.120 # MOVE TO VAULT !!
     wazuh_managers:
       - address: "{{ WAZUH_SERVER_IP }}"
         port: 1514

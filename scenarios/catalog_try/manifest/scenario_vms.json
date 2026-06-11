@@ -1,0 +1,11 @@
+{
+  "scenario": "catalog_try",
+  "version": 1,
+  "description": "Disposable single-VM scenario for fast catalog element validation via `range42-context catalog-try <path>`. The VM is overwritten on each invocation. Bridge vmbr142, IP 192.168.142.250, VMID 1250 (convention : last 3 digits of vm_id match the IP last octet). Template VMID 9221 (template-vm-small-01-4g-32g, same as vuln_box) is created by this scenario's `01_init_proxmox/` (idempotent : skipped if already present from another scenario like demo_lab).",
+  "vms": [
+    {"vm_id": 1250, "vm_name": "catalog-try-vm-docker", "ip": "192.168.142.250", "role": "catalog-try", "bridge": "vmbr142"}
+  ],
+  "templates": [
+    {"vm_id": 9221, "vm_name": "template-vm-small-01-4g-32g", "spec": "1cpu/4gb/32gb", "ip": "192.168.142.221", "bridge": "vmbr140"}
+  ]
+}

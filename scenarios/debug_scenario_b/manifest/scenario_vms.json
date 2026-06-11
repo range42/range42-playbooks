@@ -1,0 +1,11 @@
+{
+  "scenario": "debug_scenario_b",
+  "version": 1,
+  "description": "Minimal debug scenario — 1 Alpine VM on an isolated subnet (192.168.148.0/24). Same shape as debug_scenario_a but on a different subnet, used to verify multi-scenario coexistence on a single Proxmox.",
+  "vms": [
+    {"vm_id": 8501, "vm_name": "dsb-vm-01", "ip": "192.168.148.250", "role": "debug", "bridge": "vmbr148"}
+  ],
+  "templates": [
+    {"vm_id": 9903, "vm_name": "template-vm-alpine-nano", "spec": "1cpu/512mb/4gb", "ip": "192.168.142.203", "bridge": "vmbr140"}
+  ]
+}

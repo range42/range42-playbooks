@@ -3,11 +3,11 @@
 # PROMOX INIT INFRASTRUCTURE - ADMIN
 #
 #   hostname : admin-deployer-ui
-#   vm_id    : 1023
+#   vm_id    : 6143
 #   cpu core : 1
 #   ram      : 4g
 #   disk     : 32g
-#   ip       : 192.168.142.122
+#   ip       : 192.168.142.143
 #
 #   template : template-vm-small-01-4g-32g - id : 9221
 #
@@ -25,11 +25,11 @@
     #
     # variables will be overwrited by values  in _main.yml
     #
-    # global_vm_id: 1023
+    # global_vm_id: 6143
     # global_vm_name: "admin-deployer-ui"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
-    # global_vm_ci_ip: "192.168.142.123"
+    # global_vm_ci_ip: "192.168.142.143"
     # #
     # global_template_vm_id: 9221
     # global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug

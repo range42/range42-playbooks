@@ -1,0 +1,47 @@
+#!/bin/bash
+
+##
+## delete VMs only - catalog_try VM (single VM, filter by vm_id), keep templates
+##
+## VM IDs are read from the scenario manifest:
+##   manifest/scenario_vms.json
+##
+## Lifted from demo_lab.delete_vms_only.sh, scoped to the catalog_try manifest
+## (which currently lists only catalog-try-vm-docker, VMID 1250, IP 192.168.142.250).
+##
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
+
+if [[ ! -f "$MANIFEST" ]]; then
+    echo "ERROR: manifest not found: $MANIFEST" >&2
+    exit 1
+fi
+
+# extract VM IDs + IPs from the manifest (templates kept untouched)
+mapfile -t SCENARIO_VM_IDS  < <(jq -r '.vms[].vm_id' "$MANIFEST")
+mapfile -t INFRASTRUCTURE_IP < <(jq -r '.vms[].ip'   "$MANIFEST")
+ID_REGEX=$(printf '|%s' "${SCENARIO_VM_IDS[@]}" | sed 's/^|//')
+
+echo ":: stopping and deleting catalog_try VMs (keeping templates)..."
+echo ":: catalog_try VMs: ${SCENARIO_VM_IDS[*]}"
+echo ""
+
+VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
+if [ -z "$VM_LIST_JSON" ]; then
+    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) - aborting" >&2
+    printf "output: %.200s\n" "$VM_LIST_JSON" >&2
+    exit 1
+fi
+echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
+echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
+
+for ip in "${INFRASTRUCTURE_IP[@]}"; do
+    echo ":: REMOVE SSH KEY FOR : $ip"
+    ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
+done
+
+echo ""
+echo ":: done - templates preserved"
+echo ":: redeploy with: range42-context catalog-try <path>  (or range42-context deploy-vms)"
+echo ""

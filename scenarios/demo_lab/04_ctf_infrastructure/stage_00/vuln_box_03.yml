@@ -3,7 +3,7 @@
 # PROMOX INIT INFRASTRUCTURE - VULN-BOX
 #
 #   hostname : vuln-box-00
-#   vm_id    : 4000
+#   vm_id    : 1173
 #   cpu core : 1
 #   ram      : 4g
 #   disk     : 32g
@@ -44,9 +44,14 @@
 
     ####
     - name: INFRASTRUCTURE INIT - WAITING FOR PROXMOX UNLOCK TO CLEAR (slow setup)
-      ansible.builtin.pause:
-        seconds: 20
-        prompt: "Waiting for 20 seconds during clone..."
+      ansible.builtin.shell: qm config {{ global_vm_id }} | grep -q '^lock:'
+      register: clone_lock_check
+      until: clone_lock_check.rc != 0
+      retries: 60                # 60 × 5s = 5 min max safety
+      delay: 5
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
     ####
 
     - name: ADMIN INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROMOX TAG

@@ -21,14 +21,15 @@ Default scenario — deploys admin services (wazuh, deployer API/UI) and CTF vul
     │  192.168.140.0/24       │  │  192.168.142.0/24    │  │  192.168.144.0/24         │
     │                         │  │                      │  │                           │
     │  clone source for       │  │  wazuh          .100 │  │  vuln-box-00        .170  │
-    │  all VMs                │  │  api-gateway    .120 │  │  vuln-box-01        .171  │
-    │                         │  │  api-backend    .121 │  │  vuln-box-02        .172  │
-    │                         │  │  deployer-ui    .123 │  │  vuln-box-03        .173  │
+    │  all VMs                │  │  api-gateway    .101 │  │  vuln-box-01        .171  │
+    │                         │  │  api-backend    .102 │  │  vuln-box-02        .172  │
+    │                         │  │  deployer-ui    .103 │  │  vuln-box-03        .173  │
     │                         │  │                      │  │  vuln-box-04        .174  │
     └─────────────────────────┘  └──────────────────────┘  └───────────────────────────┘
 
-    Student bridge (vmbr143, 192.168.143.0/24) — disabled, not deployed
-    Planned: student-box-01 (.160), more student boxes TBD
+    Student bridge (vmbr143, 192.168.143.0/24) — reserved in manifest, not deployed by default
+    Reserved : student-box-01 (vm_id 1160, IP .160). Import is commented out in `main.yml` ;
+    uncomment `03_student_infrastructure/_main.yml` to enable. More student boxes TBD.
 ```
 
 Wazuh agents on student/ctf bridges reach the wazuh server (192.168.142.100) through the Proxmox gateway.
@@ -39,20 +40,20 @@ Wazuh agents on student/ctf bridges reach the wazuh server (192.168.142.100) thr
 
 | VM | VM ID | IP |
 |----|-------|----|
-| admin-wazuh | 1000 | 192.168.142.100 |
-| admin-deployer-api-gateway | 1020 | 192.168.142.120 |
-| admin-deployer-api-backend | 1021 | 192.168.142.121 |
-| admin-deployer-ui | 1023 | 192.168.142.123 |
+| admin-wazuh | 1100 | 192.168.142.100 |
+| admin-deployer-api-gateway | 1101 | 192.168.142.101 |
+| admin-deployer-api-backend | 1102 | 192.168.142.102 |
+| admin-deployer-ui | 1103 | 192.168.142.103 |
 
 ### 04_ctf_infrastructure (vmbr144)
 
 | VM | VM ID | IP |
 |----|-------|----|
-| vuln-box-00 | 4000 | 192.168.144.170 |
-| vuln-box-01 | 4001 | 192.168.144.171 |
-| vuln-box-02 | 4002 | 192.168.144.172 |
-| vuln-box-03 | 4003 | 192.168.144.173 |
-| vuln-box-04 | 4004 | 192.168.144.174 |
+| vuln-box-00 | 1170 | 192.168.144.170 |
+| vuln-box-01 | 1171 | 192.168.144.171 |
+| vuln-box-02 | 1172 | 192.168.144.172 |
+| vuln-box-03 | 1173 | 192.168.144.173 |
+| vuln-box-04 | 1174 | 192.168.144.174 |
 
 ## Stages
 
