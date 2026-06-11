@@ -47,7 +47,7 @@
   ansible.builtin.set_fact:
     _existing_vm: >-
       {{ vm_existing_ids
-         | selectattr('vmid', 'equalto', (_target_vmid | int))
+         | selectattr('vm_id', 'equalto', (_target_vmid | int))
          | list | first | default({}) }}
 
 - name: "VM provision: skip if already deployed (r42-deployed tag present)"

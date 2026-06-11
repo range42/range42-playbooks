@@ -56,7 +56,7 @@
 
     - name: Cache bridge list as a play-wide fact
       ansible.builtin.set_fact:
-        existing_bridges: "{{ network_list | default([]) | map(attribute='iface') | list }}"
+        existing_bridges: "{{ network_list_interfaces_node | default([]) | map(attribute='iface') | list }}"
 
 - name: "Universal: relay topology facts to proxmox-cli"
   hosts: proxmox-cli
