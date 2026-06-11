@@ -58,7 +58,19 @@
       ansible.builtin.set_fact:
         existing_bridges: "{{ network_list | default([]) | map(attribute='iface') | list }}"
 
-- name: "Universal: provision per-team networks (assert presence)"
+- name: "Universal: relay topology facts to proxmox-cli"
+  hosts: proxmox-cli
+  gather_facts: false
+  tasks:
+    # topology is a set_fact on localhost (play 1); set_fact is host-scoped, so
+    # the proxmox-cli provisioning plays below cannot see it. Relay it here.
+    # team_count is also passed as a global extravar by the backend.
+    - name: Relay topology + team_count from localhost
+      ansible.builtin.set_fact:
+        topology: "{{ hostvars['localhost'].topology }}"
+        team_count: "{{ hostvars['localhost'].team_count | default(team_count | default(1)) | int }}"
+
+- name: "Universal: provision per-team networks (create when missing)"
   hosts: proxmox-cli
   tasks:
     - name: Network presence check (loop)
@@ -100,7 +112,7 @@
   tasks:
     - name: Dispatch each attachment
       include_tasks: tasks/dispatch_attachment.yml
-      loop: "{{ hostvars[inventory_hostname]['topology'] | default(topology) | r42_attachments_for(inventory_hostname) }}"
+      loop: "{{ hostvars[inventory_hostname]['topology'] | default(hostvars['localhost'].topology) | r42_attachments_for(inventory_hostname) }}"
       loop_control:
         loop_var: attachment
         label: "{{ inventory_hostname }} -> {{ attachment.source.kind }}:{{ attachment.source.ref | default(attachment.source.path) | default(attachment.source.url) | default('inline') }}"

@@ -35,7 +35,7 @@
          + ((vm_item.team_id | default(0) | int) * (_per_team_vms | length))
          + (outer_idx if vm_item.team_id is none else (outer_idx % (_per_team_vms | length))) }}
     _vm_name_full: >-
-      {{ topology.naming_prefix }}-{{ vm_item.team_id | default('shared') }}-{{ vm_item.item.id }}
+      {{ topology.naming_prefix }}-{{ vm_item.team_id | default('shared', true) }}-{{ vm_item.item.id }}
     # Inventory hostname this VM maps to (matches backend inventory_writer._hostname),
     # used to read the backend-resolved cloud-init network triple from hostvars.
     _inv_host: >-
@@ -89,7 +89,7 @@
     vm_net_virtio_bridge: >-
       {{ hostvars[_inv_host].r42_net_bridge
          | default((topology.bridge_base | default(140))
-                   | r42_bridge_for_team(vm_item.team_id | default(0))) }}
+                   | r42_bridge_for_team(vm_item.team_id | default(0, true))) }}
   when: not (_existing_vm.tags | default('')) is search('r42-deployed')
   no_log: true  # cloudinit_password is sensitive
 

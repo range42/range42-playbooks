@@ -38,14 +38,14 @@
   ansible.builtin.set_fact:
     _expected_bridge: >-
       {{ _net.bridge | default((topology.bridge_base | default(140))
-         | r42_bridge_for_team(net_item.team_id | default(0))) }}
+         | r42_bridge_for_team(net_item.team_id | default(0, true))) }}
     _net_cidr: >-
       {{ _net.cidr | default((topology.bridge_base | default(140))
-         | r42_subnet_for_team(net_item.team_id | default(0))) }}
+         | r42_subnet_for_team(net_item.team_id | default(0, true))) }}
     _net_gateway: >-
       {{ _net.gateway | default('192.168.'
          ~ ((topology.bridge_base | default(140) | int)
-            + (net_item.team_id | default(0) | int)) ~ '.1') }}
+            + (net_item.team_id | default(0, true) | int)) ~ '.1') }}
 
 - name: "Network: create bridge when missing"
   when: _expected_bridge not in (existing_bridges | default([]))
@@ -72,12 +72,14 @@
         validate_certs: "{{ proxmox_validate_certs | default(false) }}"
         status_code: 200
 
-    - name: "Network: ensure idempotent NAT MASQUERADE for the subnet"
-      ansible.builtin.iptables:
-        table: nat
-        chain: POSTROUTING
-        source: "{{ _net_cidr }}"
-        out_interface: vmbr0
-        jump: MASQUERADE
-        comment: "range42 {{ _expected_bridge }}"
-        state: present
+# Applied unconditionally (idempotent): the bridge may already exist (lab
+# bridges pre-exist) or the host may have rebooted and lost the runtime rule.
+- name: "Network: ensure idempotent NAT MASQUERADE for the subnet"
+  ansible.builtin.iptables:
+    table: nat
+    chain: POSTROUTING
+    source: "{{ _net_cidr }}"
+    out_interface: vmbr0
+    jump: MASQUERADE
+    comment: "range42 {{ _expected_bridge }}"
+    state: present
