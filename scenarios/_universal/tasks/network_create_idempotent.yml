@@ -7,9 +7,13 @@
 # back to the legacy 192.168.{bridge_base + team_id} scheme when a network node
 # carries no explicit values, so existing topologies are unchanged.
 #
-# Idempotent: an already-present bridge is left untouched; the NAT rule is
-# applied via the iptables module which is itself idempotent (this avoids the
-# duplicate-MASQUERADE accumulation seen with post-up `iptables -A` on reload).
+# Idempotent: an already-present bridge is left untouched, and the NAT rule is
+# applied via the idempotent iptables module (so re-deploys onto existing
+# bridges add no duplicates). NOTE (verified live on pve01): creating a NEW
+# bridge still triggers a full Proxmox network reload (PUT), which re-runs the
+# OTHER bridges' legacy `post-up iptables -A` hooks and appends duplicate
+# MASQUERADE rules (+N per new bridge). The systemic fix is to make the host
+# bridges' NAT idempotent / move it out of post-up (see backend #82/#85).
 #
 # Caller must have set:
 #   topology: dict
