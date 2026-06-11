@@ -1,0 +1,40 @@
+##
+## stage_01 — software install for lan1-admin-mattermost-00
+## catalog roles are referenced BY NAME (resolved via ANSIBLE_ROLES_PATH at deploy);
+## one play per attachment so each carries its own params (firewall_rules, docker …).
+##
+- name: "lan1-admin-mattermost-00 — software.configure.firewalls"
+  hosts: r42.lan1-admin-mattermost-00
+  become: true
+  vars_files:
+    - "../../secrets/default_vault.yml"
+  vars:
+    firewall_rules:
+    - ip: all
+      port: 22
+      protocol: tcp
+    - ip: all
+      port: 8065
+      protocol: tcp
+  roles:
+    - software.configure.firewalls
+- name: "lan1-admin-mattermost-00 — software.install.warmup.basic_packages"
+  hosts: r42.lan1-admin-mattermost-00
+  become: true
+  vars_files:
+    - "../../secrets/default_vault.yml"
+  vars:
+    INSTALL_PACKAGES_BASICS: 'YES'
+    INSTALL_PACKAGES_DOCKER: 'YES'
+    INSTALL_PACKAGES_DOCKER_COMPOSE: 'YES'
+    INSTALL_PACKAGES_UTILS_JSON: 'YES'
+    INSTALL_PACKAGES_UTILS_NETWORK: 'YES'
+  roles:
+    - software.install.warmup.basic_packages
+- name: "lan1-admin-mattermost-00 — software.install.mattermost"
+  hosts: r42.lan1-admin-mattermost-00
+  become: true
+  vars_files:
+    - "../../secrets/default_vault.yml"
+  roles:
+    - software.install.mattermost
