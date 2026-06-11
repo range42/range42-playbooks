@@ -1,32 +1,80 @@
 ---
-# Network presence check for the universal scenario.
+# Network provisioning for the universal scenario.
 #
-# v1 limitation (per spec §10.3): bridges (vmbr{bridge_base + team_id}) must
-# pre-exist on the Proxmox host. The universal playbook attaches VMs to existing
-# bridges; it does NOT auto-create them via SDN.
+# Creates the per-scope Linux bridge on the Proxmox node when it is missing,
+# using the backend-resolved values from r42_network_map (the single source of
+# truth: the backend renders node-level cidr/bridge/gateway templates). Falls
+# back to the legacy 192.168.{bridge_base + team_id} scheme when a network node
+# carries no explicit values, so existing topologies are unchanged.
+#
+# Idempotent: an already-present bridge is left untouched; the NAT rule is
+# applied via the iptables module which is itself idempotent (this avoids the
+# duplicate-MASQUERADE accumulation seen with post-up `iptables -A` on reload).
 #
 # Caller must have set:
-#   topology: dict             — the loaded topology document
-#   existing_bridges: list[str] — bridge names on the Proxmox node, cached at play start
+#   topology: dict
+#   existing_bridges: list[str]          — bridge names cached at play start
+#   r42_network_map: dict                — from inventory all.vars (may be {})
+#   proxmox_api_host / proxmox_api_user / proxmox_api_token_id /
+#     proxmox_api_token_secret / proxmox_node
 #
 # Inputs (per loop iteration):
-#   net_item:
-#     team_id: int | None
-#     item: <topology network node dict>
+#   net_item: { team_id: int | None, item: <topology network node dict> }
+#
+# NOTE: bridge create + reload + NAT touch live Proxmox host networking and
+# MUST be validated on a real deploy (see PR). The Proxmox API stages the new
+# interface (POST) and the reload (PUT) applies it. NAT here is applied at
+# runtime; persisting it across a host reboot is a tracked follow-up.
 
-- name: "Network: compute expected bridge name for this scope"
+- name: "Network: team key for r42_network_map lookup"
+  ansible.builtin.set_fact:
+    _team_key: "{{ (net_item.team_id if net_item.team_id is not none else 'shared') | string }}"
+
+- name: "Network: resolved bridge/cidr/gateway for this scope"
+  ansible.builtin.set_fact:
+    _net: "{{ (r42_network_map | default({})).get(net_item.item.id, {}).get(_team_key, {}) }}"
+
+- name: "Network: compute bridge name, subnet cidr and host-side address"
   ansible.builtin.set_fact:
     _expected_bridge: >-
-      {{ (topology.bridge_base | default(140)) | r42_bridge_for_team(net_item.team_id | default(0)) }}
+      {{ _net.bridge | default((topology.bridge_base | default(140))
+         | r42_bridge_for_team(net_item.team_id | default(0))) }}
+    _net_cidr: >-
+      {{ _net.cidr | default((topology.bridge_base | default(140))
+         | r42_subnet_for_team(net_item.team_id | default(0))) }}
+    _net_gateway: >-
+      {{ _net.gateway | default('192.168.'
+         ~ ((topology.bridge_base | default(140) | int)
+            + (net_item.team_id | default(0) | int)) ~ '.1') }}
 
-- name: "Network: assert expected bridge exists on Proxmox node"
-  ansible.builtin.assert:
-    that:
-      - _expected_bridge in (existing_bridges | default([]))
-    fail_msg: |
-      Bridge {{ _expected_bridge }} not found on Proxmox node.
-      Operator must pre-create bridges
-        vmbr{{ topology.bridge_base | default(140) }}
-        through vmbr{{ (topology.bridge_base | default(140) | int) + (team_count | int) }}
-      before deploying this _universal topology.
-      v1 limitation per spec §10.3.
+- name: "Network: create bridge when missing"
+  when: _expected_bridge not in (existing_bridges | default([]))
+  block:
+    - name: "Network: stage bridge via Proxmox API"
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_interfaces_node"
+        iface_name: "{{ _expected_bridge }}"
+        iface_type: "bridge"
+        iface_autostart: 1
+        ip_cidr: "{{ _net_gateway }}/{{ _net_cidr | regex_replace('^.*/', '') }}"
+
+    - name: "Network: apply staged interface changes (reload)"
+      ansible.builtin.uri:
+        url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/network"
+        method: PUT
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+        validate_certs: false
+        status_code: 200
+
+    - name: "Network: ensure idempotent NAT MASQUERADE for the subnet"
+      ansible.builtin.iptables:
+        table: nat
+        chain: POSTROUTING
+        source: "{{ _net_cidr }}"
+        out_interface: vmbr0
+        jump: MASQUERADE
+        comment: "range42 {{ _expected_bridge }}"
+        state: present
