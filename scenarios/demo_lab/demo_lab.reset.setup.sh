@@ -32,6 +32,14 @@ for ip in "${INFRASTRUCTURE_IP[@]}"; do
     ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
 done
 
+##
+## Trailing "$@" propagates any extra args to ansible-playbook.
+## Typical use : feature flag overrides from the TUI, e.g.
+##   demo_lab.reset.setup.sh -e enable_wazuh=false
+## See ./manifest/feature_flags.yml for the list of toggleable features.
+##
+
 ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \
 	-l "all" \
-	"./main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set — run: range42-context use <codename> <scenario>}"
+	"./main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set — run: range42-context use <codename> <scenario>}" \
+	"$@"
