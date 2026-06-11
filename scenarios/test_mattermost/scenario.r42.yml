@@ -1,0 +1,22 @@
+boxes:
+- attachments_add: []
+  count: 1
+  octet: 2
+  subnet: lan1
+  template: admin-mattermost
+  template_vm_id: null
+  vars: {}
+- attachments_add: []
+  count: 1
+  octet: 2
+  subnet: lan2
+  template: debian-jump
+  template_vm_id: null
+  vars: {}
+name: test_mattermost
+network_policy: null
+notes: ''
+proxmox_node: null
+schema_version: 1
+services: null
+subnet_layout: dual-lan
