@@ -1,6 +1,0 @@
-##
-## catalog_try - create only template 9221 (template-vm-small-01-4g-32g).
-## Trimmed from demo_lab's _main_ubuntu_noble.yml which creates 12 templates.
-##
-
-- import_playbook: ./02-template-vm-small-01-4g-32g.yml

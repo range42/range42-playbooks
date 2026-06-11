@@ -3,11 +3,11 @@
 # PROMOX INIT INFRASTRUCTURE - ADMIN
 #
 #   hostname : bs2-admin-deployer-api-gateway
-#   vm_id    : 2121
+#   vm_id    : 1020
 #   cpu core : 1
 #   ram      : 4g
 #   disk     : 32g
-#   ip       : 192.168.142.121
+#   ip       : 192.168.142.120
 #
 #   template : template-vm-small-01-4g-32g - id : 9221
 #
@@ -25,11 +25,11 @@
     #
     # variables will be overwrited by values  in _main.yml
     #
-    # global_vm_id: 2121
+    # global_vm_id: 1020
     # global_vm_name: "bs2-admin-deployer-api-gateway"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
-    # global_vm_ci_ip: "192.168.142.121"
+    # global_vm_ci_ip: "192.168.142.120"
     # #
     # global_template_vm_id: 9221
     # global_template_name: "template-vm-small-01-4g-32g - id : 9221" # debug
@@ -85,7 +85,7 @@
         vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
         vm_ci_password: "{{ default_admin_vm_ci_password | default('supersecret') }}"
         vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key  }}"
-        vm_ci_dns_ips: "{{ default_vm_ci_dns_ips | default('1.1.1.1') }}"
+        vm_ci_dns_ips: "1.1.1.1"
         vm_ci_ip: "{{ global_vm_ci_ip }}"
         vm_ci_netmask: "24"
         vm_ci_ip_gw: "192.168.142.1"

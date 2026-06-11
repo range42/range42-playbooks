@@ -27,20 +27,9 @@ These templates are cloned by other scenarios to create actual VMs.
 
 ### 02_init_infrastructure — Init VMs (optional)
 
-Creates 5 small init VMs on the admin subnet (192.168.142.0/24, dense `.90-.94`)
-to validate that cloud-init and networking work correctly before deploying a
-full scenario. Init VMs are ephemeral and intended to be deleted after the
-bootstrap completes.
-
-| VM | VM ID | IP | Bridge |
-|----|-------|----|--------|
-| init-vm-00 | 900 | 192.168.142.90 | vmbr142 |
-| init-vm-01 | 901 | 192.168.142.91 | vmbr142 |
-| init-vm-02 | 902 | 192.168.142.92 | vmbr142 |
-| init-vm-03 | 903 | 192.168.142.93 | vmbr142 |
-| init-vm-04 | 904 | 192.168.142.94 | vmbr142 |
-
-Source of truth for VM IDs/IPs/bridges : [`manifest/scenario_vms.json`](manifest/scenario_vms.json).
+Creates temporary init VMs for testing template functionality.
+These VMs are used to validate that cloud-init and networking work correctly
+before deploying a full scenario.
 
 ## Scripts
 

@@ -12,7 +12,7 @@
 ## Idempotent — re-running is safe.
 ##
 
-- hosts: proxmox_cli
+- hosts: proxmox-cli
   gather_facts: false
   vars_files:
     - "../../../secrets/default_vault.yml"

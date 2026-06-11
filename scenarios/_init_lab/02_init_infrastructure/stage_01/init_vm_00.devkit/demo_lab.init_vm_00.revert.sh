@@ -4,6 +4,5 @@
 ## 
 ##
 
-VM_ID=$(devkit_manifest.find_vm_id.to.text.sh "$0" "init-vm-00") || exit 1
-echo "{\"proxmox_node\":\"proxmox\",\"vm_id\":${VM_ID} }" | proxmox_snapshot_vm.vm_id.revert_snapshot.to.jsons.sh
-echo "{\"proxmox_node\":\"proxmox\",\"vm_id\":${VM_ID} }" | proxmox_vm.vm_id.start.to.jsons.sh
+echo '{"proxmox_node":"proxmox","vm_id":1000 }' | proxmox_snapshot_vm.vm_id.revert_snapshot.to.jsons.sh
+echo '{"proxmox_node":"proxmox","vm_id":1000 }' | proxmox_vm.vm_id.start.to.jsons.sh

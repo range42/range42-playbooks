@@ -3,11 +3,7 @@
 ##
 ##
 
-while IFS= read -r line; do
-    ip="${line%% *}"
-    echo ":: REMOVE SSH KEY FOR : $ip"
-    ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
-done < <(devkit_manifest.find_ips_by_role.to.text.sh "$0" "student")
+ssh-keygen -f "/$HOME/.ssh/known_hosts" -R '192.168.143.160'
 
 for line in $(proxmox_vm.list.to.jsons.sh | grep -i student |
     jq -c "."); do

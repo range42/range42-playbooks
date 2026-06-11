@@ -1,10 +1,17 @@
 #!/bin/bash
 
-while IFS= read -r line; do
-    ip="${line%% *}"
+INFRASTRUCTURE_IP=(
+    "192.168.143.200" # bs2-team-143-01
+    "192.168.143.201" # bs2-team-143-02
+    #
+    "192.168.144.200" # bs2-team-144-01
+    "192.168.144.201" # bs2-team-144-02
+)
+
+for ip in "${INFRASTRUCTURE_IP[@]}"; do
     echo ":: REMOVE SSH KEY FOR : $ip"
     ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
-done < <(devkit_manifest.find_ips_by_role.to.text.sh "$0" "team")
+done
 
 proxmox_vm.list.to.jsons.sh | grep -i "bs2-team" | jq -c | proxmox_vm.vm_id.stop.to.jsons.sh
 

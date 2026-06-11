@@ -3,11 +3,11 @@
 # PROMOX INIT INFRASTRUCTURE - ADMIN
 #
 #   hostname : bs2-admin-wazuh
-#   vm_id    : 2120
+#   vm_id    : 1000
 #   cpu core : 1
 #   ram      : 2g
 #   disk     : 24g
-#   ip       : 192.168.142.120
+#   ip       : 192.168.142.100
 #
 #   template : 03-template-vm-medium-02-8g-64g - 9232
 #
@@ -25,11 +25,11 @@
     #
     # variables will be overwrited by values  in _main.yml
     #
-    # global_vm_id: 2120
+    # global_vm_id: 1000
     # global_vm_name: "bs2-admin-wazuh"
     # global_vm_description: ""
     # global_vm_tag_name: "admin"
-    # global_vm_ci_ip: "192.168.142.120"
+    # global_vm_ci_ip: "192.168.142.100"
     # #
     # global_template_vm_id: 9232
     # global_template_name: "03-template-vm-medium-02-8g-64g - 9232" # debug
@@ -85,7 +85,7 @@
         vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
         vm_ci_password: "{{ default_admin_vm_ci_password | default('supersecret') }}"
         vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key  }}"
-        vm_ci_dns_ips: "{{ default_vm_ci_dns_ips | default('1.1.1.1') }}"
+        vm_ci_dns_ips: "1.1.1.1"
         vm_ci_ip: "{{ global_vm_ci_ip }}"
         vm_ci_netmask: "24"
         vm_ci_ip_gw: "192.168.142.1"

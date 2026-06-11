@@ -3,7 +3,7 @@
 # BLANK SCENARIO — NETWORK LAB
 #
 #   hostname : bs6-team-144-04
-#   vm_id    : 6008
+#   vm_id    : 7008
 #   ip       : 192.168.144.223
 #   bridge   : vmbr144
 #   template : template-vm-small-01-4g-32g - id : 9221
@@ -54,7 +54,7 @@
         vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
         vm_ci_password: "{{ default_admin_vm_ci_password | default('supersecret') }}"
         vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key }}"
-        vm_ci_dns_ips: "{{ default_vm_ci_dns_ips | default('1.1.1.1') }}"
+        vm_ci_dns_ips: "1.1.1.1"
         vm_ci_ip: "{{ global_vm_ci_ip }}"
         vm_ci_netmask: "24"
         vm_ci_ip_gw: "{{ global_vm_ci_ip_gw }}"

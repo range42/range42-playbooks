@@ -2,10 +2,9 @@
 
 Minimal network lab — 2 team subnets (2 VMs each) + admin subnet (wazuh + deployer platform). Total: 8 VMs.
 
-> Admin subnet uses dense IPs `.120-.123` on `192.168.142.0/24`. bs2 / bs4 / bs6 use
-> non-overlapping admin IP ranges (`.120-.123`, `.130-.133`, `.140-.143`), and `demo_lab`
-> admin sits on `.100-.103`, so all four scenarios can be deployed **in parallel** on
-> the same Proxmox host without collision.
+> Admin subnet uses the original layout `.100/.120/.121/.123` on `192.168.142.0/24`.
+> bs4 and bs6 use **decaled** admin IPs (`.130-.133` and `.140-.143`) so all three
+> scenarios can be deployed **in parallel** on the same Proxmox host without collision.
 
 ## How to deploy
 
@@ -47,9 +46,9 @@ range42-context deploy
 │ Admin                │  │ Team A               │  │ Team B                       │
 │ 192.168.142.0/24     │  │ 192.168.143.0/24     │  │ 192.168.144.0/24             │
 │                      │  │                      │  │                              │
-│ wazuh          .120  │  │ team-143-01    .200  │  │ team-144-01           .200   │
-│ api-gateway    .121  │  │ team-143-02    .201  │  │ team-144-02           .201   │
-│ api-backend    .122  │  │                      │  │                              │
+│ wazuh          .100  │  │ team-143-01    .200  │  │ team-144-01           .200   │
+│ api-gateway    .120  │  │ team-143-02    .201  │  │ team-144-02           .201   │
+│ api-backend    .121  │  │                      │  │                              │
 │ deployer-ui    .123  │  │                      │  │                              │
 └──────────────────────┘  └──────────────────────┘  └──────────────────────────────┘
 ```
@@ -58,19 +57,19 @@ range42-context deploy
 
 | VM | VM ID | IP | Bridge |
 |----|-------|----|--------|
-| bs2-team-143-01 | 2001 | 192.168.143.200 | vmbr143 |
-| bs2-team-143-02 | 2002 | 192.168.143.201 | vmbr143 |
-| bs2-team-144-01 | 2003 | 192.168.144.200 | vmbr144 |
-| bs2-team-144-02 | 2004 | 192.168.144.201 | vmbr144 |
+| bs2-team-143-01 | 5001 | 192.168.143.200 | vmbr143 |
+| bs2-team-143-02 | 5002 | 192.168.143.201 | vmbr143 |
+| bs2-team-144-01 | 5003 | 192.168.144.200 | vmbr144 |
+| bs2-team-144-02 | 5004 | 192.168.144.201 | vmbr144 |
 
 ## Admin VMs
 
 | VM | VM ID | IP | Bridge |
 |----|-------|----|--------|
-| bs2-admin-wazuh | 2120 | 192.168.142.120 | vmbr142 |
-| bs2-admin-deployer-api-gateway | 2121 | 192.168.142.121 | vmbr142 |
-| bs2-admin-deployer-api-backend | 2122 | 192.168.142.122 | vmbr142 |
-| bs2-admin-deployer-ui | 2123 | 192.168.142.123 | vmbr142 |
+| bs2-admin-wazuh | 5100 | 192.168.142.100 | vmbr142 |
+| bs2-admin-deployer-api-gateway | 5101 | 192.168.142.120 | vmbr142 |
+| bs2-admin-deployer-api-backend | 5102 | 192.168.142.121 | vmbr142 |
+| bs2-admin-deployer-ui | 5103 | 192.168.142.123 | vmbr142 |
 
 Source of truth for VM IDs/IPs/bridges : [`manifest/scenario_vms.json`](manifest/scenario_vms.json).
 

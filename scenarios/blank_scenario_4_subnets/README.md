@@ -2,10 +2,9 @@
 
 Network lab — 4 team subnets (4 VMs each) + admin subnet (wazuh + deployer platform). Total: 20 VMs.
 
-> Admin subnet uses dense IPs `.130-.133` on `192.168.142.0/24` (vs bs2's `.120-.123`
-> and bs6's `.140-.143`, and `demo_lab` admin on `.100-.103`) so this scenario can be
-> deployed **in parallel with bs2 / bs6 / demo_lab** on the same Proxmox host without
-> collision.
+> Admin subnet uses **decaled IPs** `.130-.133` on `192.168.142.0/24` (vs bs2's `.100/.120-.123`
+> and bs6's `.140-.143`) so this scenario can be deployed **in parallel with bs2 and bs6**
+> on the same Proxmox host without collision.
 
 ## How to deploy
 
@@ -55,19 +54,19 @@ range42-context deploy
 
 | Subnet | VMs | VM IDs | IPs |
 |--------|-----|--------|-----|
-| vmbr143 | bs4-team-143-{01..04} | 4001-4004 | 192.168.143.{210..213} |
-| vmbr144 | bs4-team-144-{01..04} | 4005-4008 | 192.168.144.{210..213} |
-| vmbr145 | bs4-team-145-{01..04} | 4009-4012 | 192.168.145.{210..213} |
-| vmbr146 | bs4-team-146-{01..04} | 4013-4016 | 192.168.146.{210..213} |
+| vmbr143 | bs4-team-143-{01..04} | 6001-6004 | 192.168.143.{210..213} |
+| vmbr144 | bs4-team-144-{01..04} | 6005-6008 | 192.168.144.{210..213} |
+| vmbr145 | bs4-team-145-{01..04} | 6009-6012 | 192.168.145.{210..213} |
+| vmbr146 | bs4-team-146-{01..04} | 6013-6016 | 192.168.146.{210..213} |
 
 ## Admin VMs
 
 | VM | VM ID | IP | Bridge |
 |----|-------|----|--------|
-| bs4-admin-wazuh | 4130 | 192.168.142.130 | vmbr142 |
-| bs4-admin-deployer-api-gateway | 4131 | 192.168.142.131 | vmbr142 |
-| bs4-admin-deployer-api-backend | 4132 | 192.168.142.132 | vmbr142 |
-| bs4-admin-deployer-ui | 4133 | 192.168.142.133 | vmbr142 |
+| bs4-admin-wazuh | 6100 | 192.168.142.130 | vmbr142 |
+| bs4-admin-deployer-api-gateway | 6101 | 192.168.142.131 | vmbr142 |
+| bs4-admin-deployer-api-backend | 6102 | 192.168.142.132 | vmbr142 |
+| bs4-admin-deployer-ui | 6103 | 192.168.142.133 | vmbr142 |
 
 Source of truth for VM IDs/IPs/bridges : [`manifest/scenario_vms.json`](manifest/scenario_vms.json).
 

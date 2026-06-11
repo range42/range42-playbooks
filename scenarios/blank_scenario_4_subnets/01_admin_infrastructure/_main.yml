@@ -17,7 +17,7 @@
   vars:
     global_vm_name: "bs4-admin-wazuh"
     global_vm_ssh_name: "r42.bs4-admin-wazuh"
-    global_vm_id: 4130
+    global_vm_id: 6100
     global_vm_description: "wazuh server"
     global_vm_tag_name: "admin"
     global_vm_ci_ip: "192.168.142.130"
@@ -33,7 +33,7 @@
   vars:
     global_vm_name: "bs4-admin-deployer-api-gateway"
     global_vm_ssh_name: "r42.bs4-admin-deployer-api-gateway"
-    global_vm_id: 4131
+    global_vm_id: 6101
     global_vm_description: "API gateway"
     global_vm_tag_name: "admin"
     global_vm_ci_ip: "192.168.142.131"
@@ -49,7 +49,7 @@
   vars:
     global_vm_name: "bs4-admin-deployer-api-backend"
     global_vm_ssh_name: "r42.bs4-admin-deployer-api-backend"
-    global_vm_id: 4132
+    global_vm_id: 6102
     global_vm_description: "backend API"
     global_vm_tag_name: "admin"
     global_vm_ci_ip: "192.168.142.132"
@@ -65,7 +65,7 @@
   vars:
     global_vm_name: "bs4-admin-deployer-ui"
     global_vm_ssh_name: "r42.bs4-admin-deployer-ui"
-    global_vm_id: 4133
+    global_vm_id: 6103
     global_vm_description: "deployer UI"
     global_vm_tag_name: "admin"
     global_vm_ci_ip: "192.168.142.133"

@@ -33,8 +33,3 @@ default_admin_vm_ci_user: "alice"
 
 # student vm user
 default_trainee_vm_ci_user: "bob"
-
-#### CLOUD-INIT DNS ####
-# default resolver for lab VMs; range42-init.py substitutes the Proxmox node
-# resolver here at workspace creation. 1.1.1.1 is the portable fallback.
-default_vm_ci_dns_ips: "1.1.1.1"

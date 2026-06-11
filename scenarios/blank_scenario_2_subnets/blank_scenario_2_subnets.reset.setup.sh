@@ -1,32 +1,30 @@
 #!/bin/bash
 
 ##
-## reset — delete this scenario's VMs (filter by vm_id from manifest) then re-deploy
+## reset — delete this scenario's VMs (filter by vm_id) then re-deploy
 ##
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
-
-if [[ ! -f "$MANIFEST" ]]; then
-    echo "ERROR: manifest not found: $MANIFEST" >&2
-    exit 1
-fi
-
-mapfile -t SCENARIO_VM_IDS  < <(jq -r '.vms[].vm_id' "$MANIFEST")
-mapfile -t INFRASTRUCTURE_IP < <(jq -r '.vms[].ip'   "$MANIFEST")
-
+SCENARIO_VM_IDS=(5001 5002 5003 5004 5100 5101 5102 5103)
 ID_REGEX=$(printf '|%s' "${SCENARIO_VM_IDS[@]}" | sed 's/^|//')
 
 echo ":: stopping and deleting scenario VMs (vm_ids: ${SCENARIO_VM_IDS[*]})..."
 
-VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
-if [ -z "$VM_LIST_JSON" ]; then
-    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) — aborting" >&2
-    printf "output: %.200s\n" "$VM_LIST_JSON" >&2
-    exit 1
-fi
-echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
-echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
+proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
+proxmox_vm.list.to.jsons.sh | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
+
+INFRASTRUCTURE_IP=(
+    # team — vmbr143
+    "192.168.143.200" # bs2-team-143-01
+    "192.168.143.201" # bs2-team-143-02
+    # team — vmbr144
+    "192.168.144.200" # bs2-team-144-01
+    "192.168.144.201" # bs2-team-144-02
+    # admin — vmbr142
+    "192.168.142.100" # bs2-admin-wazuh
+    "192.168.142.120" # bs2-admin-deployer-api-gateway
+    "192.168.142.121" # bs2-admin-deployer-api-backend
+    "192.168.142.123" # bs2-admin-deployer-ui
+)
 
 for ip in "${INFRASTRUCTURE_IP[@]}"; do
     echo ":: REMOVE SSH KEY FOR : $ip"

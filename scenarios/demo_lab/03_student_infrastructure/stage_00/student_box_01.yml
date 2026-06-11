@@ -3,7 +3,7 @@
 # PROMOX INIT INFRASTRUCTURE - STUDENT
 #
 #   hostname : student-box-01
-#   vm_id    : 1160
+#   vm_id    : 3000
 #   cpu core : 1
 #   ram      : 4g
 #   disk     : 32g
@@ -43,14 +43,9 @@
 
     ####
     - name: INFRASTRUCTURE INIT - WAITING FOR PROXMOX UNLOCK TO CLEAR (slow setup)
-      ansible.builtin.shell: qm config {{ global_vm_id }} | grep -q '^lock:'
-      register: clone_lock_check
-      until: clone_lock_check.rc != 0
-      retries: 60                # 60 × 5s = 5 min max safety
-      delay: 5
-      failed_when: false
-      changed_when: false
-      delegate_to: "{{ inventory_hostname }}-cli"
+      ansible.builtin.pause:
+        seconds: 20
+        prompt: "Waiting for 20 seconds during clone..."
     ####
 
     - name: TRAINEE INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROMOX TAG
@@ -77,7 +72,7 @@
         vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
         vm_ci_password: "{{ default_admin_vm_ci_password | default('supersecret') }}"
         vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key  }}"
-        vm_ci_dns_ips: "{{ default_vm_ci_dns_ips | default('1.1.1.1') }}"
+        vm_ci_dns_ips: "1.1.1.1"
         vm_ci_ip: "{{ global_vm_ci_ip }}"
         vm_ci_netmask: "24"
         vm_ci_ip_gw: "192.168.143.1"
