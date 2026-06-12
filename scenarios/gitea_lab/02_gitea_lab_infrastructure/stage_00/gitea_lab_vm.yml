@@ -1,63 +1,121 @@
----
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# PROXMOX INIT INFRASTRUCTURE - GITEA-LAB VM
+#
+#   hostname : admin-gitea-standalone
+#   vm_id    : 1183
+#   cpu core : 2
+#   ram      : 8g
+#   disk     : 64g
+#   ip       : 192.168.142.183
+#   bridge   : vmbr142
+#
+#   template : template-vm-medium-02-8g-64g - id : 9232
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
 ##
-## gitea_lab - stage 00 : clone VM from template 9232
-##
-## Expected vars (passed via import_playbook vars: in main.yml):
-##   global_vm_name, global_vm_ssh_name, global_vm_id, global_vm_description,
-##   global_vm_tag_name, global_vm_ci_ip, global_template_vm_id, global_template_name
 ##
 
-- name: "gitea_lab | stage_00 | clone VM {{ global_vm_name | default('admin-gitea-standalone') }}"
-  hosts: proxmox_pve01
+- hosts: proxmox
   gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
   vars:
-    vm_name: "{{ global_vm_name | default('admin-gitea-standalone') }}"
-    vm_ssh_name: "{{ global_vm_ssh_name | default('r42.admin-gitea-standalone') }}"
-    vm_id: "{{ global_vm_id | default(1183) }}"
-    vm_description: "{{ global_vm_description | default('gitea_lab - Ubuntu LTS host for Gitea via docker-compose') }}"
-    vm_tag_name: "{{ global_vm_tag_name | default('gitea-lab') }}"
-    vm_ci_ip: "{{ global_vm_ci_ip | default('192.168.142.183') }}"
-    template_vm_id: "{{ global_template_vm_id | default(9232) }}"
-    template_name: "{{ global_template_name | default('template-vm-medium-02-8g-64g - id : 9232') }}"
-    vm_ci_bridge: "vmbr142"
-    vm_ci_gw: "192.168.142.1"
-    vm_ci_dns: "192.168.142.1"
-    vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
-    vm_ci_password: "{{ default_admin_vm_ci_password }}"
-    vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key }}"
+    #
+    # variables will be overwritten by values in main.yml
+    #
+
+  tasks:
+    #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+    - name: GITEA-LAB INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - "{{ global_template_name }}"
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "vm_clone"
+        vm_id: "{{ global_template_vm_id }}"
+        vm_new_id: "{{ global_vm_id }}"
+        vm_name: "{{ global_vm_name }}"
+        vm_description: "{{ global_vm_description }}"
+
+    ####
+    - name: INFRASTRUCTURE INIT - WAITING FOR PROXMOX UNLOCK TO CLEAR (slow setup)
+      ansible.builtin.shell: qm config {{ global_vm_id }} | grep -q '^lock:'
+      register: clone_lock_check
+      until: clone_lock_check.rc != 0
+      retries: 60                # 60 x 5s = 5 min max safety
+      delay: 5
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+    ####
+
+    - name: GITEA-LAB INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET PROXMOX TAG
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "vm_set_tag"
+        vm_id: "{{ global_vm_id }}"
+        vm_tag_name: "{{ global_vm_tag_name }}"
+
+    #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+    - name: GITEA-LAB INFRASTRUCTURE INIT - "{{ global_vm_name }}" - SET CLOUD DEFAULT INIT VARIABLE
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "cloudinit_set_variables"
+
+        vm_id: "{{ global_vm_id }}"
+        vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
+        vm_ci_password: "{{ default_admin_vm_ci_password | default('supersecret') }}"
+        vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key  }}"
+        vm_ci_dns_ips: "1.1.1.1"
+        vm_ci_ip: "{{ global_vm_ci_ip }}"
+        vm_ci_netmask: "24"
+        vm_ci_ip_gw: "192.168.142.1"
+        vm_net_virtio_bridge: "vmbr142"
+
+    #
+    - name: GITEA-LAB INFRASTRUCTURE INIT - "{{ global_vm_name }}" - START VM
+
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "vm_start"
+        vm_id: "{{ global_vm_id }}"
+
+    # #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: "{{ global_vm_ssh_name }}"
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  vars:
+    ARG_vm_ssh_name: "{{ global_vm_ssh_name }}"
+
+    requested_tasks:
+      - wait/openssh_server/is_reachable.yml
+      - wait/cloudinit/is_boot_finished.yml
 
   pre_tasks:
-    - name: "pin deployer_cli_user_ssh_known_hosts"
+    - name: pin deployer_cli_user_ssh_known_hosts into fact (avoid template recursion)
       ansible.builtin.set_fact:
         deployer_cli_user_ssh_known_hosts: "{{ deployer_cli_user_ssh_known_hosts }}"
 
-  roles:
-    - role: proxmox_vm_clone
-      vars:
-        proxmox_vm_clone__src_vm_id: "{{ template_vm_id }}"
-        proxmox_vm_clone__dst_vm_id: "{{ vm_id }}"
-        proxmox_vm_clone__dst_vm_name: "{{ vm_name }}"
-        proxmox_vm_clone__dst_vm_description: "{{ vm_description }}"
-        proxmox_vm_clone__dst_vm_tags: "{{ vm_tag_name }}"
+  tasks:
+    #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-    - role: proxmox_vm_cloudinit_configure
-      vars:
-        proxmox_vm_cloudinit_configure__vm_id: "{{ vm_id }}"
-        proxmox_vm_cloudinit_configure__vm_ci_ip: "{{ vm_ci_ip }}/24"
-        proxmox_vm_cloudinit_configure__vm_ci_gw: "{{ vm_ci_gw }}"
-        proxmox_vm_cloudinit_configure__vm_ci_dns: "{{ vm_ci_dns }}"
-        proxmox_vm_cloudinit_configure__vm_ci_bridge: "{{ vm_ci_bridge }}"
-        proxmox_vm_cloudinit_configure__vm_ci_user: "{{ vm_ci_user }}"
-        proxmox_vm_cloudinit_configure__vm_ci_password: "{{ vm_ci_password }}"
-        proxmox_vm_cloudinit_configure__vm_ci_ssh_key: "{{ vm_ci_ssh_key }}"
-
-    - role: proxmox_vm_start
-      vars:
-        proxmox_vm_start__vm_id: "{{ vm_id }}"
-
-    - role: proxmox_vm_wait
-      vars:
-        proxmox_vm_wait__vm_ssh_name: "{{ vm_ssh_name }}"
-        proxmox_vm_wait__requested_tasks:
-          - "wait/openssh_server/is_reachable.yml"
-          - "wait/cloudinit/is_boot_finished.yml"
+    - name: TASK DYNAMIC INCLUDE FROM ansible.utils
+      include_role:
+        name: ansible.utils
