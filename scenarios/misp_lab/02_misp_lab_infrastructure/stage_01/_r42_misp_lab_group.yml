@@ -9,10 +9,9 @@
 ## templates/ansible-inventory.j2), currently containing a single host :
 ## r42.admin-misp-standalone.
 ##
-## Play 4 deploys the misp-standalone docker-compose stack. Does NOT use the
-## software.configure.docker-compose role because community.docker.docker_compose_v2
-## is silent during the build (10+ min for MISP). Uses ansible.builtin.shell so
-## build output streams back to the operator in real time.
+## Play 4 deploys the misp-standalone docker-compose stack via the
+## software.configure.docker-compose role (installs rsync, syncs files, runs
+## docker_compose_v2). Build output is silent during the 10+ min MISP build.
 ## Uses the existing RANGE42_INVENTORY env var (points to range42-catalog root).
 ## The operator must cp .env.example .env and fill in credentials before running.
 ##
@@ -86,51 +85,19 @@
 - name: deploy misp-standalone docker-compose stack
   hosts: r42_misp_lab_group
   become: true
+  roles:
+    - software.configure.docker-compose
 
   vars:
-    _misp_local_dir: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone"
-    _misp_remote_dir: "/home/alice/misp-standalone"
-
-  tasks:
-
-    - name: misp - ensure remote directory exists
-      ansible.builtin.file:
-        path: "{{ _misp_remote_dir }}"
-        state: directory
-        owner: alice
-        group: alice
-        mode: "0755"
-
-    - name: misp - rsync project from controller
-      ansible.posix.synchronize:
-        src: "{{ _misp_local_dir }}/"
-        dest: "{{ _misp_remote_dir }}/"
-        recursive: true
-        rsync_opts:
-          - "-e ssh --info=progress2"
-      delegate_to: localhost
-      become: false
-
-    - name: misp - docker compose build (streamed)
-      ansible.builtin.shell: docker compose build 2>&1
-      args:
-        chdir: "{{ _misp_remote_dir }}"
-      register: _misp_build
-      changed_when: true
-
-    - name: misp - docker compose build output
-      ansible.builtin.debug:
-        msg: "{{ _misp_build.stdout_lines }}"
-
-    - name: misp - docker compose up -d
-      ansible.builtin.shell: docker compose up -d 2>&1
-      args:
-        chdir: "{{ _misp_remote_dir }}"
-      register: _misp_up
-      changed_when: true
-
-    - name: misp - docker compose up output
-      ansible.builtin.debug:
-        msg: "{{ _misp_up.stdout_lines }}"
+    LABEL_PROJECT_TYPE: "ADMIN"
+    LABEL_PROJET_NAME: "misp-standalone"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone"
+    REMOTE_PROJECT_DIR: "/home/alice/misp-standalone"
+    #
+    OPERATOR_USER: alice
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
