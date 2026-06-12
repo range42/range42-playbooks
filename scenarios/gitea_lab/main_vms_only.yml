@@ -18,13 +18,31 @@
 
 - import_playbook: ./02_gitea_lab_infrastructure/stage_01/_r42_gitea_lab_group.yml
   vars:
-    INSTALL_DOCKER: "YES"
-    INSTALL_DOCKER_COMPOSE: "YES"
-    INSTALL_JQ: "YES"
-    INSTALL_NETWORK_TOOLS: "YES"
-    INSTALL_NTP: "YES"
+    OPERATOR_USER: alice
+
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "YES"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+
     INSTALL_TAILSCALE: "NO"
+
     firewall_rules:
-      - port: 22
-        proto: tcp
-        rule: allow
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+      - ip: "all"
+        port: 3000
+        protocol: "tcp"
+      - ip: "all"
+        port: 2222
+        protocol: "tcp"
