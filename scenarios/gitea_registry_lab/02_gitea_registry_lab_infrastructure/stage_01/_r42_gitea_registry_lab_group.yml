@@ -1,10 +1,16 @@
 ##
-## gitea_registry_lab stage_01 - software install on the admin-gitea-registry-standalone VM
+## gitea_registry_lab stage_01 - software install and Gitea+registry deployment on admin-gitea-registry-standalone
 ##
-## Same Docker baseline as misp_lab/nextcloud_lab + zsh dotfiles + firewall.
+## Same Docker baseline as misp_lab + zsh dotfiles + firewall.
+## Firewall opens port 22 (SSH), port 3000 (Gitea HTTP) and port 2222 (Gitea SSH).
 ## Targets the r42_gitea_registry_lab_group inventory group (defined in
 ## templates/ansible-inventory.j2), currently containing a single host:
 ## r42.admin-gitea-registry-standalone.
+##
+## Play 4 deploys the gitea-registry docker-compose stack via the
+## software.configure.docker-compose role (installs rsync, syncs files, runs
+## docker_compose_v2).
+## Uses the existing RANGE42_INVENTORY env var (points to range42-catalog root).
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -70,5 +76,25 @@
       - ip: "all"
         port: 2222
         protocol: "tcp"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: deploy gitea-registry docker-compose stack
+  hosts: r42_gitea_registry_lab_group
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars:
+    LABEL_PROJECT_TYPE: "admin"
+    LABEL_PROJET_NAME: "gitea-registry"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/gitea-registry"
+    REMOTE_PROJECT_DIR: "/home/alice/gitea-registry"
+    #
+    OPERATOR_USER: alice
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
