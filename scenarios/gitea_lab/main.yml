@@ -28,6 +28,12 @@
     INSTALL_NTP: "YES"
     INSTALL_TAILSCALE: "NO"
     firewall_rules:
-      - port: 22
-        proto: tcp
-        rule: allow
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+      - ip: "all"
+        port: 3000
+        protocol: "tcp"
+      - ip: "all"
+        port: 2222
+        protocol: "tcp"
