@@ -94,6 +94,12 @@
         group: alice
         mode: "0755"
 
+    - name: rocketchat - install rsync
+      ansible.builtin.apt:
+        name: rsync
+        state: present
+        update_cache: false
+
     - name: rocketchat - rsync project from controller
       ansible.posix.synchronize:
         src: "{{ _rocketchat_local_dir }}/"
