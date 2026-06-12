@@ -5,11 +5,7 @@
 ## Provisions a single Ubuntu LTS VM (admin-mattermost-standalone) on vmbr142 from
 ## the project standard medium template (VMID 9232 : 2cpu / 8gb / 64gb). The VM is
 ## delivered with the Docker baseline pre-installed (docker, docker compose,
-## zsh dotfiles, basic utilities, firewall opening port 22 only).
-##
-## Mattermost itself is intentionally NOT installed by this scenario - the goal here
-## is to have a ready-to-use Docker host. The Mattermost docker-compose stack is
-## deployed in a later step (range42-catalog element or a follow-up playbook).
+## zsh dotfiles, basic utilities) and the Mattermost docker-compose stack deployed.
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
