@@ -1,3 +1,32 @@
----
-# gitea_registry_lab - download Ubuntu noble cloud-init image
-- import_playbook: "{{ playbook_dir }}/../../../../bundles/core/proxmox/download_cloud_init_image/ubuntu_noble/download_noble_minimal_cloudimg.yml"
+##
+##
+
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# PROMOX INIT - download cloud init files
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: PROMOX INIT - DOWNLOAD - CLOUD INIT images
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+
+      vars:
+        proxmox_vm_action: "storage_download_iso"
+        proxmox_storage: "local"
+        iso_file_content_type: "iso"
+        iso_url: "{{ item.iso_url }}"
+        iso_file_name: "{{ item.iso_file_name }}"
+
+      loop:
+        - {
+            iso_url: "https://cloud-images.ubuntu.com/minimal/daily/noble/current/noble-minimal-cloudimg-amd64.img",
+            iso_file_name: "noble-minimal-cloudimg-amd64.img",
+          }
