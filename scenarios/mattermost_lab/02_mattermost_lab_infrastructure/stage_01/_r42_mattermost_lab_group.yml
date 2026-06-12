@@ -15,6 +15,9 @@
   roles:
     - software.install.warmup.basic_packages
 
+  #
+  # variables will be overwritten by values in main.yml
+  #
   vars:
     INSTALL_PACKAGES_BASICS: "YES"
     INSTALL_PACKAGES_FIREWALLS: "YES"
@@ -51,9 +54,15 @@
     - software.configure.firewalls
 
   vars:
+    #
+    # variables will be overwritten by values in main.yml
+    #
     firewall_rules:
       - ip: "all"
         port: 22
+        protocol: "tcp"
+      - ip: "all"
+        port: 8065
         protocol: "tcp"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
