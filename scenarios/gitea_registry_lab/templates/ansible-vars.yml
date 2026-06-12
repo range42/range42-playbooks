@@ -1,0 +1,6 @@
+---
+INFRASTRUCTURE_SCENARIO: "gitea_registry_lab"
+default_admin_vm_ci_user: "alice"
+auto_generate_admin_vm_ci_password: "YES"
+auto_generate_admin_vm_ci_ssh_key: "YES"
+student_additionnal_keys_count: 0

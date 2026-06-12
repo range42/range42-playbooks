@@ -1,0 +1,16 @@
+Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+    Hostname {{ PROXMOX_HOST }}
+    User {{ PROXMOX_CLI_USER }}
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/{{ PROXMOX_CLI_USER }}-key
+    Port 22
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+
+Host r42.admin-gitea-registry-standalone
+    Hostname 192.168.142.184
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
+    Port 22
+    ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
