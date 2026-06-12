@@ -6,10 +6,9 @@
 ## Targets the r42_rocketchat_lab_group inventory group, currently containing
 ## a single host: r42.admin-rocketchat-standalone.
 ##
-## Play 4 deploys the rocketchat docker-compose stack. Does NOT use the
-## software.configure.docker-compose role because community.docker.docker_compose_v2
-## is silent during the build. Uses ansible.builtin.shell so build output streams
-## back to the operator in real time.
+## Play 4 deploys the rocketchat docker-compose stack via the
+## software.configure.docker-compose role (installs rsync, syncs files, runs
+## docker_compose_v2).
 ## Uses the existing RANGE42_INVENTORY env var (points to range42-catalog root).
 ##
 
@@ -79,56 +78,18 @@
 - name: deploy rocketchat docker-compose stack
   hosts: r42_rocketchat_lab_group
   become: true
+  roles:
+    - software.configure.docker-compose
 
   vars:
-    _rocketchat_local_dir: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/rocketchat"
-    _rocketchat_remote_dir: "/home/alice/rocketchat"
-
-  tasks:
-
-    - name: rocketchat - ensure remote directory exists
-      ansible.builtin.file:
-        path: "{{ _rocketchat_remote_dir }}"
-        state: directory
-        owner: alice
-        group: alice
-        mode: "0755"
-
-    - name: rocketchat - install rsync
-      ansible.builtin.apt:
-        name: rsync
-        state: present
-        update_cache: false
-
-    - name: rocketchat - rsync project from controller
-      ansible.posix.synchronize:
-        src: "{{ _rocketchat_local_dir }}/"
-        dest: "{{ _rocketchat_remote_dir }}/"
-        recursive: true
-        rsync_opts:
-          - "-e ssh --info=progress2"
-      delegate_to: localhost
-      become: false
-
-    - name: rocketchat - docker compose build (streamed)
-      ansible.builtin.shell: docker compose build 2>&1
-      args:
-        chdir: "{{ _rocketchat_remote_dir }}"
-      register: _rocketchat_build
-      changed_when: true
-
-    - name: rocketchat - docker compose build output
-      ansible.builtin.debug:
-        msg: "{{ _rocketchat_build.stdout_lines }}"
-
-    - name: rocketchat - docker compose up -d
-      ansible.builtin.shell: docker compose up -d 2>&1
-      args:
-        chdir: "{{ _rocketchat_remote_dir }}"
-      register: _rocketchat_up
-      changed_when: true
-
-    - name: rocketchat - docker compose up output
-      ansible.builtin.debug:
-        msg: "{{ _rocketchat_up.stdout_lines }}"
+    LABEL_PROJECT_TYPE: "admin"
+    LABEL_PROJET_NAME: "rocketchat"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/rocketchat"
+    REMOTE_PROJECT_DIR: "/home/alice/rocketchat"
+    #
+    OPERATOR_USER: alice
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"
 
