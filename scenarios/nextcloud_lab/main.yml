@@ -5,15 +5,11 @@
 ## Provisions a single Ubuntu LTS VM (admin-nextcloud-standalone) on vmbr142 from
 ## the project standard medium template (VMID 9232 : 2cpu / 8gb / 64gb). The VM is
 ## delivered with the Docker baseline pre-installed (docker, docker compose,
-## zsh dotfiles, basic utilities, firewall opening port 22 only).
-##
-## Nextcloud itself is intentionally NOT installed by this scenario - the goal here
-## is to have a ready-to-use Docker host. The Nextcloud docker-compose stack is
-## deployed in a later step (range42-catalog element or a follow-up playbook).
+## zsh dotfiles, basic utilities) and the Nextcloud docker-compose stack deployed.
 ##
 ## Mirrors the catalog_try single-VM pattern :
 ##   01_init_proxmox                     : download cloud-init image + create template 9232 (idempotent skip if already present)
-##   02_nextcloud_lab_infrastructure     : VM clone + cloud-init + start + wait-for-SSH + Docker baseline
+##   02_nextcloud_lab_infrastructure     : VM clone + cloud-init + start + wait-for-SSH + Docker baseline + Nextcloud stack
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

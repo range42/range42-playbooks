@@ -1,13 +1,16 @@
 ##
-## nextcloud_lab stage_01 - software install on the admin-nextcloud-standalone VM
+## nextcloud_lab stage_01 - software install and Nextcloud deployment on admin-nextcloud-standalone
 ##
-## Lifted from misp_lab/02_misp_lab_infrastructure/stage_01/_r42_misp_lab_group.yml.
-## Same Docker baseline (DOCKER=YES + DOCKER_COMPOSE=YES) + zsh dotfiles + firewall.
-## INSTALL_PACKAGES_UTILS_JSON is YES (jq is useful for Nextcloud admin tooling
-## and operator workflow inside the VM).
+## Same Docker baseline as misp_lab + zsh dotfiles + firewall.
+## Firewall opens port 22 (SSH) and port 8080 (Nextcloud HTTP).
 ## Targets the r42_nextcloud_lab_group inventory group (defined in
 ## templates/ansible-inventory.j2), currently containing a single host:
 ## r42.admin-nextcloud-standalone.
+##
+## Play 4 deploys the nextcloud docker-compose stack via the
+## software.configure.docker-compose role (installs rsync, syncs files, runs
+## docker_compose_v2).
+## Uses the existing RANGE42_INVENTORY env var (points to range42-catalog root).
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -70,5 +73,25 @@
       - ip: "all"
         port: 8080
         protocol: "tcp"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: deploy nextcloud docker-compose stack
+  hosts: r42_nextcloud_lab_group
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars:
+    LABEL_PROJECT_TYPE: "admin"
+    LABEL_PROJET_NAME: "nextcloud"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/nextcloud"
+    REMOTE_PROJECT_DIR: "/home/alice/nextcloud"
+    #
+    OPERATOR_USER: alice
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
