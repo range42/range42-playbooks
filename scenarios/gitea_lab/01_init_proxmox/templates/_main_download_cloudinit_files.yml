@@ -1,0 +1,3 @@
+---
+# gitea_lab - download Ubuntu noble cloud-init image
+- import_playbook: "{{ playbook_dir }}/../../../../bundles/core/proxmox/download_cloud_init_image/ubuntu_noble/download_noble_minimal_cloudimg.yml"

@@ -1,0 +1,39 @@
+---
+##
+## gitea_lab - stage 01 : Docker baseline for r42_gitea_lab_group
+##
+
+- name: "gitea_lab | stage_01 | basic packages + Docker + Compose"
+  hosts: r42_gitea_lab_group
+  gather_facts: true
+  vars:
+    INSTALL_DOCKER: "{{ INSTALL_DOCKER | default('YES') }}"
+    INSTALL_DOCKER_COMPOSE: "{{ INSTALL_DOCKER_COMPOSE | default('YES') }}"
+    INSTALL_JQ: "{{ INSTALL_JQ | default('YES') }}"
+    INSTALL_NETWORK_TOOLS: "{{ INSTALL_NETWORK_TOOLS | default('YES') }}"
+    INSTALL_NTP: "{{ INSTALL_NTP | default('YES') }}"
+    INSTALL_TAILSCALE: "{{ INSTALL_TAILSCALE | default('NO') }}"
+  roles:
+    - role: software.install.warmup.basic_packages
+
+- name: "gitea_lab | stage_01 | dot files (vim + zsh) for alice"
+  hosts: r42_gitea_lab_group
+  gather_facts: false
+  vars:
+    dot_files_target_users:
+      - "alice"
+    INSTALL_VIM_DOT_FILES: "YES"
+    INSTALL_ZSH_DOT_FILES: "YES"
+  roles:
+    - role: software.install.warmup.dot_files
+
+- name: "gitea_lab | stage_01 | firewall - port 22 only"
+  hosts: r42_gitea_lab_group
+  gather_facts: false
+  vars:
+    firewall_rules:
+      - port: 22
+        proto: tcp
+        rule: allow
+  roles:
+    - role: software.configure.firewalls

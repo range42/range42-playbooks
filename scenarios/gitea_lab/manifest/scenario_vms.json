@@ -1,0 +1,22 @@
+{
+  "scenario": "gitea_lab",
+  "version": 1,
+  "vms": [
+    {
+      "vm_id": 1183,
+      "vm_name": "admin-gitea-standalone",
+      "ip": "192.168.142.183",
+      "role": "gitea-lab",
+      "bridge": "vmbr142"
+    }
+  ],
+  "templates": [
+    {
+      "vm_id": 9232,
+      "vm_name": "template-vm-medium-02-8g-64g",
+      "spec": "2cpu/8gb/64gb",
+      "ip": "192.168.140.232",
+      "bridge": "vmbr140"
+    }
+  ]
+}
