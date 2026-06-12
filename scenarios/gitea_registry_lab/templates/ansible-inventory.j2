@@ -1,17 +1,22 @@
----
 all:
   children:
-    proxmox_infrastructure:
-      hosts:
-        proxmox_pve01:
-          ansible_host: "{{ PROXMOX_HOST }}"
-          ansible_user: "{{ PROXMOX_CLI_USER }}"
-          ansible_ssh_private_key_file: "{{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/{{ PROXMOX_CLI_USER }}-key"
+    range42_infrastructure:
+      children:
+        ####
 
-    r42_gitea_registry_lab_group:
-      hosts:
-        r42.admin-gitea-registry-standalone:
-          ansible_host: "192.168.142.184"
-          ansible_user: "alice"
-          ansible_ssh_private_key_file: "{{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice"
-          ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyJump=px.{{ INFRASTRUCTURE_CODENAME }}.jumper"
+        r42_gitea_registry_lab_group:
+          hosts:
+            r42.admin-gitea-registry-standalone:
+
+        ####
+
+        proxmox:
+          hosts:
+            {{ INFRASTRUCTURE_CODENAME }}:
+              ansible_host: {{ INFRASTRUCTURE_PROXMOX_ADDRESS | mandatory }}:8006
+              ansible_connection: local
+              ansible_python_interpreter: /usr/bin/python3
+
+        proxmox_cli:
+          hosts:
+            {{ INFRASTRUCTURE_CODENAME }}-cli:

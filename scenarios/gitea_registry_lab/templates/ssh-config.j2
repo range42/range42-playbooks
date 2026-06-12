@@ -1,10 +1,46 @@
-Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
-    Hostname {{ PROXMOX_HOST }}
-    User {{ PROXMOX_CLI_USER }}
-    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/{{ PROXMOX_CLI_USER }}-key
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+#       infrastructure code name : {{ INFRASTRUCTURE_CODENAME }}
+# infrastructure proxmox address : {{ INFRASTRUCTURE_PROXMOX_ADDRESS }}
+#                       scenario : {{ INFRASTRUCTURE_SCENARIO }}
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      PROXMOX WEB UI (port forward)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host px.{{ INFRASTRUCTURE_CODENAME }}.redirect_www.proxmox
+    RequestTTY no
+    RemoteCommand none
+    localforward localhost:18042 {{ INFRASTRUCTURE_PROXMOX_ADDRESS | mandatory }}:8006
+    localcommand sh -c '/usr/bin/chromium-browser --incognito --new-window --disable-translate  https://127.0.0.1:18042 &'
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      PX ROOT USER SSH ACCESS
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+# root SSH access to Proxmox - for disk extend, pveum, etc.
+# alias: CODENAME-cli matches the inventory group proxmox_cli
+Host px.{{ INFRASTRUCTURE_CODENAME }}-ssh_cli.root {{ INFRASTRUCTURE_CODENAME }}-cli
+    Hostname {{ INFRASTRUCTURE_PROXMOX_ADDRESS | mandatory }}
+    User root
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_JUMP_DEST_DIR }}/px.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-ssh_cli.root
     Port 22
-    StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      SSH JUMPER
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+    Hostname {{ INFRASTRUCTURE_PROXMOX_ADDRESS | mandatory }}
+    User jump_user
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_JUMP_DEST_DIR }}/px.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-ssh_cli.jump_user
+    Port 22
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      GITEA-REGISTRY-LAB VM
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.admin-gitea-registry-standalone
     Hostname 192.168.142.184
@@ -12,5 +48,3 @@ Host r42.admin-gitea-registry-standalone
     IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
     Port 22
     ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
-    StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null
