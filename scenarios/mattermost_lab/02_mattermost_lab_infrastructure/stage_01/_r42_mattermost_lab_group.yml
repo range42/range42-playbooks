@@ -41,6 +41,9 @@
     - software.install.warmup.dot_files
 
   vars:
+    #
+    # variables will be overwritten by values in main.yml
+    #
     OPERATOR_USER: alice
     INSTALL_VIM_DOTFILES: "YES"
     INSTALL_ZSH_DOTFILES: "YES"
