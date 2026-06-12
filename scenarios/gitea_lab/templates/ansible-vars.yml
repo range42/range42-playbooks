@@ -1,6 +1,33 @@
 ---
+################################################################################
+# range42 - scenario-specific variables (gitea_lab)
+#
+# These variables are specific to this scenario. gitea_lab is a single-VM
+# scenario delivering an Ubuntu LTS host pre-provisioned with the Docker
+# baseline, intended to host Gitea via docker-compose in a follow-up step.
+#
+# For shared variables -> group_vars/all/vars.yml
+# For secrets -> vault.yml (see vault.yml.example)
+#
+################################################################################
+
+
+#### SCENARIO IDENTIFICATION ####
+
 INFRASTRUCTURE_SCENARIO: "gitea_lab"
-default_admin_vm_ci_user: "alice"
-auto_generate_admin_vm_ci_password: "YES"
-auto_generate_admin_vm_ci_ssh_key: "YES"
+
+
+#### CREDENTIAL GENERATION ####
+
+# auto-generate ssh keys and passwords (YES/NO)
+context_auto_generate_ssh_keys: "YES"
+context_auto_generate_vm_passwords: "YES"
+
+# no student extras for gitea_lab (single-VM host scenario)
 student_additionnal_keys_count: 0
+
+
+#### CLOUD-INIT USERNAMES ####
+
+# admin vm user (not secret - password and ssh key are in vault)
+default_admin_vm_ci_user: "alice"
