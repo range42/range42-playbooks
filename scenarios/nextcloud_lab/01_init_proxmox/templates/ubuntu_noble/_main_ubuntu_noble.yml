@@ -1,0 +1,8 @@
+##
+## nextcloud_lab - create only template 9232 (template-vm-medium-02-8g-64g).
+## Trimmed from blank_scenario_2_subnets _main_ubuntu_noble.yml which builds 12
+## templates - nextcloud_lab needs only the medium-02 (2cpu / 8gb / 64gb) to host
+## the Nextcloud docker-compose stack.
+##
+
+- import_playbook: ./03-template-vm-medium-02-8g-64g.yml
