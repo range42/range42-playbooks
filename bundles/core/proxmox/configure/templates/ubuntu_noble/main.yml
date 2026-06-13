@@ -25,9 +25,7 @@
 ##                                 #   medium-02 | medium-04 | medium-06
 ##                                 #   large-04 | large-06 | large-08
 ##
-##   template_subnet_octet   142   # third IP octet for the template subnet
-##                                 # on vmbr140. demo_lab_bundles : 142.
-##                                 # bs2/bs4/bs6 override to 140.
+##   template_subnet_octet   140   # template network used to apt-update templates before clone-to-vm.
 ##
 ##   apt_proxy_url           ""    # if non-empty, the bootstrap snippet
 ##                                 # includes apt.http_proxy = <url> so the

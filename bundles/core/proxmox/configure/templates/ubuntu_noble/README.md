@@ -64,7 +64,7 @@ assertion message - no silent failure.
 
 VM IDs are globally coherent across all range42 scenarios. The full IP is
 `192.168.{{ template_subnet_octet }}.<last_octet>` ; with the default `142`,
-template-vm-nano lives at `192.168.142.201`.
+template-vm-nano lives at `192.168.140.201`.
 
 ## Vault loading
 
