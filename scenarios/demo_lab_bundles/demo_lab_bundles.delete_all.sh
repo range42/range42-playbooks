@@ -1,23 +1,20 @@
 #!/bin/bash
 
 ##
-## delete all - VMs + templates declared in this scenario's manifest
+## delete all — VMs + ubuntu_noble templates of THIS scenario
 ##
-## VM IDs and template IDs are read from the scenario manifest:
+## VM IDs are read from the scenario manifest:
 ##   manifest/scenario_vms.json
 ##
 ## ⚠ WARNING ⚠
-##   The medium ubuntu_noble template (VMID 9232) declared in dev_deployer_ui_lab's
-##   manifest is also created and used by every other ubuntu_noble-consuming
-##   scenario on the same Proxmox (demo_lab, blank_scenario_2_subnets,
-##   blank_scenario_4_subnets, blank_scenario_6_subnets, _init_lab, misp_lab,
-##   kunai_lab). Running this script removes 9232 - those scenarios will need
-##   to re-run their 01_init_proxmox/ to rebuild it before re-deploy.
-##   Use dev_deployer_ui_lab.delete_vms_only.sh instead to keep the template intact.
+##   Templates (9xxx) are deleted by this script. They may be shared with other
+##   scenarios deployed on the same Proxmox (every blank_scenario_*_subnets / demo_lab
+##   creates the same ubuntu_noble template IDs). Run this only when you're sure no
+##   other scenario relies on them, or run delete_vms_only.sh instead to keep them.
 ##
 ## Companions:
-##   - dev_deployer_ui_lab.delete_vms_only.sh        - VMs only, keep template
-##   - dev_deployer_ui_lab.delete_all.sh (this)      - VMs + template
+##   - demo_lab.delete_vms_only.sh        — VMs only, keep templates
+##   - demo_lab.delete_all.sh (this)      — VMs + this scenario's templates
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -43,7 +40,7 @@ echo ""
 
 VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
 if [ -z "$VM_LIST_JSON" ]; then
-    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) - aborting" >&2
+    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) — aborting" >&2
     printf "output: %.200s\n" "$VM_LIST_JSON" >&2
     exit 1
 fi
@@ -56,6 +53,6 @@ for ip in "${INFRASTRUCTURE_IP[@]}"; do
 done
 
 echo ""
-echo ":: done - VMs and template removed"
+echo ":: done — VMs and templates removed"
 echo ":: redeploy from scratch with: range42-context deploy"
 echo ""

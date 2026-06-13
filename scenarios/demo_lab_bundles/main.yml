@@ -1,0 +1,29 @@
+---
+##
+##
+
+#
+# Templates (Ubuntu Noble family) lifted to bundles/core/proxmox/configure/templates/.
+# Local copies under ./01_init_proxmox/templates/ are kept as a rollback safety net
+# under the suffix `.old_before_bundles` (so Ansible cannot accidentally pick them
+# up). They can be deleted entirely once this POC is validated on real Proxmox.
+#
+# Defaults match the previous demo_lab_bundles behaviour (subnet 142, full set,
+# apt_proxy_url unset). The bundle's `_update_templates.yml` requires the
+# scenario to pass `manifest_path` and `template_bundle_dir` so it can locate
+# the manifest + the bootstrap cloud-init snippet template.
+#
+- import_playbook: ../../bundles/core/proxmox/configure/templates/_main_download_cloudinit_files.yml
+
+- import_playbook: ../../bundles/core/proxmox/configure/templates/ubuntu_noble/main.yml
+  vars:
+    manifest_path:       "{{ playbook_dir }}/manifest/scenario_vms.json"
+    template_bundle_dir: "{{ playbook_dir }}/../../bundles/core/proxmox/configure/templates/ubuntu_noble"
+
+####
+
+- import_playbook: ./02_admin_infrastructure/_main.yml
+
+#- import_playbook: ./03_student_infrastructure/_main.yml
+
+- import_playbook: ./04_ctf_infrastructure/_main.yml

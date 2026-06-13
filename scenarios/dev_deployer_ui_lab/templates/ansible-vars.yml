@@ -24,8 +24,9 @@ INFRASTRUCTURE_SCENARIO: "dev_deployer_ui_lab"
 context_auto_generate_ssh_keys: "YES"
 context_auto_generate_vm_passwords: "YES"
 
+# number of additional student ssh keys (bob_1 .. bob_N)
 # no student extras for dev_deployer_ui_lab (3-VM platform host scenario)
-student_additional_keys_count: 0
+student_additionnal_keys_count: 0
 
 
 #### CLOUD-INIT USERNAMES ####
