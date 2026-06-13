@@ -1,0 +1,106 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# vm-bootstrap - shared per-VM stage_00 playbook
+#
+#   clone template -> wait proxmox unlock -> set tag -> set cloudinit -> start VM -> wait openssh + cloudinit
+#
+# Required vars (passed by the call-site - per-VM block) :
+#   global_vm_id                  proxmox vm id of the new VM
+#   global_vm_name                hostname / proxmox name of the new VM
+#   global_vm_tag_name            proxmox tag (admin / student / ctf)
+#   global_vm_ci_ip               cloud-init IP of the new VM
+#   global_vm_ssh_name            ssh alias of the new VM (host: line for the ansible.utils wait play)
+#   global_template_vm_id         proxmox vm id of the source template
+#   vm_net_virtio_bridge          proxmox bridge (vmbr142 / vmbr143 / vmbr144)
+#   vm_ci_ip_gw                   default gateway for the VM's subnet
+#
+# Optional vars (with defaults) :
+#   global_vm_description         free-text description (default '')
+#   global_template_name          template human label (default '' - used in task names)
+#   vm_ci_dns_ips                 cloud-init DNS (default '1.1.1.1')
+#   vm_ci_netmask                 cloud-init netmask (default '24')
+#
+# Cloud-init credentials come from the scenario vault, with the same fall-back as before :
+#   vm_ci_user      = default_admin_vm_ci_user      | default('alice')
+#   vm_ci_password  = default_admin_vm_ci_password  | default('supersecret')
+#   vm_ci_ssh_key   = default_admin_vm_ci_ssh_key
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - CLONE TEMPLATE - "{{ global_template_name | default(global_template_vm_id) }}"
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "vm_clone"
+        vm_id: "{{ global_template_vm_id }}"
+        vm_new_id: "{{ global_vm_id }}"
+        vm_name: "{{ global_vm_name }}"
+        vm_description: "{{ global_vm_description | default('') }}"
+
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - WAIT FOR PROXMOX UNLOCK TO CLEAR (post-clone)
+      ansible.builtin.shell: qm config {{ global_vm_id }} | grep -q '^lock:'
+      register: vm_bootstrap_clone_lock
+      until: vm_bootstrap_clone_lock.rc != 0
+      retries: 60                # 60 x 5s = 5 min max safety
+      delay: 5
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - SET PROXMOX TAG
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "vm_set_tag"
+        vm_id: "{{ global_vm_id }}"
+        vm_tag_name: "{{ global_vm_tag_name }}"
+
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - SET CLOUDINIT VARIABLES
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "cloudinit_set_variables"
+        vm_id: "{{ global_vm_id }}"
+        vm_ci_user: "{{ default_admin_vm_ci_user | default('alice') }}"
+        vm_ci_password: "{{ default_admin_vm_ci_password | default('supersecret') }}"
+        vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key }}"
+        vm_ci_dns_ips: "{{ vm_ci_dns_ips | default('1.1.1.1') }}"
+        vm_ci_ip: "{{ global_vm_ci_ip }}"
+        vm_ci_netmask: "{{ vm_ci_netmask | default('24') }}"
+        vm_ci_ip_gw: "{{ vm_ci_ip_gw }}"
+        vm_net_virtio_bridge: "{{ vm_net_virtio_bridge }}"
+
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - START VM
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "vm_start"
+        vm_id: "{{ global_vm_id }}"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: "{{ global_vm_ssh_name }}"
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  vars:
+    deployer_cli_user_ssh_known_hosts: "{{ deployer_cli_user_ssh_known_hosts }}"
+    ARG_vm_ssh_name: "{{ global_vm_ssh_name }}"
+
+    requested_tasks:
+      - wait/openssh_server/is_reachable.yml
+      - wait/cloudinit/is_boot_finished.yml
+
+  tasks:
+
+    - name: VM BOOTSTRAP - "{{ global_vm_ssh_name }}" - WAIT openssh + cloud-init (via ansible.utils)
+      include_role:
+        name: ansible.utils

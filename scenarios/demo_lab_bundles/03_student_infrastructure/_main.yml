@@ -6,21 +6,18 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 
-- import_playbook: ./stage_00/student_box_01.yml
-
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
   vars:
-    global_vm_name: "student-box-01"
-    global_vm_ssh_name: "r42.student-box-01"
-    # global_vm_ssh_name: "r42.{{ global_vm_name }}"
-    global_vm_id: 1160
-    global_vm_description: "student jump box "
-    global_vm_tag_name: "student"
-    global_vm_ci_ip: "192.168.143.160"
-    #
+    global_vm_name:        "student-box-01"
+    global_vm_ssh_name:    "r42.student-box-01"
+    global_vm_id:          1160
+    global_vm_description: "student jump box"
+    global_vm_tag_name:    "student"
+    global_vm_ci_ip:       "192.168.143.160"
     global_template_vm_id: 9211
-    global_template_name: "01-template-vm-micro-01-2g-24g - id 9211" # debug
-    #
-    #
+    global_template_name:  "01-template-vm-micro-01-2g-24g - 9211"
+    vm_net_virtio_bridge:  "vmbr143"
+    vm_ci_ip_gw:           "192.168.143.1"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
