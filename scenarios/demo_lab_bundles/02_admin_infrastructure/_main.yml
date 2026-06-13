@@ -150,7 +150,11 @@
 # stage_01/mon_wazuh.yml. The local stage_01/mon_wazuh.yml is left in place
 # but no longer imported - it can be deleted once this POC is validated.
 #
-- import_playbook: ../../../bundles/wazuh/main.yml
+# Path anchored on $RANGE42_GITDIR__ROOT_DIR (exported by sourced_range42.sh)
+# to avoid relative `../../../` traversal and `playbook_dir` resolution quirks
+# at import time. Same convention as the templates bundle in scenario main.yml.
+#
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/wazuh/main.yml"
   when: INSTALL_WAZUH | default("YES") | upper == "YES"
   vars:
     global_vm_ssh_name:   "r42.admin-wazuh"
