@@ -1,34 +1,28 @@
 # ============================================================================
-# bundles/wazuh/main.yml - shared Wazuh stack install playbook
+# bundles/admin/software.install.wazuh/main.yml
 # ============================================================================
-#
-# This bundle is the parameterized version of what used to be duplicated as
-# scenarios/<scenario>/02_admin_infrastructure/stage_01/mon_wazuh.yml across
-# demo_lab / bs2 / bs4 / bs6.
+# Wazuh server stack install playbook : firewall, indexer, dashboard,
+# manager + filebeat-oss, passwords-tool. Companion to
+# bundles/admin/software.install.wazuh-agent/ which installs the agent on
+# wazuh client hosts.
 #
 # REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
 #   - global_vm_ssh_name   : inventory hostname for the wazuh server VM
 #                            (e.g. "r42.admin-wazuh")
 #   - global_vm_ci_ip      : IP of the wazuh server (e.g. "192.168.142.100")
-#   - wazuh_clients_group  : inventory group whose hosts get the wazuh agent
-#                            (e.g. "r42_admin_wazuh_clients")
 #
 # Vault loading :
 #   The bundle reads the scenario's vault from `$RANGE42_ACTIVE_CONFIG_DIR`,
 #   the env var exported by `range42-context use <codename> <scenario>` that
-#   points to the active workspace root. This avoids the `playbook_dir` /
-#   `import_playbook vars:` propagation gotchas (vars_files is resolved very
-#   early, before import-vars are fully merged into the play scope). The env
-#   var is reliable and absolute.
+#   points to the active workspace root.
 #
 # Example call-site (in scenarios/<scenario>/02_admin_infrastructure/_main.yml) :
 #
-#   - import_playbook: ../../../bundles/wazuh/main.yml
+#   - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh/main.yml"
 #     when: INSTALL_WAZUH | default("YES") | upper == "YES"
 #     vars:
 #       global_vm_ssh_name:    "r42.admin-wazuh"
 #       global_vm_ci_ip:       "192.168.142.100"
-#       wazuh_clients_group:   "r42_admin_wazuh_clients"
 #
 # ============================================================================
 
@@ -186,26 +180,3 @@
       delay: 15
       until: password_output.rc == 0
       no_log: false
-
-###############################
-# wazuh deploy agent
-
-- hosts: "{{ wazuh_clients_group }}"
-  become: yes
-  become_user: root
-  roles:
-    - software.install.wazuh-agent
-
-  vars:
-    WAZUH_SERVER_IP: "{{ global_vm_ci_ip }}"
-    wazuh_managers:
-      - address: "{{ WAZUH_SERVER_IP }}"
-        port: 1514
-        protocol: tcp
-        api_port: 55000
-        api_proto: "https"
-        api_user: wazuh
-        max_retries: 5
-        retry_interval: 5
-#
-###############################

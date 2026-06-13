@@ -145,20 +145,25 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 #
-# POC : the wazuh stage_01 lives in bundles/wazuh/main.yml and is imported
-# here with scenario-specific vars. This replaces the per-scenario duplicated
-# stage_01/mon_wazuh.yml. The local stage_01/mon_wazuh.yml is left in place
-# but no longer imported - it can be deleted once this POC is validated.
+# wazuh stage_01 is split into two shared bundles that mirror the catalog
+# convention (admin/software.install.<name>) :
 #
-# Path anchored on $RANGE42_GITDIR__ROOT_DIR (exported by sourced_range42.sh)
-# to avoid relative `../../../` traversal and `playbook_dir` resolution quirks
-# at import time. Same convention as the templates bundle in scenario main.yml.
+#   - bundles/admin/software.install.wazuh         (server stack on r42.admin-wazuh)
+#   - bundles/admin/software.install.wazuh-agent   (agent install on wazuh client group)
 #
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/wazuh/main.yml"
+# Both replace the per-scenario duplicated stage_01/mon_wazuh.yml. The local
+# stage_01/mon_wazuh.yml is left in place but no longer imported.
+#
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh/main.yml"
   when: INSTALL_WAZUH | default("YES") | upper == "YES"
   vars:
     global_vm_ssh_name:   "r42.admin-wazuh"
     global_vm_ci_ip:      "192.168.142.100"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh-agent/main.yml"
+  when: INSTALL_WAZUH | default("YES") | upper == "YES"
+  vars:
     wazuh_clients_group:  "r42_admin_wazuh_clients"
+    global_vm_ci_ip:      "192.168.142.100"
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
