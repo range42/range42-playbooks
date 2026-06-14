@@ -20,16 +20,16 @@ Then a second play on the VM's ssh alias :
 ```yaml
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
   vars:
-    global_vm_id:          1100
-    global_vm_name:        "admin-wazuh"
-    global_vm_description: ""
-    global_vm_tag_name:    "admin"
-    global_vm_ci_ip:       "192.168.142.100"
-    global_vm_ssh_name:    "r42.admin-wazuh"
-    global_template_vm_id: 9232
-    global_template_name:  "03-template-vm-medium-02-8g-64g"
-    vm_net_virtio_bridge:  "vmbr142"
-    vm_ci_ip_gw:           "192.168.142.1"
+    global_vm_id:                 1100
+    global_vm_name:               "admin-wazuh"
+    global_vm_description:        ""
+    global_vm_tag_name:           "admin"
+    global_vm_ci_ip:              "192.168.142.100"
+    global_vm_ssh_name:           "r42.admin-wazuh"
+    global_template_vm_id:        9232
+    global_template_name:         "03-template-vm-medium-02-8g-64g"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
 ```
 
 ## Required vars
@@ -42,8 +42,8 @@ Then a second play on the VM's ssh alias :
 | `global_vm_ci_ip` | cloud-init IP of the new VM |
 | `global_vm_ssh_name` | ssh alias used by the second play (`r42.<hostname>`) |
 | `global_template_vm_id` | proxmox vm id of the source template |
-| `vm_net_virtio_bridge` | proxmox bridge (`vmbr142` admin / `vmbr143` student / `vmbr144` ctf) |
-| `vm_ci_ip_gw` | default gateway for the subnet |
+| `global_vm_net_virtio_bridge` | proxmox bridge (`vmbr142` admin / `vmbr143` student / `vmbr144` ctf) |
+| `global_vm_ci_ip_gw` | default gateway for the subnet |
 
 ## Optional vars (with defaults)
 
@@ -51,8 +51,13 @@ Then a second play on the VM's ssh alias :
 |---|---|
 | `global_vm_description` | `''` |
 | `global_template_name` | unset (used only in task names for readability) |
-| `vm_ci_dns_ips` | `1.1.1.1` |
-| `vm_ci_netmask` | `24` |
+| `global_vm_ci_dns_ips` | `1.1.1.1` |
+| `global_vm_ci_netmask` | `24` |
+
+All caller-input vars use the `global_*` prefix convention. The bundle internally
+maps them to the un-prefixed names the `range42-ansible_roles-proxmox_controller`
+role expects (e.g. `global_vm_ci_ip_gw` -> `vm_ci_ip_gw`). This avoids the
+self-reference anti-pattern that would otherwise cause Ansible templating loops.
 
 ## Cloud-init credentials
 
