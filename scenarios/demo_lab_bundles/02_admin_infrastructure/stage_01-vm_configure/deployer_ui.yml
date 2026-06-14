@@ -1,31 +1,17 @@
-#
-#
-#
+##
+## admin-deployer-ui - range42-deployer-ui (Docker, canonical method)
+##
+## Delegates to the shared bundle which provisions deployer-ui via the
+## repo's canonical Docker path : multi-stage build (Node 24 + vite build
+## -> nginx serve), docker-compose up -d --build, /health probe.
+##
+## Backend connection : CORS-based (POC). The backend (deployer-api-backend)
+## must allow the UI's origin ; the backend URL is configured at runtime via
+## the in-app Settings modal. See the bundle README for upgrade paths
+## (image-based deploys, external reverse proxy, etc.).
+##
 
-- name:
-  become: true
-  hosts: r42.admin-deployer-ui
-  roles:
-    - software.install.nodejs_app_systemd
-  vars_files:
-    - "../../secrets/default_vault.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.deployer-ui/main.yml"
   vars:
-    #
-    NODE_VERSION: "22"
-    #
-    LOCAL_CODE_PATH: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-deployer-ui/"
-
-    REMOTE_PROJECT_DIR: /var/www/range42_deployer_ui
-    #
-    NPM_COMMAND: dev
-    #
-    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
-    #
-    APP_USER: webapp_user
-    APP_USER_SHELL: "/usr/sbin/nologin"
-    APP_NAME_SYSTEMD: range42_deployer_ui
-
-    # to avoid home dir warning in case of no login user
-    # ansible_remote_tmp: "/tmp/.ansible-{{ APP_USER }}/tmp"
-#
-#
+    global_vm_ssh_name: "r42.admin-deployer-ui"
+    global_vm_ci_ip:    "192.168.142.103"
