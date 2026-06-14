@@ -1,107 +1,16 @@
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### STAGE 00  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 00  - VM BOOTSTRAP #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 
-# disabled — wazuh client test VM, re-enable when wazuh config is validated
-# - import_playbook: ./stage_00/_testing/wazuh_client_01.yml
-#
-#   vars:
-#     global_vm_name: "testing-wazuh-client"
-#     global_vm_ssh_name: "r42.testing-wazuh-client"
-#     global_vm_id: 1111
-#     global_vm_description: "wazuh - client test"
-#     global_vm_tag_name: "admin"
-#     global_vm_ci_ip: "192.168.142.111"
-#     global_template_vm_id: 9211
-#     global_template_name: "01-template-vm-micro-01-2g-24g - id 9211"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
-  when: INSTALL_WAZUH | default("YES") | upper == "YES"
-  vars:
-    global_vm_name:        "admin-wazuh"
-    global_vm_ssh_name:    "r42.admin-wazuh"
-    global_vm_id:          1100
-    global_vm_description: ""
-    global_vm_tag_name:    "admin"
-    global_vm_ci_ip:       "192.168.142.100"
-    global_template_vm_id: 9232
-    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
-    global_vm_net_virtio_bridge:  "vmbr142"
-    global_vm_ci_ip_gw:           "192.168.142.1"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-# disabled — docker registry, re-enable when needed
-# - import_playbook: ./stage_00/builder_docker_registry.yml
-#
-#   vars:
-#     global_vm_name: "admin-builder-docker-registry"
-#     global_vm_ssh_name: "r42.admin-builder-docker-registry"
-#     global_vm_id: 1001
-#     global_vm_description: "docker registry"
-#     global_vm_tag_name: "admin"
-#     global_vm_ci_ip: "192.168.142.101"
-#     global_template_vm_id: 9232
-#     global_template_name: "03-template-vm-medium-02-8g-64g - 9232"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
-  vars:
-    global_vm_name:        "admin-deployer-api-gateway"
-    global_vm_ssh_name:    "r42.admin-deployer-api-gateway"
-    global_vm_id:          1101
-    global_vm_description: "API gateway"
-    global_vm_tag_name:    "admin"
-    global_vm_ci_ip:       "192.168.142.101"
-    global_template_vm_id: 9221
-    global_template_name:  "template-vm-small-01-4g-32g - 9221"
-    global_vm_net_virtio_bridge:  "vmbr142"
-    global_vm_ci_ip_gw:           "192.168.142.1"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
-  vars:
-    global_vm_name:        "admin-deployer-api-backend"
-    global_vm_ssh_name:    "r42.admin-deployer-api-backend"
-    global_vm_id:          1102
-    global_vm_description: "www - backend API"
-    global_vm_tag_name:    "admin"
-    global_vm_ci_ip:       "192.168.142.102"
-    global_template_vm_id: 9221
-    global_template_name:  "template-vm-small-01-4g-32g - 9221"
-    global_vm_net_virtio_bridge:  "vmbr142"
-    global_vm_ci_ip_gw:           "192.168.142.1"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
-  vars:
-    global_vm_name:        "admin-deployer-ui"
-    global_vm_ssh_name:    "r42.admin-deployer-ui"
-    global_vm_id:          1103
-    global_vm_description: "www - front end - r42 - deployer-ui"
-    global_vm_tag_name:    "admin"
-    global_vm_ci_ip:       "192.168.142.103"
-    global_template_vm_id: 9221
-    global_template_name:  "template-vm-small-01-4g-32g - 9221"
-    global_vm_net_virtio_bridge:  "vmbr142"
-    global_vm_ci_ip_gw:           "192.168.142.1"
+- import_playbook: ./stage_00-vm_bootstrap/_r42_admin_group.yml
 
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-# #
+#
 
 - import_playbook: ./stage_01/_r42_admin.yml
   vars:
@@ -150,13 +59,13 @@
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh/main.yml"
   when: INSTALL_WAZUH | default("YES") | upper == "YES"
   vars:
-    global_vm_ssh_name:   "r42.admin-wazuh"
-    global_vm_ci_ip:      "192.168.142.100"
+    global_vm_ssh_name: "r42.admin-wazuh"
+    global_vm_ci_ip: "192.168.142.100"
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh-agent/main.yml"
   when: INSTALL_WAZUH | default("YES") | upper == "YES"
   vars:
-    wazuh_clients_group:  "r42_admin_wazuh_clients"
-    global_vm_ci_ip:      "192.168.142.100"
+    wazuh_clients_group: "r42_admin_wazuh_clients"
+    global_vm_ci_ip: "192.168.142.100"
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
