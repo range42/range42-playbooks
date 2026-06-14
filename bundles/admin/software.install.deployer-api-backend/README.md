@@ -16,7 +16,8 @@ UI (r42.admin-deployer-ui:3000)
 Backend (r42.admin-deployer-api-backend:8000)
    ├─ SQLite DB + events.jsonl  (bind-mounted from /home/range42/range42.config on host)
    ├─ SSH keys                    (bind-mounted RO from ~/.ssh on host)
-   ├─ Vault password file         (bind-mounted RO from /etc/range42/vault_pass.txt)
+   ├─ Per-deployment secrets      (each <C>-<S>/secrets/vault_pass.txt is reachable
+   │                                under /home/range42/range42.config via the same mount)
    └─ ansible-core 2.19 + runner  (bundled in the image, used by backend to drive Proxmox)
 ```
 
@@ -37,7 +38,6 @@ Kong is parallel/not in the UI->backend path for this POC (kong.yml is empty).
 | `REMOTE_PROJECT_DIR` | `/var/www/range42_backend_api` |
 | `API_PORT` | `8000` |
 | `WORKSPACE_DIR_HOST` | `/home/range42/range42.config` |
-| `VAULT_PASSWORD_FILE_LOCAL` | `{{ env RANGE42_VAULT_PASSWORD_FILE }}` (empty = skip vault copy) |
 | `DEPLOYER_UI_CORS_REGEX` | `^https?://r42\.admin-deployer-ui(:\d+)?$` |
 
 ## Call-site example
@@ -51,16 +51,20 @@ Kong is parallel/not in the UI->backend path for this POC (kong.yml is empty).
 
 ## What runs
 
+The bundle mirrors the upstream README's Quick Start - Option 1 (Docker) :
+`docker compose up` against an image built from local source. No source
+bind-mount at runtime ; code, playbooks, and inventory are baked into the
+image at build time. Schema bootstrap is handled in-process by the app on
+startup, so no explicit migration step is needed.
+
 1. **Docker install** : invokes `software.install.warmup.basic_packages` role with `INSTALL_PACKAGES_DOCKER=YES` + `INSTALL_PACKAGES_DOCKER_COMPOSE=YES` (Docker Engine + compose plugin via the project's standard install path)
 2. **Firewall** : applies `software.configure.firewalls` role with rules for ports 22 + API_PORT
-3. **Workspace dir** : creates `/home/range42/range42.config/` on the host owned by UID/GID 1000 (mode 0700) - holds the SQLite DB + events.jsonl + ansible-runner artefacts ; persists across container restarts
-4. **Sync source** : rsync's the backend-api repo from the controller to `REMOTE_PROJECT_DIR` (excludes `.git`, `.venv`, `collections`, `__pycache__`, `.pytest_cache`, `.env*`)
-5. **Vault password file** : copies the operator's vault password file from the controller to `/etc/range42/vault_pass.txt` (mode 0600) if `VAULT_PASSWORD_FILE_LOCAL` (or env `RANGE42_VAULT_PASSWORD_FILE`) is set
-6. **Render .env** : writes the env file consumed by docker compose (PORT, UID/GID, IMAGE_NAME, SSH_KEY_PATH, VAULT_PASSWORD_FILE, CORS_ORIGIN_REGEX, RANGE42_WORKSPACE_ROOT, WEB_CONCURRENCY=1, UVICORN_WORKERS=1, DEBUG=false)
-7. **Render docker-compose.override.yml** : adds bind-mounts for the workspace dir + vault password file (on top of the upstream compose's existing SSH key mount)
-8. **Compose up** : `docker compose up -d --build` builds the multi-stage image locally on the VM the first time (Python 3.13 builder + slim runtime), then starts the container
-9. **Alembic migrate** : runs `alembic upgrade head` inside the container (idempotent ; ensures the SQLite schema is current before clients hit the API)
-10. **Verify** : waits for the API port + probes `/docs/openapi.json` (same endpoint the container's HEALTHCHECK uses) - expects HTTP 200
+3. **Workspace dir** : creates `/home/range42/range42.config/` on the host owned by UID/GID 1000 (mode 0700) - holds the SQLite DB + events.jsonl + ansible-runner artefacts + per-deployment `<C>-<S>/secrets/vault_pass.txt` ; persists across container restarts
+4. **Sync source (build context)** : rsync's the backend-api repo from the controller to `REMOTE_PROJECT_DIR` (excludes `.git`, `.venv`, `collections`, `__pycache__`, `.pytest_cache`, `.env*`). This is the Docker build context only - the source is BAKED into the image at build time, NOT bind-mounted at runtime
+5. **Render .env** : writes the env file consumed by docker compose (PORT, UID/GID, IMAGE_NAME, SSH_KEY_PATH, VAULT_PASSWORD_FILE empty by default, CORS_ORIGIN_REGEX, RANGE42_WORKSPACE_ROOT, WEB_CONCURRENCY=1, UVICORN_WORKERS=1, DEBUG=false)
+6. **Render docker-compose.override.yml** : single runtime bind-mount of the workspace dir. The upstream compose's SSH key mount is preserved.
+7. **Compose up** : `docker compose up -d --build` builds the multi-stage image locally on the VM the first time (Python 3.13 builder + slim runtime), then starts the container
+8. **Verify** : waits for the API port + probes `/docs/openapi.json` (same endpoint the container's HEALTHCHECK uses) - expects HTTP 200
 
 ## CORS configuration
 
@@ -92,24 +96,35 @@ btrfs / zfs / tmpfs). The backend refuses NFS / CIFS / FUSE at deployment-
 create with HTTP 409 / `WORKSPACE_NON_LOCAL_FS`. The bundle uses a host path
 that is local FS by construction (system disk).
 
-Alembic migration step uses `docker compose exec -T api alembic upgrade head`
-after the container is up but before clients are served. Idempotent ; running
-the bundle a second time after a schema bump auto-upgrades.
+Schema bootstrap is handled in-process by the app on startup (per the
+upstream README's Quick Start - `docker compose up` is sufficient). No
+explicit `alembic upgrade head` step in the bundle. If a future schema
+bump requires manual migration, run it once on the host with the source
+tree available :
+
+```bash
+cd /var/www/range42_backend_api
+docker run --rm -v "$(pwd)/alembic.ini:/app/alembic.ini:ro" \
+                -v "$(pwd)/alembic:/app/alembic:ro" \
+                --env-file .env \
+                range42-backend-api:local \
+                alembic upgrade head
+```
 
 ## Vault password file
 
 The backend reads `VAULT_PASSWORD_FILE` at runtime to decrypt ansible-vault-
-encrypted variables in playbooks it executes. The bundle copies the
-operator's vault password file from the controller to the host at
-`/etc/range42/vault_pass.txt` (mode 0600, owned by UID 1000) and bind-mounts
-it into the container at `/run/secrets/vault_pass.txt` (read-only).
+encrypted variables in playbooks it executes. The bundle leaves
+`VAULT_PASSWORD_FILE=` empty in `.env` (matches upstream `.env.example`) - no
+global default is set at deploy time.
 
-Default source path on the controller is the env var
-`RANGE42_VAULT_PASSWORD_FILE` (exported by `range42-context use`). Override
-via `VAULT_PASSWORD_FILE_LOCAL` if needed.
-
-If neither is set, the copy step is skipped and vault-dependent backend
-features will fail until the file is placed manually.
+Each operator-managed workspace already ships its own vault password file at
+`<workspace>/secrets/vault_pass.txt`. Since the bundle bind-mounts the whole
+workspace dir at `/home/range42/range42.config`, every deployment's
+`vault_pass.txt` is reachable inside the container at
+`/home/range42/range42.config/<C>-<S>/secrets/vault_pass.txt`. The backend
+resolves the per-deployment path at runtime via the deployment id ; no
+separate file copy is needed.
 
 ## Single-worker invariant
 
@@ -150,6 +165,5 @@ verify connectivity. The browser will send the Origin header
 ## Known limitations (POC)
 
 - Vault password file is copied verbatim from controller to host - no rotation, no secret-manager integration. Operator workflow : rotate the file on the controller, re-run the bundle.
-- The bundle runs `docker compose exec` for migrations, which requires the container to be up first. If `compose up` succeeds but uvicorn binds 8000 before alembic finishes, the API may return 500 briefly on the first requests until migrations complete. Mitigation : the bundle waits on the port before running migrations and then waits on `/docs/openapi.json`.
 - WEB_CONCURRENCY=1 means single-process throughput. Acceptable for POC ; production scale-out requires backend changes upstream (SSE state would need to move out of process).
 - Backend exposes port 8000 directly to peers in the lab subnet. No TLS. CORS regex protects browser-side. Fine for POC ; production needs TLS + reverse proxy.

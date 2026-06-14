@@ -7,24 +7,24 @@
 # runner). The UI talks to this backend via CORS (the deployer-ui bundle ships
 # the UI with the Settings modal that lets the operator point at this backend).
 #
-# Plays :
+# Plays (mirror the upstream README Quick Start - Option 1 Docker) :
 #   1. Install Docker Engine + compose plugin on the backend host
 #      (via software.install.warmup.basic_packages with INSTALL_PACKAGES_DOCKER
 #      + INSTALL_PACKAGES_DOCKER_COMPOSE flags)
 #   2. Configure firewall on the host : open API_PORT, keep 22
 #   3. Create workspace dir on the host (SQLite + events.jsonl persistence)
 #      + sync the backend-api source tree from the controller to the VM
-#      + copy the operator's vault password file from the controller to the
-#        host at /etc/range42/vault_pass.txt (mode 0600)
+#        (used as Docker build context only - code is BAKED into the image
+#        at build time per the upstream README, not bind-mounted at runtime)
 #      + render .env (image tag, ports, UID/GID, CORS regex, workspace path,
-#        WEB_CONCURRENCY=1 invariant) + docker-compose.override.yml (extra
-#        bind-mounts for the workspace dir + the vault password file)
+#        WEB_CONCURRENCY=1 invariant) + docker-compose.override.yml (runtime
+#        bind-mount for the workspace dir)
 #      + `docker compose up -d --build` (builds the multi-stage image
-#        locally on the VM)
-#   4. Run `alembic upgrade head` inside the running container so the SQLite
-#      schema is current before the API starts answering requests
-#   5. Wait for /docs/openapi.json to return 200 (the container's own
-#      healthcheck uses the same endpoint)
+#        locally on the VM ; the upstream README's canonical quick-start)
+#   4. Wait for /docs/openapi.json to return 200 (the container's own
+#      healthcheck uses the same endpoint ; schema bootstrap is handled
+#      in-process by the app on startup, per the upstream README - no
+#      explicit alembic step needed)
 #
 # REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
 #   - global_vm_ssh_name : inventory hostname for the backend VM
@@ -38,11 +38,9 @@
 #                                     (default /var/www/range42_backend_api)
 #   - API_PORT                      : host port (default 8000)
 #   - WORKSPACE_DIR_HOST            : host path for the persistent workspace
-#                                     (default /home/range42/range42.config)
-#   - VAULT_PASSWORD_FILE_LOCAL     : controller path to the operator's vault
-#                                     password file (default = env var
-#                                     RANGE42_VAULT_PASSWORD_FILE if set,
-#                                     else empty -> skip the copy)
+#                                     (default /home/range42/range42.config) -
+#                                     also contains the operator's vault_pass.txt
+#                                     per workspace (<C>-<S>/secrets/vault_pass.txt)
 #   - DEPLOYER_UI_CORS_REGEX        : CORS regex passed to the backend
 #                                     (default matches http(s)://r42.admin-deployer-ui:<any>)
 #
@@ -109,8 +107,6 @@
     REMOTE_PROJECT_DIR_RESOLVED: "{{ REMOTE_PROJECT_DIR | default('/var/www/range42_backend_api') }}"
     API_PORT_RESOLVED: "{{ API_PORT | default('8000') }}"
     WORKSPACE_DIR_HOST_RESOLVED: "{{ WORKSPACE_DIR_HOST | default('/home/range42/range42.config') }}"
-    VAULT_PASSWORD_FILE_LOCAL_RESOLVED: "{{ VAULT_PASSWORD_FILE_LOCAL | default(lookup('env', 'RANGE42_VAULT_PASSWORD_FILE'), true) }}"
-    VAULT_PASSWORD_FILE_HOST_RESOLVED: "/etc/range42/vault_pass.txt"
     DEPLOYER_UI_CORS_REGEX_RESOLVED: "{{ DEPLOYER_UI_CORS_REGEX | default('^https?://r42\\.admin-deployer-ui(:\\d+)?$') }}"
     CONTAINER_UID: 1000
     CONTAINER_GID: 1000
@@ -152,23 +148,6 @@
           - "--exclude=.env"
           - "--exclude=.env.local"
 
-    - name: Create /etc/range42 dir for the bind-mounted vault password file
-      ansible.builtin.file:
-        path: /etc/range42
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-
-    - name: Copy operator vault password file from controller to host (if provided)
-      ansible.builtin.copy:
-        src: "{{ VAULT_PASSWORD_FILE_LOCAL_RESOLVED }}"
-        dest: "{{ VAULT_PASSWORD_FILE_HOST_RESOLVED }}"
-        owner: "{{ CONTAINER_UID }}"
-        group: "{{ CONTAINER_GID }}"
-        mode: "0600"
-      when: VAULT_PASSWORD_FILE_LOCAL_RESOLVED | length > 0
-
     - name: Render .env (PORT, UID/GID, CORS, workspace path, WEB_CONCURRENCY=1 invariant)
       ansible.builtin.copy:
         dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/.env"
@@ -188,9 +167,11 @@
           # Host paths bind-mounted into the container
           SSH_KEY_PATH=~/.ssh
 
-          # Vault password file - bundle bind-mounts the host file (mode 0600)
-          # to /run/secrets/vault_pass.txt inside the container.
-          VAULT_PASSWORD_FILE=/run/secrets/vault_pass.txt
+          # Vault password file - empty by default (matches upstream .env.example).
+          # The workspace bind-mount makes each deployment's vault_pass.txt available
+          # inside the container at /home/range42/range42.config/<C>-<S>/secrets/vault_pass.txt.
+          # Backend resolves the per-deployment path at runtime ; no global default.
+          VAULT_PASSWORD_FILE=
 
           # CORS - allow the deployer-ui origin (browser sends Origin header)
           CORS_ORIGIN_REGEX={{ DEPLOYER_UI_CORS_REGEX_RESOLVED }}
@@ -209,18 +190,17 @@
         group: root
         mode: "0644"
 
-    - name: Render docker-compose.override.yml (bind-mount workspace + vault password file)
+    - name: Render docker-compose.override.yml (bind-mount workspace)
       ansible.builtin.copy:
         dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/docker-compose.override.yml"
         content: |
-          # Managed by range42 - additional bind-mounts on top of the upstream compose.
-          # Adds persistent workspace dir (SQLite + events.jsonl) and the operator's
-          # vault password file (read-only).
+          # Managed by range42 - additional bind-mount on top of the upstream compose.
+          # Mounts the persistent workspace dir (SQLite + events.jsonl + per-deployment
+          # secrets/ including vault_pass.txt) at /home/range42/range42.config.
           services:
             api:
               volumes:
                 - "{{ WORKSPACE_DIR_HOST_RESOLVED }}:/home/range42/range42.config"
-                - "{{ VAULT_PASSWORD_FILE_HOST_RESOLVED }}:/run/secrets/vault_pass.txt:ro"
         owner: root
         group: root
         mode: "0644"
@@ -245,11 +225,10 @@
 
 # ============================================================================
 
-- name: install deployer-api-backend - alembic migrate + /docs/openapi.json probe
+- name: install deployer-api-backend - /docs/openapi.json probe
   hosts: "{{ global_vm_ssh_name }}"
   become: true
   vars:
-    REMOTE_PROJECT_DIR_RESOLVED: "{{ REMOTE_PROJECT_DIR | default('/var/www/range42_backend_api') }}"
     API_PORT_RESOLVED: "{{ API_PORT | default('8000') }}"
   tasks:
     - name: Wait for API port to accept connections
@@ -258,13 +237,6 @@
         host: 127.0.0.1
         delay: 5
         timeout: 180
-
-    - name: Run alembic migrations (alembic upgrade head, idempotent)
-      ansible.builtin.command:
-        cmd: docker compose exec -T api alembic upgrade head
-        chdir: "{{ REMOTE_PROJECT_DIR_RESOLVED }}"
-      register: alembic_result
-      changed_when: "'Running upgrade' in alembic_result.stdout or 'Running upgrade' in alembic_result.stderr"
 
     - name: Probe /docs/openapi.json (same endpoint as container HEALTHCHECK)
       ansible.builtin.uri:
