@@ -16,8 +16,8 @@
     global_vm_ci_ip:       "192.168.144.170"
     global_template_vm_id: 9221
     global_template_name:  "template-vm-small-01-4g-32g - 9221"
-    vm_net_virtio_bridge:  "vmbr144"
-    vm_ci_ip_gw:           "192.168.144.1"
+    global_vm_net_virtio_bridge:  "vmbr144"
+    global_vm_ci_ip_gw:           "192.168.144.1"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -31,8 +31,8 @@
     global_vm_ci_ip:       "192.168.144.171"
     global_template_vm_id: 9221
     global_template_name:  "template-vm-small-01-4g-32g - 9221"
-    vm_net_virtio_bridge:  "vmbr144"
-    vm_ci_ip_gw:           "192.168.144.1"
+    global_vm_net_virtio_bridge:  "vmbr144"
+    global_vm_ci_ip_gw:           "192.168.144.1"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -46,8 +46,8 @@
     global_vm_ci_ip:       "192.168.144.172"
     global_template_vm_id: 9221
     global_template_name:  "template-vm-small-01-4g-32g - 9221"
-    vm_net_virtio_bridge:  "vmbr144"
-    vm_ci_ip_gw:           "192.168.144.1"
+    global_vm_net_virtio_bridge:  "vmbr144"
+    global_vm_ci_ip_gw:           "192.168.144.1"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -61,8 +61,8 @@
     global_vm_ci_ip:       "192.168.144.173"
     global_template_vm_id: 9221
     global_template_name:  "template-vm-small-01-4g-32g - 9221"
-    vm_net_virtio_bridge:  "vmbr144"
-    vm_ci_ip_gw:           "192.168.144.1"
+    global_vm_net_virtio_bridge:  "vmbr144"
+    global_vm_ci_ip_gw:           "192.168.144.1"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -76,5 +76,5 @@
     global_vm_ci_ip:       "192.168.144.174"
     global_template_vm_id: 9221
     global_template_name:  "template-vm-small-01-4g-32g - 9221"
-    vm_net_virtio_bridge:  "vmbr144"
-    vm_ci_ip_gw:           "192.168.144.1"
+    global_vm_net_virtio_bridge:  "vmbr144"
+    global_vm_ci_ip_gw:           "192.168.144.1"

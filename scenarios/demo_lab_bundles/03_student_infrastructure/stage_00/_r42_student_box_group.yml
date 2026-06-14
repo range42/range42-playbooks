@@ -16,5 +16,5 @@
     global_vm_ci_ip:       "192.168.143.160"
     global_template_vm_id: 9211
     global_template_name:  "01-template-vm-micro-01-2g-24g - 9211"
-    vm_net_virtio_bridge:  "vmbr143"
-    vm_ci_ip_gw:           "192.168.143.1"
+    global_vm_net_virtio_bridge:  "vmbr143"
+    global_vm_ci_ip_gw:           "192.168.143.1"
