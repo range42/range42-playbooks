@@ -1,0 +1,281 @@
+# ============================================================================
+# bundles/admin/software.install.deployer-api-backend/main.yml
+# ============================================================================
+# Deploys range42-backend-api as a Docker container, following the canonical
+# deploy method shipped by the repo (multi-stage Dockerfile Python 3.13 +
+# FastAPI + uvicorn + embedded SQLite via SQLAlchemy async + Alembic + ansible
+# runner). The UI talks to this backend via CORS (the deployer-ui bundle ships
+# the UI with the Settings modal that lets the operator point at this backend).
+#
+# Plays :
+#   1. Install Docker Engine + compose plugin on the backend host
+#      (via software.install.warmup.basic_packages with INSTALL_PACKAGES_DOCKER
+#      + INSTALL_PACKAGES_DOCKER_COMPOSE flags)
+#   2. Configure firewall on the host : open API_PORT, keep 22
+#   3. Create workspace dir on the host (SQLite + events.jsonl persistence)
+#      + sync the backend-api source tree from the controller to the VM
+#      + copy the operator's vault password file from the controller to the
+#        host at /etc/range42/vault_pass.txt (mode 0600)
+#      + render .env (image tag, ports, UID/GID, CORS regex, workspace path,
+#        WEB_CONCURRENCY=1 invariant) + docker-compose.override.yml (extra
+#        bind-mounts for the workspace dir + the vault password file)
+#      + `docker compose up -d --build` (builds the multi-stage image
+#        locally on the VM)
+#   4. Run `alembic upgrade head` inside the running container so the SQLite
+#      schema is current before the API starts answering requests
+#   5. Wait for /docs/openapi.json to return 200 (the container's own
+#      healthcheck uses the same endpoint)
+#
+# REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
+#   - global_vm_ssh_name : inventory hostname for the backend VM
+#                          (e.g. "r42.admin-deployer-api-backend")
+#   - global_vm_ci_ip    : IP of the backend VM (informational ; not consumed)
+#
+# OPTIONAL vars (with defaults) :
+#   - LOCAL_CODE_PATH               : controller path to range42-backend-api
+#                                     (default = $RANGE42_GITDIR__ROOT_DIR/range42-backend-api/)
+#   - REMOTE_PROJECT_DIR            : project root on the VM
+#                                     (default /var/www/range42_backend_api)
+#   - API_PORT                      : host port (default 8000)
+#   - WORKSPACE_DIR_HOST            : host path for the persistent workspace
+#                                     (default /home/range42/range42.config)
+#   - VAULT_PASSWORD_FILE_LOCAL     : controller path to the operator's vault
+#                                     password file (default = env var
+#                                     RANGE42_VAULT_PASSWORD_FILE if set,
+#                                     else empty -> skip the copy)
+#   - DEPLOYER_UI_CORS_REGEX        : CORS regex passed to the backend
+#                                     (default matches http(s)://r42.admin-deployer-ui:<any>)
+#
+# Backend connection (CORS path) :
+#   The deployer-ui bundle adopts the CORS path - the UI calls this backend
+#   directly via fetch, and the Origin header must match CORS_ORIGIN_REGEX.
+#   The default regex matches the demo_lab_bundles UI hostname. Operators
+#   running a different scenario must override DEPLOYER_UI_CORS_REGEX.
+#
+# Database :
+#   SQLite + WAL via SQLAlchemy async + Alembic. NO separate database
+#   container. Workspace dir is bind-mounted from host so the SQLite DB and
+#   events.jsonl survive container restarts. Backend refuses non-local FS
+#   (NFS / CIFS / FUSE) with HTTP 409 ; the bundle uses a host path that
+#   is local FS by construction.
+#
+# Single-worker invariant :
+#   WEB_CONCURRENCY=1 and UVICORN_WORKERS=1 are hard-set in .env because the
+#   backend keeps SSE state in-process ; multi-worker would silently corrupt
+#   that state. The backend logs `multi_worker_deploy_invariant_violated` if
+#   someone overrides this.
+#
+# Example call-site :
+#
+# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.deployer-api-backend/main.yml"
+#   vars:
+#     global_vm_ssh_name: "r42.admin-deployer-api-backend"
+#     global_vm_ci_ip:    "192.168.142.102"
+# ============================================================================
+
+- name: install deployer-api-backend - Docker Engine + compose plugin
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  roles:
+    - software.install.warmup.basic_packages
+  vars:
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_DOCKER: "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
+
+# ============================================================================
+
+- name: install deployer-api-backend - firewall (open API_PORT, keep 22)
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  roles:
+    - software.configure.firewalls
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+      - ip: "all"
+        port: "{{ API_PORT | default('8000') }}"
+        protocol: "tcp"
+
+# ============================================================================
+
+- name: install deployer-api-backend - workspace + source sync + .env + compose up
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  vars:
+    LOCAL_CODE_PATH_RESOLVED: "{{ LOCAL_CODE_PATH | default(lookup('env', 'RANGE42_GITDIR__ROOT_DIR') + '/range42-backend-api/', true) }}"
+    REMOTE_PROJECT_DIR_RESOLVED: "{{ REMOTE_PROJECT_DIR | default('/var/www/range42_backend_api') }}"
+    API_PORT_RESOLVED: "{{ API_PORT | default('8000') }}"
+    WORKSPACE_DIR_HOST_RESOLVED: "{{ WORKSPACE_DIR_HOST | default('/home/range42/range42.config') }}"
+    VAULT_PASSWORD_FILE_LOCAL_RESOLVED: "{{ VAULT_PASSWORD_FILE_LOCAL | default(lookup('env', 'RANGE42_VAULT_PASSWORD_FILE'), true) }}"
+    VAULT_PASSWORD_FILE_HOST_RESOLVED: "/etc/range42/vault_pass.txt"
+    DEPLOYER_UI_CORS_REGEX_RESOLVED: "{{ DEPLOYER_UI_CORS_REGEX | default('^https?://r42\\.admin-deployer-ui(:\\d+)?$') }}"
+    CONTAINER_UID: 1000
+    CONTAINER_GID: 1000
+  tasks:
+    - name: Install rsync on remote (required for synchronize)
+      ansible.builtin.apt:
+        name: rsync
+        state: present
+        update_cache: false
+
+    - name: Create workspace dir on host (SQLite + events.jsonl persistence)
+      ansible.builtin.file:
+        path: "{{ WORKSPACE_DIR_HOST_RESOLVED }}"
+        state: directory
+        owner: "{{ CONTAINER_UID }}"
+        group: "{{ CONTAINER_GID }}"
+        mode: "0700"
+
+    - name: Create remote project dir
+      ansible.builtin.file:
+        path: "{{ REMOTE_PROJECT_DIR_RESOLVED }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Sync backend-api source from controller to remote project dir
+      ansible.posix.synchronize:
+        src: "{{ LOCAL_CODE_PATH_RESOLVED }}"
+        dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/"
+        delete: true
+        recursive: true
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=.venv"
+          - "--exclude=collections"
+          - "--exclude=__pycache__"
+          - "--exclude=.pytest_cache"
+          - "--exclude=.env"
+          - "--exclude=.env.local"
+
+    - name: Create /etc/range42 dir for the bind-mounted vault password file
+      ansible.builtin.file:
+        path: /etc/range42
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Copy operator vault password file from controller to host (if provided)
+      ansible.builtin.copy:
+        src: "{{ VAULT_PASSWORD_FILE_LOCAL_RESOLVED }}"
+        dest: "{{ VAULT_PASSWORD_FILE_HOST_RESOLVED }}"
+        owner: "{{ CONTAINER_UID }}"
+        group: "{{ CONTAINER_GID }}"
+        mode: "0600"
+      when: VAULT_PASSWORD_FILE_LOCAL_RESOLVED | length > 0
+
+    - name: Render .env (PORT, UID/GID, CORS, workspace path, WEB_CONCURRENCY=1 invariant)
+      ansible.builtin.copy:
+        dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/.env"
+        content: |
+          # Managed by range42 / bundles/admin/software.install.deployer-api-backend
+
+          # Host port for the FastAPI service
+          PORT={{ API_PORT_RESOLVED }}
+
+          # Container runtime user UID/GID (matches the workspace dir + ssh dir owner)
+          UID={{ CONTAINER_UID }}
+          GID={{ CONTAINER_GID }}
+
+          # Image name used to tag the locally-built image (rsync + build path)
+          IMAGE_NAME=range42-backend-api:local
+
+          # Host paths bind-mounted into the container
+          SSH_KEY_PATH=~/.ssh
+
+          # Vault password file - bundle bind-mounts the host file (mode 0600)
+          # to /run/secrets/vault_pass.txt inside the container.
+          VAULT_PASSWORD_FILE=/run/secrets/vault_pass.txt
+
+          # CORS - allow the deployer-ui origin (browser sends Origin header)
+          CORS_ORIGIN_REGEX={{ DEPLOYER_UI_CORS_REGEX_RESOLVED }}
+
+          # Workspace dir INSIDE the container (bind-mounted via override compose)
+          RANGE42_WORKSPACE_ROOT=/home/range42/range42.config
+
+          # Single-worker invariant per backend requirement
+          # (SSE state lives in-process ; multi-worker corrupts it silently)
+          WEB_CONCURRENCY=1
+          UVICORN_WORKERS=1
+
+          # Logging
+          DEBUG=false
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Render docker-compose.override.yml (bind-mount workspace + vault password file)
+      ansible.builtin.copy:
+        dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/docker-compose.override.yml"
+        content: |
+          # Managed by range42 - additional bind-mounts on top of the upstream compose.
+          # Adds persistent workspace dir (SQLite + events.jsonl) and the operator's
+          # vault password file (read-only).
+          services:
+            api:
+              volumes:
+                - "{{ WORKSPACE_DIR_HOST_RESOLVED }}:/home/range42/range42.config"
+                - "{{ VAULT_PASSWORD_FILE_HOST_RESOLVED }}:/run/secrets/vault_pass.txt:ro"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Run docker compose up -d --build
+      ansible.builtin.command:
+        cmd: docker compose up -d --build
+        chdir: "{{ REMOTE_PROJECT_DIR_RESOLVED }}"
+      register: compose_up_result
+      changed_when: >-
+        ('Started' in compose_up_result.stdout)
+        or ('Started' in compose_up_result.stderr)
+        or ('Recreated' in compose_up_result.stdout)
+        or ('Recreated' in compose_up_result.stderr)
+        or ('Built' in compose_up_result.stdout)
+        or ('Built' in compose_up_result.stderr)
+
+    - name: Show docker compose up output (last lines)
+      ansible.builtin.debug:
+        var: compose_up_result.stderr_lines
+      when: compose_up_result.stderr_lines | length > 0
+
+# ============================================================================
+
+- name: install deployer-api-backend - alembic migrate + /docs/openapi.json probe
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  vars:
+    REMOTE_PROJECT_DIR_RESOLVED: "{{ REMOTE_PROJECT_DIR | default('/var/www/range42_backend_api') }}"
+    API_PORT_RESOLVED: "{{ API_PORT | default('8000') }}"
+  tasks:
+    - name: Wait for API port to accept connections
+      ansible.builtin.wait_for:
+        port: "{{ API_PORT_RESOLVED }}"
+        host: 127.0.0.1
+        delay: 5
+        timeout: 180
+
+    - name: Run alembic migrations (alembic upgrade head, idempotent)
+      ansible.builtin.command:
+        cmd: docker compose exec -T api alembic upgrade head
+        chdir: "{{ REMOTE_PROJECT_DIR_RESOLVED }}"
+      register: alembic_result
+      changed_when: "'Running upgrade' in alembic_result.stdout or 'Running upgrade' in alembic_result.stderr"
+
+    - name: Probe /docs/openapi.json (same endpoint as container HEALTHCHECK)
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ API_PORT_RESOLVED }}/docs/openapi.json"
+        return_content: false
+        status_code: 200
+      register: api_status
+      retries: 10
+      delay: 5
+      until: api_status.status == 200
+
+    - name: Confirm backend is ready
+      ansible.builtin.debug:
+        msg: "deployer-api-backend ready on port {{ API_PORT_RESOLVED }}"
