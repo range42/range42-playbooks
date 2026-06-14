@@ -1,145 +1,42 @@
-##
-##
-
+#
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### vuln-box-01 - per-host CTF imports + firewall agregation  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
 
-- name: configure firewall - all
+- name: configure firewall - r42.vuln-box-01 (aggregated from imported CTF bundles)
   become: true
   hosts: r42.vuln-box-01
   roles:
     - software.configure.firewalls
-
   vars:
-    # variables will be overwrited by values  in _main.yml
+    # TODO derive from each bundle BUNDLE_PORTS_TCP once the contract is implemented
     firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
-      - ip: "all"
-        port: 8443
-        protocol: "tcp"
-      - ip: "all"
-        port: 9443
-        protocol: "tcp"
-      - ip: "all"
-        port: 2218
-        protocol: "tcp"
-      - ip: "all"
-        port: 2224
-        protocol: "tcp"
-      - ip: "all"
-        port: 2225
-        protocol: "tcp"
+      - { ip: "all", port: 22,   protocol: "tcp" }
+      - { ip: "all", port: 2218, protocol: "tcp" }   # openssh CVE-2018-15473
+      - { ip: "all", port: 2224, protocol: "tcp" }   # openssh CVE-2024-6387
+      - { ip: "all", port: 2225, protocol: "tcp" }   # erlang-ssh CVE-2025-32433
+      - { ip: "all", port: 8443, protocol: "tcp" }   # openssl CVE-2014-0160 (Heartbleed)
+      - { ip: "all", port: 9443, protocol: "tcp" }   # openssl CVE-2022-0778
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: DEPLOY - cve/crypto/openssl/CVE-2014-0160/" - exposed_port:8443
-  hosts: r42.vuln-box-01
-  become: true
-  roles:
-    - software.configure.docker-compose
-
-  vars_files:
-    - "../../secrets/default_vault.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/crypto/openssl/CVE-2014-0160/main.yml"
   vars:
-    LABEL_PROJECT_TYPE: "CTF"
-    LABEL_PROJET_NAME: "crypto-openssl-cve-2014-0160"
-    #
-    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/crypto/openssl/CVE-2014-0160/"
-    # REMOTE_PROJECT_DIR: "/tmp/deploy"
-    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
-    #
-    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
-    #
-    CLEAN_UP_DEPLOY_DIR: "NO"
-    SEND_POC_DIR: "YES"
+    global_vm_ssh_name: "r42.vuln-box-01"
 
-# ### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- name: DEPLOY - crypto-openssl-cve-2022-0778 - exposed_port:9443
-  hosts: r42.vuln-box-01
-  become: true
-  roles:
-    - software.configure.docker-compose
-
-  vars_files:
-    - "../../secrets/default_vault.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/crypto/openssl/CVE-2022-0778/main.yml"
   vars:
-    LABEL_PROJECT_TYPE: "CTF"
-    LABEL_PROJET_NAME: "crypto-openssl-cve-2022-0778"
-    #
-    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/crypto/openssl/CVE-2022-0778/"
-    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
-    #
-    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
-    #
-    CLEAN_UP_DEPLOY_DIR: "NO"
-    SEND_POC_DIR: "YES"
+    global_vm_ssh_name: "r42.vuln-box-01"
 
-# ### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- name: DEPLOY - erlang-ssh-CVE-2025-32433 - exposed_port:2225
-  hosts: r42.vuln-box-01
-  become: true
-  roles:
-    - software.configure.docker-compose
-
-  vars_files:
-    - "../../secrets/default_vault.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/network/erlang-ssh/CVE-2025-32433/main.yml"
   vars:
-    LABEL_PROJECT_TYPE: "CTF"
-    LABEL_PROJET_NAME: "erlang-ssh-CVE-2025-32433"
-    #
+    global_vm_ssh_name: "r42.vuln-box-01"
 
-    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/network/erlang-ssh/CVE-2025-32433"
-    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
-    #
-    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
-    #
-    CLEAN_UP_DEPLOY_DIR: "NO"
-    SEND_POC_DIR: "YES"
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- name: DEPLOY - openssh-cve-2018-15473 - exposed_port:2218
-  hosts: r42.vuln-box-01
-  become: true
-  roles:
-    - software.configure.docker-compose
-
-  vars_files:
-    - "../../secrets/default_vault.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/network/openssh/CVE-2018-15473/main.yml"
   vars:
-    LABEL_PROJECT_TYPE: "CTF"
-    LABEL_PROJET_NAME: "openssh-cve-2018-15473"
-    #
-    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/network/openssh/CVE-2018-15473"
-    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
-    #
-    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
-    #
-    CLEAN_UP_DEPLOY_DIR: "NO"
-    SEND_POC_DIR: "YES"
+    global_vm_ssh_name: "r42.vuln-box-01"
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- name: DEPLOY - openssh-cve-2024-6387 - exposed_port:2224
-  hosts: r42.vuln-box-01
-  become: true
-  roles:
-    - software.configure.docker-compose
-
-  vars_files:
-    - "../../secrets/default_vault.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/network/openssh/CVE-2024-6387/main.yml"
   vars:
-    LABEL_PROJECT_TYPE: "CTF"
-    LABEL_PROJET_NAME: "openssh-cve-2024-6387"
-    #
-    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/cve/network/openssh/CVE-2024-6387"
-    REMOTE_PROJECT_DIR: "/tmp/deploy-{{ LABEL_PROJET_NAME }}"
-    #
-    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
-    #
-    CLEAN_UP_DEPLOY_DIR: "NO"
-    SEND_POC_DIR: "YES"
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+    global_vm_ssh_name: "r42.vuln-box-01"
