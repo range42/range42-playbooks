@@ -8,9 +8,6 @@
   roles:
     - software.install.warmup.basic_packages
 
-  #
-  # variables will be overwrited by values  in _main.yml
-  #
   vars:
     INSTALL_PACKAGES_BASICS: "YES"
     INSTALL_PACKAGES_FIREWALLS: "YES"
@@ -19,7 +16,7 @@
     INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
     #
     INSTALL_PACKAGES_UTILS_JSON: "NO"
-    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+    INSTALL_PACKAGES_UTILS_NETWORK: "NO"
 
     INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
 
@@ -34,9 +31,6 @@
     - software.install.warmup.dot_files
 
   vars:
-    #
-    # variables will be overwrited by values  in _main.yml
-    #
     OPERATOR_USER: alice
     INSTALL_VIM_DOTFILES: "YES"
     INSTALL_ZSH_DOTFILES: "YES"
@@ -48,10 +42,6 @@
     - software.configure.firewalls
 
   vars:
-    #
-    # variables will be overwrited by values  in _main.yml
-    #
-
     firewall_rules:
       - ip: "all"
         port: 22
@@ -72,7 +62,7 @@
       - "vuln-box-03"
       - "vuln-box-04"
 
-    INSTALL_TAILSCALE: "NO" # variables defined in main
+    INSTALL_TAILSCALE: "NO"
 
     requested_tasks:
       - delete/tailscale_client.yml
@@ -99,11 +89,9 @@
   vars_files:
     - "../../secrets/default_vault.yml"
   vars:
-    #
-    # variables defined in vault
-    #
+    # tailscale_authkey is defined in vault
     tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
-    INSTALL_TAILSCALE: "NO" # variables defined in main
+    INSTALL_TAILSCALE: "NO"
 
   tasks:
     - block:

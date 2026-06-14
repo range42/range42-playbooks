@@ -13,32 +13,6 @@
 #
 
 - import_playbook: ./stage_01-vm_configure/_baseline_admin.yml
-  vars:
-    OPERATOR_USER: alice
-
-    INSTALL_VIM_DOTFILES: "YES"
-    INSTALL_ZSH_DOTFILES: "YES"
-
-    INSTALL_PACKAGES_BASICS: "YES"
-    INSTALL_PACKAGES_FIREWALLS: "YES"
-    #
-    INSTALL_PACKAGES_DOCKER: "NO"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "NO"
-    #
-    INSTALL_PACKAGES_UTILS_JSON: "NO"
-    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
-
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
-    # #
-
-    INSTALL_TAILSCALE: "NO"
-
-    # SPECIFIC_PACKAGES_CLEANING: "NO"
-
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 

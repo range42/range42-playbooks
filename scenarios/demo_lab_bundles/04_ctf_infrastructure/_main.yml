@@ -18,33 +18,6 @@
 #
 
 - import_playbook: ./stage_01-vm_configure/_baseline_vuln_box.yml
-
-  vars:
-    OPERATOR_USER: alice
-
-    INSTALL_VIM_DOTFILES: "YES"
-    INSTALL_ZSH_DOTFILES: "YES"
-
-    INSTALL_PACKAGES_BASICS: "YES"
-    INSTALL_PACKAGES_FIREWALLS: "YES"
-    #
-    INSTALL_PACKAGES_DOCKER: "YES"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
-    #
-    INSTALL_PACKAGES_UTILS_JSON: "NO"
-    INSTALL_PACKAGES_UTILS_NETWORK: "NO"
-
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
-    # #
-
-    INSTALL_TAILSCALE: "NO"
-
-    # SPECIFIC_PACKAGES_CLEANING: "NO"
-
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # - import_playbook: ./stage_01-vm_configure/vuln_box_00.yml
 # vars:
