@@ -12,7 +12,7 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 
-- import_playbook: ./stage_01/_r42_admin.yml
+- import_playbook: ./stage_01-vm_configure/_baseline_admin.yml
   vars:
     OPERATOR_USER: alice
 
@@ -42,19 +42,19 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: ./stage_01/deployer_ui.yml
+- import_playbook: ./stage_01-vm_configure/deployer_ui.yml
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 #
-# wazuh stage_01 is split into two shared bundles that mirror the catalog
+# wazuh vm-configure is split into two shared bundles that mirror the catalog
 # convention (admin/software.install.<name>) :
 #
 #   - bundles/admin/software.install.wazuh         (server stack on r42.admin-wazuh)
 #   - bundles/admin/software.install.wazuh-agent   (agent install on wazuh client group)
 #
-# Both replace the per-scenario duplicated stage_01/mon_wazuh.yml. The local
-# stage_01/mon_wazuh.yml is left in place but no longer imported.
+# Both replace the per-scenario duplicated stage_01-vm_configure/mon_wazuh.yml.
+# The local stage_01-vm_configure/mon_wazuh.yml is left in place but no longer imported.
 #
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh/main.yml"
   when: INSTALL_WAZUH | default("YES") | upper == "YES"

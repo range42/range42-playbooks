@@ -13,7 +13,7 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 # #
 
-- import_playbook: ./stage_01/_r42_student_box_group.yml
+- import_playbook: ./stage_01-vm_configure/_baseline_student.yml
   vars:
     OPERATOR_USER: alice
 
@@ -43,6 +43,6 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: ./stage_01/student_box_01.yml
+- import_playbook: ./stage_01-vm_configure/student_box_01.yml
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

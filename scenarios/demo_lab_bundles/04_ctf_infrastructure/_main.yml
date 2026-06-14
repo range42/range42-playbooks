@@ -17,7 +17,7 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 
-- import_playbook: ./stage_01/_r42_vuln_box_group.yml
+- import_playbook: ./stage_01-vm_configure/_baseline_vuln_box.yml
 
   vars:
     OPERATOR_USER: alice
@@ -46,26 +46,26 @@
         port: 22
         protocol: "tcp"
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# - import_playbook: ./stage_01/vuln_box_00.yml
+# - import_playbook: ./stage_01-vm_configure/vuln_box_00.yml
 # vars:
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# - import_playbook: ./stage_01/vuln_box_01.yml
+# - import_playbook: ./stage_01-vm_configure/vuln_box_01.yml
 #   vars:
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# - import_playbook: ./stage_01/vuln_box_02.yml
+# - import_playbook: ./stage_01-vm_configure/vuln_box_02.yml
 #   vars:
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# - import_playbook: ./stage_01/vuln_box_03.yml
+# - import_playbook: ./stage_01-vm_configure/vuln_box_03.yml
 #   vars:
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# - import_playbook: ./stage_01/vuln_box_04.yml
+# - import_playbook: ./stage_01-vm_configure/vuln_box_04.yml
 #   vars:
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
