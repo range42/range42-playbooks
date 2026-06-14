@@ -16,9 +16,11 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: ./stage_01-vm_configure/deployer_ui.yml
-
 - import_playbook: ./stage_01-vm_configure/admin-wazuh.yml
+
+- import_playbook: ./stage_01-vm_configure/deployer_api_gateway.yml
+
+- import_playbook: ./stage_01-vm_configure/deployer_ui.yml
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 

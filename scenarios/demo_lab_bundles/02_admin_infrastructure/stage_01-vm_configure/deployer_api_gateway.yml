@@ -1,71 +1,16 @@
 ##
+## admin-deployer-api-gateway - Kong API Gateway (community, POC)
 ##
+## Delegates to the shared bundle which provisions Kong in DB-less mode :
+## APT repo + package install + minimal kong.conf + empty declarative
+## kong.yml + firewall ports 8000/8443 + systemd start + /status probe.
+##
+## To migrate to a Postgres-backed setup for production, swap the bundle
+## to software.install.kong-postgres (out of scope for this POC, see
+## bundles/admin/software.install.kong/README.md).
 ##
 
-- name: install basics packages
-  hosts: r42_admin
-  become: true
-  roles:
-    - software.install.warmup.basic_packages
-
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.kong/main.yml"
   vars:
-    INSTALL_PACKAGES_BASICS: "YES"
-    INSTALL_PACKAGES_FIREWALLS: "YES"
-    #
-    INSTALL_PACKAGES_DOCKER: "YES"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
-    #
-    INSTALL_PACKAGES_UTILS_JSON: "NO"
-    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
-
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
-    # #
-
-    # SPECIFIC_PACKAGES_CLEANING: "NO"
-# #
-# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-# #
-
-- name: install dot files
-  hosts: r42_admin
-  become: true
-  roles:
-    - software.install.warmup.dot_files
-
-  vars:
-    OPERATOR_USER: alice
-
-    INSTALL_VIM_DOTFILES: "YES"
-    INSTALL_ZSH_DOTFILES: "YES"
-
-- name: configure firewall - all
-  become: true
-  hosts: r42_admin
-  roles:
-    - software.configure.firewalls
-  vars:
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
-#
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#
-
-# - hosts: r42_admin
-#   become: true
-
-#   vars_files:
-#     - "../../secrets/default_vault.yml"
-
-#   vars:
-#     tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
-
-#   roles:
-#     - software.install.tailscale
-
-# - hosts: r42_admin
-#   become: true
-#   roles:
-#     - software.configure.tailscale_disable_nftables
-#   vars:
+    global_vm_ssh_name: "r42.admin-deployer-api-gateway"
+    global_vm_ci_ip:    "192.168.142.101"
