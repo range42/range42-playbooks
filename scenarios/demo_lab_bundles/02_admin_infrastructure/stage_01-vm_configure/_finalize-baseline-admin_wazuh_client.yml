@@ -1,0 +1,16 @@
+##
+## _finalize-baseline-admin_wazuh_client - group-level post-setup action
+##
+## Installs the wazuh agent on the admin wazuh clients group. Must run AFTER
+## the wazuh server (admin-wazuh.yml) has been deployed so the agents can
+## enroll with the manager.
+##
+## Group-level scope : targets r42_admin_wazuh_clients (multiple hosts) ;
+## not a per-host file, hence the `_finalize-baseline-` naming convention.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh-agent/main.yml"
+  when: INSTALL_WAZUH | default("YES") | upper == "YES"
+  vars:
+    wazuh_clients_group: "r42_admin_wazuh_clients"
+    global_vm_ci_ip:     "192.168.142.100"
