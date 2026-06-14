@@ -16,11 +16,11 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# - import_playbook: ./stage_01-vm_configure/vuln_box_00.yml
-# - import_playbook: ./stage_01-vm_configure/vuln_box_01.yml
-# - import_playbook: ./stage_01-vm_configure/vuln_box_02.yml
-# - import_playbook: ./stage_01-vm_configure/vuln_box_03.yml
-# - import_playbook: ./stage_01-vm_configure/vuln_box_04.yml
+- import_playbook: ./stage_01-vm_configure/vuln_box_00.yml
+- import_playbook: ./stage_01-vm_configure/vuln_box_01.yml
+- import_playbook: ./stage_01-vm_configure/vuln_box_02.yml
+- import_playbook: ./stage_01-vm_configure/vuln_box_03.yml
+- import_playbook: ./stage_01-vm_configure/vuln_box_04.yml
 
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
