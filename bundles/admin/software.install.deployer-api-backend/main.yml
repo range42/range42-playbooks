@@ -12,19 +12,30 @@
 #      (via software.install.warmup.basic_packages with INSTALL_PACKAGES_DOCKER
 #      + INSTALL_PACKAGES_DOCKER_COMPOSE flags)
 #   2. Configure firewall on the host : open API_PORT, keep 22
-#   3. Create workspace dir on the host (SQLite + events.jsonl persistence)
-#      + sync the backend-api source tree from the controller to the VM
-#        (used as Docker build context only - code is BAKED into the image
-#        at build time per the upstream README, not bind-mounted at runtime)
-#      + render .env (image tag, ports, UID/GID, CORS regex, workspace path,
-#        WEB_CONCURRENCY=1 invariant) + docker-compose.override.yml (runtime
-#        bind-mount for the workspace dir)
-#      + `docker compose up -d --build` (builds the multi-stage image
-#        locally on the VM ; the upstream README's canonical quick-start)
-#   4. Wait for /docs/openapi.json to return 200 (the container's own
-#      healthcheck uses the same endpoint ; schema bootstrap is handled
-#      in-process by the app on startup, per the upstream README - no
-#      explicit alembic step needed)
+#   3. Provision workspace + playbooks + backend-api source on the host :
+#      - Rsync the active range42-context workspace from controller
+#        ($RANGE42_ACTIVE_CONFIG_DIR) to /home/range42/range42.config/<C>-<S>/
+#      - Bridge SSH key naming (admin_keys symlink to backend_keys ;
+#        alice/bob key files aliased to backend's expected
+#        r42.deployer-key_<user> via relative symlinks)
+#      - Rsync the range42-playbooks repo from controller to
+#        /home/range42/range42-playbooks/ (bind-mounted RO into container ;
+#        used by backend to launch ansible-runner against scenarios/_universal)
+#      - Rsync the backend-api source (Docker build context only, BAKED into
+#        the image at build time per upstream README, not bind-mounted)
+#      - Render .env (PORT, UID/GID, CORS, RANGE42_WORKSPACE_ROOT,
+#        API_BACKEND_WWWAPP_PLAYBOOKS_DIR, RANGE42_DB_URL,
+#        WEB_CONCURRENCY=1 invariant)
+#      - Render docker-compose.override.yml (bind-mount workspace + playbooks RO)
+#      - `docker compose up -d --build`
+#   4. Wait for /docs/openapi.json to return 200 (container HEALTHCHECK uses
+#      the same endpoint ; schema bootstrap is handled in-process by the app
+#      on startup per the upstream README - no explicit alembic step needed)
+#   5. Post-deploy seed : register the Proxmox host with the backend via
+#      POST /v1/proxmox/hosts (idempotent via 409 ; reads creds from
+#      <workspace>/secrets/default_vault.yml). Required before any deploy
+#      via the backend can succeed (the backend looks up target_host_id in
+#      its proxmox_hosts table).
 #
 # REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
 #   - global_vm_ssh_name : inventory hostname for the backend VM
@@ -41,8 +52,28 @@
 #                                     (default /home/range42/range42.config) -
 #                                     also contains the operator's vault_pass.txt
 #                                     per workspace (<C>-<S>/secrets/vault_pass.txt)
+#   - PLAYBOOKS_DEST_DIR            : host path where range42-playbooks is rsynced
+#                                     (default /home/range42/range42-playbooks ;
+#                                     bind-mounted RO into the container,
+#                                     read by ansible-runner via
+#                                     API_BACKEND_WWWAPP_PLAYBOOKS_DIR)
 #   - DEPLOYER_UI_CORS_REGEX        : CORS regex passed to the backend
 #                                     (default matches http(s)://r42.admin-deployer-ui:<any>)
+#
+# REQUIRED env (sourced on controller via range42-context use <C> <S>) :
+#   - RANGE42_ACTIVE_CONFIG_DIR     : active workspace dir on the controller
+#                                     (e.g. ~/range42.config/<C>-<S>)
+#   - RANGE42_INFRASTRUCTURE_CODENAME, RANGE42_INFRASTRUCTURE_LAB
+#   - RANGE42_GITDIR__ROOT_DIR
+#   - RANGE42_ACTIVE_WORKSPACE      : <C>-<S> workspace dir name
+#
+# Precondition : `range42-context use <C> <S>` MUST be active before running.
+# It exports the env vars above AND sets ANSIBLE_CONFIG so the encrypted
+# vault loaded by Play 5 decrypts automatically.
+#
+# Known gap : POST /v1/sources (Git PAT registration per Philippe's design
+# note) is NOT seeded by this bundle. Operator must register sources
+# manually post-deploy, OR add a `github_pat` vault key and extend Play 5.
 #
 # Backend connection (CORS path) :
 #   The deployer-ui bundle adopts the CORS path - the UI calls this backend
@@ -99,7 +130,7 @@
 
 # ============================================================================
 
-- name: install deployer-api-backend - workspace + source sync + .env + compose up
+- name: install deployer-api-backend - workspace + playbooks + source sync + .env + compose up
   hosts: "{{ global_vm_ssh_name }}"
   become: true
   vars:
@@ -107,6 +138,10 @@
     REMOTE_PROJECT_DIR_RESOLVED: "{{ REMOTE_PROJECT_DIR | default('/var/www/range42_backend_api') }}"
     API_PORT_RESOLVED: "{{ API_PORT | default('8000') }}"
     WORKSPACE_DIR_HOST_RESOLVED: "{{ WORKSPACE_DIR_HOST | default('/home/range42/range42.config') }}"
+    PLAYBOOKS_DEST_RESOLVED: "{{ PLAYBOOKS_DEST_DIR | default('/home/range42/range42-playbooks') }}"
+    PLAYBOOKS_SRC_RESOLVED: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/"
+    WORKSPACE_SRC_RESOLVED: "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}"
+    WORKSPACE_DIR_NAME: "{{ lookup('env', 'RANGE42_ACTIVE_WORKSPACE') }}"
     DEPLOYER_UI_CORS_REGEX_RESOLVED: "{{ DEPLOYER_UI_CORS_REGEX | default('^https?://r42\\.admin-deployer-ui(:\\d+)?$') }}"
     CONTAINER_UID: 1000
     CONTAINER_GID: 1000
@@ -132,6 +167,56 @@
         owner: root
         group: root
         mode: "0755"
+
+    - name: Sync active range42-context workspace from controller to backend host
+      ansible.posix.synchronize:
+        src: "{{ WORKSPACE_SRC_RESOLVED }}"
+        dest: "{{ WORKSPACE_DIR_HOST_RESOLVED }}/"
+        delete: false
+        recursive: true
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=__pycache__"
+
+    - name: Bridge SSH key naming - admin_keys symlink to backend_keys
+      ansible.builtin.file:
+        src: backend_keys
+        dest: "{{ WORKSPACE_DIR_HOST_RESOLVED }}/{{ WORKSPACE_DIR_NAME }}/ssh_keys/admin_keys"
+        state: link
+        force: true
+
+    - name: Bridge SSH key naming - alice key alias for backend lookup
+      ansible.builtin.file:
+        src: "r42.{{ WORKSPACE_DIR_NAME }}-deployer-key_alice"
+        dest: "{{ WORKSPACE_DIR_HOST_RESOLVED }}/{{ WORKSPACE_DIR_NAME }}/ssh_keys/backend_keys/r42.deployer-key_alice"
+        state: link
+        force: true
+
+    - name: Bridge SSH key naming - bob key alias for backend lookup
+      ansible.builtin.file:
+        src: "r42.{{ WORKSPACE_DIR_NAME }}-student-key_bob"
+        dest: "{{ WORKSPACE_DIR_HOST_RESOLVED }}/{{ WORKSPACE_DIR_NAME }}/ssh_keys/student_keys/r42.deployer-key_bob"
+        state: link
+        force: true
+
+    - name: Create playbooks dest dir on backend host
+      ansible.builtin.file:
+        path: "{{ PLAYBOOKS_DEST_RESOLVED }}"
+        state: directory
+        owner: "{{ CONTAINER_UID }}"
+        group: "{{ CONTAINER_GID }}"
+        mode: "0755"
+
+    - name: Sync range42-playbooks repo from controller to backend host
+      ansible.posix.synchronize:
+        src: "{{ PLAYBOOKS_SRC_RESOLVED }}"
+        dest: "{{ PLAYBOOKS_DEST_RESOLVED }}/"
+        delete: true
+        recursive: true
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=__pycache__"
+          - "--exclude=.pytest_cache"
 
     - name: Sync backend-api source from controller to remote project dir
       ansible.posix.synchronize:
@@ -170,7 +255,8 @@
           # Vault password file - empty by default (matches upstream .env.example).
           # The workspace bind-mount makes each deployment's vault_pass.txt available
           # inside the container at /home/range42/range42.config/<C>-<S>/secrets/vault_pass.txt.
-          # Backend resolves the per-deployment path at runtime ; no global default.
+          # Backend resolves the per-deployment path at runtime and passes it to
+          # ansible-runner as ANSIBLE_VAULT_PASSWORD_FILE ; no global default here.
           VAULT_PASSWORD_FILE=
 
           # CORS - allow the deployer-ui origin (browser sends Origin header)
@@ -178,6 +264,16 @@
 
           # Workspace dir INSIDE the container (bind-mounted via override compose)
           RANGE42_WORKSPACE_ROOT=/home/range42/range42.config
+
+          # Playbooks repo INSIDE the container (bind-mounted RO via override compose).
+          # Must contain scenarios/_universal/main.yml (per Philippe's design ; the
+          # backend launches ansible-runner against this path).
+          API_BACKEND_WWWAPP_PLAYBOOKS_DIR=/home/range42/range42-playbooks
+
+          # SQLite DB - file lives in the workspace bind-mount, so it survives
+          # container restarts and is browsable from the host. Async stack
+          # (aiosqlite) - prefix required by backend's create_async_engine.
+          RANGE42_DB_URL=sqlite+aiosqlite:////home/range42/range42.config/.range42.db
 
           # Single-worker invariant per backend requirement
           # (SSE state lives in-process ; multi-worker corrupts it silently)
@@ -190,20 +286,34 @@
         group: root
         mode: "0644"
 
-    - name: Render docker-compose.override.yml (bind-mount workspace)
+    - name: Render docker-compose.override.yml (bind-mount workspace + playbooks RO)
       ansible.builtin.copy:
         dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/docker-compose.override.yml"
         content: |
-          # Managed by range42 - additional bind-mount on top of the upstream compose.
-          # Mounts the persistent workspace dir (SQLite + events.jsonl + per-deployment
-          # secrets/ including vault_pass.txt) at /home/range42/range42.config.
+          # Managed by range42 - additional bind-mounts on top of the upstream compose.
+          # 1. Workspace dir (RW) : SQLite + events.jsonl + per-deployment secrets/
+          #    (vault_pass.txt + default_vault.yml) + ssh_keys/ + inventory/.
+          # 2. Playbooks repo (RO) : ansible-runner reads from here to launch
+          #    scenarios/_universal and its bundles. Read-only by design ; updates
+          #    require a fresh bundle run (which re-rsyncs from controller).
           services:
             api:
               volumes:
                 - "{{ WORKSPACE_DIR_HOST_RESOLVED }}:/home/range42/range42.config"
+                - "{{ PLAYBOOKS_DEST_RESOLVED }}:/home/range42/range42-playbooks:ro"
         owner: root
         group: root
         mode: "0644"
+
+    - name: Chown workspace + playbooks trees to container UID/GID (post-rsync)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: "{{ CONTAINER_UID }}"
+        group: "{{ CONTAINER_GID }}"
+        recurse: true
+      loop:
+        - "{{ WORKSPACE_DIR_HOST_RESOLVED }}/{{ WORKSPACE_DIR_NAME }}"
+        - "{{ PLAYBOOKS_DEST_RESOLVED }}"
 
     - name: Run docker compose up -d --build
       ansible.builtin.command:
@@ -251,3 +361,30 @@
     - name: Confirm backend is ready
       ansible.builtin.debug:
         msg: "deployer-api-backend ready on port {{ API_PORT_RESOLVED }}"
+
+# ============================================================================
+
+- name: install deployer-api-backend - post-deploy seed (register Proxmox host)
+  hosts: "{{ global_vm_ssh_name }}"
+  become: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    API_PORT_RESOLVED: "{{ API_PORT | default('8000') }}"
+  tasks:
+    - name: Register Proxmox host with backend (idempotent via 409)
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ API_PORT_RESOLVED }}/v1/proxmox/hosts"
+        method: POST
+        body_format: json
+        body:
+          name: "{{ lookup('env', 'RANGE42_INFRASTRUCTURE_CODENAME') }}"
+          api_url: "https://{{ proxmox_api_host }}:8006"
+          node_name: "{{ proxmox_node }}"
+          token_ref: "{{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+        status_code: [200, 201, 409]
+      register: register_proxmox_result
+
+    - name: Show Proxmox host registration result
+      ansible.builtin.debug:
+        msg: "Proxmox host registration on backend : HTTP {{ register_proxmox_result.status }} (200/201 = created, 409 = already registered)"
