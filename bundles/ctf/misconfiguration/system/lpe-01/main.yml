@@ -29,6 +29,8 @@
 - name: deploy CTF - linux SUID LPE misconfig (lpe-01) - exposed_port:2222
   hosts: "{{ global_vm_ssh_name }}"
   become: true
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
   roles:
     - software.configure.docker-compose
   vars:
