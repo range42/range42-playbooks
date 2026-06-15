@@ -12,7 +12,12 @@
 #      (via software.install.warmup.basic_packages with INSTALL_PACKAGES_DOCKER
 #      + INSTALL_PACKAGES_DOCKER_COMPOSE flags)
 #   2. Configure firewall on the host : open API_PORT, keep 22
-#   3. Provision workspace + playbooks + backend-api source on the host :
+#   3. Conditional tailscale install : if proxmox_api_host (from vault) matches
+#      `.ts.net` then install + join the tailnet so the backend container can
+#      resolve and reach the Proxmox API. Skipped entirely when proxmox_api_host
+#      is a regular IP / hostname. Runs BEFORE compose up so the container
+#      inherits the correct /etc/resolv.conf at create time.
+#   4. Provision workspace + playbooks + backend-api source on the host :
 #      - Rsync the active range42-context workspace from controller
 #        ($RANGE42_ACTIVE_CONFIG_DIR) to /home/range42/range42.config/<C>-<S>/
 #      - Bridge SSH key naming (admin_keys symlink to backend_keys ;
@@ -28,10 +33,13 @@
 #        WEB_CONCURRENCY=1 invariant)
 #      - Render docker-compose.override.yml (bind-mount workspace + playbooks RO)
 #      - `docker compose up -d --build`
-#   4. Wait for /docs/openapi.json to return 200 (container HEALTHCHECK uses
-#      the same endpoint ; schema bootstrap is handled in-process by the app
-#      on startup per the upstream README - no explicit alembic step needed)
-#   5. Post-deploy seed : register the Proxmox host with the backend via
+#      - `alembic upgrade head` via `docker compose run --rm` with bind-mounts
+#        of alembic.ini + alembic/ (the upstream Dockerfile does NOT COPY them
+#        into the image, and the backend startup hook does NOT create_all the
+#        schema, so this explicit step is required for the first deploy).
+#   5. Wait for /docs/openapi.json to return 200 (container HEALTHCHECK uses
+#      the same endpoint).
+#   6. Post-deploy seed : register the Proxmox host with the backend via
 #      POST /v1/proxmox/hosts (idempotent via 409 ; reads creds from
 #      <workspace>/secrets/default_vault.yml). Required before any deploy
 #      via the backend can succeed (the backend looks up target_host_id in
@@ -127,6 +135,24 @@
       - ip: "all"
         port: "{{ API_PORT | default('8000') }}"
         protocol: "tcp"
+
+# ============================================================================
+
+- name: install deployer-api-backend - conditional tailscale (gated on proxmox_api_host matching .ts.net)
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
+  tasks:
+    - name: Install + configure tailscale if backend needs to reach Proxmox via tailnet
+      block:
+        - include_role:
+            name: software.install.tailscale
+        - include_role:
+            name: software.configure.tailscale_disable_nftables
+      when: (proxmox_api_host | default('')) is search('\.ts\.net(:[0-9]+)?$')
 
 # ============================================================================
 
