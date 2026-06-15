@@ -379,7 +379,7 @@
         body_format: json
         body:
           name: "{{ lookup('env', 'RANGE42_INFRASTRUCTURE_CODENAME') }}"
-          api_url: "https://{{ proxmox_api_host }}:8006"
+          api_url: "https://{{ proxmox_api_host }}"
           node_name: "{{ proxmox_node }}"
           token_ref: "{{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
         status_code: [200, 201, 409]
