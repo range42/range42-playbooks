@@ -78,6 +78,24 @@
 
 # ============================================================================
 
+- name: install deployer-ui - conditional tailscale (gated on proxmox_api_host matching .ts.net)
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
+  tasks:
+    - name: Install + configure tailscale if operator reaches the UI via tailnet
+      block:
+        - include_role:
+            name: software.install.tailscale
+        - include_role:
+            name: software.configure.tailscale_disable_nftables
+      when: (proxmox_api_host | default('')) is search('\.ts\.net(:[0-9]+)?$')
+
+# ============================================================================
+
 - name: install deployer-ui - sync source + .env + docker compose up
   hosts: "{{ global_vm_ssh_name }}"
   become: true
