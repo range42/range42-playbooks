@@ -1,8 +1,7 @@
 #!/bin/bash
 
 ##
-## VM filter is derived from manifest/scenario_vms.json (role=admin),
-## not from brittle vm_name regex.
+## VM filter is derived from manifest/scenario_vms.json (role=ctf).
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,8 +12,8 @@ if [[ ! -f "$MANIFEST" ]]; then
     exit 1
 fi
 
-mapfile -t VM_IDS < <(jq -r '.vms[] | select(.role == "admin") | .vm_id' "$MANIFEST")
-mapfile -t VM_IPS < <(jq -r '.vms[] | select(.role == "admin") | .ip'    "$MANIFEST")
+mapfile -t VM_IDS < <(jq -r '.vms[] | select(.role == "ctf") | .vm_id' "$MANIFEST")
+mapfile -t VM_IPS < <(jq -r '.vms[] | select(.role == "ctf") | .ip'    "$MANIFEST")
 ID_REGEX=$(printf '|%s' "${VM_IDS[@]}" | sed 's/^|//')
 
 for ip in "${VM_IPS[@]}"; do

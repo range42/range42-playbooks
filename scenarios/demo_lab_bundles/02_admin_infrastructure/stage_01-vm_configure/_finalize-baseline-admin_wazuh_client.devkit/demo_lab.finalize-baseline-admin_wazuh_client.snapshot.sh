@@ -1,7 +1,9 @@
 #!/bin/bash
 
 ##
-## VM filter is derived from manifest/scenario_vms.json (role=ctf).
+## VM filter is derived from manifest/scenario_vms.json - admin VMs whose
+## vm_name starts with `admin-deployer-` (the r42_admin_wazuh_clients group,
+## excluding the wazuh server itself).
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,7 +14,7 @@ if [[ ! -f "$MANIFEST" ]]; then
     exit 1
 fi
 
-mapfile -t VM_IDS < <(jq -r '.vms[] | select(.role == "ctf") | .vm_id' "$MANIFEST")
+mapfile -t VM_IDS < <(jq -r '.vms[] | select(.role == "admin" and (.vm_name | startswith("admin-deployer-"))) | .vm_id' "$MANIFEST")
 ID_REGEX=$(printf '|%s' "${VM_IDS[@]}" | sed 's/^|//')
 
 VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh | grep '"vm_id":[0-9]')
