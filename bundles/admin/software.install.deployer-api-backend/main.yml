@@ -333,6 +333,24 @@
         var: compose_up_result.stderr_lines
       when: compose_up_result.stderr_lines | length > 0
 
+    - name: Run alembic upgrade head (schema bootstrap, bind-mount alembic.ini + alembic/)
+      ansible.builtin.command:
+        cmd: >-
+          docker compose run --rm
+          -v {{ REMOTE_PROJECT_DIR_RESOLVED }}/alembic.ini:/app/alembic.ini:ro
+          -v {{ REMOTE_PROJECT_DIR_RESOLVED }}/alembic:/app/alembic:ro
+          api alembic upgrade head
+        chdir: "{{ REMOTE_PROJECT_DIR_RESOLVED }}"
+      register: alembic_result
+      changed_when: >-
+        ('Running upgrade' in alembic_result.stdout)
+        or ('Running upgrade' in alembic_result.stderr)
+
+    - name: Show alembic upgrade output (last lines)
+      ansible.builtin.debug:
+        var: alembic_result.stdout_lines
+      when: alembic_result.stdout_lines | length > 0
+
 # ============================================================================
 
 - name: install deployer-api-backend - /docs/openapi.json probe
