@@ -1,0 +1,51 @@
+# ============================================================================
+# bundles/core/system-baseline-with-utils/main.yml
+# ============================================================================
+# System baseline profile : adds the UTILS packages (network + json) to the
+# base. For VMs that need a CLI debug toolkit (ping, dig, curl, jq, etc.)
+# beyond the bare minimum.
+#
+# Identical structure to `system-baseline-default`, only the defaults differ :
+#   INSTALL_PACKAGES_UTILS_JSON     defaults to YES (vs NO in default)
+#   INSTALL_PACKAGES_UTILS_NETWORK  defaults to YES (same as default)
+#
+# Dotfiles (vim + zsh) installed by default in every system-baseline-* profile
+# per project convention. Override only if the caller has a strong reason.
+#
+# REQUIRED vars : target_group
+#
+# Example call-site :
+#
+# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-with-utils/main.yml"
+#   vars:
+#     target_group: "r42_student_box_group"
+# ============================================================================
+
+- name: system-baseline-with-utils - install basics packages
+  hosts: "{{ target_group }}"
+  become: true
+  pre_tasks:
+    - name: Apply system-baseline-with-utils defaults (packages play)
+      ansible.builtin.set_fact:
+        INSTALL_PACKAGES_BASICS: "{{ INSTALL_PACKAGES_BASICS | default('YES') }}"
+        INSTALL_PACKAGES_FIREWALLS: "{{ INSTALL_PACKAGES_FIREWALLS | default('YES') }}"
+        INSTALL_PACKAGES_DOCKER: "{{ INSTALL_PACKAGES_DOCKER | default('NO') }}"
+        INSTALL_PACKAGES_DOCKER_COMPOSE: "{{ INSTALL_PACKAGES_DOCKER_COMPOSE | default('NO') }}"
+        INSTALL_PACKAGES_UTILS_JSON: "{{ INSTALL_PACKAGES_UTILS_JSON | default('YES') }}"
+        INSTALL_PACKAGES_UTILS_NETWORK: "{{ INSTALL_PACKAGES_UTILS_NETWORK | default('YES') }}"
+        INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "{{ INSTALL_PACKAGES_NTP_AND_UPDATE_TIME | default('YES') }}"
+        SPECIFIC_PACKAGES_CLEANING: "{{ SPECIFIC_PACKAGES_CLEANING | default('NO') }}"
+  roles:
+    - software.install.warmup.basic_packages
+
+- name: system-baseline-with-utils - install dot files
+  hosts: "{{ target_group }}"
+  become: true
+  pre_tasks:
+    - name: Apply system-baseline-with-utils defaults (dotfiles play)
+      ansible.builtin.set_fact:
+        OPERATOR_USER: "{{ OPERATOR_USER | default('alice') }}"
+        INSTALL_VIM_DOTFILES: "{{ INSTALL_VIM_DOTFILES | default('YES') }}"
+        INSTALL_ZSH_DOTFILES: "{{ INSTALL_ZSH_DOTFILES | default('YES') }}"
+  roles:
+    - software.install.warmup.dot_files
