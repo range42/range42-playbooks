@@ -10,8 +10,8 @@
 #   target_group : ansible group name (e.g. r42_admin, r42_student_box_group,
 #                  r42_vuln_box_group)
 #
-# OPTIONAL vars (defaults applied via set_fact pre_tasks ; pass at call-site
-# to override per scenario group) :
+# OPTIONAL vars (defaults applied via role-level vars ; pass at call-site to
+# override per scenario group) :
 #   INSTALL_PACKAGES_BASICS               (default YES)
 #   INSTALL_PACKAGES_FIREWALLS            (default YES)
 #   INSTALL_PACKAGES_DOCKER               (default NO)
@@ -24,8 +24,9 @@
 #   INSTALL_VIM_DOTFILES                  (default YES)
 #   INSTALL_ZSH_DOTFILES                  (default YES)
 #
-# Variable names are preserved verbatim from the previous monolithic
-# `baseline` bundle - same contract, just packages + dotfiles now.
+# Defaults are applied via role-level vars (scoped to the role invocation),
+# NOT via set_fact (which would poison host facts and silently override
+# downstream plays trying to use different values).
 #
 # Example call-site :
 #
@@ -38,9 +39,9 @@
 - name: system-baseline-default - install basics packages
   hosts: "{{ target_group }}"
   become: true
-  pre_tasks:
-    - name: Apply system-baseline defaults (packages play)
-      ansible.builtin.set_fact:
+  roles:
+    - role: software.install.warmup.basic_packages
+      vars:
         INSTALL_PACKAGES_BASICS: "{{ INSTALL_PACKAGES_BASICS | default('YES') }}"
         INSTALL_PACKAGES_FIREWALLS: "{{ INSTALL_PACKAGES_FIREWALLS | default('YES') }}"
         INSTALL_PACKAGES_DOCKER: "{{ INSTALL_PACKAGES_DOCKER | default('NO') }}"
@@ -49,17 +50,13 @@
         INSTALL_PACKAGES_UTILS_NETWORK: "{{ INSTALL_PACKAGES_UTILS_NETWORK | default('YES') }}"
         INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "{{ INSTALL_PACKAGES_NTP_AND_UPDATE_TIME | default('YES') }}"
         SPECIFIC_PACKAGES_CLEANING: "{{ SPECIFIC_PACKAGES_CLEANING | default('NO') }}"
-  roles:
-    - software.install.warmup.basic_packages
 
 - name: system-baseline-default - install dot files
   hosts: "{{ target_group }}"
   become: true
-  pre_tasks:
-    - name: Apply system-baseline defaults (dotfiles play)
-      ansible.builtin.set_fact:
+  roles:
+    - role: software.install.warmup.dot_files
+      vars:
         OPERATOR_USER: "{{ OPERATOR_USER | default('alice') }}"
         INSTALL_VIM_DOTFILES: "{{ INSTALL_VIM_DOTFILES | default('YES') }}"
         INSTALL_ZSH_DOTFILES: "{{ INSTALL_ZSH_DOTFILES | default('YES') }}"
-  roles:
-    - software.install.warmup.dot_files

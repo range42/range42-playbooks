@@ -6,8 +6,9 @@
 #              VMs don't conflict with their previous identity in the tailnet).
 #   - Play 2 : install tailscale + disable nftables on the target group's VMs.
 #
-# Both plays are gated by `INSTALL_TAILSCALE` (default NO). When NO, the bundle
-# is effectively a no-op (no rules deleted, no install).
+# Both plays are gated by `INSTALL_TAILSCALE` (default NO ; default applied
+# inline in the `when:` clause, NOT via set_fact, to avoid poisoning host
+# facts that downstream plays may need to override).
 #
 # Replaces the duplicated 2-play tailscale block that previously lived inline
 # in each scenario's `_baseline_<group>.yml`.
@@ -17,8 +18,7 @@
 #   tailscale_hostnames : list of short hostnames for cleanup on wazuh server
 #                         (e.g. ["admin-wazuh", "admin-deployer-api-gateway", ...])
 #
-# OPTIONAL vars (defaults applied via set_fact pre_tasks ; pass at call-site
-# to override) :
+# OPTIONAL vars :
 #   INSTALL_TAILSCALE        (default NO ; gates BOTH plays)
 #   tailscale_cleanup_host   (default r42.admin-wazuh ; the wazuh server host)
 #
@@ -47,10 +47,6 @@
   vars:
     requested_tasks:
       - delete/tailscale_client.yml
-  pre_tasks:
-    - name: Apply tailscale defaults (cleanup play)
-      ansible.builtin.set_fact:
-        INSTALL_TAILSCALE: "{{ INSTALL_TAILSCALE | default('NO') }}"
   tasks:
     - name: TASK DYNAMIC INCLUDE FROM ansible.utils
       include_role:
@@ -58,7 +54,7 @@
       loop: "{{ tailscale_hostnames }}"
       loop_control:
         loop_var: tailscale_hostname
-      when: INSTALL_TAILSCALE | upper == "YES"
+      when: INSTALL_TAILSCALE | default('NO') | upper == "YES"
 
 - name: tailscale - install + disable nftables on target group
   hosts: "{{ target_group }}"
@@ -67,14 +63,10 @@
     - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
   vars:
     tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
-  pre_tasks:
-    - name: Apply tailscale defaults (install play)
-      ansible.builtin.set_fact:
-        INSTALL_TAILSCALE: "{{ INSTALL_TAILSCALE | default('NO') }}"
   tasks:
     - block:
         - include_role:
             name: software.install.tailscale
         - include_role:
             name: software.configure.tailscale_disable_nftables
-      when: INSTALL_TAILSCALE | upper == "YES"
+      when: INSTALL_TAILSCALE | default('NO') | upper == "YES"

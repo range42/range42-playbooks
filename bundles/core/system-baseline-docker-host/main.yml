@@ -13,6 +13,10 @@
 # Dotfiles (vim + zsh) installed by default in every system-baseline-* profile
 # per project convention.
 #
+# Defaults are applied via role-level vars (scoped to the role invocation),
+# NOT via set_fact (which would poison host facts and silently override
+# downstream plays trying to use different values).
+#
 # REQUIRED vars : target_group
 #
 # Example call-site :
@@ -25,9 +29,9 @@
 - name: system-baseline-docker-host - install basics packages
   hosts: "{{ target_group }}"
   become: true
-  pre_tasks:
-    - name: Apply system-baseline-docker-host defaults (packages play)
-      ansible.builtin.set_fact:
+  roles:
+    - role: software.install.warmup.basic_packages
+      vars:
         INSTALL_PACKAGES_BASICS: "{{ INSTALL_PACKAGES_BASICS | default('YES') }}"
         INSTALL_PACKAGES_FIREWALLS: "{{ INSTALL_PACKAGES_FIREWALLS | default('YES') }}"
         INSTALL_PACKAGES_DOCKER: "{{ INSTALL_PACKAGES_DOCKER | default('YES') }}"
@@ -36,17 +40,13 @@
         INSTALL_PACKAGES_UTILS_NETWORK: "{{ INSTALL_PACKAGES_UTILS_NETWORK | default('NO') }}"
         INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "{{ INSTALL_PACKAGES_NTP_AND_UPDATE_TIME | default('YES') }}"
         SPECIFIC_PACKAGES_CLEANING: "{{ SPECIFIC_PACKAGES_CLEANING | default('NO') }}"
-  roles:
-    - software.install.warmup.basic_packages
 
 - name: system-baseline-docker-host - install dot files
   hosts: "{{ target_group }}"
   become: true
-  pre_tasks:
-    - name: Apply system-baseline-docker-host defaults (dotfiles play)
-      ansible.builtin.set_fact:
+  roles:
+    - role: software.install.warmup.dot_files
+      vars:
         OPERATOR_USER: "{{ OPERATOR_USER | default('alice') }}"
         INSTALL_VIM_DOTFILES: "{{ INSTALL_VIM_DOTFILES | default('YES') }}"
         INSTALL_ZSH_DOTFILES: "{{ INSTALL_ZSH_DOTFILES | default('YES') }}"
-  roles:
-    - software.install.warmup.dot_files
