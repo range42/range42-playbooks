@@ -12,11 +12,12 @@
 #      (via software.install.warmup.basic_packages with INSTALL_PACKAGES_DOCKER
 #      + INSTALL_PACKAGES_DOCKER_COMPOSE flags)
 #   2. Configure firewall on the host : open API_PORT, keep 22
-#   3. Conditional tailscale install : if proxmox_api_host (from vault) matches
-#      `.ts.net` then install + join the tailnet so the backend container can
-#      resolve and reach the Proxmox API. Skipped entirely when proxmox_api_host
-#      is a regular IP / hostname. Runs BEFORE compose up so the container
-#      inherits the correct /etc/resolv.conf at create time.
+#   3. Conditional tailscale install : gated by the INSTALL_TAILSCALE feature
+#      flag (default NO ; opt-in via TUI checkbox or `-e INSTALL_TAILSCALE=YES`,
+#      aligned with manifest/feature_flags.yml). When YES, installs tailscale +
+#      disables nftables on the backend VM so the container can reach Proxmox
+#      via the tailnet. Runs BEFORE compose up so the container inherits the
+#      correct /etc/resolv.conf at create time.
 #   4. Provision workspace + playbooks + backend-api source on the host :
 #      - Rsync the active range42-context workspace from controller
 #        ($RANGE42_ACTIVE_CONFIG_DIR) to /home/range42/range42.config/<C>-<S>/
@@ -138,7 +139,7 @@
 
 # ============================================================================
 
-- name: install deployer-api-backend - conditional tailscale (gated on proxmox_api_host matching .ts.net)
+- name: install deployer-api-backend - conditional tailscale (gated on INSTALL_TAILSCALE feature flag)
   hosts: "{{ global_vm_ssh_name }}"
   become: true
   vars_files:
@@ -146,13 +147,13 @@
   vars:
     tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
   tasks:
-    - name: Install + configure tailscale if backend needs to reach Proxmox via tailnet
+    - name: Install + configure tailscale on the backend VM (opt-in via INSTALL_TAILSCALE=YES)
       block:
         - include_role:
             name: software.install.tailscale
         - include_role:
             name: software.configure.tailscale_disable_nftables
-      when: (proxmox_api_host | default('')) is search('\.ts\.net(:[0-9]+)?$')
+      when: INSTALL_TAILSCALE | default('NO') | upper == "YES"
 
 # ============================================================================
 

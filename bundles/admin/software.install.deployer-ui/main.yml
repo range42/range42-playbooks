@@ -78,7 +78,7 @@
 
 # ============================================================================
 
-- name: install deployer-ui - conditional tailscale (gated on proxmox_api_host matching .ts.net)
+- name: install deployer-ui - conditional tailscale (gated on INSTALL_TAILSCALE feature flag)
   hosts: "{{ global_vm_ssh_name }}"
   become: true
   vars_files:
@@ -86,13 +86,13 @@
   vars:
     tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
   tasks:
-    - name: Install + configure tailscale if operator reaches the UI via tailnet
+    - name: Install + configure tailscale on the UI VM (opt-in via INSTALL_TAILSCALE=YES)
       block:
         - include_role:
             name: software.install.tailscale
         - include_role:
             name: software.configure.tailscale_disable_nftables
-      when: (proxmox_api_host | default('')) is search('\.ts\.net(:[0-9]+)?$')
+      when: INSTALL_TAILSCALE | default('NO') | upper == "YES"
 
 # ============================================================================
 
