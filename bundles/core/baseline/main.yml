@@ -1,0 +1,77 @@
+# ============================================================================
+# bundles/core/baseline/main.yml
+# ============================================================================
+# Group-level baseline VM setup : basic packages + dotfiles + firewall.
+# Tailscale is handled by a separate bundle (bundles/core/tailscale-on-group/).
+#
+# Replaces the duplicated 3-play prelude that previously lived in each
+# scenario's `_baseline_<group>.yml` (admin / student / vuln_box).
+#
+# REQUIRED vars (passed at call-site via import_playbook vars:) :
+#   target_group : ansible group name (e.g. r42_admin, r42_student_box_group,
+#                  r42_vuln_box_group)
+#
+# OPTIONAL vars (defaults applied via set_fact pre_tasks ; pass at call-site
+# to override per scenario group) :
+#   INSTALL_PACKAGES_BASICS               (default YES)
+#   INSTALL_PACKAGES_FIREWALLS            (default YES)
+#   INSTALL_PACKAGES_DOCKER               (default NO)
+#   INSTALL_PACKAGES_DOCKER_COMPOSE       (default NO)
+#   INSTALL_PACKAGES_UTILS_JSON           (default NO)
+#   INSTALL_PACKAGES_UTILS_NETWORK        (default YES)
+#   INSTALL_PACKAGES_NTP_AND_UPDATE_TIME  (default YES)
+#   SPECIFIC_PACKAGES_CLEANING            (default NO)
+#   OPERATOR_USER                         (default alice)
+#   INSTALL_VIM_DOTFILES                  (default YES)
+#   INSTALL_ZSH_DOTFILES                  (default YES)
+#   firewall_rules                        (default [{ip:all, port:22, protocol:tcp}])
+#
+# Variable names are preserved verbatim from the previous inline baseline
+# files - same contract as before, just centralised here.
+#
+# Example call-site :
+#
+# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/baseline/main.yml"
+#   vars:
+#     target_group: "r42_admin"
+#     INSTALL_PACKAGES_UTILS_NETWORK: "NO"   # override only when needed
+# ============================================================================
+
+- name: baseline - install basics packages
+  hosts: "{{ target_group }}"
+  become: true
+  pre_tasks:
+    - name: Apply baseline defaults (packages play)
+      ansible.builtin.set_fact:
+        INSTALL_PACKAGES_BASICS: "{{ INSTALL_PACKAGES_BASICS | default('YES') }}"
+        INSTALL_PACKAGES_FIREWALLS: "{{ INSTALL_PACKAGES_FIREWALLS | default('YES') }}"
+        INSTALL_PACKAGES_DOCKER: "{{ INSTALL_PACKAGES_DOCKER | default('NO') }}"
+        INSTALL_PACKAGES_DOCKER_COMPOSE: "{{ INSTALL_PACKAGES_DOCKER_COMPOSE | default('NO') }}"
+        INSTALL_PACKAGES_UTILS_JSON: "{{ INSTALL_PACKAGES_UTILS_JSON | default('NO') }}"
+        INSTALL_PACKAGES_UTILS_NETWORK: "{{ INSTALL_PACKAGES_UTILS_NETWORK | default('YES') }}"
+        INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "{{ INSTALL_PACKAGES_NTP_AND_UPDATE_TIME | default('YES') }}"
+        SPECIFIC_PACKAGES_CLEANING: "{{ SPECIFIC_PACKAGES_CLEANING | default('NO') }}"
+  roles:
+    - software.install.warmup.basic_packages
+
+- name: baseline - install dot files
+  hosts: "{{ target_group }}"
+  become: true
+  pre_tasks:
+    - name: Apply baseline defaults (dotfiles play)
+      ansible.builtin.set_fact:
+        OPERATOR_USER: "{{ OPERATOR_USER | default('alice') }}"
+        INSTALL_VIM_DOTFILES: "{{ INSTALL_VIM_DOTFILES | default('YES') }}"
+        INSTALL_ZSH_DOTFILES: "{{ INSTALL_ZSH_DOTFILES | default('YES') }}"
+  roles:
+    - software.install.warmup.dot_files
+
+- name: baseline - configure firewall
+  hosts: "{{ target_group }}"
+  become: true
+  pre_tasks:
+    - name: Apply baseline defaults (firewall play)
+      ansible.builtin.set_fact:
+        firewall_rules: "{{ firewall_rules | default([{'ip': 'all', 'port': 22, 'protocol': 'tcp'}]) }}"
+  roles:
+    - software.configure.firewalls
