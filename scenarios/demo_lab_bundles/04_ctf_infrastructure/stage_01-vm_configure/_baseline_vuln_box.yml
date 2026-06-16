@@ -5,16 +5,22 @@
 #
 
 ##
-## Baseline for r42_vuln_box_group : packages + dotfiles + firewall (shared bundle)
-## plus tailscale setup (shared bundle, gated by INSTALL_TAILSCALE).
+## Baseline for r42_vuln_box_group :
+##   - system-baseline-default     : packages + dotfiles (docker overrides for CTF apps)
+##   - network-baseline-ssh        : firewall opens port 22
+##   - tailscale-on-group          : optional tailscale install (gated by INSTALL_TAILSCALE)
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/baseline/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-default/main.yml"
   vars:
     target_group: "r42_vuln_box_group"
     INSTALL_PACKAGES_DOCKER: "YES"
     INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
     INSTALL_PACKAGES_UTILS_NETWORK: "NO"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
+  vars:
+    target_group: "r42_vuln_box_group"
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
   vars:

@@ -5,11 +5,17 @@
 #
 
 ##
-## Baseline for r42_admin group : packages + dotfiles + firewall (shared bundle)
-## plus tailscale setup (shared bundle, gated by INSTALL_TAILSCALE).
+## Baseline for r42_admin group :
+##   - system-baseline-default     : packages + dotfiles
+##   - network-baseline-ssh        : firewall opens port 22
+##   - tailscale-on-group          : optional tailscale install (gated by INSTALL_TAILSCALE)
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/baseline/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-default/main.yml"
+  vars:
+    target_group: "r42_admin"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
   vars:
     target_group: "r42_admin"
 
