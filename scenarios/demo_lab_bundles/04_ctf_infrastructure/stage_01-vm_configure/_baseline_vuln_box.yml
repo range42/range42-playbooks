@@ -5,8 +5,8 @@
 #
 
 ##
-## Baseline for r42_vuln_box_group (packages + dotfiles + firewall via shared bundle).
-## Tailscale plays remain inline until extraction to the tailscale-on-group bundle.
+## Baseline for r42_vuln_box_group : packages + dotfiles + firewall (shared bundle)
+## plus tailscale setup (shared bundle, gated by INSTALL_TAILSCALE).
 ##
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/baseline/main.yml"
@@ -16,57 +16,13 @@
     INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
     INSTALL_PACKAGES_UTILS_NETWORK: "NO"
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-##
-## Tailscale plays (inline ; pending extraction to bundles/core/tailscale-on-group/)
-##
-
-- hosts: r42.admin-wazuh
-  gather_facts: false
-  vars_files:
-    - "../../secrets/default_vault.yml"
-
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
   vars:
+    target_group: "r42_vuln_box_group"
+    INSTALL_TAILSCALE: "NO"
     tailscale_hostnames:
       - "vuln-box-00"
       - "vuln-box-01"
       - "vuln-box-02"
       - "vuln-box-03"
       - "vuln-box-04"
-
-    INSTALL_TAILSCALE: "NO"
-
-    requested_tasks:
-      - delete/tailscale_client.yml
-  #
-  tasks:
-    #
-    #
-    - name: TASK DYNAMIC INCLUDE FROM ansible.utils
-      include_role:
-        name: ansible.utils
-      loop: "{{ tailscale_hostnames }}"
-      loop_control:
-        loop_var: tailscale_hostname
-      when: INSTALL_TAILSCALE | upper == "YES"
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- hosts: r42_vuln_box_group
-  become: true
-  vars_files:
-    - "../../secrets/default_vault.yml"
-  vars:
-    # tailscale_authkey is defined in vault
-    tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
-    INSTALL_TAILSCALE: "NO"
-
-  tasks:
-    - block:
-        - include_role:
-            name: software.install.tailscale
-        - include_role:
-            name: software.configure.tailscale_disable_nftables
-
-      when: INSTALL_TAILSCALE | upper == "YES"
