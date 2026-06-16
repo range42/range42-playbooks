@@ -1,0 +1,110 @@
+##
+## kunai_lab stage_01 - software install on the 6 kunai_lab VMs
+##
+## Lifted from dev_deployer_ui_lab/02_dev_deployer_ui_lab_infrastructure/stage_01/_r42_dev_deployer_ui_lab_group.yml.
+## Same Docker baseline (DOCKER=YES + DOCKER_COMPOSE=YES) + zsh dotfiles + firewall.
+## INSTALL_PACKAGES_UTILS_JSON is YES (jq is part of the kunai-project workflow).
+##
+## Extended for 2 inventory groups :
+##   r42_kunai_lab_trainer_group   (1 host  : r42.admin-trainer-kunai)
+##   r42_kunai_lab_students_group  (5 hosts : r42.student-kunai-01..05)
+##
+## All plays target BOTH groups via a comma-separated host pattern so the
+## Docker baseline is delivered identically on the 6 VMs. SSH transport AND
+## in-VM operator user is alice on every VM (project convention - matches
+## demo_lab and the blank scenarios). The 5 kunai-project repos are cloned
+## into /home/alice/kunai-project/ on every VM.
+##
+## Application ports (kunai live tap, classroom dashboards, etc.) are NOT
+## pre-opened by this scenario - they are opened when the corresponding
+## docker-compose stack is brought up by the operator.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: install basics packages
+  hosts: r42_kunai_lab_trainer_group,r42_kunai_lab_students_group
+  become: true
+  roles:
+    - software.install.warmup.basic_packages
+
+  vars:
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "YES"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+
+    SPECIFIC_PACKAGES_CLEANING: "NO"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: install dot files - all VMs (alice)
+  hosts: r42_kunai_lab_trainer_group,r42_kunai_lab_students_group
+  become: true
+  roles:
+    - software.install.warmup.dot_files
+
+  vars:
+    OPERATOR_USER: alice
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: configure firewall - all
+  become: true
+  hosts: r42_kunai_lab_trainer_group,r42_kunai_lab_students_group
+  roles:
+    - software.configure.firewalls
+
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: clone kunai-project repos - all VMs (alice)
+  hosts: r42_kunai_lab_trainer_group,r42_kunai_lab_students_group
+  become: true
+  gather_facts: false
+
+  vars:
+    OPERATOR_USER: alice
+    kunai_repos_dir: "/home/{{ OPERATOR_USER }}/kunai-project"
+    kunai_repos:
+      - { name: "workshops",          repo: "https://github.com/kunai-project/workshops.git" }
+      - { name: "kunai-doc",          repo: "https://github.com/kunai-project/kunai-doc.git" }
+      - { name: "kunai-build-docker", repo: "https://github.com/kunai-project/kunai-build-docker.git" }
+      - { name: "community-rules",    repo: "https://github.com/kunai-project/community-rules.git" }
+      - { name: "pykunai",            repo: "https://github.com/kunai-project/pykunai.git" }
+
+  tasks:
+    - name: ensure kunai-project parent directory exists ({{ kunai_repos_dir }})
+      ansible.builtin.file:
+        path: "{{ kunai_repos_dir }}"
+        state: directory
+        owner: "{{ OPERATOR_USER }}"
+        group: "{{ OPERATOR_USER }}"
+        mode: "0755"
+
+    - name: clone kunai-project repositories ({{ OPERATOR_USER }})
+      ansible.builtin.git:
+        repo: "{{ item.repo }}"
+        dest: "{{ kunai_repos_dir }}/{{ item.name }}"
+        depth: 1
+        update: true
+        accept_hostkey: true
+      become_user: "{{ OPERATOR_USER }}"
+      loop: "{{ kunai_repos }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
