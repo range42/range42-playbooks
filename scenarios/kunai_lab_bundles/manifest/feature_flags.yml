@@ -23,7 +23,7 @@ features:
 
   - id: MISP
     label: "MISP - threat intel services"
-    description: "Deploys an admin-misp VM under 02_admin_infrastructure/. Reserved for upcoming POC, not deployable yet."
+    description: "Deploys an admin-misp VM (vm_id 1111, IP 192.168.142.111) and runs the misp-standalone docker-compose stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/. Operator must populate the catalog's .env file with secrets (MISP_DB_PASSWORD, DB_ROOT_PASSWORD, MISP_ADMIN_PASSWORD, MISP_SALT, etc.) BEFORE deploying with INSTALL_MISP=YES."
     default: false
 
   - id: TAILSCALE

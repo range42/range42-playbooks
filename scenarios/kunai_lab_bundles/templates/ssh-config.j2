@@ -52,6 +52,19 @@ Host r42.admin-wazuh
     ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      ADMIN - MISP (vmbr142, gated INSTALL_MISP)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host r42.admin-misp
+    Hostname 192.168.142.111
+
+Host r42.admin-misp
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
+    Port 22
+    ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #                                      KUNAI-LAB - TRAINER (vmbr142)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 

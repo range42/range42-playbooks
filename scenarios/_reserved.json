@@ -162,6 +162,7 @@
 {"vm_id":9246,"vm_name":"template-vm-large-06-8g-64g","spec":"6cpu/8gb/64gb","ip":"192.168.140.246","bridge":"vmbr140","scenario":"_init_lab","role":"template"}
 {"vm_id":9248,"vm_name":"template-vm-large-08-8g-64g","spec":"8cpu/8gb/64gb","ip":"192.168.140.248","bridge":"vmbr140","scenario":"_init_lab","role":"template"}
 {"vm_id":1110,"vm_name":"admin-wazuh","ip":"192.168.142.110","role":"admin","group":"admin","bridge":"vmbr142","scenario":"kunai_lab_bundles"}
+{"vm_id":1111,"vm_name":"admin-misp","ip":"192.168.142.111","role":"admin","group":"admin","bridge":"vmbr142","scenario":"kunai_lab_bundles"}
 {"vm_id":1104,"vm_name":"admin-trainer-kunai","ip":"192.168.142.104","role":"kunai-lab","group":"trainer","bridge":"vmbr142","scenario":"kunai_lab_bundles"}
 {"vm_id":1105,"vm_name":"student-kunai-01","ip":"192.168.142.105","role":"kunai-lab","group":"student","bridge":"vmbr142","scenario":"kunai_lab_bundles"}
 {"vm_id":1106,"vm_name":"student-kunai-02","ip":"192.168.142.106","role":"kunai-lab","group":"student","bridge":"vmbr142","scenario":"kunai_lab_bundles"}

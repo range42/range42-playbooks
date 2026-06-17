@@ -31,6 +31,10 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+- import_playbook: ./stage_01-vm_configure/admin-misp.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
 - import_playbook: ./stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
