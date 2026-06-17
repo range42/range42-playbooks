@@ -1,0 +1,19 @@
+---
+##
+## 02 - admin infrastructure (scaffold)
+##
+## Reserved for future kunai-lab admin platform VMs : optional Wazuh stack
+## (gated INSTALL_WAZUH), optional MISP threat-intel (gated INSTALL_MISP).
+## See manifest/feature_flags.yml.
+##
+## No VMs deployed in this infra at the current refactor stage. This file
+## exists to mirror the demo_lab_bundles arborescence and is wired into the
+## scenario main.yml ; the import_playbook entries below are commented out
+## until the corresponding bundles are in place.
+##
+
+# - import_playbook: ./stage_00-vm_bootstrap/_r42_admin_group.yml
+
+# - import_playbook: ./stage_01-vm_configure/_baseline_admin.yml
+# - import_playbook: ./stage_01-vm_configure/admin-wazuh.yml
+# - import_playbook: ./stage_01-vm_configure/admin-misp.yml

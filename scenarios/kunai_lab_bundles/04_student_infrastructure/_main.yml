@@ -1,0 +1,22 @@
+---
+##
+## 04 - student infrastructure
+##
+## 5 VMs : student-kunai-01..05 (192.168.142.105..109, VMIDs 1105..1109).
+##   stage_00-vm_bootstrap : clones + cloud-inits each VM from template 9232 (delegated to the shared vm-bootstrap bundle).
+##   stage_01-vm_configure : applies the Docker baseline + kunai-project repos.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 - VM BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_00-vm_bootstrap/_r42_student_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 - VM CONFIGURE #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_01-vm_configure/_baseline_student.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

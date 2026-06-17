@@ -4,9 +4,8 @@
 ##
 ## Provisions 6 Ubuntu LTS VMs on vmbr142 from the project standard medium
 ## template (VMID 9232 : 2cpu / 8gb / 64gb). Each VM is delivered with the
-## Docker baseline pre-installed (docker, docker compose, zsh dotfiles, basic
-## utilities, firewall opening port 22 only) plus the kunai-project ecosystem
-## repositories pre-cloned in the operator home.
+## Docker baseline pre-installed + kunai-project ecosystem repositories
+## pre-cloned in the operator home.
 ##
 ## Topology (single in-VM user alice on every VM, project convention) :
 ##   - admin-trainer-kunai (192.168.142.104, VMID 1104)  - trainer
@@ -16,115 +15,19 @@
 ##   - student-kunai-04    (192.168.142.108, VMID 1108)  - student
 ##   - student-kunai-05    (192.168.142.109, VMID 1109)  - student
 ##
-## Stages :
-##   01_init_proxmox                            : download cloud-init image + create template 9232 (idempotent skip if already present)
-##   02_kunai_lab_infrastructure/stage_00       : 6 VM clones + cloud-init + start + wait-for-SSH (one file per VM)
-##   02_kunai_lab_infrastructure/stage_01       : Docker baseline applied to both groups + kunai-project repos cloned per role
+## Infras (mirrors demo_lab_bundles arborescence) :
+##   01_templates-bootstrap                : download cloud-init image + create template 9232
+##   02_admin_infrastructure (scaffold)    : reserved for future Wazuh / MISP VMs (gated, off by default)
+##   03_trainer_infrastructure             : trainer VM (1 host, admin role)
+##   04_student_infrastructure             : student VMs (5 hosts)
 ##
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### 01_init_proxmox - template creation #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+- import_playbook: ./01_templates-bootstrap/_main.yml
 
-- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
-- import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+####
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### 02_kunai_lab_infrastructure - STAGE 00 #### #### #### #### ##
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+- import_playbook: ./02_admin_infrastructure/_main.yml
 
-- import_playbook: ./02_kunai_lab_infrastructure/stage_00/admin_trainer_kunai_vm.yml
+- import_playbook: ./03_trainer_infrastructure/_main.yml
 
-  vars:
-    global_vm_name: "admin-trainer-kunai"
-    global_vm_ssh_name: "r42.admin-trainer-kunai"
-    global_vm_id: 1104
-    global_vm_description: "kunai_lab - trainer VM (admin role)"
-    global_vm_tag_name: "kunai-lab"
-    global_vm_ci_ip: "192.168.142.104"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./02_kunai_lab_infrastructure/stage_00/student_kunai_01_vm.yml
-
-  vars:
-    global_vm_name: "student-kunai-01"
-    global_vm_ssh_name: "r42.student-kunai-01"
-    global_vm_id: 1105
-    global_vm_description: "kunai_lab - student VM 01"
-    global_vm_tag_name: "kunai-lab"
-    global_vm_ci_ip: "192.168.142.105"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./02_kunai_lab_infrastructure/stage_00/student_kunai_02_vm.yml
-
-  vars:
-    global_vm_name: "student-kunai-02"
-    global_vm_ssh_name: "r42.student-kunai-02"
-    global_vm_id: 1106
-    global_vm_description: "kunai_lab - student VM 02"
-    global_vm_tag_name: "kunai-lab"
-    global_vm_ci_ip: "192.168.142.106"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./02_kunai_lab_infrastructure/stage_00/student_kunai_03_vm.yml
-
-  vars:
-    global_vm_name: "student-kunai-03"
-    global_vm_ssh_name: "r42.student-kunai-03"
-    global_vm_id: 1107
-    global_vm_description: "kunai_lab - student VM 03"
-    global_vm_tag_name: "kunai-lab"
-    global_vm_ci_ip: "192.168.142.107"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./02_kunai_lab_infrastructure/stage_00/student_kunai_04_vm.yml
-
-  vars:
-    global_vm_name: "student-kunai-04"
-    global_vm_ssh_name: "r42.student-kunai-04"
-    global_vm_id: 1108
-    global_vm_description: "kunai_lab - student VM 04"
-    global_vm_tag_name: "kunai-lab"
-    global_vm_ci_ip: "192.168.142.108"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./02_kunai_lab_infrastructure/stage_00/student_kunai_05_vm.yml
-
-  vars:
-    global_vm_name: "student-kunai-05"
-    global_vm_ssh_name: "r42.student-kunai-05"
-    global_vm_id: 1109
-    global_vm_description: "kunai_lab - student VM 05"
-    global_vm_tag_name: "kunai-lab"
-    global_vm_ci_ip: "192.168.142.109"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### 02_kunai_lab_infrastructure - STAGE 01 #### #### #### #### ##
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- import_playbook: ./02_kunai_lab_infrastructure/stage_01/_r42_kunai_lab_group.yml
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+- import_playbook: ./04_student_infrastructure/_main.yml

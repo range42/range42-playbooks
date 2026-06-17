@@ -1,29 +1,21 @@
 ##
-## kunai_lab stage_01 - software install on the 6 kunai_lab VMs
+## kunai_lab stage_01 - student baseline
 ##
-## Lifted from dev_deployer_ui_lab/02_dev_deployer_ui_lab_infrastructure/stage_01/_r42_dev_deployer_ui_lab_group.yml.
-## Same Docker baseline (DOCKER=YES + DOCKER_COMPOSE=YES) + zsh dotfiles + firewall.
-## INSTALL_PACKAGES_UTILS_JSON is YES (jq is part of the kunai-project workflow).
+## Lifted from the legacy 02_kunai_lab_infrastructure/stage_01/_r42_kunai_lab_group.yml
+## which targeted both trainer + students. Split per group as part of the
+## bundle-shape refactor (T-01) so the layout matches demo_lab_bundles
+## (one _baseline_<group>.yml per infra/group).
 ##
-## Extended for 2 inventory groups :
-##   r42_kunai_lab_trainer_group   (1 host  : r42.admin-trainer-kunai)
-##   r42_kunai_lab_students_group  (5 hosts : r42.student-kunai-01..05)
-##
-## All plays target BOTH groups via a comma-separated host pattern so the
-## Docker baseline is delivered identically on the 6 VMs. SSH transport AND
-## in-VM operator user is alice on every VM (project convention - matches
-## demo_lab and the blank scenarios). The 5 kunai-project repos are cloned
-## into /home/alice/kunai-project/ on every VM.
-##
-## Application ports (kunai live tap, classroom dashboards, etc.) are NOT
-## pre-opened by this scenario - they are opened when the corresponding
-## docker-compose stack is brought up by the operator.
+## Same content as the legacy : Docker baseline (DOCKER=YES + DOCKER_COMPOSE=YES) +
+## zsh dotfiles + firewall + kunai-project repos. Will be refactored to use
+## bundles/core/system-baseline-docker-host + network-baseline-ssh + tailscale-on-group
+## in the follow-up T-task.
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: install basics packages
-  hosts: r42_kunai_lab_trainer_group,r42_kunai_lab_students_group
+- name: install basics packages - students
+  hosts: r42_kunai_lab_students_group
   become: true
   roles:
     - software.install.warmup.basic_packages
@@ -44,8 +36,8 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: install dot files - all VMs (alice)
-  hosts: r42_kunai_lab_trainer_group,r42_kunai_lab_students_group
+- name: install dot files - students (alice)
+  hosts: r42_kunai_lab_students_group
   become: true
   roles:
     - software.install.warmup.dot_files
@@ -57,9 +49,9 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: configure firewall - all
+- name: configure firewall - students
   become: true
-  hosts: r42_kunai_lab_trainer_group,r42_kunai_lab_students_group
+  hosts: r42_kunai_lab_students_group
   roles:
     - software.configure.firewalls
 
@@ -71,8 +63,8 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: clone kunai-project repos - all VMs (alice)
-  hosts: r42_kunai_lab_trainer_group,r42_kunai_lab_students_group
+- name: clone kunai-project repos - students (alice)
+  hosts: r42_kunai_lab_students_group
   become: true
   gather_facts: false
 
