@@ -9,11 +9,30 @@
 ##   4. Verify SSH authentication succeeds (git@gitea via port 2222)
 ##
 ## Requires:
-##   - vault vars: gitea_admin_user, gitea_admin_password
 ##   - ansible-vars: gitea_server_ip, gitea_http_port, gitea_ssh_port,
 ##                   gitea_target_user
 ##   - The Gitea Docker stack must be running on admin-gitea-standalone
+##     (admin credentials are read directly from ~/gitea/.env on that host)
 ##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: read Gitea admin credentials from admin-gitea-standalone
+  hosts: r42.admin-gitea-standalone
+  gather_facts: false
+  tasks:
+
+    - name: GITEA-LAB SSH CYCLE - read Gitea .env on admin host
+      ansible.builtin.slurp:
+        src: /home/alice/gitea/.env
+      register: _gitea_env_b64
+      become: true
+
+    - name: GITEA-LAB SSH CYCLE - parse Gitea admin credentials
+      ansible.builtin.set_fact:
+        _gitea_admin_user: "{{ (_gitea_env_b64.content | b64decode).split('\n') | select('match', '^GITEA_ADMIN_USER=') | first | regex_replace('^GITEA_ADMIN_USER=', '') }}"
+        _gitea_admin_pass: "{{ (_gitea_env_b64.content | b64decode).split('\n') | select('match', '^GITEA_ADMIN_PASS=') | first | regex_replace('^GITEA_ADMIN_PASS=', '') }}"
+      no_log: true
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -74,8 +93,8 @@
       ansible.builtin.uri:
         url: "http://{{ _gitea_ip }}:{{ _gitea_http_port }}/api/v1/admin/users/{{ _gitea_user }}/keys"
         method: POST
-        user: "{{ gitea_admin_user }}"
-        password: "{{ gitea_admin_password }}"
+        user: "{{ hostvars['r42.admin-gitea-standalone']._gitea_admin_user }}"
+        password: "{{ hostvars['r42.admin-gitea-standalone']._gitea_admin_pass }}"
         force_basic_auth: true
         body_format: json
         body:

@@ -8,8 +8,3 @@ jump_password: "REPLACE_ME"
 default_admin_vm_ci_password: "REPLACE_ME"
 default_admin_vm_ci_ssh_key: "REPLACE_ME"
 deployer_cli_user_ssh_known_hosts: "REPLACE_ME"
-
-# Gitea admin credentials — must match GITEA_ADMIN_USER / GITEA_ADMIN_PASS in
-# range42-catalog/.../gitea/.env (used by stage_02 to register SSH keys via API)
-gitea_admin_user: "REPLACE_ME"
-gitea_admin_password: "REPLACE_ME"
