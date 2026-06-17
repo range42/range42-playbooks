@@ -9,10 +9,9 @@
 ##   4. Verify SSH authentication succeeds (git@gitea via port 2222)
 ##
 ## Requires:
-##   - ansible-vars: gitea_server_ip, gitea_scheme, gitea_port, gitea_ssh_port,
-##                   gitea_target_user
+##   - ansible-vars: gitea_server_ip, gitea_ssh_port, gitea_target_user
 ##   - The Gitea Docker stack must be running on admin-gitea-standalone
-##     (admin credentials are read directly from ~/gitea/.env on that host)
+##     (admin credentials and GITEA_BASE_URL are read from ~/gitea/.env on that host)
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -34,6 +33,10 @@
         _gitea_admin_pass: "{{ (_gitea_env_b64.content | b64decode).split('\n') | select('match', '^GITEA_ADMIN_PASS=') | first | regex_replace('^GITEA_ADMIN_PASS=', '') | trim }}"
       no_log: true
 
+    - name: GITEA-LAB SSH CYCLE - parse GITEA_BASE_URL from .env
+      ansible.builtin.set_fact:
+        _gitea_base_url: "{{ (_gitea_env_b64.content | b64decode).split('\n') | select('match', '^GITEA_BASE_URL=') | first | regex_replace('^GITEA_BASE_URL=', '') | trim | regex_replace('/$', '') }}"
+
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: generate SSH key on client and register it with Gitea
@@ -45,9 +48,8 @@
   vars:
     _client_user: "{{ default_admin_vm_ci_user | default('alice') }}"
     _key_path: "/home/{{ _client_user }}/.ssh/id_ed25519_gitea"
-    _gitea_scheme: "{{ gitea_scheme | default('http') }}"
+    _gitea_base_url: "{{ hostvars['r42.admin-gitea-standalone']._gitea_base_url }}"
     _gitea_ip: "{{ gitea_server_ip | default('192.168.142.183') }}"
-    _gitea_port: "{{ gitea_port | default(3000) }}"
     _gitea_ssh_port: "{{ gitea_ssh_port | default(2222) }}"
     _gitea_user: "{{ gitea_target_user | default('team-blue-user-01') }}"
 
@@ -92,7 +94,7 @@
 
     - name: GITEA-LAB SSH CYCLE - verify target user '{{ _gitea_user }}' exists in Gitea
       ansible.builtin.uri:
-        url: "{{ _gitea_scheme }}://{{ _gitea_ip }}:{{ _gitea_port }}/api/v1/users/{{ _gitea_user }}"
+        url: "{{ _gitea_base_url }}/api/v1/users/{{ _gitea_user }}"
         method: GET
         user: "{{ hostvars['r42.admin-gitea-standalone']._gitea_admin_user }}"
         password: "{{ hostvars['r42.admin-gitea-standalone']._gitea_admin_pass }}"
@@ -108,7 +110,7 @@
 
     - name: GITEA-LAB SSH CYCLE - register public key for '{{ _gitea_user }}' via Gitea admin API
       ansible.builtin.uri:
-        url: "{{ _gitea_scheme }}://{{ _gitea_ip }}:{{ _gitea_port }}/api/v1/admin/users/{{ _gitea_user }}/keys"
+        url: "{{ _gitea_base_url }}/api/v1/admin/users/{{ _gitea_user }}/keys"
         method: POST
         user: "{{ hostvars['r42.admin-gitea-standalone']._gitea_admin_user }}"
         password: "{{ hostvars['r42.admin-gitea-standalone']._gitea_admin_pass }}"
