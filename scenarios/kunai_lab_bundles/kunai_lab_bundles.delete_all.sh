@@ -13,11 +13,11 @@
 ##   blank_scenario_4_subnets, blank_scenario_6_subnets, _init_lab, misp_lab,
 ##   dev_deployer_ui_lab). Running this script removes 9232 - those scenarios
 ##   will need to re-run their 01_templates-bootstrap/ to rebuild it before re-deploy.
-##   Use kunai_lab.delete_vms_only.sh instead to keep the template intact.
+##   Use kunai_lab_bundles.delete_vms_only.sh instead to keep the template intact.
 ##
 ## Companions:
-##   - kunai_lab.delete_vms_only.sh        - VMs only, keep template
-##   - kunai_lab.delete_all.sh (this)      - VMs + template
+##   - kunai_lab_bundles.delete_vms_only.sh        - VMs only, keep template
+##   - kunai_lab_bundles.delete_all.sh (this)      - VMs + template
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

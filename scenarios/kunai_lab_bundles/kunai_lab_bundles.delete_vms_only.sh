@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##
-## kunai_lab.delete_vms_only.sh - destroy the kunai_lab VMs, keep templates
+## kunai_lab_bundles.delete_vms_only.sh - destroy the kunai_lab VMs, keep templates
 ##
 ## VM IDs are read from the scenario manifest :
 ##   manifest/scenario_vms.json
@@ -43,5 +43,5 @@ done
 
 echo ""
 echo ":: done - templates preserved"
-echo ":: redeploy with: range42-context deploy-vms  (or ./kunai_lab.setup_vms_only.sh)"
+echo ":: redeploy with: range42-context deploy-vms  (or ./kunai_lab_bundles.setup_vms_only.sh)"
 echo ""

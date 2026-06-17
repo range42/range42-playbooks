@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##
-## kunai_lab.setup.sh - run the main playbook (template + 6 VMs + Docker baseline + kunai-project repos)
+## kunai_lab_bundles.setup.sh - run the main playbook (template + 6 VMs + Docker baseline + kunai-project repos)
 ##
 ## Same shape as demo_lab_bundles.setup.sh (bundle-driven scenario wrappers).
 ## Requires RANGE42_ANSIBLE_ROLES__INVENTORY_DIR and RANGE42_VAULT_PASSWORD_FILE

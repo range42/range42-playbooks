@@ -91,7 +91,7 @@ Activate the workspace and run the setup script :
 
 ```
 range42-context use <codename> kunai_lab
-./kunai_lab.setup.sh
+./kunai_lab_bundles.setup.sh
 ```
 
 Or drive directly via `range42-context` :
@@ -128,11 +128,11 @@ All 6 VMs reach via ProxyJump through the Proxmox jumper. Each has its own expli
 
 | Script | Purpose |
 |---|---|
-| `kunai_lab.setup.sh` | Full provisioning (template + 6 VMs + baseline + repos). Idempotent on the template stage. |
-| `kunai_lab.setup_vms_only.sh` | Skips template creation. Faster on repeat runs assuming template 9232 is already present. |
-| `kunai_lab.delete_vms_only.sh` | Destroys the 6 kunai_lab VMs, preserves the template. |
-| `kunai_lab.delete_all.sh` | Alias of `delete_vms_only.sh` (template 9232 is shared, never owned by kunai_lab). |
-| `kunai_lab.reset.setup.sh` | Convenience : delete the 6 VMs + redeploy in one shot. |
+| `kunai_lab_bundles.setup.sh` | Full provisioning (template + 6 VMs + baseline + repos). Idempotent on the template stage. |
+| `kunai_lab_bundles.setup_vms_only.sh` | Skips template creation. Faster on repeat runs assuming template 9232 is already present. |
+| `kunai_lab_bundles.delete_vms_only.sh` | Destroys the 6 kunai_lab VMs, preserves the template. |
+| `kunai_lab_bundles.delete_all.sh` | Alias of `delete_vms_only.sh` (template 9232 is shared, never owned by kunai_lab). |
+| `kunai_lab_bundles.reset.setup.sh` | Convenience : delete the 6 VMs + redeploy in one shot. |
 
 All scripts require `RANGE42_ANSIBLE_ROLES__INVENTORY_DIR` and `RANGE42_VAULT_PASSWORD_FILE` to be exported - set by `range42-context use <codename> kunai_lab`.
 
@@ -145,11 +145,11 @@ kunai_lab/
   manifest/scenario_vms.json                 source of truth for VMID / IP / bridge
   manifest/feature_flags.yml                 optional gated components (Wazuh, MISP, Tailscale - off by default)
   README.md
-  kunai_lab.setup.sh                         full deploy wrapper
-  kunai_lab.setup_vms_only.sh                fast redeploy wrapper
-  kunai_lab.delete_vms_only.sh               VM teardown
-  kunai_lab.delete_all.sh                    alias
-  kunai_lab.reset.setup.sh                   teardown + deploy
+  kunai_lab_bundles.setup.sh                         full deploy wrapper
+  kunai_lab_bundles.setup_vms_only.sh                fast redeploy wrapper
+  kunai_lab_bundles.delete_vms_only.sh               VM teardown
+  kunai_lab_bundles.delete_all.sh                    alias
+  kunai_lab_bundles.reset.setup.sh                   teardown + deploy
   01_templates-bootstrap/                    Ubuntu noble cloud-init image + template 9232
   02_admin_infrastructure/                   scaffold for future Wazuh / MISP (gated off)
   03_trainer_infrastructure/                 trainer VM (admin-trainer-kunai) - stage_00 + stage_01
