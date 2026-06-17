@@ -1,14 +1,12 @@
 ##
 ## Baseline for r42_kunai_lab_trainer_group :
-##   - system-baseline-docker-host : packages + dotfiles + Docker + docker-compose
-##                                   (kunai needs UTILS_JSON + UTILS_NETWORK on top of the
-##                                   docker-host profile defaults, hence the 2 overrides)
-##   - network-baseline-ssh        : firewall opens port 22
-##   - tailscale-on-group          : optional tailscale install (gated by INSTALL_TAILSCALE,
-##                                   default NO for kunai_lab per manifest/feature_flags.yml)
-##
-## Trainer-specific (no bundle - kept inline) :
-##   - clone kunai-project repositories into /home/alice/kunai-project/
+##   - system-baseline-docker-host    : packages + dotfiles + Docker + docker-compose
+##                                      (kunai needs UTILS_JSON + UTILS_NETWORK on top of the
+##                                      docker-host profile defaults, hence the 2 overrides)
+##   - network-baseline-ssh           : firewall opens port 22
+##   - tailscale-on-group             : optional tailscale install (gated by INSTALL_TAILSCALE,
+##                                      default NO for kunai_lab per manifest/feature_flags.yml)
+##   - gitclone-kunai-repository      : clone the 5 kunai-project repos into /home/alice/kunai-project/
 ##
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-docker-host/main.yml"
@@ -28,40 +26,6 @@
     tailscale_hostnames:
       - "admin-trainer-kunai"
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- name: clone kunai-project repos - trainer (alice)
-  hosts: r42_kunai_lab_trainer_group
-  become: true
-  gather_facts: false
-
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/gitclone-kunai-repository/main.yml"
   vars:
-    OPERATOR_USER: alice
-    kunai_repos_dir: "/home/{{ OPERATOR_USER }}/kunai-project"
-    kunai_repos:
-      - { name: "workshops",          repo: "https://github.com/kunai-project/workshops.git" }
-      - { name: "kunai-doc",          repo: "https://github.com/kunai-project/kunai-doc.git" }
-      - { name: "kunai-build-docker", repo: "https://github.com/kunai-project/kunai-build-docker.git" }
-      - { name: "community-rules",    repo: "https://github.com/kunai-project/community-rules.git" }
-      - { name: "pykunai",            repo: "https://github.com/kunai-project/pykunai.git" }
-
-  tasks:
-    - name: ensure kunai-project parent directory exists ({{ kunai_repos_dir }})
-      ansible.builtin.file:
-        path: "{{ kunai_repos_dir }}"
-        state: directory
-        owner: "{{ OPERATOR_USER }}"
-        group: "{{ OPERATOR_USER }}"
-        mode: "0755"
-
-    - name: clone kunai-project repositories ({{ OPERATOR_USER }})
-      ansible.builtin.git:
-        repo: "{{ item.repo }}"
-        dest: "{{ kunai_repos_dir }}/{{ item.name }}"
-        depth: 1
-        update: true
-        accept_hostkey: true
-      become_user: "{{ OPERATOR_USER }}"
-      loop: "{{ kunai_repos }}"
-      loop_control:
-        label: "{{ item.name }}"
+    GITCLONE_KUNAI_TARGET_GROUP: "r42_kunai_lab_trainer_group"
