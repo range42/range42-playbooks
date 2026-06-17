@@ -37,7 +37,8 @@ default_admin_vm_ci_user: "alice"
 
 # Gitea server address and ports (admin-gitea-standalone)
 gitea_server_ip: "192.168.142.183"
-gitea_http_port: 3000
+gitea_scheme: "https"
+gitea_port: 3000
 gitea_ssh_port: 2222
 
 # Gitea user whose SSH key the client VM will register (stage_02)
