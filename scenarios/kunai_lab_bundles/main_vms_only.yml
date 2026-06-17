@@ -7,7 +7,8 @@
 ## medium template). Used by `range42-context deploy-vms`.
 ##
 
-- import_playbook: ./02_admin_infrastructure/_main.yml
+# Scaffold dir for future Wazuh / MISP VMs - see main.yml for context.
+#- import_playbook: ./02_admin_infrastructure/_main.yml
 
 - import_playbook: ./03_trainer_infrastructure/_main.yml
 
