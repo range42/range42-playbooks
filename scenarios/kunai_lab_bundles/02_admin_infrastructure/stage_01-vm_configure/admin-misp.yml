@@ -1,74 +1,17 @@
 ##
 ## admin-misp - MISP threat intel stack on r42.admin-misp
 ##
-## Gated by INSTALL_MISP (default NO). Deploys the misp-standalone docker-compose
-## stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/ :
-## MariaDB + Redis + misp-modules + MISP runtime + provisioner (5 services).
+## Delegates to the shared bundle which provides the full pipeline (Docker
+## install + docker-compose deploy of misp-standalone : MariaDB + Redis +
+## misp-modules + misp + provisioner). The bundle auto-cps .env.example
+## -> .env on the local catalog if .env is absent. Populate the catalog .env
+## BEFORE the deploy to use strong secrets (see the bundle's README.md).
 ##
-## SECRETS : the catalog ships a complete .env.example with WEAK placeholder
-## creds (Admin1234!XYZ, changeme_db_password, etc.) - usable as-is for a lab
-## demo, MUST be replaced for any production-like use. Play 1 below auto-copies
-## .env.example -> .env on the local catalog if .env is absent, so a first-time
-## deploy "just works" with the placeholders. To use strong secrets, populate
-## the catalog .env BEFORE running setup.sh -e INSTALL_MISP=YES :
-##   cd $RANGE42_INVENTORY/03_container_layer/docker/admin/misp-standalone/
-##   cp .env.example .env
-##   $EDITOR .env       # fill MISP_DB_PASSWORD, DB_ROOT_PASSWORD,
-##                      # MISP_ADMIN_PASSWORD, MISP_READER_PASSWORD,
-##                      # MISP_WRITER_PASSWORD, MISP_SALT (openssl rand -hex 32)
-## The .env is gitignored in the catalog - never commit it.
-##
-## Deploy flow :
-##   Play 1 : auto-copy .env.example -> .env on localhost (only if .env missing)
-##   Play 2 : install Docker + docker-compose on r42.admin-misp (warmup role)
-##   Play 3 : deploy the misp-standalone docker-compose stack (software.configure.docker-compose role)
-##
-## Post-deploy verification (manual) on the deployer-cli :
-##   ssh r42.admin-misp
-##   cd /home/alice/misp-standalone
-##   sudo docker compose logs -f provisioner
-##   # Wait for : "Provisioning complete." (3-5 min after build, build itself 10-20 min on first run)
-##   # API keys + credentials written to /keys/api-keys.txt inside the misp service container.
+## Gated by INSTALL_MISP (default NO per kunai_lab_bundles feature_flags.yml).
 ##
 
-- name: ensure catalog .env exists for misp-standalone
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  tasks:
-    - name: copy .env.example -> .env if .env missing (force=false respects existing)
-      ansible.builtin.copy:
-        src:  "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone/.env.example"
-        dest: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone/.env"
-        force: false
-        remote_src: true
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.misp-standalone/main.yml"
   when: INSTALL_MISP | default("NO") | upper == "YES"
-
-- name: install Docker on r42.admin-misp
-  hosts: r42.admin-misp
-  become: true
-  gather_facts: true
-  roles:
-    - software.install.warmup.basic_packages
   vars:
-    INSTALL_PACKAGES_BASICS: "YES"
-    INSTALL_PACKAGES_DOCKER: "YES"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
-  when: INSTALL_MISP | default("NO") | upper == "YES"
-
-- name: deploy misp-standalone docker-compose stack from catalog
-  hosts: r42.admin-misp
-  become: true
-  gather_facts: false
-  roles:
-    - software.configure.docker-compose
-  vars:
-    LABEL_PROJECT_TYPE:   "ADMIN"
-    LABEL_PROJET_NAME:    "misp-standalone"
-    LOCAL__PROJECT_DIR:   "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone"
-    REMOTE_PROJECT_DIR:   "/home/alice/misp-standalone"
-    OPERATOR_USER:        "alice"
-    CLEAN_UP_DEPLOY_DIR:  "NO"
-    SEND_POC_DIR:         "NO"
-  when: INSTALL_MISP | default("NO") | upper == "YES"
+    global_vm_ssh_name: "r42.admin-misp"
+    global_vm_ci_ip:    "192.168.142.111"

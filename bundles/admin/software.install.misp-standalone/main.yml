@@ -1,0 +1,73 @@
+# ============================================================================
+# bundles/admin/software.install.misp-standalone/main.yml
+# ============================================================================
+# MISP standalone docker-compose stack install playbook. Deploys the
+# misp-standalone catalog element (5 services : MariaDB + Redis + misp-modules
+# + misp + provisioner) on a dedicated VM via Docker compose. The catalog
+# element source is range42-catalog/03_container_layer/docker/admin/misp-standalone/
+# and is rsynced to the VM at /home/alice/misp-standalone/.
+#
+# REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
+#   - global_vm_ssh_name   : inventory hostname for the MISP VM
+#                            (e.g. "r42.admin-misp")
+#   - global_vm_ci_ip      : IP of the MISP server (e.g. "192.168.142.111")
+#
+# Catalog .env handling :
+#   Play 1 (on localhost) auto-cps .env.example -> .env on the catalog if
+#   .env is absent (force=false respects an existing customized .env).
+#   First-time deploys work with the catalog's weak placeholder secrets ;
+#   populate the catalog .env BEFORE running the bundle for stronger creds.
+#
+# Example call-site (in scenarios/<scenario>/.../admin-misp.yml) :
+#
+#   - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.misp-standalone/main.yml"
+#     when: INSTALL_MISP | default("NO") | upper == "YES"
+#     vars:
+#       global_vm_ssh_name: "r42.admin-misp"
+#       global_vm_ci_ip:    "192.168.142.111"
+#
+# ============================================================================
+
+
+- name: misp - ensure catalog .env exists (cp .env.example -> .env if missing)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: cp .env.example -> .env if .env absent (force=false respects an existing customized .env)
+      ansible.builtin.copy:
+        src:  "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone/.env.example"
+        dest: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone/.env"
+        force: false
+        remote_src: true
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: misp - install Docker + docker-compose on the MISP VM
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  gather_facts: true
+  roles:
+    - software.install.warmup.basic_packages
+  vars:
+    INSTALL_PACKAGES_BASICS:               "YES"
+    INSTALL_PACKAGES_DOCKER:               "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE:       "YES"
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME:  "YES"
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: misp - deploy misp-standalone docker-compose stack from catalog
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  gather_facts: false
+  roles:
+    - software.configure.docker-compose
+  vars:
+    LABEL_PROJECT_TYPE:   "ADMIN"
+    LABEL_PROJET_NAME:    "misp-standalone"
+    LOCAL__PROJECT_DIR:   "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone"
+    REMOTE_PROJECT_DIR:   "/home/alice/misp-standalone"
+    OPERATOR_USER:        "alice"
+    CLEAN_UP_DEPLOY_DIR:  "NO"
+    SEND_POC_DIR:         "NO"
