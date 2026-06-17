@@ -30,8 +30,8 @@
 
     - name: GITEA-LAB SSH CYCLE - parse Gitea admin credentials
       ansible.builtin.set_fact:
-        _gitea_admin_user: "{{ (_gitea_env_b64.content | b64decode).split('\n') | select('match', '^GITEA_ADMIN_USER=') | first | regex_replace('^GITEA_ADMIN_USER=', '') }}"
-        _gitea_admin_pass: "{{ (_gitea_env_b64.content | b64decode).split('\n') | select('match', '^GITEA_ADMIN_PASS=') | first | regex_replace('^GITEA_ADMIN_PASS=', '') }}"
+        _gitea_admin_user: "{{ (_gitea_env_b64.content | b64decode).split('\n') | select('match', '^GITEA_ADMIN_USER=') | first | regex_replace('^GITEA_ADMIN_USER=', '') | trim }}"
+        _gitea_admin_pass: "{{ (_gitea_env_b64.content | b64decode).split('\n') | select('match', '^GITEA_ADMIN_PASS=') | first | regex_replace('^GITEA_ADMIN_PASS=', '') | trim }}"
       no_log: true
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -86,6 +86,21 @@
     - name: GITEA-LAB SSH CYCLE - decode public key fact
       ansible.builtin.set_fact:
         _gitea_ssh_pubkey: "{{ _pubkey_b64.content | b64decode | trim }}"
+
+    ####
+
+    - name: GITEA-LAB SSH CYCLE - verify target user '{{ _gitea_user }}' exists in Gitea
+      ansible.builtin.uri:
+        url: "http://{{ _gitea_ip }}:{{ _gitea_http_port }}/api/v1/users/{{ _gitea_user }}"
+        method: GET
+        user: "{{ hostvars['r42.admin-gitea-standalone']._gitea_admin_user }}"
+        password: "{{ hostvars['r42.admin-gitea-standalone']._gitea_admin_pass }}"
+        force_basic_auth: true
+        status_code:
+          - 200
+      register: _user_check
+      changed_when: false
+      failed_when: _user_check.status != 200
 
     ####
 
