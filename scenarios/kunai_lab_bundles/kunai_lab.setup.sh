@@ -3,7 +3,7 @@
 ##
 ## kunai_lab.setup.sh - run the main playbook (template + 6 VMs + Docker baseline + kunai-project repos)
 ##
-## Same shape as dev_deployer_ui_lab.setup.sh / misp_lab.setup.sh.
+## Same shape as demo_lab_bundles.setup.sh (bundle-driven scenario wrappers).
 ## Requires RANGE42_ANSIBLE_ROLES__INVENTORY_DIR and RANGE42_VAULT_PASSWORD_FILE
 ## to be exported - set by `range42-context use <codename> kunai_lab`.
 ##
