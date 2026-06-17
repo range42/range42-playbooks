@@ -26,10 +26,10 @@
 
 ####
 
-# Scaffold dir for future Wazuh / MISP VMs. The infra's _main.yml has no live
-# plays yet (all imports commented). Uncomment this line once 02_admin/_main.yml
-# is populated, otherwise Ansible errors with "Empty playbook, nothing to do".
-#- import_playbook: ./02_admin_infrastructure/_main.yml
+# Optional admin VMs (Wazuh now ; MISP planned). Gated per-VM via
+# manifest/feature_flags.yml ; all entries skip silently when their
+# INSTALL_<NAME> flag is NO.
+- import_playbook: ./02_admin_infrastructure/_main.yml
 
 - import_playbook: ./03_trainer_infrastructure/_main.yml
 

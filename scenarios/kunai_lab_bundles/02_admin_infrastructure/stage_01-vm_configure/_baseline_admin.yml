@@ -1,0 +1,28 @@
+##
+## Baseline for r42_admin group (kunai_lab) :
+##   - system-baseline-default     : packages + dotfiles (no Docker - admin-wazuh
+##                                   stack uses native OS packages, not containers)
+##   - network-baseline-ssh        : firewall opens port 22 (wazuh ports opened
+##                                   by the wazuh server bundle separately)
+##   - tailscale-on-group          : optional tailscale install (gated INSTALL_TAILSCALE,
+##                                   default NO)
+##
+## NB : not gated by INSTALL_WAZUH. If admin-wazuh is not deployed (WAZUH=NO),
+## r42_admin inventory group is effectively empty at deploy time and all bundle
+## plays here skip silently (ok=0).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-default/main.yml"
+  vars:
+    target_group: "r42_admin"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
+  vars:
+    target_group: "r42_admin"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
+  vars:
+    target_group: "r42_admin"
+    INSTALL_TAILSCALE: "NO"
+    tailscale_hostnames:
+      - "admin-wazuh"

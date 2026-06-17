@@ -1,19 +1,36 @@
 ---
 ##
-## 02 - admin infrastructure (scaffold)
+## 02 - admin infrastructure
 ##
-## Reserved for future kunai-lab admin platform VMs : optional Wazuh stack
-## (gated INSTALL_WAZUH), optional MISP threat-intel (gated INSTALL_MISP).
-## See manifest/feature_flags.yml.
+## Hosts the optional admin platform VMs for the kunai_lab scenario :
+##   - admin-wazuh (VMID 1110, IP 192.168.142.110) : Wazuh SIEM server + agent
+##     install on the trainer + students VMs (group r42_kunai_lab_wazuh_clients).
+##     Gated by INSTALL_WAZUH (default NO per manifest/feature_flags.yml).
 ##
-## No VMs deployed in this infra at the current refactor stage. This file
-## exists to mirror the demo_lab_bundles arborescence and is wired into the
-## scenario main.yml ; the import_playbook entries below are commented out
-## until the corresponding bundles are in place.
+## All entries below are wired but conditionally executed. With INSTALL_WAZUH=NO
+## (default), stage_00 skips the VM bootstrap, stage_01 baseline skips (empty
+## r42_admin group), wazuh server + finalize agent install both skip via their
+## own when: clauses. Net effect : zero plays executed when all flags off.
 ##
 
-# - import_playbook: ./stage_00-vm_bootstrap/_r42_admin_group.yml
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 - VM BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-# - import_playbook: ./stage_01-vm_configure/_baseline_admin.yml
-# - import_playbook: ./stage_01-vm_configure/admin-wazuh.yml
-# - import_playbook: ./stage_01-vm_configure/admin-misp.yml
+- import_playbook: ./stage_00-vm_bootstrap/_r42_admin_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 - VM CONFIGURE #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_01-vm_configure/_baseline_admin.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01-vm_configure/admin-wazuh.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

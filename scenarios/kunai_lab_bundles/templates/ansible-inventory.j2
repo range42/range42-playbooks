@@ -4,12 +4,31 @@ all:
       children:
         ####
 
+        r42_admin:
+          hosts:
+            r42.admin-wazuh:
+
+        ####
+
         r42_kunai_lab_trainer_group:
           hosts:
             r42.admin-trainer-kunai:
 
         r42_kunai_lab_students_group:
           hosts:
+            r42.student-kunai-01:
+            r42.student-kunai-02:
+            r42.student-kunai-03:
+            r42.student-kunai-04:
+            r42.student-kunai-05:
+
+        ####
+
+        # All non-admin VMs (trainer + 5 students) that receive a Wazuh agent
+        # when INSTALL_WAZUH=YES. The agent finalize play targets this group.
+        r42_kunai_lab_wazuh_clients:
+          hosts:
+            r42.admin-trainer-kunai:
             r42.student-kunai-01:
             r42.student-kunai-02:
             r42.student-kunai-03:
