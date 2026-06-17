@@ -1,65 +1,32 @@
 ##
-## kunai_lab stage_01 - trainer baseline
+## Baseline for r42_kunai_lab_trainer_group :
+##   - system-baseline-docker-host : packages + dotfiles + Docker + docker-compose
+##                                   (kunai needs UTILS_JSON + UTILS_NETWORK on top of the
+##                                   docker-host profile defaults, hence the 2 overrides)
+##   - network-baseline-ssh        : firewall opens port 22
+##   - tailscale-on-group          : optional tailscale install (gated by INSTALL_TAILSCALE,
+##                                   default NO for kunai_lab per manifest/feature_flags.yml)
 ##
-## Lifted from the legacy 02_kunai_lab_infrastructure/stage_01/_r42_kunai_lab_group.yml
-## which targeted both trainer + students. Split per group as part of the
-## bundle-shape refactor (T-01) so the layout matches demo_lab_bundles
-## (one _baseline_<group>.yml per infra/group).
-##
-## Same content as the legacy : Docker baseline (DOCKER=YES + DOCKER_COMPOSE=YES) +
-## zsh dotfiles + firewall + kunai-project repos. Will be refactored to use
-## bundles/core/system-baseline-docker-host + network-baseline-ssh + tailscale-on-group
-## in the follow-up T-task.
+## Trainer-specific (no bundle - kept inline) :
+##   - clone kunai-project repositories into /home/alice/kunai-project/
 ##
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- name: install basics packages - trainer
-  hosts: r42_kunai_lab_trainer_group
-  become: true
-  roles:
-    - software.install.warmup.basic_packages
-
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-docker-host/main.yml"
   vars:
-    INSTALL_PACKAGES_BASICS: "YES"
-    INSTALL_PACKAGES_FIREWALLS: "YES"
-    #
-    INSTALL_PACKAGES_DOCKER: "YES"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
-    #
-    INSTALL_PACKAGES_UTILS_JSON: "YES"
-    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+    target_group: "r42_kunai_lab_trainer_group"
+    BASELINE_INSTALL_UTILS_JSON: "YES"
+    BASELINE_INSTALL_UTILS_NETWORK: "YES"
 
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
-
-    SPECIFIC_PACKAGES_CLEANING: "NO"
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- name: install dot files - trainer (alice)
-  hosts: r42_kunai_lab_trainer_group
-  become: true
-  roles:
-    - software.install.warmup.dot_files
-
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
   vars:
-    OPERATOR_USER: alice
-    INSTALL_VIM_DOTFILES: "YES"
-    INSTALL_ZSH_DOTFILES: "YES"
+    target_group: "r42_kunai_lab_trainer_group"
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- name: configure firewall - trainer
-  become: true
-  hosts: r42_kunai_lab_trainer_group
-  roles:
-    - software.configure.firewalls
-
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
   vars:
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
+    target_group: "r42_kunai_lab_trainer_group"
+    INSTALL_TAILSCALE: "NO"
+    tailscale_hostnames:
+      - "admin-trainer-kunai"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -98,5 +65,3 @@
       loop: "{{ kunai_repos }}"
       loop_control:
         label: "{{ item.name }}"
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
