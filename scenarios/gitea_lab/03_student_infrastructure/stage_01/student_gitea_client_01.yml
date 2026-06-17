@@ -1,0 +1,146 @@
+##
+## gitea_lab stage_01 - SSH key generation and Gitea registration
+##                       for student-gitea-client-01
+##
+## Validates the end-to-end SSH cycle from issue #171:
+##   1. Generate an ed25519 key pair on student-gitea-client-01
+##   2. Register the public key for the target Gitea user via the admin API
+##   3. Configure ~/.ssh/config and known_hosts for SSH git operations
+##   4. Verify SSH authentication succeeds (git@gitea via port 2222)
+##
+## Requires:
+##   - vault vars: gitea_admin_user, gitea_admin_password
+##   - ansible-vars: gitea_server_ip, gitea_http_port, gitea_ssh_port,
+##                   gitea_target_user
+##   - The Gitea Docker stack must be running on admin-gitea-standalone
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: generate SSH key on client and register it with Gitea
+  hosts: r42.student-gitea-client-01
+  gather_facts: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  vars:
+    _client_user: "{{ default_admin_vm_ci_user | default('alice') }}"
+    _key_path: "/home/{{ _client_user }}/.ssh/id_ed25519_gitea"
+    _gitea_ip: "{{ gitea_server_ip | default('192.168.142.183') }}"
+    _gitea_http_port: "{{ gitea_http_port | default(3000) }}"
+    _gitea_ssh_port: "{{ gitea_ssh_port | default(2222) }}"
+    _gitea_user: "{{ gitea_target_user | default('team-blue-user-01') }}"
+
+  tasks:
+
+    #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+    - name: GITEA-LAB SSH CYCLE - ensure .ssh directory exists
+      ansible.builtin.file:
+        path: "/home/{{ _client_user }}/.ssh"
+        state: directory
+        owner: "{{ _client_user }}"
+        group: "{{ _client_user }}"
+        mode: "0700"
+      become: true
+
+    ####
+
+    - name: GITEA-LAB SSH CYCLE - generate ed25519 key pair for '{{ _gitea_user }}'
+      ansible.builtin.command:
+        cmd: >-
+          ssh-keygen -t ed25519
+          -C "{{ _gitea_user }}@student-gitea-client-01"
+          -f {{ _key_path }} -N ""
+        creates: "{{ _key_path }}"
+      become: true
+      become_user: "{{ _client_user }}"
+
+    ####
+
+    - name: GITEA-LAB SSH CYCLE - read generated public key
+      ansible.builtin.slurp:
+        src: "{{ _key_path }}.pub"
+      register: _pubkey_b64
+      become: true
+
+    - name: GITEA-LAB SSH CYCLE - decode public key fact
+      ansible.builtin.set_fact:
+        _gitea_ssh_pubkey: "{{ _pubkey_b64.content | b64decode | trim }}"
+
+    ####
+
+    - name: GITEA-LAB SSH CYCLE - register public key for '{{ _gitea_user }}' via Gitea admin API
+      ansible.builtin.uri:
+        url: "http://{{ _gitea_ip }}:{{ _gitea_http_port }}/api/v1/admin/users/{{ _gitea_user }}/keys"
+        method: POST
+        user: "{{ gitea_admin_user }}"
+        password: "{{ gitea_admin_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          key: "{{ _gitea_ssh_pubkey }}"
+          read_only: false
+          title: "student-gitea-client-01-key-0"
+        status_code:
+          - 201
+          - 422
+      register: _api_response
+      changed_when: _api_response.status == 201
+
+    ####
+
+    - name: GITEA-LAB SSH CYCLE - scan Gitea SSH host key (port {{ _gitea_ssh_port }})
+      ansible.builtin.command:
+        cmd: "ssh-keyscan -p {{ _gitea_ssh_port }} -H {{ _gitea_ip }}"
+      register: _keyscan
+      changed_when: false
+
+    - name: GITEA-LAB SSH CYCLE - populate known_hosts with Gitea host key
+      ansible.builtin.lineinfile:
+        path: "/home/{{ _client_user }}/.ssh/known_hosts"
+        line: "{{ item }}"
+        create: true
+        owner: "{{ _client_user }}"
+        group: "{{ _client_user }}"
+        mode: "0644"
+      loop: "{{ _keyscan.stdout_lines | reject('match', '^#') | reject('equalto', '') | list }}"
+      become: true
+
+    ####
+
+    - name: GITEA-LAB SSH CYCLE - write SSH client config for Gitea
+      ansible.builtin.blockinfile:
+        path: "/home/{{ _client_user }}/.ssh/config"
+        block: |
+          Host gitea-lab
+              Hostname {{ _gitea_ip }}
+              Port {{ _gitea_ssh_port }}
+              User git
+              IdentityFile {{ _key_path }}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - gitea_lab"
+        create: true
+        owner: "{{ _client_user }}"
+        group: "{{ _client_user }}"
+        mode: "0600"
+      become: true
+
+    ####
+
+    - name: GITEA-LAB SSH CYCLE - verify SSH authentication succeeds
+      ansible.builtin.command:
+        cmd: "ssh -i {{ _key_path }} -p {{ _gitea_ssh_port }} -o StrictHostKeyChecking=yes git@{{ _gitea_ip }}"
+      register: _ssh_verify
+      changed_when: false
+      become: true
+      become_user: "{{ _client_user }}"
+      failed_when: >-
+        _ssh_verify.rc != 0
+        and 'successfully authenticated' not in (_ssh_verify.stderr | default(''))
+        and 'successfully authenticated' not in (_ssh_verify.stdout | default(''))
+
+    - name: GITEA-LAB SSH CYCLE - SSH verification result
+      ansible.builtin.debug:
+        msg: "{{ (_ssh_verify.stdout_lines | default([])) + (_ssh_verify.stderr_lines | default([])) }}"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

@@ -8,6 +8,13 @@
       "ip": "192.168.142.183",
       "role": "gitea-lab",
       "bridge": "vmbr142"
+    },
+    {
+      "vm_id": 1184,
+      "vm_name": "student-gitea-client-01",
+      "ip": "192.168.142.184",
+      "role": "gitea-lab",
+      "bridge": "vmbr142"
     }
   ],
   "templates": [

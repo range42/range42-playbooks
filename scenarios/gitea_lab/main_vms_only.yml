@@ -46,3 +46,5 @@
       - ip: "all"
         port: 2222
         protocol: "tcp"
+
+- import_playbook: ./03_student_infrastructure/_main.yml

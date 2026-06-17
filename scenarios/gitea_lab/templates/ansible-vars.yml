@@ -31,3 +31,14 @@ student_additionnal_keys_count: 0
 
 # admin vm user (not secret - password and ssh key are in vault)
 default_admin_vm_ci_user: "alice"
+
+
+#### GITEA SSH CYCLE ####
+
+# Gitea server address and ports (admin-gitea-standalone)
+gitea_server_ip: "192.168.142.183"
+gitea_http_port: 3000
+gitea_ssh_port: 2222
+
+# Gitea user whose SSH key the client VM will register (stage_02)
+gitea_target_user: "team-blue-user-01"
