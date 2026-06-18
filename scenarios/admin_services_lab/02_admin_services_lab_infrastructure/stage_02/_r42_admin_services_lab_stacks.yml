@@ -1,0 +1,186 @@
+##
+## admin_services_lab stage_02 - register OAuth2 apps in Gitea and deploy service stacks
+##
+## Three plays in ONE file so that set_fact values set in Play 1 (OAuth2 credentials)
+## persist into Play 2 and Play 3. Splitting across import_playbook would lose facts.
+##
+## Play 1 (become: false):
+##   - Register Mattermost, Rocket.Chat, Nextcloud OAuth2 apps in Gitea
+##   - Capture per-service client_id/secret as host facts immediately after each call
+##   - Write Mattermost and Rocket.Chat .env files before stack deployment (rsync
+##     in Play 2 has no --delete so pre-written .env files survive)
+##
+## Play 2 (become: true):
+##   - Deploy Mattermost, Rocket.Chat, Nextcloud docker-compose stacks
+##
+## Play 3 (become: false):
+##   - Wait for Nextcloud to be reachable on port 8080
+##   - Configure Nextcloud OIDC provider via occ (tasks use become: true per-task)
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: register OAuth2 apps in Gitea and write service env files
+  hosts: r42_admin_services_lab_group
+  become: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  vars:
+    gitea_oauth2_base_url:   "http://localhost:3000"
+    gitea_oauth2_admin_user: "{{ GITEA_ADMIN_USER }}"
+    gitea_oauth2_admin_pass: "{{ GITEA_ADMIN_PASS }}"
+
+  tasks:
+    - name: wait for Gitea HTTP API to be reachable
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 3000
+        delay: 15
+        timeout: 300
+
+    #### #### Mattermost #### ####
+
+    - name: register Mattermost OAuth2 app in Gitea
+      ansible.builtin.include_role:
+        name: service.configure.gitea_oauth2_app
+      vars:
+        gitea_oauth2_app_name:     "Mattermost"
+        gitea_oauth2_redirect_uri: "http://{{ ansible_host }}:8065/oauth/gitlab/complete"
+
+    - name: capture Mattermost OAuth2 credentials
+      ansible.builtin.set_fact:
+        mm_oauth2_client_id:     "{{ gitea_oauth2_client_id }}"
+        mm_oauth2_client_secret: "{{ gitea_oauth2_client_secret }}"
+      no_log: true
+
+    #### #### Rocket.Chat #### ####
+
+    - name: register Rocket.Chat OAuth2 app in Gitea
+      ansible.builtin.include_role:
+        name: service.configure.gitea_oauth2_app
+      vars:
+        gitea_oauth2_app_name:     "Rocket.Chat"
+        gitea_oauth2_redirect_uri: "http://{{ ansible_host }}:3500/_oauth/Gitea"
+
+    - name: capture Rocket.Chat OAuth2 credentials
+      ansible.builtin.set_fact:
+        rc_oauth2_client_id:     "{{ gitea_oauth2_client_id }}"
+        rc_oauth2_client_secret: "{{ gitea_oauth2_client_secret }}"
+      no_log: true
+
+    #### #### Nextcloud #### ####
+
+    - name: register Nextcloud OAuth2 app in Gitea
+      ansible.builtin.include_role:
+        name: service.configure.gitea_oauth2_app
+      vars:
+        gitea_oauth2_app_name:     "Nextcloud"
+        gitea_oauth2_redirect_uri: "http://{{ ansible_host }}:8080/index.php/apps/user_oidc/code"
+
+    - name: capture Nextcloud OAuth2 credentials
+      ansible.builtin.set_fact:
+        nc_oauth2_client_id:     "{{ gitea_oauth2_client_id }}"
+        nc_oauth2_client_secret: "{{ gitea_oauth2_client_secret }}"
+      no_log: true
+
+    - name: assert all OAuth2 secrets are non-empty
+      ansible.builtin.assert:
+        that:
+          - mm_oauth2_client_secret | length > 0
+          - rc_oauth2_client_secret | length > 0
+          - nc_oauth2_client_secret | length > 0
+        fail_msg: >-
+          One or more OAuth2 client_secrets are empty — the app already existed in Gitea
+          and the secret is not recoverable via the API. Delete the apps in Gitea
+          (Admin > Applications) and re-run stage_02, or run reset.setup.sh to rebuild.
+
+    #### #### write .env files before stack deploy #### ####
+
+    - name: write Mattermost .env with Gitea OAuth2 credentials
+      ansible.builtin.include_role:
+        name: service.configure.mattermost_gitea_oauth2
+      vars:
+        mattermost_gitea_base_url:      "http://{{ ansible_host }}:3000"
+        mattermost_gitea_client_id:     "{{ mm_oauth2_client_id }}"
+        mattermost_gitea_client_secret: "{{ mm_oauth2_client_secret }}"
+
+    - name: write Rocket.Chat .env with Gitea OAuth2 credentials
+      ansible.builtin.include_role:
+        name: service.configure.rocketchat_gitea_oauth2
+      vars:
+        rocketchat_gitea_base_url:      "http://{{ ansible_host }}:3000"
+        rocketchat_gitea_client_id:     "{{ rc_oauth2_client_id }}"
+        rocketchat_gitea_client_secret: "{{ rc_oauth2_client_secret }}"
+        rocketchat_http_port:           "3500"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: deploy Mattermost, Rocket.Chat, Nextcloud docker-compose stacks
+  hosts: r42_admin_services_lab_group
+  become: true
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: deploy Mattermost stack
+      ansible.builtin.include_role:
+        name: software.configure.docker-compose
+      vars:
+        LABEL_PROJECT_TYPE:  "admin"
+        LABEL_PROJET_NAME:   "mattermost"
+        LOCAL__PROJECT_DIR:  "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/mattermost"
+        REMOTE_PROJECT_DIR:  "/home/alice/mattermost"
+        OPERATOR_USER:       alice
+        CLEAN_UP_DEPLOY_DIR: "NO"
+        SEND_POC_DIR:        "NO"
+
+    - name: deploy Rocket.Chat stack
+      ansible.builtin.include_role:
+        name: software.configure.docker-compose
+      vars:
+        LABEL_PROJECT_TYPE:  "admin"
+        LABEL_PROJET_NAME:   "rocketchat"
+        LOCAL__PROJECT_DIR:  "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/rocketchat"
+        REMOTE_PROJECT_DIR:  "/home/alice/rocketchat"
+        OPERATOR_USER:       alice
+        CLEAN_UP_DEPLOY_DIR: "NO"
+        SEND_POC_DIR:        "NO"
+
+    - name: deploy Nextcloud stack
+      ansible.builtin.include_role:
+        name: software.configure.docker-compose
+      vars:
+        LABEL_PROJECT_TYPE:  "admin"
+        LABEL_PROJET_NAME:   "nextcloud"
+        LOCAL__PROJECT_DIR:  "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/nextcloud"
+        REMOTE_PROJECT_DIR:  "/home/alice/nextcloud"
+        OPERATOR_USER:       alice
+        CLEAN_UP_DEPLOY_DIR: "NO"
+        SEND_POC_DIR:        "NO"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: configure Nextcloud OIDC provider (Gitea)
+  hosts: r42_admin_services_lab_group
+  become: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: wait for Nextcloud HTTP port to be reachable
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 8080
+        delay: 30
+        timeout: 600
+
+    - name: configure Nextcloud OIDC with Gitea as identity provider
+      ansible.builtin.include_role:
+        name: service.configure.nextcloud_gitea_oauth2
+      vars:
+        nextcloud_gitea_base_url:      "http://{{ ansible_host }}:3000"
+        nextcloud_gitea_client_id:     "{{ nc_oauth2_client_id }}"
+        nextcloud_gitea_client_secret: "{{ nc_oauth2_client_secret }}"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
