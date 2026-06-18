@@ -3,11 +3,11 @@
 # PROXMOX INIT INFRASTRUCTURE - GITEA-REGISTRY-LAB VM
 #
 #   hostname : admin-gitea-registry-standalone
-#   vm_id    : 1184
+#   vm_id    : 1186
 #   cpu core : 2
 #   ram      : 8g
 #   disk     : 64g
-#   ip       : 192.168.142.184
+#   ip       : 192.168.142.186
 #   bridge   : vmbr142
 #
 #   template : template-vm-medium-02-8g-64g - id : 9232

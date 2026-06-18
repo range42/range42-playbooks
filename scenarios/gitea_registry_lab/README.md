@@ -2,7 +2,7 @@
 
 Single-VM scenario that delivers an Ubuntu LTS host pre-provisioned with the Docker baseline, ready to host Gitea (with OCI container registry) via docker-compose.
 
-The VM (`admin-gitea-registry-standalone`, VMID 1184, IP `192.168.142.184` on `vmbr142`) is cloned from the project standard medium Ubuntu noble template (VMID 9232 - 2cpu / 8gb RAM / 64gb disk). Once provisioned, the operator deploys the Gitea docker-compose stack on top - that step is intentionally NOT part of this scenario (see Scope below).
+The VM (`admin-gitea-registry-standalone`, VMID 1186, IP `192.168.142.186` on `vmbr142`) is cloned from the project standard medium Ubuntu noble template (VMID 9232 - 2cpu / 8gb RAM / 64gb disk). Once provisioned, the operator deploys the Gitea docker-compose stack on top - that step is intentionally NOT part of this scenario (see Scope below).
 
 ## Scope
 
@@ -31,20 +31,20 @@ Gitea (with registry) can be brought up in any of these ways once gitea_registry
               |
               +-- vmbr142 (shared services bridge - 192.168.142.0/24, gw .1)
                      |
-                     +-- admin-gitea-registry-standalone (.184)  ........  VMID 1184
+                     +-- admin-gitea-registry-standalone (.186)  ........  VMID 1186
 ```
 
-No dedicated subnet. The VM lives on `vmbr142`, the shared services bridge. The `.184` slot is reserved by gitea_registry_lab.
+No dedicated subnet. The VM lives on `vmbr142`, the shared services bridge. The `.186` slot is reserved by gitea_registry_lab.
 
 ## VM details
 
 | VM Name                           | VM ID | IP                | Bridge   | Template                              |
 |-----------------------------------|-------|-------------------|----------|---------------------------------------|
-| admin-gitea-registry-standalone   | 1184  | 192.168.142.184   | vmbr142  | template-vm-medium-02-8g-64g (9232)   |
+| admin-gitea-registry-standalone   | 1186  | 192.168.142.186   | vmbr142  | template-vm-medium-02-8g-64g (9232)   |
 
 Source of truth : `manifest/scenario_vms.json`.
 
-Project convention : last 3 digits of VMID match the IP last octet (1184 -> .184).
+Project convention : last 3 digits of VMID match the IP last octet (1186 -> .186).
 
 For the project-wide view of which VMIDs and IPs are reserved across all scenarios, and to audit for collisions, see `scenarios/_reserved.json` and run `scenarios/_check_reserved.sh`.
 

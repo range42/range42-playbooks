@@ -3,9 +3,9 @@
   "version": 1,
   "vms": [
     {
-      "vm_id": 1184,
+      "vm_id": 1186,
       "vm_name": "admin-gitea-registry-standalone",
-      "ip": "192.168.142.184",
+      "ip": "192.168.142.186",
       "role": "gitea-registry-lab",
       "bridge": "vmbr142"
     }
