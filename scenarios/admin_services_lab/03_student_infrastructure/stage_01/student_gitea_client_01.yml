@@ -11,7 +11,7 @@
 ## Requires:
 ##   - vault: GITEA_ADMIN_USER, GITEA_ADMIN_PASS
 ##   - ansible-vars: gitea_server_ip, gitea_ssh_port, gitea_target_user
-##   - Gitea running on admin-all-services-lab at http://192.168.142.187:3000
+##   - Gitea running on admin-all-services-lab (protocol/port from gitea_protocol/gitea_port vars)
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -25,7 +25,7 @@
   vars:
     _client_user: "{{ default_admin_vm_ci_user | default('alice') }}"
     _key_path: "/home/{{ _client_user }}/.ssh/id_ed25519_gitea"
-    _gitea_api_base: "http://{{ gitea_server_ip | default('192.168.142.187') }}:3000"
+    _gitea_api_base: "{{ gitea_protocol | default('https') }}://{{ gitea_server_ip | default('192.168.142.187') }}:{{ gitea_port | default(3000) }}"
     _gitea_ssh_port: "{{ gitea_ssh_port | default(2222) }}"
     _gitea_ip: "{{ gitea_server_ip | default('192.168.142.187') }}"
     _gitea_user: "{{ gitea_target_user | default('team-blue-user-01') }}"

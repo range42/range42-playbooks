@@ -36,5 +36,7 @@ default_admin_vm_ci_user: "alice"
 #### GITEA ####
 
 gitea_server_ip: "192.168.142.187"
+gitea_protocol: "https"
+gitea_port: 3000
 gitea_ssh_port: 2222
 gitea_target_user: "team-blue-user-01"

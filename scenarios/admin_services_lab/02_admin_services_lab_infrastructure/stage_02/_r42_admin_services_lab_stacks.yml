@@ -27,7 +27,7 @@
     - "../../secrets/default_vault.yml"
 
   vars:
-    gitea_oauth2_base_url:   "http://localhost:3000"
+    gitea_oauth2_base_url:   "{{ gitea_protocol | default('https') }}://localhost:{{ gitea_port | default(3000) }}"
     gitea_oauth2_admin_user: "{{ GITEA_ADMIN_USER | default('admin') }}"
     gitea_oauth2_admin_pass: "{{ GITEA_ADMIN_PASS | default('Admin1234!') }}"
 
