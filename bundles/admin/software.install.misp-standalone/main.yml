@@ -61,6 +61,35 @@
   hosts: "{{ global_vm_ssh_name }}"
   become: true
   gather_facts: false
+  pre_tasks:
+    ##
+    ## Push .env BEFORE the role's rsync + docker compose up. Catalog ships
+    ## only .env.example (`.env` is gitignored), and the role does not
+    ## materialize an .env on the VM. Without .env present, the misp service
+    ## container env_file: .env loads empty -> configure-misp.sh hits
+    ## "MISP_DB_PASSWORD: unbound variable" at first boot.
+    ##
+    ## Strategy : push controller's .env.example as the VM's .env with
+    ## force=false. Operator can customize /home/alice/misp-standalone/.env
+    ## once on the VM and subsequent re-deploys respect it. The rsync that
+    ## follows transfers .env.example as a sibling, never touches .env.
+    ##
+    - name: ensure REMOTE_PROJECT_DIR exists on the VM (idempotent ; the role's CREATE TMP DIR runs the same op)
+      ansible.builtin.file:
+        path: "/home/alice/misp-standalone"
+        state: directory
+        owner: "alice"
+        group: "alice"
+        mode: "0700"
+
+    - name: push .env on the VM (cp .env.example -> .env if .env absent on the VM)
+      ansible.builtin.copy:
+        src:   "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone/.env.example"
+        dest:  "/home/alice/misp-standalone/.env"
+        owner: "alice"
+        group: "alice"
+        mode:  "0600"
+        force: false
   roles:
     - software.configure.docker-compose
   vars:

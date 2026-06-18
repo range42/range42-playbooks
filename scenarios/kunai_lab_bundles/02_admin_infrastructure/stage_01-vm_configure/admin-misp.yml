@@ -3,9 +3,13 @@
 ##
 ## Delegates to the shared bundle which provides the full pipeline (Docker
 ## install + docker-compose deploy of misp-standalone : MariaDB + Redis +
-## misp-modules + misp + provisioner). The bundle auto-cps .env.example
-## -> .env on the local catalog if .env is absent. Populate the catalog .env
-## BEFORE the deploy to use strong secrets (see the bundle's README.md).
+## misp-modules + misp + provisioner). The bundle pushes .env.example as
+## .env directly on the VM (pre_tasks in the deploy play) so docker compose
+## can load env_file: .env regardless of the local catalog state.
+##
+## To use strong secrets (vs the catalog's weak placeholders), populate the
+## VM's /home/alice/misp-standalone/.env BEFORE the deploy, or customize the
+## local catalog .env before running. See the bundle's README.md.
 ##
 ## Gated by INSTALL_MISP (default NO per kunai_lab_bundles feature_flags.yml).
 ##
