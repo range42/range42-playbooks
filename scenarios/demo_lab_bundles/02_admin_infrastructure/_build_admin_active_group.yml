@@ -1,0 +1,58 @@
+##
+## demo_lab_bundles - 02_admin_infrastructure - build r42_admin_active
+##
+## Builds the runtime-only r42_admin_active group from the INSTALL_<flag>
+## values set at deploy time. Members are added via ansible.builtin.add_host,
+## so the group is in-memory only ; the workspace inventory_default.yml is
+## NOT modified.
+##
+## Used by _baseline_admin.yml as target_group, so the baseline only runs on
+## admin VMs that stage_00 actually deployed (per INSTALL flags). The
+## admin-wazuh.yml / deployer_*.yml wrappers continue to target their VM
+## directly by name (hosts: r42.admin-*) and don't depend on this group.
+##
+## Membership map (mirrors stage_00 _r42_admin_group.yml gating) :
+##
+##   admin VM                             stage_00 gate                    add_host condition
+##   ----------------------------------- -------------------------------- ----------------------
+##   r42.admin-wazuh                      INSTALL_WAZUH (default YES)      INSTALL_WAZUH=YES
+##   r42.admin-deployer-api-gateway       (none, always created)           always added
+##   r42.admin-deployer-api-backend       (none, always created)           always added
+##   r42.admin-deployer-ui                (none, always created)           always added
+##
+## With INSTALL_WAZUH=NO (operator opts out of the SIEM), the baseline skips
+## admin-wazuh cleanly. The 3 deployer-* are always part of the group today
+## (their stage_00 bootstrap is unconditional). A future INSTALL_DEPLOYER_*
+## flag set could move them to gated add_host calls without breaking this
+## file's contract.
+##
+
+- name: build r42_admin_active dynamic group from INSTALL flags
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: add r42.admin-wazuh to r42_admin_active when INSTALL_WAZUH=YES
+      ansible.builtin.add_host:
+        name: r42.admin-wazuh
+        groups: r42_admin_active
+      when: INSTALL_WAZUH | default("YES") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.admin-deployer-api-gateway to r42_admin_active (always created in stage_00)
+      ansible.builtin.add_host:
+        name: r42.admin-deployer-api-gateway
+        groups: r42_admin_active
+      changed_when: false
+
+    - name: add r42.admin-deployer-api-backend to r42_admin_active (always created in stage_00)
+      ansible.builtin.add_host:
+        name: r42.admin-deployer-api-backend
+        groups: r42_admin_active
+      changed_when: false
+
+    - name: add r42.admin-deployer-ui to r42_admin_active (always created in stage_00)
+      ansible.builtin.add_host:
+        name: r42.admin-deployer-ui
+        groups: r42_admin_active
+      changed_when: false
