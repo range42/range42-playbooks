@@ -1,0 +1,58 @@
+---
+##
+## nextcloud_lab - main_vms_only playbook
+##
+## Skips the 01_init_proxmox template creation stage (template 9232 assumed
+## already present from a prior nextcloud_lab.setup.sh run, or from another scenario
+## that builds the same medium template - blank_scenario_2_subnets, demo_lab,
+## misp_lab). Used by `range42-context deploy-vms`.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 02_nextcloud_lab_infrastructure - STAGE 00 #### #### #
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_nextcloud_lab_infrastructure/stage_00/nextcloud_lab_vm.yml
+
+  vars:
+    global_vm_name: "admin-nextcloud-standalone"
+    global_vm_ssh_name: "r42.admin-nextcloud-standalone"
+    global_vm_id: 1181
+    global_vm_description: "nextcloud_lab - Ubuntu LTS host for Nextcloud via docker-compose"
+    global_vm_tag_name: "nextcloud-lab"
+    global_vm_ci_ip: "192.168.142.181"
+    #
+    global_template_vm_id: 9232
+    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 02_nextcloud_lab_infrastructure - STAGE 01 #### #### #
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_nextcloud_lab_infrastructure/stage_01/_r42_nextcloud_lab_group.yml
+
+  vars:
+    OPERATOR_USER: alice
+
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "YES"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+
+    INSTALL_TAILSCALE: "NO"
+
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
