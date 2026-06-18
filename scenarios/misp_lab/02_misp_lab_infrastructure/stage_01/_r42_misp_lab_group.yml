@@ -1,5 +1,5 @@
 ##
-## misp_lab stage_01 - software install on the admin-misp-standalone VM
+## misp_lab stage_01 - software install and MISP deployment on admin-misp-standalone
 ##
 ## Lifted from catalog_try/02_catalog-try_infrastructure/stage_01/_r42_catalog_try_group.yml.
 ## Same Docker baseline (DOCKER=YES + DOCKER_COMPOSE=YES) + zsh dotfiles + firewall.
@@ -8,6 +8,12 @@
 ## Targets the r42_misp_lab_group inventory group (defined in
 ## templates/ansible-inventory.j2), currently containing a single host :
 ## r42.admin-misp-standalone.
+##
+## Play 4 deploys the misp-standalone docker-compose stack via the
+## software.configure.docker-compose role (installs rsync, syncs files, runs
+## docker_compose_v2). Build output is silent during the 10+ min MISP build.
+## Uses the existing RANGE42_INVENTORY env var (points to range42-catalog root).
+## The operator must cp .env.example .env and fill in credentials before running.
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -67,5 +73,31 @@
       - ip: "all"
         port: 22
         protocol: "tcp"
+      - ip: "all"
+        port: 80
+        protocol: "tcp"
+      - ip: "all"
+        port: 443
+        protocol: "tcp"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: deploy misp-standalone docker-compose stack
+  hosts: r42_misp_lab_group
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars:
+    LABEL_PROJECT_TYPE: "ADMIN"
+    LABEL_PROJET_NAME: "misp-standalone"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone"
+    REMOTE_PROJECT_DIR: "/home/alice/misp-standalone"
+    #
+    OPERATOR_USER: alice
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
