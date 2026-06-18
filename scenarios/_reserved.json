@@ -148,5 +148,5 @@
 {"vm_id":9232,"vm_name":"template-vm-medium-02-8g-64g","spec":"2cpu/8gb/64gb","ip":"192.168.140.232","bridge":"vmbr140","scenario":"kunai_lab","role":"template"}
 {"vm_id":1180,"vm_name":"admin-misp-standalone","ip":"192.168.142.180","role":"misp-lab","bridge":"vmbr142","scenario":"misp_lab"}
 {"vm_id":9232,"vm_name":"template-vm-medium-02-8g-64g","spec":"2cpu/8gb/64gb","ip":"192.168.140.232","bridge":"vmbr140","scenario":"misp_lab","role":"template"}
-{"vm_id":1181,"vm_name":"admin-rocketchat-standalone","ip":"192.168.142.181","role":"rocketchat-lab","bridge":"vmbr142","scenario":"rocketchat_lab"}
+{"vm_id":1185,"vm_name":"admin-rocketchat-standalone","ip":"192.168.142.185","role":"rocketchat-lab","bridge":"vmbr142","scenario":"rocketchat_lab"}
 {"vm_id":9232,"vm_name":"template-vm-medium-02-8g-64g","spec":"2cpu/8gb/64gb","ip":"192.168.140.232","bridge":"vmbr140","scenario":"rocketchat_lab","role":"template"}

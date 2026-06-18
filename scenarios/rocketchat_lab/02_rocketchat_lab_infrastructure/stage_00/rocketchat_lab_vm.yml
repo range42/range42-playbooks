@@ -3,11 +3,11 @@
 # PROXMOX INIT INFRASTRUCTURE - ROCKETCHAT-LAB VM
 #
 #   hostname : admin-rocketchat-standalone
-#   vm_id    : 1181
+#   vm_id    : 1185
 #   cpu core : 2
 #   ram      : 8g
 #   disk     : 64g
-#   ip       : 192.168.142.181
+#   ip       : 192.168.142.185
 #   bridge   : vmbr142
 #
 #   template : template-vm-medium-02-8g-64g - id : 9232

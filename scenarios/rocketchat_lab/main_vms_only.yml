@@ -17,10 +17,10 @@
   vars:
     global_vm_name: "admin-rocketchat-standalone"
     global_vm_ssh_name: "r42.admin-rocketchat-standalone"
-    global_vm_id: 1181
+    global_vm_id: 1185
     global_vm_description: "rocketchat_lab - Ubuntu LTS host for Rocket.Chat via docker-compose"
     global_vm_tag_name: "rocketchat-lab"
-    global_vm_ci_ip: "192.168.142.181"
+    global_vm_ci_ip: "192.168.142.185"
     #
     global_template_vm_id: 9232
     global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
