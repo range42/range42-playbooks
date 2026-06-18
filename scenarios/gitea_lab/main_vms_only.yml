@@ -1,0 +1,50 @@
+---
+##
+## gitea_lab - fast redeploy (skip template creation)
+## Assumes template VMID 9232 is already present on Proxmox.
+## Usage: ./gitea_lab.setup_vms_only.sh   (or range42-context deploy-vms)
+##
+
+- import_playbook: ./02_gitea_lab_infrastructure/stage_00/gitea_lab_vm.yml
+  vars:
+    global_vm_name: "admin-gitea-standalone"
+    global_vm_ssh_name: "r42.admin-gitea-standalone"
+    global_vm_id: 1183
+    global_vm_description: "gitea_lab - Ubuntu LTS host for Gitea via docker-compose"
+    global_vm_tag_name: "gitea-lab"
+    global_vm_ci_ip: "192.168.142.183"
+    global_template_vm_id: 9232
+    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
+
+- import_playbook: ./02_gitea_lab_infrastructure/stage_01/_r42_gitea_lab_group.yml
+  vars:
+    OPERATOR_USER: alice
+
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "YES"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+
+    INSTALL_TAILSCALE: "NO"
+
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+      - ip: "all"
+        port: 3000
+        protocol: "tcp"
+      - ip: "all"
+        port: 2222
+        protocol: "tcp"
+
+- import_playbook: ./03_student_infrastructure/_main.yml

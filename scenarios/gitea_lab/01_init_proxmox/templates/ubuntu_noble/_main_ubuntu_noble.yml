@@ -1,0 +1,3 @@
+---
+# gitea_lab - create Ubuntu noble template (VMID 9232) if not present
+- import_playbook: "{{ playbook_dir }}/03-template-vm-medium-02-8g-64g.yml"
