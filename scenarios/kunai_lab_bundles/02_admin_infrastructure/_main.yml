@@ -1,59 +1,27 @@
 ---
 ##
-## 02 - admin infrastructure
+## 02 - admin infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
 ##
 ## Hosts the optional admin platform VMs for the kunai_lab scenario :
-##   - admin-wazuh (VMID 1110, IP 192.168.142.110) : Wazuh SIEM server + agent
-##     install on the trainer + students VMs (group r42_kunai_lab_wazuh_clients).
-##     Gated by INSTALL_WAZUH (default NO per manifest/feature_flags.yml).
+##   - admin-wazuh (VMID 1110, IP 192.168.142.110) : Wazuh SIEM server
+##     (gated by INSTALL_WAZUH, default NO per manifest/feature_flags.yml).
 ##   - admin-misp  (VMID 1111, IP 192.168.142.111) : MISP threat intel stack
-##     (docker-compose deploy from range42-catalog).
-##     Gated by INSTALL_MISP (default NO per manifest/feature_flags.yml).
+##     (gated by INSTALL_MISP, default NO).
 ##
-## Per-VM gating model :
-##   - stage_00 _r42_admin_group.yml creates each admin VM only when its
-##     INSTALL_<flag> is YES.
-##   - _build_admin_active_group.yml constructs the runtime-only group
-##     r42_admin_active with only the admin VMs whose flag is YES.
-##   - stage_01 baseline targets r42_admin_active (per-host gating without
-##     touching the workspace inventory file).
-##   - admin-wazuh.yml / admin-misp.yml wrappers each gate their bundle import
-##     by their own INSTALL_<flag>.
-##   - finalize agent install (wazuh-agent) is gated by INSTALL_WAZUH.
+## This tier is split into stage_00 + stage_01 sibling files so the top-level
+## main.yml can interleave them with the other tiers' stages :
+##   stage_00 (across all tiers) -> stage_01 (across all tiers) -> finalize.
+## See main.yml for the global ordering.
 ##
-## With every flag NO, r42_admin_active is empty and the baseline silently
-## skips (ok=0). With one or more flags YES, only the relevant admin VMs are
-## touched - no UNREACHABLE on the absent ones.
+## This wrapper imports both stages back-to-back, useful for running the
+## admin tier in isolation (e.g. devkit debug). NOT used by the main scenario
+## deploy - main.yml imports _main_stage_00.yml / _main_stage_01.yml directly
+## to satisfy the global stage discipline.
 ##
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### STAGE 00 - VM BOOTSTRAP #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+- import_playbook: ./_main_stage_00.yml
 
-- import_playbook: ./stage_00-vm_bootstrap/_r42_admin_group.yml
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### BUILD r42_admin_active (dynamic group)  #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- import_playbook: ./_build_admin_active_group.yml
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### STAGE 01 - VM CONFIGURE #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- import_playbook: ./stage_01-vm_configure/_baseline_admin.yml
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./stage_01-vm_configure/admin-wazuh.yml
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./stage_01-vm_configure/admin-misp.yml
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+- import_playbook: ./_main_stage_01.yml

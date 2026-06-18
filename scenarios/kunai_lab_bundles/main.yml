@@ -2,12 +2,17 @@
 ##
 ## kunai_lab - main playbook
 ##
-## Provisions 6 Ubuntu LTS VMs on vmbr142 from the project standard medium
-## template (VMID 9232 : 2cpu / 8gb / 64gb). Each VM is delivered with the
-## Docker baseline pre-installed + kunai-project ecosystem repositories
-## pre-cloned in the operator home.
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
 ##
-## Topology (single in-VM user alice on every VM, project convention) :
+## Provisions 6 lab VMs on vmbr142 from the project standard medium template
+## (VMID 9232 : 2cpu / 8gb / 64gb). Each VM is delivered with the Docker
+## baseline pre-installed + kunai-project ecosystem repositories pre-cloned.
+##
+## Optional admin VMs gated by feature flags :
+##   - admin-wazuh (INSTALL_WAZUH, default NO)
+##   - admin-misp  (INSTALL_MISP,  default NO)
+##
+## Lab topology (single in-VM user alice on every VM, project convention) :
 ##   - admin-trainer-kunai (192.168.142.104, VMID 1104)  - trainer
 ##   - student-kunai-01    (192.168.142.105, VMID 1105)  - student
 ##   - student-kunai-02    (192.168.142.106, VMID 1106)  - student
@@ -15,22 +20,51 @@
 ##   - student-kunai-04    (192.168.142.108, VMID 1108)  - student
 ##   - student-kunai-05    (192.168.142.109, VMID 1109)  - student
 ##
-## Infras (mirrors demo_lab_bundles arborescence) :
-##   01_templates-bootstrap                : download cloud-init image + create template 9232
-##   02_admin_infrastructure (scaffold)    : reserved for future Wazuh / MISP VMs (gated, off by default)
-##   03_trainer_infrastructure             : trainer VM (1 host, admin role)
-##   04_student_infrastructure             : student VMs (5 hosts)
+## Global stage discipline (restored from legacy kunai_lab/main.yml shape) :
+##   1. 01_templates-bootstrap                          create the shared template
+##   2. ALL tiers stage_00 (vm_bootstrap)               create every VM first
+##   3. ALL tiers stage_01 (vm_configure)               configure every VM after
+##   4. cross-tier finalize (wazuh-agent on lab clients) when INSTALL_WAZUH=YES
 ##
+## This ordering guarantees that any cross-tier configure step (e.g. wazuh
+## agent install on tier 03+04 clients reaching the wazuh server on tier 02)
+## sees ALL target VMs created AND baselined before firing.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - import_playbook: ./01_templates-bootstrap/_main.yml
 
-####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-# Optional admin VMs (Wazuh now ; MISP planned). Gated per-VM via
-# manifest/feature_flags.yml ; all entries skip silently when their
-# INSTALL_<NAME> flag is NO.
-- import_playbook: ./02_admin_infrastructure/_main.yml
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
-- import_playbook: ./03_trainer_infrastructure/_main.yml
+- import_playbook: ./03_trainer_infrastructure/_main_stage_00.yml
 
-- import_playbook: ./04_student_infrastructure/_main.yml
+- import_playbook: ./04_student_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./03_trainer_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./04_student_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# wazuh-agent install on lab clients (trainer + students). Targets
+# r42_kunai_lab_wazuh_clients. Runs LAST so the wazuh server (tier 02
+# stage_01) is reachable AND the agent target VMs (tiers 03 + 04 stage_00 +
+# stage_01) are created + baselined. Gated by INSTALL_WAZUH.
+#
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

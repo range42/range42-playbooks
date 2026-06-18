@@ -2,14 +2,38 @@
 ##
 ## kunai_lab - main_vms_only playbook
 ##
+## Structure : same multi-level pattern as main.yml (skips 01_templates-bootstrap, template 9232 assumed present).
+##
 ## Skips 01_templates-bootstrap (template 9232 assumed already present from a
-## prior kunai_lab_bundles.setup.sh run, or from another scenario that builds the same
-## medium template). Used by `range42-context deploy-vms`.
+## prior kunai_lab_bundles.setup.sh run, or from another scenario that builds
+## the same medium template). Used by `range42-context deploy-vms`.
+##
+## Same global stage discipline as main.yml : ALL tiers stage_00 first, then
+## ALL tiers stage_01, then cross-tier finalize.
 ##
 
-# Optional admin VMs (gated per-VM via manifest/feature_flags.yml) - see main.yml.
-- import_playbook: ./02_admin_infrastructure/_main.yml
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./03_trainer_infrastructure/_main.yml
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
-- import_playbook: ./04_student_infrastructure/_main.yml
+- import_playbook: ./03_trainer_infrastructure/_main_stage_00.yml
+
+- import_playbook: ./04_student_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./03_trainer_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./04_student_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
