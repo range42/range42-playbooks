@@ -6,11 +6,24 @@
 ##   - admin-wazuh (VMID 1110, IP 192.168.142.110) : Wazuh SIEM server + agent
 ##     install on the trainer + students VMs (group r42_kunai_lab_wazuh_clients).
 ##     Gated by INSTALL_WAZUH (default NO per manifest/feature_flags.yml).
+##   - admin-misp  (VMID 1111, IP 192.168.142.111) : MISP threat intel stack
+##     (docker-compose deploy from range42-catalog).
+##     Gated by INSTALL_MISP (default NO per manifest/feature_flags.yml).
 ##
-## All entries below are wired but conditionally executed. With INSTALL_WAZUH=NO
-## (default), stage_00 skips the VM bootstrap, stage_01 baseline skips (empty
-## r42_admin group), wazuh server + finalize agent install both skip via their
-## own when: clauses. Net effect : zero plays executed when all flags off.
+## Per-VM gating model :
+##   - stage_00 _r42_admin_group.yml creates each admin VM only when its
+##     INSTALL_<flag> is YES.
+##   - _build_admin_active_group.yml constructs the runtime-only group
+##     r42_admin_active with only the admin VMs whose flag is YES.
+##   - stage_01 baseline targets r42_admin_active (per-host gating without
+##     touching the workspace inventory file).
+##   - admin-wazuh.yml / admin-misp.yml wrappers each gate their bundle import
+##     by their own INSTALL_<flag>.
+##   - finalize agent install (wazuh-agent) is gated by INSTALL_WAZUH.
+##
+## With every flag NO, r42_admin_active is empty and the baseline silently
+## skips (ok=0). With one or more flags YES, only the relevant admin VMs are
+## touched - no UNREACHABLE on the absent ones.
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -18,6 +31,12 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - import_playbook: ./stage_00-vm_bootstrap/_r42_admin_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_admin_active (dynamic group)  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./_build_admin_active_group.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### STAGE 01 - VM CONFIGURE #### #### #### #### #### ####

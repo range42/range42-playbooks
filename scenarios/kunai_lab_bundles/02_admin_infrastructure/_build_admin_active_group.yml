@@ -1,0 +1,42 @@
+##
+## kunai_lab_bundles - 02_admin_infrastructure - build r42_admin_active
+##
+## Builds the runtime-only r42_admin_active group from the INSTALL_<flag>
+## values set at deploy time. Members are added via ansible.builtin.add_host,
+## so the group is in-memory only ; the workspace inventory_default.yml is
+## NOT modified.
+##
+## Used by _baseline_admin.yml as target_group, so the baseline only runs on
+## admin VMs that stage_00 actually deployed (per INSTALL flags). The
+## admin-wazuh.yml and admin-misp.yml wrappers continue to target their VM
+## directly by name (hosts: r42.admin-*) and don't depend on this group.
+##
+## Per-VM gating driven by deploy-time flags, without inventory regen between
+## deploys :
+##
+##   INSTALL_WAZUH | INSTALL_MISP | r42_admin_active contains
+##   ------------- | ------------ | ---------------------------
+##   NO            | NO           | (empty -> baseline plays skip silently)
+##   YES           | NO           | [r42.admin-wazuh]
+##   NO            | YES          | [r42.admin-misp]
+##   YES           | YES          | [r42.admin-wazuh, r42.admin-misp]
+##
+
+- name: build r42_admin_active dynamic group from INSTALL flags
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: add r42.admin-wazuh to r42_admin_active when INSTALL_WAZUH=YES
+      ansible.builtin.add_host:
+        name: r42.admin-wazuh
+        groups: r42_admin_active
+      when: INSTALL_WAZUH | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.admin-misp to r42_admin_active when INSTALL_MISP=YES
+      ansible.builtin.add_host:
+        name: r42.admin-misp
+        groups: r42_admin_active
+      when: INSTALL_MISP | default("NO") | upper == "YES"
+      changed_when: false
