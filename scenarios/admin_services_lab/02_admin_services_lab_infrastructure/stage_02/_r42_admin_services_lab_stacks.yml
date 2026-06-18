@@ -28,8 +28,8 @@
 
   vars:
     gitea_oauth2_base_url:   "http://localhost:3000"
-    gitea_oauth2_admin_user: "{{ GITEA_ADMIN_USER }}"
-    gitea_oauth2_admin_pass: "{{ GITEA_ADMIN_PASS }}"
+    gitea_oauth2_admin_user: "{{ GITEA_ADMIN_USER | default('admin') }}"
+    gitea_oauth2_admin_pass: "{{ GITEA_ADMIN_PASS | default('Admin1234!') }}"
 
   tasks:
     - name: wait for Gitea HTTP API to be reachable
