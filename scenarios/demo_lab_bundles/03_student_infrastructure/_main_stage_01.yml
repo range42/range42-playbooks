@@ -1,0 +1,15 @@
+---
+##
+## 03 - student infrastructure - stage_01 (vm_configure)
+##
+## Structure : stage_01 unit imported by top-level main.yml ; split kept so global stage ordering stays editable without touching per-tier plays.
+##
+## Imported from the top-level main.yml during the global stage_01 phase
+## (after ALL tiers stage_00 completed). See main.yml.
+##
+
+- import_playbook: ./stage_01-vm_configure/_baseline_student.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01-vm_configure/student_box_01.yml

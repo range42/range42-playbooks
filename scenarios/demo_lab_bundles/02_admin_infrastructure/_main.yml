@@ -1,40 +1,16 @@
-#
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### STAGE 00  - VM BOOTSTRAP #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#
+---
+##
+## 02 - admin infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the admin platform VMs : admin-wazuh (gated INSTALL_WAZUH) + 3
+## deployer-* (api-gateway, api-backend, ui). Split into stage_00 + stage_01
+## sibling files so the top-level main.yml can interleave them with the other
+## tiers' stages. See main.yml.
+##
 
-- import_playbook: ./stage_00-vm_bootstrap/_r42_admin_group.yml
+- import_playbook: ./_main_stage_00.yml
 
-#
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### BUILD r42_admin_active (dynamic group) #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#
-
-- import_playbook: ./_build_admin_active_group.yml
-
-#
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#
-
-- import_playbook: ./stage_01-vm_configure/_baseline_admin.yml
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./stage_01-vm_configure/admin-wazuh.yml
-
-- import_playbook: ./stage_01-vm_configure/deployer_api_backend.yml
-
-- import_playbook: ./stage_01-vm_configure/deployer_api_gateway.yml
-
-- import_playbook: ./stage_01-vm_configure/deployer_ui.yml
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
-
-#
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+- import_playbook: ./_main_stage_01.yml

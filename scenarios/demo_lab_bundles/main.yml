@@ -1,11 +1,50 @@
 ---
+##
+## demo_lab - main playbook
+##
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
+##
+## Global stage discipline (mirror of kunai_lab_bundles after the structural fix) :
+##   1. 01_templates-bootstrap                          create the shared templates
+##   2. ALL tiers stage_00 (vm_bootstrap)               create every VM first
+##   3. ALL tiers stage_01 (vm_configure)               configure every VM after
+##   4. cross-tier finalize (wazuh-agent on r42_admin_wazuh_clients) when INSTALL_WAZUH=YES
+##
+## This ordering guarantees that any cross-tier configure step (e.g. wazuh
+## agent install on the deployer-* clients reaching the wazuh server) sees
+## ALL target VMs created AND baselined before firing.
+##
 
 - import_playbook: ./01_templates-bootstrap/_main.yml
 
-####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./02_admin_infrastructure/_main.yml
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
-#- import_playbook: ./03_student_infrastructure/_main.yml
+#- import_playbook: ./03_student_infrastructure/_main_stage_00.yml
 
-- import_playbook: ./04_ctf_infrastructure/_main.yml
+- import_playbook: ./04_ctf_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+#- import_playbook: ./03_student_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./04_ctf_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# wazuh-agent install on r42_admin_wazuh_clients (deployer-* hosts on demo).
+# Runs LAST so the wazuh server (tier 02 stage_01) is reachable AND all admin
+# tier VMs (tier 02 stage_00 + stage_01) are created + baselined. Gated by
+# INSTALL_WAZUH.
+#
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

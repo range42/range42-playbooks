@@ -1,0 +1,35 @@
+---
+##
+## 02 - admin infrastructure - stage_01 (vm_configure)
+##
+## Structure : stage_01 unit imported by top-level main.yml ; cross-tier finalize (wazuh-agent on r42_admin_wazuh_clients) lives at main.yml level, not here.
+##
+## Builds the runtime r42_admin_active group from INSTALL_<flag> values, then
+## applies the baseline + wazuh server install + deployer platform (api-gateway,
+## api-backend, ui) on the active admin VMs.
+##
+## Imported from the top-level main.yml during the global stage_01 phase
+## (after ALL tiers stage_00 completed). See main.yml.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_admin_active (dynamic group)  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./_build_admin_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 - VM CONFIGURE #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_01-vm_configure/_baseline_admin.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01-vm_configure/admin-wazuh.yml
+
+- import_playbook: ./stage_01-vm_configure/deployer_api_backend.yml
+
+- import_playbook: ./stage_01-vm_configure/deployer_api_gateway.yml
+
+- import_playbook: ./stage_01-vm_configure/deployer_ui.yml

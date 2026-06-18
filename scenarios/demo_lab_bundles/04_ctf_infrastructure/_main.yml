@@ -1,26 +1,14 @@
-#
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### STAGE 00  - VM BOOTSTRAP #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#
+---
+##
+## 04 - ctf infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Split into stage_00 + stage_01 sibling files so the top-level main.yml can
+## interleave them with the other tiers' stages. See main.yml.
+##
 
-- import_playbook: ./stage_00-vm_bootstrap/_r42_vuln_box_group.yml
+- import_playbook: ./_main_stage_00.yml
 
-#
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#
-
-- import_playbook: ./stage_01-vm_configure/_baseline_vuln_box.yml
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./stage_01-vm_configure/vuln_box_00.yml
-- import_playbook: ./stage_01-vm_configure/vuln_box_01.yml
-- import_playbook: ./stage_01-vm_configure/vuln_box_02.yml
-- import_playbook: ./stage_01-vm_configure/vuln_box_03.yml
-- import_playbook: ./stage_01-vm_configure/vuln_box_04.yml
-
-#
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+- import_playbook: ./_main_stage_01.yml

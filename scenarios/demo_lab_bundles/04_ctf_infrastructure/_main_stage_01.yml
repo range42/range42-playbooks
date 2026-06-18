@@ -1,0 +1,21 @@
+---
+##
+## 04 - ctf infrastructure - stage_01 (vm_configure)
+##
+## Structure : stage_01 unit imported by top-level main.yml ; split kept so global stage ordering stays editable without touching per-tier plays.
+##
+## Applies the baseline + 5 vuln-box specific configurations.
+##
+## Imported from the top-level main.yml during the global stage_01 phase
+## (after ALL tiers stage_00 completed). See main.yml.
+##
+
+- import_playbook: ./stage_01-vm_configure/_baseline_vuln_box.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01-vm_configure/vuln_box_00.yml
+- import_playbook: ./stage_01-vm_configure/vuln_box_01.yml
+- import_playbook: ./stage_01-vm_configure/vuln_box_02.yml
+- import_playbook: ./stage_01-vm_configure/vuln_box_03.yml
+- import_playbook: ./stage_01-vm_configure/vuln_box_04.yml
