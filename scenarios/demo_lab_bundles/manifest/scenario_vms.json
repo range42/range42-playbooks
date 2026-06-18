@@ -4,6 +4,7 @@
   "description": "Reference demo lab — admin subnet (192.168.142.0/24, dense .100-.103) + student subnet (192.168.143.0/24, .160) + CTF subnet (192.168.144.0/24, .170-.174). Deploys 4 admin VMs (wazuh + deployer platform: api-gateway, api-backend, ui), 1 student VM, and 5 vuln boxes. vm_id range: 1xxx (1100-1103 admin, 1160 student, 1170-1174 ctf), aligned with project rule `vm_id last 3 digits = IP last octet` for single-subnet VMs. Student infrastructure import in main.yml may be commented out — the manifest still lists student-box-01 because the vm_id and IP slot is reserved.",
   "vms": [
     {"vm_id": 1100, "vm_name": "admin-wazuh",                "ip": "192.168.142.100", "role": "admin",   "bridge": "vmbr142"},
+    {"vm_id": 1111, "vm_name": "admin-misp",                 "ip": "192.168.142.111", "role": "admin",   "bridge": "vmbr142"},
     {"vm_id": 1101, "vm_name": "admin-deployer-api-gateway", "ip": "192.168.142.101", "role": "admin",   "bridge": "vmbr142"},
     {"vm_id": 1102, "vm_name": "admin-deployer-api-backend", "ip": "192.168.142.102", "role": "admin",   "bridge": "vmbr142"},
     {"vm_id": 1103, "vm_name": "admin-deployer-ui",          "ip": "192.168.142.103", "role": "admin",   "bridge": "vmbr142"},

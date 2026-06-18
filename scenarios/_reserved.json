@@ -97,6 +97,7 @@
 {"vm_id":8501,"vm_name":"dsb-vm-01","ip":"192.168.148.250","role":"debug","bridge":"vmbr148","scenario":"debug_scenario_b"}
 {"vm_id":9903,"vm_name":"template-vm-alpine-nano","spec":"1cpu/512mb/4gb","ip":"192.168.142.203","bridge":"vmbr140","scenario":"debug_scenario_b","role":"template"}
 {"vm_id":1100,"vm_name":"admin-wazuh","ip":"192.168.142.100","role":"admin","bridge":"vmbr142","scenario":"demo_lab_bundles"}
+{"vm_id":1111,"vm_name":"admin-misp","ip":"192.168.142.111","role":"admin","bridge":"vmbr142","scenario":"demo_lab_bundles"}
 {"vm_id":1101,"vm_name":"admin-deployer-api-gateway","ip":"192.168.142.101","role":"admin","bridge":"vmbr142","scenario":"demo_lab_bundles"}
 {"vm_id":1102,"vm_name":"admin-deployer-api-backend","ip":"192.168.142.102","role":"admin","bridge":"vmbr142","scenario":"demo_lab_bundles"}
 {"vm_id":1103,"vm_name":"admin-deployer-ui","ip":"192.168.142.103","role":"admin","bridge":"vmbr142","scenario":"demo_lab_bundles"}
