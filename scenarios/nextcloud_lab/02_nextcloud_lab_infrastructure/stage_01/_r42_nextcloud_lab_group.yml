@@ -1,25 +1,22 @@
 ##
-## misp_lab stage_01 - software install and MISP deployment on admin-misp-standalone
+## nextcloud_lab stage_01 - software install and Nextcloud deployment on admin-nextcloud-standalone
 ##
-## Lifted from catalog_try/02_catalog-try_infrastructure/stage_01/_r42_catalog_try_group.yml.
-## Same Docker baseline (DOCKER=YES + DOCKER_COMPOSE=YES) + zsh dotfiles + firewall.
-## INSTALL_PACKAGES_UTILS_JSON is flipped to YES (jq is needed for MISP related
-## tooling and for the operator workflow inside the VM).
-## Targets the r42_misp_lab_group inventory group (defined in
-## templates/ansible-inventory.j2), currently containing a single host :
-## r42.admin-misp-standalone.
+## Same Docker baseline as misp_lab + zsh dotfiles + firewall.
+## Firewall opens port 22 (SSH) and port 8080 (Nextcloud HTTP).
+## Targets the r42_nextcloud_lab_group inventory group (defined in
+## templates/ansible-inventory.j2), currently containing a single host:
+## r42.admin-nextcloud-standalone.
 ##
-## Play 4 deploys the misp-standalone docker-compose stack via the
+## Play 4 deploys the nextcloud docker-compose stack via the
 ## software.configure.docker-compose role (installs rsync, syncs files, runs
-## docker_compose_v2). Build output is silent during the 10+ min MISP build.
+## docker_compose_v2).
 ## Uses the existing RANGE42_INVENTORY env var (points to range42-catalog root).
-## The operator must cp .env.example .env and fill in credentials before running.
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: install basics packages
-  hosts: r42_misp_lab_group
+  hosts: r42_nextcloud_lab_group
   become: true
   roles:
     - software.install.warmup.basic_packages
@@ -44,7 +41,7 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: install dot files
-  hosts: r42_misp_lab_group
+  hosts: r42_nextcloud_lab_group
   become: true
   roles:
     - software.install.warmup.dot_files
@@ -61,7 +58,7 @@
 
 - name: configure firewall - all
   become: true
-  hosts: r42_misp_lab_group
+  hosts: r42_nextcloud_lab_group
   roles:
     - software.configure.firewalls
 
@@ -74,26 +71,23 @@
         port: 22
         protocol: "tcp"
       - ip: "all"
-        port: 80
-        protocol: "tcp"
-      - ip: "all"
-        port: 443
+        port: 8080
         protocol: "tcp"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: deploy misp-standalone docker-compose stack
-  hosts: r42_misp_lab_group
+- name: deploy nextcloud docker-compose stack
+  hosts: r42_nextcloud_lab_group
   become: true
   roles:
     - software.configure.docker-compose
 
   vars:
-    LABEL_PROJECT_TYPE: "ADMIN"
-    LABEL_PROJET_NAME: "misp-standalone"
+    LABEL_PROJECT_TYPE: "admin"
+    LABEL_PROJET_NAME: "nextcloud"
     #
-    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone"
-    REMOTE_PROJECT_DIR: "/home/alice/misp-standalone"
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/nextcloud"
+    REMOTE_PROJECT_DIR: "/home/alice/nextcloud"
     #
     OPERATOR_USER: alice
     #
