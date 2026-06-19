@@ -7,11 +7,12 @@
 ## Play 1 (become: false):
 ##   - Register Mattermost, Rocket.Chat, Nextcloud OAuth2 apps in Gitea
 ##   - Capture per-service client_id/secret as host facts immediately after each call
-##   - Write Mattermost and Rocket.Chat .env files before stack deployment (rsync
-##     in Play 2 has no --delete so pre-written .env files survive)
 ##
 ## Play 2 (become: true):
 ##   - Deploy Mattermost, Rocket.Chat, Nextcloud docker-compose stacks
+##   - Re-write Mattermost and Rocket.Chat .env files AFTER rsync (rsync overwrites
+##     any pre-written .env with the catalog default, which lacks OAuth2 settings)
+##   - Force-recreate the service containers to pick up the new .env values
 ##
 ## Play 3 (become: false):
 ##   - Wait for Nextcloud to be reachable on port 8080
@@ -95,24 +96,6 @@
           and the secret is not recoverable via the API. Delete the apps in Gitea
           (Admin > Applications) and re-run stage_02, or run reset.setup.sh to rebuild.
 
-    #### #### write .env files before stack deploy #### ####
-
-    - name: write Mattermost .env with Gitea OAuth2 credentials
-      ansible.builtin.include_role:
-        name: service.configure.mattermost_gitea_oauth2
-      vars:
-        mattermost_gitea_base_url:      "http://{{ ansible_default_ipv4.address }}:3000"
-        mattermost_gitea_client_id:     "{{ mm_oauth2_client_id }}"
-        mattermost_gitea_client_secret: "{{ mm_oauth2_client_secret }}"
-
-    - name: write Rocket.Chat .env with Gitea OAuth2 credentials
-      ansible.builtin.include_role:
-        name: service.configure.rocketchat_gitea_oauth2
-      vars:
-        rocketchat_gitea_base_url:      "http://{{ ansible_default_ipv4.address }}:3000"
-        rocketchat_gitea_client_id:     "{{ rc_oauth2_client_id }}"
-        rocketchat_gitea_client_secret: "{{ rc_oauth2_client_secret }}"
-        rocketchat_http_port:           "3500"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -136,17 +119,19 @@
         SEND_POC_DIR:        "NO"
         FORCE_RECREATE:      "YES"
 
-    - name: verify Rocket.Chat .env has HTTP_PORT=3500
-      ansible.builtin.shell: grep '^HTTP_PORT=' /home/alice/rocketchat/.env || echo "HTTP_PORT not set in .env"
-      register: rc_http_port_check
-      changed_when: false
+    - name: write Mattermost .env with OAuth2 settings (overwrites catalog default rsynced above)
+      ansible.builtin.include_role:
+        name: service.configure.mattermost_gitea_oauth2
+      vars:
+        mattermost_gitea_base_url:      "http://{{ ansible_default_ipv4.address }}:3000"
+        mattermost_gitea_client_id:     "{{ mm_oauth2_client_id }}"
+        mattermost_gitea_client_secret: "{{ mm_oauth2_client_secret }}"
 
-    - name: assert HTTP_PORT=3500 in Rocket.Chat .env
-      ansible.builtin.assert:
-        that: rc_http_port_check.stdout == "HTTP_PORT=3500"
-        fail_msg: >-
-          /home/alice/rocketchat/.env has wrong HTTP_PORT — got: "{{ rc_http_port_check.stdout }}"
-          (expected HTTP_PORT=3500). Play 1 may have failed or the .env was overwritten.
+    - name: reload Mattermost container to apply OAuth2 .env settings
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate mattermost
+        chdir: /home/alice/mattermost
+      changed_when: true
 
     - name: check if Rocket.Chat compose.yml exists (for volume cleanup)
       ansible.builtin.stat:
@@ -172,6 +157,21 @@
         CLEAN_UP_DEPLOY_DIR: "NO"
         SEND_POC_DIR:        "NO"
         FORCE_RECREATE:      "YES"
+
+    - name: write Rocket.Chat .env with OAuth2 settings (overwrites catalog default rsynced above)
+      ansible.builtin.include_role:
+        name: service.configure.rocketchat_gitea_oauth2
+      vars:
+        rocketchat_gitea_base_url:      "http://{{ ansible_default_ipv4.address }}:3000"
+        rocketchat_gitea_client_id:     "{{ rc_oauth2_client_id }}"
+        rocketchat_gitea_client_secret: "{{ rc_oauth2_client_secret }}"
+        rocketchat_http_port:           "3500"
+
+    - name: reload Rocket.Chat container to apply OAuth2 .env settings
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate rocketchat
+        chdir: /home/alice/rocketchat
+      changed_when: true
 
     - name: deploy Nextcloud stack
       ansible.builtin.include_role:
