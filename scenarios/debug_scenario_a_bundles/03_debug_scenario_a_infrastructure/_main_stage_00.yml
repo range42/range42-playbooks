@@ -1,0 +1,29 @@
+---
+##
+## 03 - debug_scenario_a infrastructure - stage_00 (vm_bootstrap)
+##
+## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
+##
+## Provisions dsa-vm-01 (Alpine debug VM) on vmbr147. Single VM, no gating
+## (the lab tier is always created ; admin tier optionality lives in
+## 02_admin_infrastructure/).
+##
+## Imported from the top-level main.yml during the global stage_00 phase
+## (ALL tiers stage_00 run before ANY tier stage_01). See main.yml.
+##
+
+# --- subnet 147 (vmbr147) ---
+
+- import_playbook: ./stage_00-vm_bootstrap/dsa_vm_01.yml
+  vars:
+    global_vm_name: "dsa-vm-01"
+    global_vm_ssh_name: "r42.dsa-vm-01"
+    global_vm_id: 8001
+    global_vm_description: "debug A - vm 01"
+    global_vm_tag_name: "debug"
+    global_vm_ci_ip: "192.168.147.250"
+    global_vm_ci_ip_gw: "192.168.147.1"
+    global_vm_net_bridge: "vmbr147"
+    #
+    global_template_vm_id: 9903
+    global_template_name: "template-vm-alpine-nano - id : 9903"
