@@ -1,0 +1,42 @@
+---
+##
+## debug_scenario_b - main_vms_only playbook
+##
+## Structure : same multi-level pattern as main.yml (skips 01_templates-bootstrap, templates assumed already present).
+##
+## Skips 01_templates-bootstrap (templates 9903 alpine-nano + optional 9232
+## medium assumed already present from a prior debug_scenario_b_bundles.setup.sh
+## run, or from another scenario that builds the same template). Used by
+## `range42-context deploy-vms`.
+##
+## Same global stage discipline as main.yml : ALL tiers stage_00 first, then
+## ALL tiers stage_01, then cross-tier finalize.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
+
+- import_playbook: ./03_debug_scenario_b_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./03_debug_scenario_b_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_debug_scenario_b_wazuh_clients_active  ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
