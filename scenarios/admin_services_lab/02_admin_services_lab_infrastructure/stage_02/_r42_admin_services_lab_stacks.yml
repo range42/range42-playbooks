@@ -134,6 +134,7 @@
         OPERATOR_USER:       alice
         CLEAN_UP_DEPLOY_DIR: "NO"
         SEND_POC_DIR:        "NO"
+        FORCE_RECREATE:      "YES"
 
     - name: deploy Rocket.Chat stack
       ansible.builtin.include_role:
@@ -146,6 +147,7 @@
         OPERATOR_USER:       alice
         CLEAN_UP_DEPLOY_DIR: "NO"
         SEND_POC_DIR:        "NO"
+        FORCE_RECREATE:      "YES"
 
     - name: deploy Nextcloud stack
       ansible.builtin.include_role:
@@ -158,6 +160,7 @@
         OPERATOR_USER:       alice
         CLEAN_UP_DEPLOY_DIR: "NO"
         SEND_POC_DIR:        "NO"
+        FORCE_RECREATE:      "YES"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
