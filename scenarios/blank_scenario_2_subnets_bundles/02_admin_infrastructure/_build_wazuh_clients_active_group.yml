@@ -1,0 +1,78 @@
+---
+##
+## blank_scenario_2_subnets_bundles - 02_admin_infrastructure - build r42_blank_scenario_2_subnets_wazuh_clients_active
+##
+## Structure : runtime-only group built via add_host on the proxmox host based
+## on deploy-time state. Mirror of _build_admin_active_group.yml (Option A
+## pattern) applied to the wazuh-agent client list.
+##
+## Used by _finalize-baseline-admin_wazuh_client.yml as wazuh_clients_group.
+## Per-host gating without inventory file modification.
+##
+## Membership map :
+##
+##   client VM                              VM creation gate                add_host condition
+##   ------------------------------------- ------------------------------- ----------------------
+##   r42.bs2-admin-misp                    INSTALL_MISP (default NO)       INSTALL_MISP=YES
+##   r42.bs2-admin-deployer-api-gateway    (always created)                always added
+##   r42.bs2-admin-deployer-api-backend    (always created)                always added
+##   r42.bs2-admin-deployer-ui             (always created)                always added
+##   r42.bs2-team-143-01..02               (always created)                always added
+##   r42.bs2-team-144-01..02               (always created)                always added
+##
+## The wazuh server itself (r42.bs2-admin-wazuh) is EXCLUDED by design (a server
+## does not run its own agent).
+##
+
+- name: build r42_blank_scenario_2_subnets_wazuh_clients_active dynamic group from INSTALL flags
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: add r42.bs2-admin-misp to r42_blank_scenario_2_subnets_wazuh_clients_active when INSTALL_MISP=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-misp
+        groups: r42_blank_scenario_2_subnets_wazuh_clients_active
+      when: INSTALL_MISP | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-deployer-api-gateway to r42_blank_scenario_2_subnets_wazuh_clients_active (always)
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-deployer-api-gateway
+        groups: r42_blank_scenario_2_subnets_wazuh_clients_active
+      changed_when: false
+
+    - name: add r42.bs2-admin-deployer-api-backend to r42_blank_scenario_2_subnets_wazuh_clients_active (always)
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-deployer-api-backend
+        groups: r42_blank_scenario_2_subnets_wazuh_clients_active
+      changed_when: false
+
+    - name: add r42.bs2-admin-deployer-ui to r42_blank_scenario_2_subnets_wazuh_clients_active (always)
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-deployer-ui
+        groups: r42_blank_scenario_2_subnets_wazuh_clients_active
+      changed_when: false
+
+    - name: add r42.bs2-team-143-01 to r42_blank_scenario_2_subnets_wazuh_clients_active (team tier, always)
+      ansible.builtin.add_host:
+        name: r42.bs2-team-143-01
+        groups: r42_blank_scenario_2_subnets_wazuh_clients_active
+      changed_when: false
+
+    - name: add r42.bs2-team-143-02 to r42_blank_scenario_2_subnets_wazuh_clients_active (team tier, always)
+      ansible.builtin.add_host:
+        name: r42.bs2-team-143-02
+        groups: r42_blank_scenario_2_subnets_wazuh_clients_active
+      changed_when: false
+
+    - name: add r42.bs2-team-144-01 to r42_blank_scenario_2_subnets_wazuh_clients_active (team tier, always)
+      ansible.builtin.add_host:
+        name: r42.bs2-team-144-01
+        groups: r42_blank_scenario_2_subnets_wazuh_clients_active
+      changed_when: false
+
+    - name: add r42.bs2-team-144-02 to r42_blank_scenario_2_subnets_wazuh_clients_active (team tier, always)
+      ansible.builtin.add_host:
+        name: r42.bs2-team-144-02
+        groups: r42_blank_scenario_2_subnets_wazuh_clients_active
+      changed_when: false
