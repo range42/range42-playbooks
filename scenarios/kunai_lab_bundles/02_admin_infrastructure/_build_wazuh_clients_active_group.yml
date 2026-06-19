@@ -26,8 +26,7 @@
 ##
 
 - name: build r42_kunai_lab_wazuh_clients_active dynamic group from INSTALL flags
-  hosts: localhost
-  connection: local
+  hosts: proxmox
   gather_facts: false
   tasks:
     - name: add r42.admin-misp to r42_kunai_lab_wazuh_clients_active when INSTALL_MISP=YES
