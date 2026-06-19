@@ -148,6 +148,18 @@
           /home/alice/rocketchat/.env has wrong HTTP_PORT — got: "{{ rc_http_port_check.stdout }}"
           (expected HTTP_PORT=3500). Play 1 may have failed or the .env was overwritten.
 
+    - name: check if Rocket.Chat compose.yml exists (for volume cleanup)
+      ansible.builtin.stat:
+        path: /home/alice/rocketchat/compose.yml
+      register: rc_compose_stat
+
+    - name: tear down Rocket.Chat stack and wipe MongoDB volume (clean deploy)
+      ansible.builtin.command:
+        cmd: docker compose down --volumes --remove-orphans
+        chdir: /home/alice/rocketchat
+      changed_when: true
+      when: rc_compose_stat.stat.exists
+
     - name: deploy Rocket.Chat stack
       ansible.builtin.include_role:
         name: software.configure.docker-compose
