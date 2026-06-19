@@ -15,12 +15,22 @@
 ## from inside a tier's _main.yml / _main_stage_01.yml - that would
 ## re-introduce the cross-tier ordering bug.
 ##
-## Group-level scope : targets r42_admin_wazuh_clients (multiple hosts) ;
-## not a per-host file, hence the `_finalize-baseline-` naming convention.
+## Group-level scope : targets r42_demo_lab_wazuh_clients_active (runtime
+## group built by _build_wazuh_clients_active_group.yml from INSTALL flags ;
+## up to 9 hosts : admin-misp [if INSTALL_MISP=YES] + 3 deployer-* + 5
+## vuln-boxes - excludes the wazuh server itself by design ; student-box-01
+## is NOT in the runtime group today because the student tier is commented
+## out in main.yml).
+##
+## Per-host gating via the runtime active group : no UNREACHABLE on VMs that
+## don't exist at deploy time (e.g. admin-misp with INSTALL_MISP=NO).
+##
+## Renamed from r42_admin_wazuh_clients (scope was admin-only, now cross-tier)
+## for symmetry with r42_kunai_lab_wazuh_clients_active.
 ##
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh-agent/main.yml"
   when: INSTALL_WAZUH | default("YES") | upper == "YES"
   vars:
-    wazuh_clients_group: "r42_admin_wazuh_clients"
+    wazuh_clients_group: "r42_demo_lab_wazuh_clients_active"
     global_vm_ci_ip:     "192.168.142.100"
