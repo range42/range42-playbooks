@@ -1,0 +1,15 @@
+---
+##
+## 01 - template bootstrap
+##
+## Idempotent template provisioning : download cloud-init source files and
+## build the Ubuntu Noble medium template (VMID 9232 - 2cpu/8gb/64gb).
+##
+## Used by both admin-misp-standalone (the MISP workload VM, always created)
+## and the optional admin-wazuh VM (when INSTALL_WAZUH=YES) - both clone from
+## template 9232. Imported unconditionally from main.yml.
+##
+
+- import_playbook: ./templates/_main_download_cloudinit_files.yml
+
+- import_playbook: ./templates/ubuntu_noble/_main_ubuntu_noble.yml

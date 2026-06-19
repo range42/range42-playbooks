@@ -1,0 +1,31 @@
+---
+# Feature flags for misp_lab_bundles - optional components that can be
+# toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
+#
+# Note : there is NO INSTALL_MISP flag. MISP IS the workload of this scenario,
+# always deployed on admin-misp-standalone via tier 03_misp_lab_infrastructure
+# regardless of any flag. Only the admin-wazuh SIEM is optional.
+#
+# This file is the single source of truth :
+#   - the deploy TUI (range42-context --tui) reads `features` to render the
+#     checkbox modal before invoking `range42-context deploy`
+#   - the playbooks read the `INSTALL_<NAME>` variables via
+#     `when: INSTALL_<NAME> | default("YES"|"NO") | upper == "YES"` on the
+#     relevant `import_playbook` / `block:` entries
+#
+# Convention :
+#   - `id` is UPPERCASE (matches the variable name : `id: WAZUH` -> `INSTALL_WAZUH`)
+#   - `default: true|false` is the checkbox initial state in the TUI
+#   - the playbook `default("YES"|"NO")` fallback should align with this
+#   - `| upper` makes the check case-insensitive : YES / yes / Yes all match
+
+features:
+  - id: WAZUH
+    label: "Wazuh stack - SIEM + agents services"
+    description: "Deploys an admin-wazuh VM (vm_id 1182, IP 192.168.142.182) under 02_admin_infrastructure/ + agent install on admin-misp-standalone. Off by default for misp_lab (focused on the MISP threat intel workload, not on SIEM)."
+    default: false
+
+  - id: TAILSCALE
+    label: "Tailscale VPN client"
+    description: "Per-group install. Off by default."
+    default: false

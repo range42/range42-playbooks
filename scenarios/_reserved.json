@@ -97,11 +97,15 @@
 {"vm_id":8001,"vm_name":"dsa-vm-01","ip":"192.168.147.250","role":"debug","group":"debug","bridge":"vmbr147","scenario":"debug_scenario_a_bundles"}
 {"vm_id":9903,"vm_name":"template-vm-alpine-nano","spec":"1cpu/512mb/4gb","ip":"192.168.142.203","bridge":"vmbr140","scenario":"debug_scenario_a_bundles","role":"template"}
 {"vm_id":9232,"vm_name":"template-vm-medium-02-8g-64g","spec":"2cpu/8gb/64gb","ip":"192.168.140.232","bridge":"vmbr140","scenario":"debug_scenario_a_bundles","role":"template"}
+{"vm_id":8001,"vm_name":"dsa-vm-01","ip":"192.168.147.250","role":"debug","bridge":"vmbr147","scenario":"debug_scenario_a"}
+{"vm_id":9903,"vm_name":"template-vm-alpine-nano","spec":"1cpu/512mb/4gb","ip":"192.168.142.203","bridge":"vmbr140","scenario":"debug_scenario_a","role":"template"}
 {"vm_id":8550,"vm_name":"admin-wazuh","ip":"192.168.142.155","role":"admin","group":"admin","bridge":"vmbr142","scenario":"debug_scenario_b_bundles"}
 {"vm_id":8551,"vm_name":"admin-misp","ip":"192.168.142.156","role":"admin","group":"admin","bridge":"vmbr142","scenario":"debug_scenario_b_bundles"}
 {"vm_id":8501,"vm_name":"dsb-vm-01","ip":"192.168.148.250","role":"debug","group":"debug","bridge":"vmbr148","scenario":"debug_scenario_b_bundles"}
 {"vm_id":9903,"vm_name":"template-vm-alpine-nano","spec":"1cpu/512mb/4gb","ip":"192.168.142.203","bridge":"vmbr140","scenario":"debug_scenario_b_bundles","role":"template"}
 {"vm_id":9232,"vm_name":"template-vm-medium-02-8g-64g","spec":"2cpu/8gb/64gb","ip":"192.168.140.232","bridge":"vmbr140","scenario":"debug_scenario_b_bundles","role":"template"}
+{"vm_id":8501,"vm_name":"dsb-vm-01","ip":"192.168.148.250","role":"debug","bridge":"vmbr148","scenario":"debug_scenario_b"}
+{"vm_id":9903,"vm_name":"template-vm-alpine-nano","spec":"1cpu/512mb/4gb","ip":"192.168.142.203","bridge":"vmbr140","scenario":"debug_scenario_b","role":"template"}
 {"vm_id":1100,"vm_name":"admin-wazuh","ip":"192.168.142.100","role":"admin","bridge":"vmbr142","scenario":"demo_lab_bundles"}
 {"vm_id":1111,"vm_name":"admin-misp","ip":"192.168.142.111","role":"admin","bridge":"vmbr142","scenario":"demo_lab_bundles"}
 {"vm_id":1101,"vm_name":"admin-deployer-api-gateway","ip":"192.168.142.101","role":"admin","bridge":"vmbr142","scenario":"demo_lab_bundles"}
@@ -184,7 +188,8 @@
 {"vm_id":1108,"vm_name":"student-kunai-04","ip":"192.168.142.108","role":"kunai-lab","bridge":"vmbr142","scenario":"kunai_lab"}
 {"vm_id":1109,"vm_name":"student-kunai-05","ip":"192.168.142.109","role":"kunai-lab","bridge":"vmbr142","scenario":"kunai_lab"}
 {"vm_id":9232,"vm_name":"template-vm-medium-02-8g-64g","spec":"2cpu/8gb/64gb","ip":"192.168.140.232","bridge":"vmbr140","scenario":"kunai_lab","role":"template"}
-{"vm_id":1180,"vm_name":"admin-misp-standalone","ip":"192.168.142.180","role":"misp-lab","bridge":"vmbr142","scenario":"misp_lab"}
-{"vm_id":9232,"vm_name":"template-vm-medium-02-8g-64g","spec":"2cpu/8gb/64gb","ip":"192.168.140.232","bridge":"vmbr140","scenario":"misp_lab","role":"template"}
+{"vm_id":1182,"vm_name":"admin-wazuh","ip":"192.168.142.182","role":"admin","group":"admin","bridge":"vmbr142","scenario":"misp_lab_bundles"}
+{"vm_id":1180,"vm_name":"admin-misp-standalone","ip":"192.168.142.180","role":"misp-lab","group":"misp-lab","bridge":"vmbr142","scenario":"misp_lab_bundles"}
+{"vm_id":9232,"vm_name":"template-vm-medium-02-8g-64g","spec":"2cpu/8gb/64gb","ip":"192.168.140.232","bridge":"vmbr140","scenario":"misp_lab_bundles","role":"template"}
 {"vm_id":1181,"vm_name":"admin-nextcloud-standalone","ip":"192.168.142.181","role":"nextcloud-lab","bridge":"vmbr142","scenario":"nextcloud_lab"}
 {"vm_id":9232,"vm_name":"template-vm-medium-02-8g-64g","spec":"2cpu/8gb/64gb","ip":"192.168.140.232","bridge":"vmbr140","scenario":"nextcloud_lab","role":"template"}

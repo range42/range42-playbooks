@@ -1,0 +1,30 @@
+##
+## Baseline for r42_admin_active runtime group (misp_lab) :
+##   - system-baseline-default     : packages + dotfiles (no Docker - the wazuh
+##                                   stack uses native OS packages)
+##   - network-baseline-ssh        : firewall opens port 22 (wazuh ports opened
+##                                   by the wazuh server bundle)
+##   - tailscale-on-group          : optional tailscale install (gated INSTALL_TAILSCALE,
+##                                   default NO)
+##
+## Targets r42_admin_active (built by ../_build_admin_active_group.yml from
+## INSTALL_WAZUH at deploy time), so each baseline play only runs on admin
+## VMs that stage_00 actually created. Net effect : per-VM gating, no
+## UNREACHABLE on admin-wazuh when INSTALL_WAZUH=NO. With the flag NO, the
+## group is empty and the imports skip silently (ok=0).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-default/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+    INSTALL_TAILSCALE: "NO"
+    tailscale_hostnames:
+      - "admin-wazuh"

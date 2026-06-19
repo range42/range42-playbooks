@@ -1,0 +1,25 @@
+---
+##
+## 03 - misp_lab infrastructure - stage_00 (vm_bootstrap)
+##
+## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
+##
+## Provisions admin-misp-standalone (Ubuntu Noble medium) on vmbr142.
+## Single VM, no gating (the lab tier is always created ; admin tier
+## optionality lives in 02_admin_infrastructure/).
+##
+## Imported from the top-level main.yml during the global stage_00 phase
+## (ALL tiers stage_00 run before ANY tier stage_01). See main.yml.
+##
+
+- import_playbook: ./stage_00-vm_bootstrap/misp_lab_vm.yml
+  vars:
+    global_vm_name: "admin-misp-standalone"
+    global_vm_ssh_name: "r42.admin-misp-standalone"
+    global_vm_id: 1180
+    global_vm_description: "misp_lab - Ubuntu LTS host for MISP via docker-compose"
+    global_vm_tag_name: "misp-lab"
+    global_vm_ci_ip: "192.168.142.180"
+    #
+    global_template_vm_id: 9232
+    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"

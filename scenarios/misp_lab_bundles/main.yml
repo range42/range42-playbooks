@@ -1,0 +1,72 @@
+---
+##
+## misp_lab - main playbook
+##
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
+##
+## Provisions a single Ubuntu LTS VM (admin-misp-standalone) on vmbr142 from
+## the project standard medium template (VMID 9232 : 2cpu / 8gb / 64gb) and
+## deploys the misp-standalone docker-compose stack on it via the shared
+## bundle bundles/admin/software.install.misp-standalone/.
+##
+## MISP IS the workload of this scenario - always deployed (no INSTALL_MISP
+## flag). The optional admin tier (admin-wazuh) is gated by INSTALL_WAZUH
+## (default NO per manifest/feature_flags.yml).
+##
+## Lab topology :
+##   - admin-misp-standalone (192.168.142.180, VMID 1180, vmbr142)  - MISP host
+##
+## Optional admin tier (192.168.142.0/24 admin band) :
+##   - admin-wazuh (192.168.142.182, VMID 1182, vmbr142)            - SIEM server
+##
+## Global stage discipline (mirror of kunai_lab_bundles / demo_lab_bundles) :
+##   1. 01_templates-bootstrap                                create the shared template (9232)
+##   2. ALL tiers stage_00 (vm_bootstrap)                     create every VM first
+##   3. ALL tiers stage_01 (vm_configure)                     configure every VM after
+##   4. cross-tier finalize (wazuh-agent on admin-misp-standalone)  when INSTALL_WAZUH=YES
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./01_templates-bootstrap/_main.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
+
+- import_playbook: ./03_misp_lab_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./03_misp_lab_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_misp_lab_wazuh_clients_active  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Build the runtime wazuh-clients active group BEFORE the cross-tier finalize
+# runs. Mirror of _build_admin_active_group (Option A).
+#
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# wazuh-agent install on admin-misp-standalone (the misp lab workload VM).
+# Targets r42_misp_lab_wazuh_clients_active (runtime). Runs LAST so the
+# wazuh server (tier 02 stage_01) is reachable AND admin-misp-standalone
+# (tier 03 stage_00 + stage_01) is created + baselined + has docker + misp
+# stack deployed. Gated by INSTALL_WAZUH.
+#
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

@@ -1,0 +1,33 @@
+---
+################################################################################
+# range42 - scenario-specific variables (misp_lab)
+#
+# These variables are specific to this scenario. misp_lab is a single-VM
+# scenario delivering an Ubuntu LTS host pre-provisioned with the Docker
+# baseline, intended to host MISP via docker-compose in a follow-up step.
+#
+# For shared variables -> group_vars/all/vars.yml
+# For secrets -> vault.yml (see vault.yml.example)
+#
+################################################################################
+
+
+#### SCENARIO IDENTIFICATION ####
+
+INFRASTRUCTURE_SCENARIO: "misp_lab"
+
+
+#### CREDENTIAL GENERATION ####
+
+# auto-generate ssh keys and passwords (YES/NO)
+context_auto_generate_ssh_keys: "YES"
+context_auto_generate_vm_passwords: "YES"
+
+# no student extras for misp_lab (single-VM host scenario)
+student_additionnal_keys_count: 0
+
+
+#### CLOUD-INIT USERNAMES ####
+
+# admin vm user (not secret - password and ssh key are in vault)
+default_admin_vm_ci_user: "alice"
