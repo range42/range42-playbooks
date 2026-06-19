@@ -58,13 +58,24 @@
 - import_playbook: ./04_student_infrastructure/_main_stage_01.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_kunai_lab_wazuh_clients_active  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Build the runtime wazuh-clients active group from INSTALL flags BEFORE the
+# cross-tier finalize runs. Mirror of _build_admin_active_group (Option A).
+#
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
-# wazuh-agent install on lab clients (trainer + students). Targets
-# r42_kunai_lab_wazuh_clients. Runs LAST so the wazuh server (tier 02
-# stage_01) is reachable AND the agent target VMs (tiers 03 + 04 stage_00 +
-# stage_01) are created + baselined. Gated by INSTALL_WAZUH.
+# wazuh-agent install on lab clients (trainer + students [+ admin-misp if
+# INSTALL_MISP=YES]). Targets r42_kunai_lab_wazuh_clients_active (runtime).
+# Runs LAST so the wazuh server (tier 02 stage_01) is reachable AND the
+# agent target VMs (tiers 02 admin-misp + tiers 03 + 04 stage_00 + stage_01)
+# are created + baselined. Gated by INSTALL_WAZUH.
 #
 
 - import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

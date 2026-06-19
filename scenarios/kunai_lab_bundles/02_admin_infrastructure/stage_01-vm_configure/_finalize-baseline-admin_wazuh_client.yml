@@ -17,8 +17,13 @@
 ## from inside a tier's _main.yml / _main_stage_01.yml - that would
 ## re-introduce the cross-tier ordering bug.
 ##
-## Group-level scope : targets r42_kunai_lab_wazuh_clients (6 hosts ; trainer
-## + 5 students - excludes the wazuh server itself).
+## Group-level scope : targets r42_kunai_lab_wazuh_clients_active (runtime
+## group built by _build_wazuh_clients_active_group.yml from INSTALL flags ;
+## up to 7 hosts : admin-misp [if INSTALL_MISP=YES] + trainer + 5 students -
+## excludes the wazuh server itself by design).
+##
+## Per-host gating via the runtime active group : no UNREACHABLE on VMs that
+## don't exist at deploy time (e.g. admin-misp with INSTALL_MISP=NO).
 ##
 ## Gated by INSTALL_WAZUH (default NO).
 ##
@@ -26,5 +31,5 @@
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh-agent/main.yml"
   when: INSTALL_WAZUH | default("NO") | upper == "YES"
   vars:
-    wazuh_clients_group: "r42_kunai_lab_wazuh_clients"
+    wazuh_clients_group: "r42_kunai_lab_wazuh_clients_active"
     global_vm_ci_ip:     "192.168.142.110"
