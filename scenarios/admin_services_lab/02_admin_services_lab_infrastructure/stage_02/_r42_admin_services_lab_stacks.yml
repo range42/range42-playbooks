@@ -46,7 +46,7 @@
         name: service.configure.gitea_oauth2_app
       vars:
         gitea_oauth2_app_name:     "Mattermost"
-        gitea_oauth2_redirect_uri: "http://{{ ansible_host }}:8065/oauth/gitlab/complete"
+        gitea_oauth2_redirect_uri: "http://{{ ansible_default_ipv4.address }}:8065/oauth/gitlab/complete"
 
     - name: capture Mattermost OAuth2 credentials
       ansible.builtin.set_fact:
@@ -61,7 +61,7 @@
         name: service.configure.gitea_oauth2_app
       vars:
         gitea_oauth2_app_name:     "Rocket.Chat"
-        gitea_oauth2_redirect_uri: "http://{{ ansible_host }}:3500/_oauth/Gitea"
+        gitea_oauth2_redirect_uri: "http://{{ ansible_default_ipv4.address }}:3500/_oauth/Gitea"
 
     - name: capture Rocket.Chat OAuth2 credentials
       ansible.builtin.set_fact:
@@ -76,7 +76,7 @@
         name: service.configure.gitea_oauth2_app
       vars:
         gitea_oauth2_app_name:     "Nextcloud"
-        gitea_oauth2_redirect_uri: "http://{{ ansible_host }}:8080/index.php/apps/user_oidc/code"
+        gitea_oauth2_redirect_uri: "http://{{ ansible_default_ipv4.address }}:8080/index.php/apps/user_oidc/code"
 
     - name: capture Nextcloud OAuth2 credentials
       ansible.builtin.set_fact:
@@ -101,7 +101,7 @@
       ansible.builtin.include_role:
         name: service.configure.mattermost_gitea_oauth2
       vars:
-        mattermost_gitea_base_url:      "http://{{ ansible_host }}:3000"
+        mattermost_gitea_base_url:      "http://{{ ansible_default_ipv4.address }}:3000"
         mattermost_gitea_client_id:     "{{ mm_oauth2_client_id }}"
         mattermost_gitea_client_secret: "{{ mm_oauth2_client_secret }}"
 
@@ -109,7 +109,7 @@
       ansible.builtin.include_role:
         name: service.configure.rocketchat_gitea_oauth2
       vars:
-        rocketchat_gitea_base_url:      "http://{{ ansible_host }}:3000"
+        rocketchat_gitea_base_url:      "http://{{ ansible_default_ipv4.address }}:3000"
         rocketchat_gitea_client_id:     "{{ rc_oauth2_client_id }}"
         rocketchat_gitea_client_secret: "{{ rc_oauth2_client_secret }}"
         rocketchat_http_port:           "3500"
@@ -206,7 +206,7 @@
       ansible.builtin.include_role:
         name: service.configure.nextcloud_gitea_oauth2
       vars:
-        nextcloud_gitea_base_url:      "http://{{ ansible_host }}:3000"
+        nextcloud_gitea_base_url:      "http://{{ ansible_default_ipv4.address }}:3000"
         nextcloud_gitea_client_id:     "{{ nc_oauth2_client_id }}"
         nextcloud_gitea_client_secret: "{{ nc_oauth2_client_secret }}"
         nextcloud_public_ip:           "{{ ansible_default_ipv4.address }}"
