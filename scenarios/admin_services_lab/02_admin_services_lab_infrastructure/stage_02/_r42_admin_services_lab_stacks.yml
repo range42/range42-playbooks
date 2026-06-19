@@ -209,6 +209,6 @@
         nextcloud_gitea_base_url:      "http://{{ ansible_host }}:3000"
         nextcloud_gitea_client_id:     "{{ nc_oauth2_client_id }}"
         nextcloud_gitea_client_secret: "{{ nc_oauth2_client_secret }}"
-        nextcloud_public_ip:           "{{ gitea_server_ip }}"
+        nextcloud_public_ip:           "{{ ansible_default_ipv4.address }}"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
