@@ -30,8 +30,7 @@
 
 
 - name: misp - ensure catalog .env exists (cp .env.example -> .env if missing)
-  hosts: localhost
-  connection: local
+  hosts: proxmox
   gather_facts: false
   tasks:
     - name: cp .env.example -> .env if .env absent (force=false respects an existing customized .env)
