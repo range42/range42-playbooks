@@ -29,8 +29,7 @@
 ##
 
 - name: build r42_admin_active dynamic group from INSTALL flags
-  hosts: localhost
-  connection: local
+  hosts: proxmox
   gather_facts: false
   tasks:
     - name: add r42.admin-wazuh to r42_admin_active when INSTALL_WAZUH=YES
