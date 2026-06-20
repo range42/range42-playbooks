@@ -4,7 +4,7 @@ proxmox_vm.list.to.jsons.sh | grep -i vuln-box | jq -c | proxmox_vm.vm_id.stop_f
 proxmox_vm.list.to.jsons.sh | grep -i vuln-box | jq -c | proxmox_vm.vm_id.delete.to.jsons.sh
 
 ADMIN_INFRASTRUCTURE_IP=(
-    "192.168.142.111" # testing-wazuh-client
+    "192.168.142.112" # admin-misp
     #
     "192.168.142.102" # admin-builder-api-devkit
     "192.168.142.101" # admin-builder-docker-registry
