@@ -1,0 +1,25 @@
+---
+# Feature flags for blank_scenario_6_subnets_bundles - optional components that
+# can be toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
+#
+# Convention :
+#   - `id` is UPPERCASE (matches the variable name : `id: WAZUH` -> `INSTALL_WAZUH`)
+#   - `default: true|false` is the checkbox initial state in the TUI
+#   - the playbook `default("YES"|"NO")` fallback should align with this
+#   - `| upper` makes the check case-insensitive : YES / yes / Yes all match
+
+features:
+  - id: WAZUH
+    label: "Wazuh stack - SIEM + agents services"
+    description: "Deploys an admin-wazuh VM (vm_id 6140, IP 192.168.142.140) under 02_admin_infrastructure/ + agent install on the 3 deployer-* VMs + 24 team VMs. Off by default for blank_scenario_6_subnets (minimal lab scenario, monitoring opt-in)."
+    default: false
+
+  - id: MISP
+    label: "MISP - threat intel services"
+    description: "Deploys an admin-misp VM (vm_id 6144, IP 192.168.142.144) and runs the misp-standalone docker-compose stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/. Operator must populate the catalog's .env file with secrets BEFORE deploying with INSTALL_MISP=YES."
+    default: false
+
+  - id: TAILSCALE
+    label: "Tailscale VPN client"
+    description: "Per-group install. Off by default."
+    default: false

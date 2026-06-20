@@ -1,0 +1,54 @@
+##
+## blank_scenario_6_subnets_bundles - 02_admin_infrastructure - build r42_admin_active
+##
+## Builds the runtime-only r42_admin_active group from INSTALL_<flag> values
+## plus always-on admin VMs. Members are added via ansible.builtin.add_host,
+## so the group is in-memory only ; the workspace inventory_default.yml is
+## NOT modified.
+##
+## Membership map :
+##
+##   admin VM                              creation gate                    add_host condition
+##   ------------------------------------- -------------------------------- ----------------------
+##   r42.bs6-admin-wazuh                   INSTALL_WAZUH (default NO)       INSTALL_WAZUH=YES
+##   r42.bs6-admin-misp                    INSTALL_MISP (default NO)        INSTALL_MISP=YES
+##   r42.bs6-admin-deployer-api-gateway    (none, always created)           always added
+##   r42.bs6-admin-deployer-api-backend    (none, always created)           always added
+##   r42.bs6-admin-deployer-ui             (none, always created)           always added
+##
+
+- name: build r42_admin_active dynamic group from INSTALL flags
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: add r42.bs6-admin-wazuh to r42_admin_active when INSTALL_WAZUH=YES
+      ansible.builtin.add_host:
+        name: r42.bs6-admin-wazuh
+        groups: r42_admin_active
+      when: INSTALL_WAZUH | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs6-admin-misp to r42_admin_active when INSTALL_MISP=YES
+      ansible.builtin.add_host:
+        name: r42.bs6-admin-misp
+        groups: r42_admin_active
+      when: INSTALL_MISP | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs6-admin-deployer-api-gateway to r42_admin_active (always created)
+      ansible.builtin.add_host:
+        name: r42.bs6-admin-deployer-api-gateway
+        groups: r42_admin_active
+      changed_when: false
+
+    - name: add r42.bs6-admin-deployer-api-backend to r42_admin_active (always created)
+      ansible.builtin.add_host:
+        name: r42.bs6-admin-deployer-api-backend
+        groups: r42_admin_active
+      changed_when: false
+
+    - name: add r42.bs6-admin-deployer-ui to r42_admin_active (always created)
+      ansible.builtin.add_host:
+        name: r42.bs6-admin-deployer-ui
+        groups: r42_admin_active
+      changed_when: false

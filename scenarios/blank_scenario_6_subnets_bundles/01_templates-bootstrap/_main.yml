@@ -1,0 +1,19 @@
+---
+##
+## 01 - template bootstrap
+##
+## Idempotent template provisioning : download cloud-init source files and
+## build the templates needed by this scenario.
+##
+## bs6 needs :
+##   - template 9221 (small-01) : always - used for team VMs + deployer trio
+##   - template 9232 (medium-02) : conditional - used for admin-wazuh / admin-misp
+##     when INSTALL_WAZUH=YES or INSTALL_MISP=YES
+##
+## For simplicity (and idempotency), build BOTH unconditionally - the build
+## is a no-op on subsequent runs.
+##
+
+- import_playbook: ./templates/_main_download_cloudinit_files.yml
+
+- import_playbook: ./templates/ubuntu_noble/_main_ubuntu_noble.yml
