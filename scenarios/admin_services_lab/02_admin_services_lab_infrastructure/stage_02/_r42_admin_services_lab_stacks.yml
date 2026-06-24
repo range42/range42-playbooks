@@ -106,6 +106,18 @@
     - "../../secrets/default_vault.yml"
 
   tasks:
+    - name: check if Mattermost compose.yml exists (for volume cleanup)
+      ansible.builtin.stat:
+        path: /home/alice/mattermost/compose.yml
+      register: mm_compose_stat
+
+    - name: tear down Mattermost stack and wipe Postgres volume (clean deploy)
+      ansible.builtin.command:
+        cmd: docker compose down --volumes --remove-orphans
+        chdir: /home/alice/mattermost
+      changed_when: true
+      when: mm_compose_stat.stat.exists
+
     - name: deploy Mattermost stack
       ansible.builtin.include_role:
         name: software.configure.docker-compose
