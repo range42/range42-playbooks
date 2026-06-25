@@ -86,7 +86,7 @@
         port: 8065
         protocol: "tcp"
       - ip: "all"
-        port: 8080
+        port: 8443
         protocol: "tcp"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -108,5 +108,52 @@
     #
     CLEAN_UP_DEPLOY_DIR: "NO"
     SEND_POC_DIR: "NO"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: patch Gitea .env with VM IP and regenerate TLS certificate
+  hosts: r42_admin_services_lab_group
+  become: true
+  ##
+  ## The catalog .env ships GITEA_DOMAIN=localhost / GITEA_BASE_URL=https://localhost:3000.
+  ## After rsync+first-start those defaults are active, meaning:
+  ##   - ROOT_URL in app.ini is "https://localhost:3000" (wrong OIDC issuer/endpoints)
+  ##   - The TLS cert has no IP SAN, so external HTTPS connections to the VM IP
+  ##     fail hostname verification in Go (Mattermost), Node.js (Rocket.Chat),
+  ##     and PHP/Guzzle (Nextcloud user_oidc).
+  ## This play fixes both by updating .env and force-recreating cert-gen + gitea.
+  ##
+
+  tasks:
+    - name: configure Gitea .env — domain (VM IP for HTTPS cert SAN)
+      ansible.builtin.lineinfile:
+        path: /home/alice/gitea/.env
+        regexp: '^GITEA_DOMAIN='
+        line: "GITEA_DOMAIN={{ ansible_default_ipv4.address }}"
+
+    - name: configure Gitea .env — base URL (VM IP for OIDC discovery endpoints)
+      ansible.builtin.lineinfile:
+        path: /home/alice/gitea/.env
+        regexp: '^GITEA_BASE_URL='
+        line: "GITEA_BASE_URL=https://{{ ansible_default_ipv4.address }}:3000"
+
+    - name: regenerate Gitea TLS certificate with VM IP SAN (re-run cert-gen)
+      ansible.builtin.command:
+        cmd: docker compose up --force-recreate --no-deps cert-gen
+        chdir: /home/alice/gitea
+      changed_when: true
+
+    - name: reload Gitea to apply updated ROOT_URL and new TLS certificate
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate --no-deps gitea
+        chdir: /home/alice/gitea
+      changed_when: true
+
+    - name: wait for Gitea to be reachable after restart
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 3000
+        delay: 10
+        timeout: 120
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
