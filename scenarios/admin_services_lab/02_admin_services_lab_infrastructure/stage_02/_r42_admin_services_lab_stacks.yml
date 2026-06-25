@@ -77,7 +77,7 @@
         name: service.configure.gitea_oauth2_app
       vars:
         gitea_oauth2_app_name:     "Nextcloud"
-        gitea_oauth2_redirect_uri: "https://{{ ansible_default_ipv4.address }}:8443/index.php/apps/user_oidc/code"
+        gitea_oauth2_redirect_uri: "https://{{ ansible_default_ipv4.address }}:8443/apps/user_oidc/code"
 
     - name: capture Nextcloud OAuth2 credentials
       ansible.builtin.set_fact:
@@ -143,6 +143,30 @@
       ansible.builtin.command:
         cmd: docker compose up -d --force-recreate mattermost
         chdir: /home/alice/mattermost
+      changed_when: true
+
+    - name: wait for Mattermost provisioner to finish
+      ansible.builtin.command:
+        cmd: docker wait mattermost-provisioner
+      become: true
+      changed_when: false
+      register: _prov_exit
+      failed_when: _prov_exit.rc != 0 or _prov_exit.stdout | trim != '0'
+
+    - name: link Mattermost admin account to Gitea GitLab-SSO
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - mattermost-db
+          - psql
+          - -U
+          - "{{ mattermost_postgres_user }}"
+          - -d
+          - "{{ mattermost_postgres_db }}"
+          - -c
+          - "UPDATE users SET authservice='gitlab', authdata='1' WHERE email='{{ mattermost_admin_email }}';"
+      become: true
       changed_when: true
 
     - name: ensure shared certs directory exists on host
