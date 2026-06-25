@@ -342,7 +342,7 @@
           - |-
             var u=db.users.findOne({username:'admin'});
             if(!u){process.exit(1);}
-            db.users.updateOne({username:'admin'},{$set:{requirePasswordChange:false}});
+            db.users.updateOne({username:'admin'},{$set:{requirePasswordChange:false,'emails.0.verified':true},$unset:{requirePasswordChangeReason:''}});
             u=db.users.findOne({username:'admin'});
             if(u.requirePasswordChange===true){process.exit(1);}
       register: _rc_rpc
