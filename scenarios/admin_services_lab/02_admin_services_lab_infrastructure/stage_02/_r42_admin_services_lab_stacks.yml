@@ -161,11 +161,11 @@
           - mattermost-db
           - psql
           - -U
-          - "{{ mattermost_postgres_user }}"
+          - mattermost
           - -d
-          - "{{ mattermost_postgres_db }}"
+          - mattermost
           - -c
-          - "UPDATE users SET authservice='gitlab', authdata='1', password='' WHERE email='{{ mattermost_admin_email }}';"
+          - "UPDATE users SET authservice='gitlab', authdata='1', password='' WHERE email='admin@range42.local';"
       become: true
       changed_when: true
 
@@ -247,7 +247,7 @@
           - rocketchat
           - --quiet
           - --eval
-          - "db.users.updateOne({username: '{{ rocketchat_admin_user }}'}, {$set: {requirePasswordChange: false}})"
+          - "db.users.updateOne({username: 'admin'}, {$set: {requirePasswordChange: false}})"
       become: true
       changed_when: true
 
