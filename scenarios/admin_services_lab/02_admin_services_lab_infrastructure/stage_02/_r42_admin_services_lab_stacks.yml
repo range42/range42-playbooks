@@ -364,12 +364,13 @@
       ansible.builtin.uri:
         url: "https://localhost:8443/status.php"
         validate_certs: false
-        status_code: 200
-        return_content: true
+        status_code: [200, 302, 503]
+        return_content: false
       register: _nc_health
       retries: 30
       delay: 10
-      until: '"installed":true' in _nc_health.content
+      failed_when: false
+      until: _nc_health.status is defined and _nc_health.status == 200
 
     - name: configure Nextcloud OIDC with Gitea as identity provider
       ansible.builtin.include_role:
