@@ -96,6 +96,35 @@
           and the secret is not recoverable via the API. Delete the apps in Gitea
           (Admin > Applications) and re-run stage_02, or run reset.setup.sh to rebuild.
 
+    - name: pre-approve Gitea OAuth2 grants for admin user (bypass PKCE-contaminated grant-form on first login)
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - gitea-db
+          - psql
+          - -U
+          - gitea
+          - -d
+          - gitea
+          - -c
+          - |-
+            WITH admin AS (SELECT id FROM "user" WHERE lower_name='admin')
+            INSERT INTO oauth2_grant (user_id, application_id, counter, scope, nonce, created_unix, updated_unix)
+            SELECT admin.id, oa.id, 0,
+                   CASE oa.name
+                     WHEN 'Nextcloud' THEN 'openid email profile'
+                     WHEN 'Rocket.Chat' THEN 'openid'
+                     ELSE ''
+                   END, '',
+                   EXTRACT(EPOCH FROM NOW())::bigint,
+                   EXTRACT(EPOCH FROM NOW())::bigint
+            FROM oauth2_application oa, admin
+            WHERE oa.name IN ('Mattermost', 'Rocket.Chat', 'Nextcloud')
+            ON CONFLICT (user_id, application_id) DO NOTHING;
+      become: true
+      changed_when: false
+
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -237,20 +266,6 @@
       delay: 10
       until: _rc_api_check.status == 200
 
-    - name: clear requirePasswordChange on Rocket.Chat admin so OAuth login is not redirected to password reset
-      ansible.builtin.command:
-        argv:
-          - docker
-          - exec
-          - rocketchat-mongodb
-          - mongosh
-          - rocketchat
-          - --quiet
-          - --eval
-          - "db.users.updateOne({username: 'admin'}, {$set: {requirePasswordChange: false}})"
-      become: true
-      changed_when: true
-
     - name: authenticate to Rocket.Chat REST API
       ansible.builtin.uri:
         url: "http://localhost:3500/api/v1/login"
@@ -313,6 +328,29 @@
         - { id: "Accounts_OAuth_Custom-Gitea-name_field",     value: "full_name" }
         - { id: "Accounts_OAuth_Custom-Gitea-email_field",    value: "email" }
       no_log: true
+
+    - name: wait for Rocket.Chat init to complete and clear requirePasswordChange on admin
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - rocketchat-mongodb
+          - mongosh
+          - rocketchat
+          - --quiet
+          - --eval
+          - |-
+            var u=db.users.findOne({username:'admin'});
+            if(!u){process.exit(1);}
+            db.users.updateOne({username:'admin'},{$set:{requirePasswordChange:false}});
+            u=db.users.findOne({username:'admin'});
+            if(u.requirePasswordChange===true){process.exit(1);}
+      register: _rc_rpc
+      until: _rc_rpc.rc == 0
+      retries: 12
+      delay: 10
+      become: true
+      changed_when: true
 
     - name: check if Nextcloud compose.yml exists (for volume cleanup)
       ansible.builtin.stat:
