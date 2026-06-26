@@ -2,57 +2,40 @@
 ##
 ## misp_lab - main_vms_only playbook
 ##
-## Skips the 01_init_proxmox template creation stage (template 9232 assumed
-## already present from a prior misp_lab.setup.sh run, or from another scenario
-## that builds the same medium template - blank_scenario_2_subnets, demo_lab).
-## Used by `range42-context deploy-vms`.
+## Structure : same multi-level pattern as main.yml (skips 01_templates-bootstrap, template assumed already present).
+##
+## Skips 01_templates-bootstrap (template 9232 assumed already present from a
+## prior misp_lab_bundles.setup.sh run, or from another scenario that builds
+## the same medium template). Used by `range42-context deploy-vms`.
+##
+## Same global stage discipline as main.yml : ALL tiers stage_00 first, then
+## ALL tiers stage_01, then build wazuh_clients_active group, then finalize.
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### 02_misp_lab_infrastructure - STAGE 00 #### #### #### ##
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./02_misp_lab_infrastructure/stage_00/misp_lab_vm.yml
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
-  vars:
-    global_vm_name: "admin-misp-standalone"
-    global_vm_ssh_name: "r42.admin-misp-standalone"
-    global_vm_id: 1180
-    global_vm_description: "misp_lab - Ubuntu LTS host for MISP via docker-compose"
-    global_vm_tag_name: "misp-lab"
-    global_vm_ci_ip: "192.168.142.180"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
+- import_playbook: ./03_misp_lab_infrastructure/_main_stage_00.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### 02_misp_lab_infrastructure - STAGE 01 #### #### #### ##
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./02_misp_lab_infrastructure/stage_01/_r42_misp_lab_group.yml
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
 
-  vars:
-    OPERATOR_USER: alice
-
-    INSTALL_VIM_DOTFILES: "YES"
-    INSTALL_ZSH_DOTFILES: "YES"
-
-    INSTALL_PACKAGES_BASICS: "YES"
-    INSTALL_PACKAGES_FIREWALLS: "YES"
-    #
-    INSTALL_PACKAGES_DOCKER: "YES"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
-    #
-    INSTALL_PACKAGES_UTILS_JSON: "YES"
-    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
-
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
-
-    INSTALL_TAILSCALE: "NO"
-
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
+- import_playbook: ./03_misp_lab_infrastructure/_main_stage_01.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_misp_lab_wazuh_clients_active  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

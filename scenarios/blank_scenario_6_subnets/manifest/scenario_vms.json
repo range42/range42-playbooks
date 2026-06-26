@@ -198,6 +198,13 @@
       "ip": "192.168.142.143",
       "role": "admin",
       "bridge": "vmbr142"
+    },
+    {
+      "vm_id": 6144,
+      "vm_name": "bs6-admin-misp",
+      "ip": "192.168.142.144",
+      "role": "admin",
+      "bridge": "vmbr142"
     }
   ],
   "templates": [

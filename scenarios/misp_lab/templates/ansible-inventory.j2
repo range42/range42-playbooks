@@ -4,11 +4,6 @@ all:
       children:
         ####
 
-        # admin-wazuh is emitted UNCONDITIONALLY in the r42_admin group so
-        # the operator can SSH-in for debugging when the misp_lab_bundles
-        # variant is deployed with INSTALL_WAZUH=YES. The legacy misp_lab
-        # main.yml never creates admin-wazuh, but both variants share the
-        # same SCENARIO_TEMPLATES_DIR (resolved via INFRASTRUCTURE_SCENARIO=misp_lab).
         r42_admin:
           hosts:
             r42.admin-wazuh:

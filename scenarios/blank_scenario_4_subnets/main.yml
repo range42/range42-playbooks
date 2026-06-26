@@ -1,16 +1,52 @@
 ---
 ##
-## blank_scenario_4_subnets — 4 team subnets + admin subnet (wazuh + deployer platform)
+## blank_scenario_4_subnets - main playbook
+##
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
+##
+## Provisions 16 team lab VMs on 4 subnets (vmbr143-146, 4 VMs per subnet) plus
+## an admin platform (3 always-on deployer VMs + 2 optional admin VMs).
+##
+## Admin tier (192.168.142.0/24 admin band) :
+##   - bs4-admin-deployer-api-gateway (192.168.142.131, VMID 4131, always created)
+##   - bs4-admin-deployer-api-backend (192.168.142.132, VMID 4132, always created)
+##   - bs4-admin-deployer-ui          (192.168.142.133, VMID 4133, always created)
+##   - bs4-admin-wazuh                (192.168.142.130, VMID 4130, gated INSTALL_WAZUH)
+##   - bs4-admin-misp                 (192.168.142.134, VMID 4134, gated INSTALL_MISP)
+##
+## Global stage discipline (mirror of bs2 / kunai / demo / misp_lab bundles).
 ##
 
-- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
-- import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-####
+- import_playbook: ./01_templates-bootstrap/_main.yml
 
-# admin infrastructure — wazuh + full deployer platform
-- import_playbook: ./01_admin_infrastructure/_main.yml
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-####
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
-- import_playbook: ./02_network_lab/_main.yml
+- import_playbook: ./03_team_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./03_team_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_blank_scenario_4_subnets_wazuh_clients_active  ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

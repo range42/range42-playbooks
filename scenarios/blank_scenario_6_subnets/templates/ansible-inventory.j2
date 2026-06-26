@@ -4,11 +4,6 @@ all:
       children:
         ####
 
-        # admin-misp is emitted UNCONDITIONALLY in the r42_admin group so
-        # the operator can SSH-in for debugging when the blank_scenario_6_subnets_bundles
-        # variant is deployed with INSTALL_MISP=YES. The legacy blank_scenario_6_subnets
-        # main.yml never creates admin-misp, but both variants share the same
-        # SCENARIO_TEMPLATES_DIR (resolved via INFRASTRUCTURE_SCENARIO=blank_scenario_6_subnets).
         r42_admin:
           hosts:
             r42.bs6-admin-wazuh:

@@ -1,7 +1,7 @@
 {
   "scenario": "blank_scenario_4_subnets",
   "version": 2,
-  "description": "4 team subnets (192.168.143-146.0/24) + admin subnet (192.168.142.0/24, dense .130-.133, vm_ids 4130-4133 per design rule vm_id last 3 = IP last octet). 16 team VMs + 4 admin VMs (wazuh server + deployer platform).",
+  "description": "4 team subnets (192.168.143-146.0/24) + admin subnet (192.168.142.0/24, dense .130-.134, vm_ids 4130-4134 per design rule vm_id last 3 = IP last octet). 16 team VMs + 3 always-on admin VMs (deployer platform: api-gateway, api-backend, ui) plus 2 optional admin VMs (admin-wazuh gated by INSTALL_WAZUH, admin-misp gated by INSTALL_MISP, both default off).",
   "vms": [
     {
       "vm_id": 4001,
@@ -140,6 +140,13 @@
       "vm_id": 4133,
       "vm_name": "bs4-admin-deployer-ui",
       "ip": "192.168.142.133",
+      "role": "admin",
+      "bridge": "vmbr142"
+    },
+    {
+      "vm_id": 4134,
+      "vm_name": "bs4-admin-misp",
+      "ip": "192.168.142.134",
       "role": "admin",
       "bridge": "vmbr142"
     }

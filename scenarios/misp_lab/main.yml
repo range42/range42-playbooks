@@ -2,72 +2,71 @@
 ##
 ## misp_lab - main playbook
 ##
-## Provisions a single Ubuntu LTS VM (admin-misp-standalone) on vmbr142 from the project
-## standard medium template (VMID 9232 : 2cpu / 8gb / 64gb). The VM is
-## delivered with the Docker baseline pre-installed (docker, docker compose,
-## zsh dotfiles, basic utilities, firewall opening port 22 only).
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
 ##
-## MISP itself is intentionally NOT installed by this scenario - the goal here
-## is to have a ready-to-use Docker host. The MISP docker-compose stack is
-## deployed in a later step (range42-catalog element or a follow-up playbook).
+## Provisions a single Ubuntu LTS VM (admin-misp-standalone) on vmbr142 from
+## the project standard medium template (VMID 9232 : 2cpu / 8gb / 64gb) and
+## deploys the misp-standalone docker-compose stack on it via the shared
+## bundle bundles/admin/software.install.misp-standalone/.
 ##
-## Mirrors the catalog_try single-VM pattern :
-##   01_init_proxmox                 : download cloud-init image + create template 9232 (idempotent skip if already present)
-##   02_misp_lab_infrastructure      : VM clone + cloud-init + start + wait-for-SSH + Docker baseline
+## MISP IS the workload of this scenario - always deployed (no INSTALL_MISP
+## flag). The optional admin tier (admin-wazuh) is gated by INSTALL_WAZUH
+## (default NO per manifest/feature_flags.yml).
+##
+## Lab topology :
+##   - admin-misp-standalone (192.168.142.180, VMID 1180, vmbr142)  - MISP host
+##
+## Optional admin tier (192.168.142.0/24 admin band) :
+##   - admin-wazuh (192.168.142.187, VMID 1187, vmbr142)            - SIEM server
+##
+## Global stage discipline (mirror of kunai_lab_bundles / demo_lab_bundles) :
+##   1. 01_templates-bootstrap                                create the shared template (9232)
+##   2. ALL tiers stage_00 (vm_bootstrap)                     create every VM first
+##   3. ALL tiers stage_01 (vm_configure)                     configure every VM after
+##   4. cross-tier finalize (wazuh-agent on admin-misp-standalone)  when INSTALL_WAZUH=YES
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### 01_init_proxmox - template creation #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
-- import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+- import_playbook: ./01_templates-bootstrap/_main.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### 02_misp_lab_infrastructure - STAGE 00 #### #### #### ##
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./02_misp_lab_infrastructure/stage_00/misp_lab_vm.yml
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
-  vars:
-    global_vm_name: "admin-misp-standalone"
-    global_vm_ssh_name: "r42.admin-misp-standalone"
-    global_vm_id: 1180
-    global_vm_description: "misp_lab - Ubuntu LTS host for MISP via docker-compose"
-    global_vm_tag_name: "misp-lab"
-    global_vm_ci_ip: "192.168.142.180"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
+- import_playbook: ./03_misp_lab_infrastructure/_main_stage_00.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### 02_misp_lab_infrastructure - STAGE 01 #### #### #### ##
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./02_misp_lab_infrastructure/stage_01/_r42_misp_lab_group.yml
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
 
-  vars:
-    OPERATOR_USER: alice
-
-    INSTALL_VIM_DOTFILES: "YES"
-    INSTALL_ZSH_DOTFILES: "YES"
-
-    INSTALL_PACKAGES_BASICS: "YES"
-    INSTALL_PACKAGES_FIREWALLS: "YES"
-    #
-    INSTALL_PACKAGES_DOCKER: "YES"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
-    #
-    INSTALL_PACKAGES_UTILS_JSON: "YES"
-    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
-
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
-
-    INSTALL_TAILSCALE: "NO"
-
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
+- import_playbook: ./03_misp_lab_infrastructure/_main_stage_01.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_misp_lab_wazuh_clients_active  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Build the runtime wazuh-clients active group BEFORE the cross-tier finalize
+# runs. Mirror of _build_admin_active_group (Option A).
+#
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# wazuh-agent install on admin-misp-standalone (the misp lab workload VM).
+# Targets r42_misp_lab_wazuh_clients_active (runtime). Runs LAST so the
+# wazuh server (tier 02 stage_01) is reachable AND admin-misp-standalone
+# (tier 03 stage_00 + stage_01) is created + baselined + has docker + misp
+# stack deployed. Gated by INSTALL_WAZUH.
+#
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

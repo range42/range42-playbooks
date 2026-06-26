@@ -39,7 +39,7 @@ Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
     Port 22
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      DEV-DEPLOYER-UI-LAB VMs (vmbr142)
+#                                      DEV VMs (deployer-ui platform stack)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.dev-deployer-ui
@@ -51,7 +51,23 @@ Host r42.dev-backend
 Host r42.dev-kong
     Hostname 192.168.142.192
 
-Host r42.dev-deployer-ui r42.dev-backend r42.dev-kong
+Host r42.dev-*
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
+    Port 22
+    ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      ADMIN VMs (optional, gated)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host r42.admin-wazuh
+    Hostname 192.168.142.193
+
+Host r42.admin-misp
+    Hostname 192.168.142.194
+
+Host r42.admin*
     User alice
     IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
     Port 22

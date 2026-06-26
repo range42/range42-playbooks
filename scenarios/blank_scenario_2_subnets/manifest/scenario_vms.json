@@ -1,16 +1,17 @@
 {
   "scenario": "blank_scenario_2_subnets",
   "version": 2,
-  "description": "Minimal lab with 2 team subnets (192.168.143.0/24, 192.168.144.0/24) and one admin subnet (192.168.142.0/24). Deploys 4 team VMs + 4 admin VMs (wazuh server + deployer platform: api-gateway, api-backend, ui). vm_id range: 2xxx (team 2001-2099, admin 2100-2199). Admin IPs are dense .120-.123 — aligned with the project rule `vm_id last 3 digits = IP last octet`.",
+  "description": "Minimal lab with 2 team subnets (192.168.143.0/24, 192.168.144.0/24) and one admin subnet (192.168.142.0/24). Deploys 4 team VMs + 3 always-on admin VMs (deployer platform: api-gateway, api-backend, ui) plus 2 optional admin VMs (admin-wazuh gated by INSTALL_WAZUH, admin-misp gated by INSTALL_MISP, both default off). vm_id range: 2xxx (team 2001-2099, admin 2100-2199). Admin IPs are dense .120-.124 - aligned with the project rule `vm_id last 3 digits = IP last octet`.",
   "vms": [
-    {"vm_id": 2001, "vm_name": "bs2-team-143-01",                   "ip": "192.168.143.200", "role": "team",  "bridge": "vmbr143"},
-    {"vm_id": 2002, "vm_name": "bs2-team-143-02",                   "ip": "192.168.143.201", "role": "team",  "bridge": "vmbr143"},
-    {"vm_id": 2003, "vm_name": "bs2-team-144-01",                   "ip": "192.168.144.200", "role": "team",  "bridge": "vmbr144"},
-    {"vm_id": 2004, "vm_name": "bs2-team-144-02",                   "ip": "192.168.144.201", "role": "team",  "bridge": "vmbr144"},
-    {"vm_id": 2120, "vm_name": "bs2-admin-wazuh",                   "ip": "192.168.142.120", "role": "admin", "bridge": "vmbr142"},
-    {"vm_id": 2121, "vm_name": "bs2-admin-deployer-api-gateway",    "ip": "192.168.142.121", "role": "admin", "bridge": "vmbr142"},
-    {"vm_id": 2122, "vm_name": "bs2-admin-deployer-api-backend",    "ip": "192.168.142.122", "role": "admin", "bridge": "vmbr142"},
-    {"vm_id": 2123, "vm_name": "bs2-admin-deployer-ui",             "ip": "192.168.142.123", "role": "admin", "bridge": "vmbr142"}
+    {"vm_id": 2001, "vm_name": "bs2-team-143-01",                   "ip": "192.168.143.200", "role": "team",  "group": "team",  "bridge": "vmbr143"},
+    {"vm_id": 2002, "vm_name": "bs2-team-143-02",                   "ip": "192.168.143.201", "role": "team",  "group": "team",  "bridge": "vmbr143"},
+    {"vm_id": 2003, "vm_name": "bs2-team-144-01",                   "ip": "192.168.144.200", "role": "team",  "group": "team",  "bridge": "vmbr144"},
+    {"vm_id": 2004, "vm_name": "bs2-team-144-02",                   "ip": "192.168.144.201", "role": "team",  "group": "team",  "bridge": "vmbr144"},
+    {"vm_id": 2120, "vm_name": "bs2-admin-wazuh",                   "ip": "192.168.142.120", "role": "admin", "group": "admin", "bridge": "vmbr142"},
+    {"vm_id": 2121, "vm_name": "bs2-admin-deployer-api-gateway",    "ip": "192.168.142.121", "role": "admin", "group": "admin", "bridge": "vmbr142"},
+    {"vm_id": 2122, "vm_name": "bs2-admin-deployer-api-backend",    "ip": "192.168.142.122", "role": "admin", "group": "admin", "bridge": "vmbr142"},
+    {"vm_id": 2123, "vm_name": "bs2-admin-deployer-ui",             "ip": "192.168.142.123", "role": "admin", "group": "admin", "bridge": "vmbr142"},
+    {"vm_id": 2124, "vm_name": "bs2-admin-misp",                    "ip": "192.168.142.124", "role": "admin", "group": "admin", "bridge": "vmbr142"}
   ],
   "templates": [
     {"vm_id": 9901, "vm_name": "template-vm-nano",                  "spec": "1cpu/1gb/16gb",  "ip": "192.168.140.201", "bridge": "vmbr140"},
