@@ -22,7 +22,7 @@
 features:
   - id: WAZUH
     label: "Wazuh stack - SIEM + agents services"
-    description: "Deploys an admin-wazuh VM (vm_id 1182, IP 192.168.142.182) under 02_admin_infrastructure/ + agent install on admin-misp-standalone. Off by default for misp_lab (focused on the MISP threat intel workload, not on SIEM)."
+    description: "Deploys an admin-wazuh VM (vm_id 1187, IP 192.168.142.187) under 02_admin_infrastructure/ + agent install on admin-misp-standalone. Off by default for misp_lab (focused on the MISP threat intel workload, not on SIEM)."
     default: false
 
   - id: TAILSCALE

@@ -27,4 +27,4 @@
   when: INSTALL_WAZUH | default("NO") | upper == "YES"
   vars:
     wazuh_clients_group: "r42_misp_lab_wazuh_clients_active"
-    global_vm_ci_ip:     "192.168.142.182"
+    global_vm_ci_ip:     "192.168.142.187"

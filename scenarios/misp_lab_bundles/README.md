@@ -26,8 +26,8 @@ bundle `bundles/admin/software.install.misp-standalone/`. There is NO
                                           |
                          +----------------+----------------+
                          |                                 |
-                  admin-misp-standalone .180        admin-wazuh .182 (optional)
-                  (VMID 1180, MISP stack)            (VMID 1182, SIEM server)
+                  admin-misp-standalone .180        admin-wazuh .187 (optional)
+                  (VMID 1180, MISP stack)            (VMID 1187, SIEM server)
 ```
 
 ## VM details
@@ -35,11 +35,11 @@ bundle `bundles/admin/software.install.misp-standalone/`. There is NO
 | VM Name                | VM ID | IP              | Bridge  | Template                            | Gated by         |
 |------------------------|-------|-----------------|---------|-------------------------------------|------------------|
 | admin-misp-standalone  | 1180  | 192.168.142.180 | vmbr142 | template-vm-medium-02-8g-64g (9232) | always created   |
-| admin-wazuh            | 1182  | 192.168.142.182 | vmbr142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_WAZUH`  |
+| admin-wazuh            | 1187  | 192.168.142.187 | vmbr142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_WAZUH`  |
 
 Source of truth : `manifest/scenario_vms.json`.
 
-Project convention : last 3 digits of VMID match the IP last octet (1180 -> .180, 1182 -> .182).
+Project convention : last 3 digits of VMID match the IP last octet (1180 -> .180, 1187 -> .187).
 
 ## Feature flags
 

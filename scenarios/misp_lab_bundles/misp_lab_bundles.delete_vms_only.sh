@@ -6,7 +6,7 @@
 ## VM IDs are read from the scenario manifest :
 ##   manifest/scenario_vms.json
 ##
-## Lists admin-misp-standalone (VMID 1180) + admin-wazuh (VMID 1182, optional).
+## Lists admin-misp-standalone (VMID 1180) + admin-wazuh (VMID 1187, optional).
 ##
 ## Companions:
 ##   - misp_lab_bundles.delete_vms_only.sh (this) - VMs only, keep templates

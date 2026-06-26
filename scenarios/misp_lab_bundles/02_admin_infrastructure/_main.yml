@@ -6,7 +6,7 @@
 ## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
 ##
 ## Hosts the optional admin platform VM for the misp_lab scenario :
-##   - admin-wazuh (VMID 1182, IP 192.168.142.182) : Wazuh SIEM server
+##   - admin-wazuh (VMID 1187, IP 192.168.142.187) : Wazuh SIEM server
 ##     (gated by INSTALL_WAZUH, default NO per manifest/feature_flags.yml).
 ##
 ## Note : no admin-misp here because MISP IS the workload of this scenario,
