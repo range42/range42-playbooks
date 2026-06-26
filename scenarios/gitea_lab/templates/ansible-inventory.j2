@@ -1,0 +1,28 @@
+all:
+  children:
+    range42_infrastructure:
+      children:
+        ####
+
+        r42_gitea_lab_group:
+          hosts:
+            r42.admin-gitea-standalone:
+
+        ####
+
+        r42_gitea_client_group:
+          hosts:
+            r42.student-gitea-client-01:
+
+        ####
+
+        proxmox:
+          hosts:
+            {{ INFRASTRUCTURE_CODENAME }}:
+              ansible_host: {{ INFRASTRUCTURE_PROXMOX_ADDRESS | mandatory }}:8006
+              ansible_connection: local
+              ansible_python_interpreter: /usr/bin/python3
+
+        proxmox_cli:
+          hosts:
+            {{ INFRASTRUCTURE_CODENAME }}-cli:
