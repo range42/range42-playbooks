@@ -1,0 +1,16 @@
+---
+##
+## 02 - admin infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the optional admin VMs : admin-wazuh (gated INSTALL_WAZUH default NO)
+## + admin-misp (gated INSTALL_MISP default NO). Split into stage_00 + stage_01
+## sibling files so the top-level main.yml can interleave them with the dev
+## tier's stages. See main.yml.
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

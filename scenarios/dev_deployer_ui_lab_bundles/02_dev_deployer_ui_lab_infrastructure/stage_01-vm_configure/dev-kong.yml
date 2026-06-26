@@ -1,0 +1,21 @@
+##
+## dev-kong - Kong API gateway (community, POC)
+##
+## Delegates to the shared bundle which provisions Kong in DB-less mode :
+## APT repo + package install + minimal kong.conf + empty declarative
+## kong.yml + firewall ports 8000/8443 + systemd start + /status probe.
+##
+## To migrate to a Postgres-backed setup for production, swap the bundle
+## to software.install.kong-postgres (out of scope for this POC, see
+## bundles/admin/software.install.kong/README.md).
+##
+## Gated by INSTALL_KONG (default YES per feature_flags.yml). With
+## INSTALL_KONG=NO, the dev-kong VM stays as a bare Docker host (baseline
+## applied, no app stack).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.kong/main.yml"
+  when: INSTALL_KONG | default("YES") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.dev-kong"
+    global_vm_ci_ip:    "192.168.142.192"

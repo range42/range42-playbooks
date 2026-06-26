@@ -1,0 +1,29 @@
+---
+################################################################################
+# range42 - scenario-specific variables (dev_deployer_ui_lab)
+#
+# These variables are specific to this scenario and may differ
+# between scenarios running on the same CODENAME infrastructure.
+#
+# For shared variables -> group_vars/all/vars.yml
+# For secrets -> vault.yml (see vault.yml.example)
+#
+################################################################################
+
+
+#### SCENARIO IDENTIFICATION ####
+
+INFRASTRUCTURE_SCENARIO: "dev_deployer_ui_lab"
+
+
+#### CREDENTIAL GENERATION ####
+
+# auto-generate ssh keys and passwords (YES/NO)
+context_auto_generate_ssh_keys: "YES"
+context_auto_generate_vm_passwords: "YES"
+
+
+#### CLOUD-INIT USERNAMES ####
+
+# admin vm user (not secret - password and ssh key are in vault)
+default_admin_vm_ci_user: "alice"

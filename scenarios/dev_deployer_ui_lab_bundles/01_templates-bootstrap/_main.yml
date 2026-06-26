@@ -1,0 +1,26 @@
+---
+##
+## 01 - template bootstrap
+##
+## Idempotent template provisioning :
+##   1. Download the cloud-init source files (the cicustom + apt-proxy snippets
+##      used by every Ubuntu Noble template at first boot).
+##   2. Build the Ubuntu Noble template family on Proxmox if (and only if) each
+##      template does not yet exist (per-template `qm config <id> | grep template:`
+##      probe inside the bundle drives the skip-or-create decision).
+##
+## Only template 9232 (medium, 2cpu/8gb/64gb) is needed for the 3 dev VMs +
+## admin-wazuh + admin-misp. The bundle filters per the scenario manifest, so
+## extra template definitions are silently skipped.
+##
+## Both imports resolve via `RANGE42_GITDIR__ROOT_DIR` (exported by the workspace's
+## `sourced_range42.sh` on every shell session) so the call-site path stays the
+## same regardless of where `ansible-playbook` is invoked from.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/_main_download_cloudinit_files.yml"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/ubuntu_noble/main.yml"
+  vars:
+    manifest_path:       "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/scenarios/dev_deployer_ui_lab_bundles/manifest/scenario_vms.json"
+    template_bundle_dir: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/ubuntu_noble"

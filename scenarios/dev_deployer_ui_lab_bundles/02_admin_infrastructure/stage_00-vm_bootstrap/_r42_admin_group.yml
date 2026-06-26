@@ -1,0 +1,40 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 00  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+##
+## Optional admin VMs (wazuh + misp) - each gated by an INSTALL_<NAME> flag,
+## default NO. With every flag NO, no admin VM is created.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "admin-wazuh"
+    global_vm_ssh_name:    "r42.admin-wazuh"
+    global_vm_id:          1193
+    global_vm_description: "dev_deployer_ui_lab - wazuh server stack (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.193"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+  when: INSTALL_MISP | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "admin-misp"
+    global_vm_ssh_name:    "r42.admin-misp"
+    global_vm_id:          1194
+    global_vm_description: "dev_deployer_ui_lab - MISP threat intel stack (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.194"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
