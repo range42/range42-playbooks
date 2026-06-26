@@ -1,31 +1,37 @@
 #!/bin/bash
 
-proxmox_vm.list.to.jsons.sh | grep -i vuln-box | jq -c | proxmox_vm.vm_id.stop_force.to.jsons.sh
-proxmox_vm.list.to.jsons.sh | grep -i vuln-box | jq -c | proxmox_vm.vm_id.delete.to.jsons.sh
+##
+## demo_lab_bundles.reset.ssh_keys.sh - clear ~/.ssh/known_hosts entries for
+## every VM in manifest/scenario_vms.json (deployable + optional VMs).
+##
+## Use when a redeploy reuses the same IPs but cloud-init regenerated the host
+## SSH keys (otherwise ssh complains about REMOTE HOST IDENTIFICATION CHANGED).
+##
+## Manifest-driven : iterates all VMs by IP AND by r42.<vm_name> alias to cover
+## both forms of known_hosts entries (HashKnownHosts=yes hashes the IP ; alias-
+## keyed entries survive an IP-only sweep otherwise).
+##
 
-ADMIN_INFRASTRUCTURE_IP=(
-    "192.168.142.112" # admin-misp
-    #
-    "192.168.142.102" # admin-builder-api-devkit
-    "192.168.142.101" # admin-builder-docker-registry
-    "192.168.142.100" # admin-wazuh
-    "192.168.142.101" # admin-deployer-api-gateway
-    "192.168.142.102" # admin-deployer-api-backend
-    "192.168.142.103" # admin-deployer-ui
-    #
-    "192.168.143.160" # student-box-01
-    #
-    "192.168.144.170" # vuln-box-00
-    "192.168.144.171" # vuln-box-01
-    "192.168.144.172" # vuln-box-02
-    "192.168.144.173" # vuln-box-03
-    "192.168.144.174" # vuln-box-04
-)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
 
-for ip in "${ADMIN_INFRASTRUCTURE_IP[@]}"; do
-    echo ":: REMOVE SSH KEY FOR : $ip"
+if [[ ! -f "$MANIFEST" ]]; then
+    echo "ERROR: manifest not found: $MANIFEST" >&2
+    exit 1
+fi
+
+mapfile -t INFRASTRUCTURE_IP   < <(jq -r '.vms[].ip'      "$MANIFEST")
+mapfile -t INFRASTRUCTURE_NAME < <(jq -r '.vms[].vm_name' "$MANIFEST")
+
+for ip in "${INFRASTRUCTURE_IP[@]}"; do
+    echo ":: REMOVE SSH KEY FOR IP    : $ip"
     ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
 done
 
-# proxmox_vm.list.to.jsons.sh | grep -vi template | grep -vi group | grep -iE "(admin-)|(testing-)" | jq -c | proxmox_vm.vm_id.stop_force.to.jsons.sh
-# proxmox_vm.list.to.jsons.sh | grep -vi template | grep -vi group | grep -iE "(admin-)|(testing-)" | jq -c | proxmox_vm.vm_id.delete.to.jsons.sh
+for name in "${INFRASTRUCTURE_NAME[@]}"; do
+    echo ":: REMOVE SSH KEY FOR ALIAS : r42.$name"
+    ssh-keygen -f "$HOME/.ssh/known_hosts" -R "r42.$name"
+done
+
+echo ""
+echo ":: done - ${#INFRASTRUCTURE_IP[@]} IPs + ${#INFRASTRUCTURE_NAME[@]} hostnames cleaned"

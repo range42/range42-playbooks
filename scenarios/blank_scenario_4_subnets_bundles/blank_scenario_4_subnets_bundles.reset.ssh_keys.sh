@@ -2,14 +2,14 @@
 
 ##
 ## blank_scenario_4_subnets_bundles.reset.ssh_keys.sh - clear ~/.ssh/known_hosts entries for
-## every IP declared in manifest/scenario_vms.json (deployable + optional VMs).
+## every VM in manifest/scenario_vms.json (deployable + optional VMs).
 ##
 ## Use when a redeploy reuses the same IPs but cloud-init regenerated the host
 ## SSH keys (otherwise ssh complains about REMOTE HOST IDENTIFICATION CHANGED).
 ##
-## Manifest-driven : iterates all VMs (including admin-wazuh + admin-misp) so
-## that even when INSTALL_WAZUH=NO / INSTALL_MISP=NO today, the known_hosts is
-## cleaned for the slot.
+## Manifest-driven : iterates all VMs by IP AND by r42.<vm_name> alias to cover
+## both forms of known_hosts entries (HashKnownHosts=yes hashes the IP ; alias-
+## keyed entries survive an IP-only sweep otherwise).
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -20,12 +20,18 @@ if [[ ! -f "$MANIFEST" ]]; then
     exit 1
 fi
 
-mapfile -t INFRASTRUCTURE_IP < <(jq -r '.vms[].ip' "$MANIFEST")
+mapfile -t INFRASTRUCTURE_IP   < <(jq -r '.vms[].ip'      "$MANIFEST")
+mapfile -t INFRASTRUCTURE_NAME < <(jq -r '.vms[].vm_name' "$MANIFEST")
 
 for ip in "${INFRASTRUCTURE_IP[@]}"; do
-    echo ":: REMOVE SSH KEY FOR : $ip"
+    echo ":: REMOVE SSH KEY FOR IP    : $ip"
     ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
 done
 
+for name in "${INFRASTRUCTURE_NAME[@]}"; do
+    echo ":: REMOVE SSH KEY FOR ALIAS : r42.$name"
+    ssh-keygen -f "$HOME/.ssh/known_hosts" -R "r42.$name"
+done
+
 echo ""
-echo ":: done - $(echo "${INFRASTRUCTURE_IP[@]}" | wc -w) known_hosts entries removed"
+echo ":: done - ${#INFRASTRUCTURE_IP[@]} IPs + ${#INFRASTRUCTURE_NAME[@]} hostnames cleaned"
