@@ -1,6 +1,6 @@
 ---
 ##
-## debug_scenario_a_bundles - 02_admin_infrastructure - build r42_debug_scenario_a_wazuh_clients_active
+## debug_scenario_a - 02_admin_infrastructure - build r42_debug_scenario_a_wazuh_clients_active
 ##
 ## Structure : runtime-only group built via add_host on localhost based on
 ## INSTALL_<flag> values at deploy time. Mirror of _build_admin_active_group.yml

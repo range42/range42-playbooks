@@ -1,5 +1,5 @@
 ---
-# Feature flags for misp_lab_bundles - optional components that can be
+# Feature flags for misp_lab - optional components that can be
 # toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
 #
 # Note : there is NO INSTALL_MISP flag. MISP IS the workload of this scenario,

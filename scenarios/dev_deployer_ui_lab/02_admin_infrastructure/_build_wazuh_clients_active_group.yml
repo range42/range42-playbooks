@@ -1,6 +1,6 @@
 ---
 ##
-## dev_deployer_ui_lab_bundles - 02_admin_infrastructure - build r42_dev_deployer_ui_lab_wazuh_clients_active
+## dev_deployer_ui_lab - 02_admin_infrastructure - build r42_dev_deployer_ui_lab_wazuh_clients_active
 ##
 ## Structure : runtime-only group built via add_host on proxmox based on
 ## INSTALL_<flag> values at deploy time. Mirror of _build_admin_active_group.yml

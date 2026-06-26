@@ -8,7 +8,7 @@
 ## At T-01 (kunai bundles refactor) this entry still uses the legacy
 ## scenario-local template files moved from 01_init_proxmox/. A follow-up
 ## T-task will swap these imports for the shared bundle at
-## bundles/core/proxmox/configure/templates/ already used by demo_lab_bundles.
+## bundles/core/proxmox/configure/templates/ already used by demo_lab.
 ##
 
 - import_playbook: ./templates/_main_download_cloudinit_files.yml

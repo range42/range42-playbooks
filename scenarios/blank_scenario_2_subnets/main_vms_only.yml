@@ -5,7 +5,7 @@
 ## Structure : same multi-level pattern as main.yml (skips 01_templates-bootstrap, templates assumed already present).
 ##
 ## Skips 01_templates-bootstrap (templates 9221 / 9232 assumed already present
-## from a prior blank_scenario_2_subnets_bundles.setup.sh run, or from another
+## from a prior blank_scenario_2_subnets.setup.sh run, or from another
 ## scenario that builds the same templates). Used by `range42-context deploy-vms`.
 ##
 

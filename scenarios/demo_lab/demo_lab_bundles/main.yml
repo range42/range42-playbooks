@@ -4,7 +4,7 @@
 ##
 ## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
 ##
-## Global stage discipline (mirror of kunai_lab_bundles after the structural fix) :
+## Global stage discipline (mirror of kunai_lab after the structural fix) :
 ##   1. 01_templates-bootstrap                          create the shared templates
 ##   2. ALL tiers stage_00 (vm_bootstrap)               create every VM first
 ##   3. ALL tiers stage_01 (vm_configure)               configure every VM after

@@ -17,7 +17,7 @@
 ##   - admin-wazuh (192.168.142.150, VMID 8050, vmbr142)
 ##   - admin-misp  (192.168.142.151, VMID 8051, vmbr142)
 ##
-## Global stage discipline (mirror of kunai_lab_bundles / demo_lab_bundles) :
+## Global stage discipline (mirror of kunai_lab / demo_lab) :
 ##   1. 01_templates-bootstrap                          create the shared templates
 ##      (medium 9232 only when INSTALL_WAZUH=YES or INSTALL_MISP=YES)
 ##   2. ALL tiers stage_00 (vm_bootstrap)               create every VM first

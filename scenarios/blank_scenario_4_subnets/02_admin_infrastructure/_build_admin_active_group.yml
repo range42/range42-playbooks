@@ -1,5 +1,5 @@
 ##
-## blank_scenario_4_subnets_bundles - 02_admin_infrastructure - build r42_admin_active
+## blank_scenario_4_subnets - 02_admin_infrastructure - build r42_admin_active
 ##
 ## Builds the runtime-only r42_admin_active group from INSTALL_<flag> values
 ## plus always-on admin VMs. Members are added via ansible.builtin.add_host,

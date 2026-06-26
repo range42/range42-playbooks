@@ -16,7 +16,7 @@
 ##                           directory. Used by `_update_templates.yml` to
 ##                           render `range42-template-bootstrap.yaml.j2`.
 ##
-## Optional vars (defaults match the historical demo_lab_bundles behaviour) :
+## Optional vars (defaults match the historical demo_lab behaviour) :
 ##
 ##   templates_whitelist     []    # if empty, install the full set ; else
 ##                                 # only the short codes listed :

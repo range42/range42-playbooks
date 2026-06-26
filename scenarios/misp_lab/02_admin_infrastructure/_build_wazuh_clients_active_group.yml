@@ -1,6 +1,6 @@
 ---
 ##
-## misp_lab_bundles - 02_admin_infrastructure - build r42_misp_lab_wazuh_clients_active
+## misp_lab - 02_admin_infrastructure - build r42_misp_lab_wazuh_clients_active
 ##
 ## Structure : runtime-only group built via add_host on the proxmox host
 ## (which has ansible_connection: local) based on the deploy-time state.

@@ -5,7 +5,7 @@
 ## Structure : same multi-level pattern as main.yml (skips 01_templates-bootstrap, template assumed already present).
 ##
 ## Skips 01_templates-bootstrap (template 9232 assumed already present from a
-## prior misp_lab_bundles.setup.sh run, or from another scenario that builds
+## prior misp_lab.setup.sh run, or from another scenario that builds
 ## the same medium template). Used by `range42-context deploy-vms`.
 ##
 ## Same global stage discipline as main.yml : ALL tiers stage_00 first, then

@@ -1,5 +1,5 @@
 ---
-# Feature flags for debug_scenario_b_bundles - optional components that can be
+# Feature flags for debug_scenario_b - optional components that can be
 # toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
 #
 # This file is the single source of truth :

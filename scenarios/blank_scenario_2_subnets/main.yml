@@ -20,7 +20,7 @@
 ##   - bs2-admin-wazuh                (192.168.142.120, VMID 2120, gated INSTALL_WAZUH)
 ##   - bs2-admin-misp                 (192.168.142.124, VMID 2124, gated INSTALL_MISP)
 ##
-## Global stage discipline (mirror of demo_lab_bundles / kunai_lab_bundles) :
+## Global stage discipline (mirror of demo_lab / kunai_lab) :
 ##   1. 01_templates-bootstrap                                create the shared templates
 ##   2. ALL tiers stage_00 (vm_bootstrap)                     create every VM first
 ##   3. ALL tiers stage_01 (vm_configure)                     configure every VM after

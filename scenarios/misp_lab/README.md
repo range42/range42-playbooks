@@ -1,8 +1,8 @@
-# misp_lab_bundles
+# misp_lab
 
 Single-VM scenario that delivers an Ubuntu LTS host with the Docker baseline
 and deploys the misp-standalone docker-compose stack on it. Bundle-driven
-shape (mirror of `kunai_lab_bundles` / `demo_lab_bundles`) with an optional
+shape (mirror of `kunai_lab` / `demo_lab`) with an optional
 admin tier (Wazuh SIEM) gated by a feature flag.
 
 The lab VM (`admin-misp-standalone`, VMID 1180, IP `192.168.142.180` on
@@ -59,26 +59,26 @@ range42-context use <codename> misp_lab
 range42-context deploy
 
 # enable Wazuh SIEM on top of the MISP stack :
-./misp_lab_bundles.setup.sh -e INSTALL_WAZUH=YES
+./misp_lab.setup.sh -e INSTALL_WAZUH=YES
 ```
 
 ## Wrapper scripts
 
 | Script                                          | Action                                                              |
 |-------------------------------------------------|---------------------------------------------------------------------|
-| `misp_lab_bundles.setup.sh`                     | Run main playbook (template + VM + MISP stack + optional admin)     |
-| `misp_lab_bundles.setup_vms_only.sh`            | Run main_vms_only.yml (skip template creation)                      |
-| `misp_lab_bundles.reset.setup.sh`               | Delete + redeploy VMs                                               |
-| `misp_lab_bundles.reset.ssh_keys.sh`            | Clear ~/.ssh/known_hosts for every IP in manifest                   |
-| `misp_lab_bundles.delete_vms_only.sh`           | Delete VMs only, keep template                                      |
-| `misp_lab_bundles.delete_all.sh`                | Delete VMs + shared template 9232 (WARNING - affects other scenarios) |
+| `misp_lab.setup.sh`                     | Run main playbook (template + VM + MISP stack + optional admin)     |
+| `misp_lab.setup_vms_only.sh`            | Run main_vms_only.yml (skip template creation)                      |
+| `misp_lab.reset.setup.sh`               | Delete + redeploy VMs                                               |
+| `misp_lab.reset.ssh_keys.sh`            | Clear ~/.ssh/known_hosts for every IP in manifest                   |
+| `misp_lab.delete_vms_only.sh`           | Delete VMs only, keep template                                      |
+| `misp_lab.delete_all.sh`                | Delete VMs + shared template 9232 (WARNING - affects other scenarios) |
 
 All scripts require `RANGE42_ANSIBLE_ROLES__INVENTORY_DIR` and `RANGE42_VAULT_PASSWORD_FILE` to be exported - set by `range42-context use <codename> misp_lab`.
 
 ## Structure
 
 ```
-misp_lab_bundles/
+misp_lab/
   main.yml                            full deploy entrypoint (global stage discipline)
   main_vms_only.yml                   fast redeploy (skip templates)
   manifest/

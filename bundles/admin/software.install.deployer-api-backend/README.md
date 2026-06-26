@@ -70,7 +70,7 @@ startup, so no explicit migration step is needed.
 
 The backend uses Starlette's `CORSMiddleware` with `allow_origin_regex` read
 from the `CORS_ORIGIN_REGEX` env var. The bundle defaults to a regex that
-matches the demo_lab_bundles UI hostname (`http(s)://r42.admin-deployer-ui:<any-port>`).
+matches the demo_lab UI hostname (`http(s)://r42.admin-deployer-ui:<any-port>`).
 
 For other scenarios, override `DEPLOYER_UI_CORS_REGEX` in the call-site :
 

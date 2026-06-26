@@ -87,7 +87,7 @@
 # Backend connection (CORS path) :
 #   The deployer-ui bundle adopts the CORS path - the UI calls this backend
 #   directly via fetch, and the Origin header must match CORS_ORIGIN_REGEX.
-#   The default regex matches the demo_lab_bundles UI hostname. Operators
+#   The default regex matches the demo_lab UI hostname. Operators
 #   running a different scenario must override DEPLOYER_UI_CORS_REGEX.
 #
 # Database :

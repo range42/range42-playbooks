@@ -1,5 +1,5 @@
 ---
-# Feature flags for blank_scenario_2_subnets_bundles - optional components that can be
+# Feature flags for blank_scenario_2_subnets - optional components that can be
 # toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
 #
 # This file is the single source of truth :

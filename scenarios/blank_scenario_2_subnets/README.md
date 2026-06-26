@@ -1,9 +1,9 @@
-# blank_scenario_2_subnets_bundles
+# blank_scenario_2_subnets
 
 Multi-subnet lab with 4 team VMs on 2 subnets (vmbr143 + vmbr144) plus an
 admin platform (3 always-on deployer VMs + 2 optional admin VMs gated by
-feature flags). Bundle-driven shape (mirror of `kunai_lab_bundles` /
-`demo_lab_bundles`).
+feature flags). Bundle-driven shape (mirror of `kunai_lab` /
+`demo_lab`).
 
 Anchor scenario for `blank_scenario_4_subnets` + `blank_scenario_6_subnets`
 (both mirrors of bs2 with more subnets / more team VMs).
@@ -77,20 +77,20 @@ range42-context use <codename> blank_scenario_2_subnets
 range42-context deploy
 
 # enable Wazuh SIEM :
-./blank_scenario_2_subnets_bundles.setup.sh -e INSTALL_WAZUH=YES
+./blank_scenario_2_subnets.setup.sh -e INSTALL_WAZUH=YES
 
 # enable both Wazuh + MISP (MISP requires .env populated in the catalog
 # before this command - see admin-misp.yml documentation) :
-./blank_scenario_2_subnets_bundles.setup.sh -e INSTALL_WAZUH=YES -e INSTALL_MISP=YES
+./blank_scenario_2_subnets.setup.sh -e INSTALL_WAZUH=YES -e INSTALL_MISP=YES
 ```
 
 ## Wrapper scripts
 
 | Script                                                          | Action                                                              |
 |-----------------------------------------------------------------|---------------------------------------------------------------------|
-| `blank_scenario_2_subnets_bundles.setup.sh`                     | Run main playbook (templates + VMs + optional admin)                |
-| `blank_scenario_2_subnets_bundles.setup_vms_only.sh`            | Run main_vms_only.yml (skip template creation)                      |
-| `blank_scenario_2_subnets_bundles.reset.setup.sh`               | Delete + redeploy VMs                                               |
-| `blank_scenario_2_subnets_bundles.reset.ssh_keys.sh`            | Clear ~/.ssh/known_hosts for every IP in manifest                   |
-| `blank_scenario_2_subnets_bundles.delete_vms_only.sh`           | Delete VMs only, keep templates                                     |
-| `blank_scenario_2_subnets_bundles.delete_all.sh`                | Delete VMs + templates (WARNING - affects other scenarios)          |
+| `blank_scenario_2_subnets.setup.sh`                     | Run main playbook (templates + VMs + optional admin)                |
+| `blank_scenario_2_subnets.setup_vms_only.sh`            | Run main_vms_only.yml (skip template creation)                      |
+| `blank_scenario_2_subnets.reset.setup.sh`               | Delete + redeploy VMs                                               |
+| `blank_scenario_2_subnets.reset.ssh_keys.sh`            | Clear ~/.ssh/known_hosts for every IP in manifest                   |
+| `blank_scenario_2_subnets.delete_vms_only.sh`           | Delete VMs only, keep templates                                     |
+| `blank_scenario_2_subnets.delete_all.sh`                | Delete VMs + templates (WARNING - affects other scenarios)          |

@@ -1,6 +1,6 @@
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### misp_lab_bundles - 02_admin_infrastructure - stage_00 - admin group #### #### #### #### #### ####
+#### #### #### #### misp_lab - 02_admin_infrastructure - stage_00 - admin group #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 # Optional admin-wazuh VM gated by INSTALL_WAZUH (default NO per manifest/feature_flags.yml).

@@ -1,5 +1,5 @@
 ##
-## demo_lab_bundles - 02_admin_infrastructure - build r42_admin_active
+## demo_lab - 02_admin_infrastructure - build r42_admin_active
 ##
 ## Builds the runtime-only r42_admin_active group from the INSTALL_<flag>
 ## values set at deploy time. Members are added via ansible.builtin.add_host,

@@ -10,7 +10,7 @@
 ## the in-app Settings modal. See the bundle README for upgrade paths
 ## (image-based deploys, external reverse proxy, etc.).
 ##
-## Gated by INSTALL_DEPLOYER_UI (default YES per dev_deployer_ui_lab_bundles
+## Gated by INSTALL_DEPLOYER_UI (default YES per dev_deployer_ui_lab
 ## feature_flags.yml). With INSTALL_DEPLOYER_UI=NO, the dev-deployer-ui VM
 ## stays as a bare Docker host (baseline applied, no app stack).
 ##

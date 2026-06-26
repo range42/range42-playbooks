@@ -1,8 +1,8 @@
-# blank_scenario_6_subnets_bundles
+# blank_scenario_6_subnets
 
 Multi-subnet lab with 24 team VMs on 6 subnets (vmbr143-148, 4 VMs per subnet)
 plus an admin platform (3 always-on deployer VMs + 2 optional admin VMs gated
-by feature flags). Bundle-driven shape (mirror of `blank_scenario_4_subnets_bundles`).
+by feature flags). Bundle-driven shape (mirror of `blank_scenario_4_subnets`).
 
 > Admin subnet uses dense IPs `.140-.144` on `192.168.142.0/24` (vs bs2's
 > `.120-.124`, bs4's `.130-.134`). All three blank scenarios use non-overlapping
@@ -53,19 +53,19 @@ range42-context use <codename> blank_scenario_6_subnets
 range42-context deploy
 
 # enable Wazuh SIEM :
-./blank_scenario_6_subnets_bundles.setup.sh -e INSTALL_WAZUH=YES
+./blank_scenario_6_subnets.setup.sh -e INSTALL_WAZUH=YES
 
 # enable both :
-./blank_scenario_6_subnets_bundles.setup.sh -e INSTALL_WAZUH=YES -e INSTALL_MISP=YES
+./blank_scenario_6_subnets.setup.sh -e INSTALL_WAZUH=YES -e INSTALL_MISP=YES
 ```
 
 ## Wrapper scripts
 
 | Script | Action |
 |---|---|
-| `blank_scenario_6_subnets_bundles.setup.sh` | Full deploy (templates + VMs + optional admin) |
-| `blank_scenario_6_subnets_bundles.setup_vms_only.sh` | VMs only (skip templates) |
-| `blank_scenario_6_subnets_bundles.reset.setup.sh` | Delete + redeploy |
-| `blank_scenario_6_subnets_bundles.reset.ssh_keys.sh` | Clear known_hosts for manifest IPs |
-| `blank_scenario_6_subnets_bundles.delete_vms_only.sh` | Delete VMs only, keep templates |
-| `blank_scenario_6_subnets_bundles.delete_all.sh` | Delete VMs + templates (WARNING - shared) |
+| `blank_scenario_6_subnets.setup.sh` | Full deploy (templates + VMs + optional admin) |
+| `blank_scenario_6_subnets.setup_vms_only.sh` | VMs only (skip templates) |
+| `blank_scenario_6_subnets.reset.setup.sh` | Delete + redeploy |
+| `blank_scenario_6_subnets.reset.ssh_keys.sh` | Clear known_hosts for manifest IPs |
+| `blank_scenario_6_subnets.delete_vms_only.sh` | Delete VMs only, keep templates |
+| `blank_scenario_6_subnets.delete_all.sh` | Delete VMs + templates (WARNING - shared) |

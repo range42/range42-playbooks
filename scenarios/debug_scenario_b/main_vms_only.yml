@@ -5,7 +5,7 @@
 ## Structure : same multi-level pattern as main.yml (skips 01_templates-bootstrap, templates assumed already present).
 ##
 ## Skips 01_templates-bootstrap (templates 9903 alpine-nano + optional 9232
-## medium assumed already present from a prior debug_scenario_b_bundles.setup.sh
+## medium assumed already present from a prior debug_scenario_b.setup.sh
 ## run, or from another scenario that builds the same template). Used by
 ## `range42-context deploy-vms`.
 ##

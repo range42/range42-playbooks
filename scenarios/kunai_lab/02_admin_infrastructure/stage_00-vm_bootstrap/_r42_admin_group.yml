@@ -1,6 +1,6 @@
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### kunai_lab_bundles - 02_admin_infrastructure - stage_00 - admin group #### #### #### #### #### ####
+#### #### #### #### kunai_lab - 02_admin_infrastructure - stage_00 - admin group #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 # Optional admin VM(s) gated by feature flags. Default NO per

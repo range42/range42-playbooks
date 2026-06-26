@@ -83,7 +83,7 @@ Re-running the bundle on a hypervisor that already has the templates is safe :
   every entry is already a template (so the heavy start-wait-convert pipeline
   is skipped entirely).
 
-## Calling pattern (example from `scenarios/demo_lab_bundles/main.yml`)
+## Calling pattern (example from `scenarios/demo_lab/main.yml`)
 
 ```yaml
 - import_playbook: ../../bundles/core/proxmox/configure/templates/_main_download_cloudinit_files.yml

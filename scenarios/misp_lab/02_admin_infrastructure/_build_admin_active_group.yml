@@ -1,5 +1,5 @@
 ##
-## misp_lab_bundles - 02_admin_infrastructure - build r42_admin_active
+## misp_lab - 02_admin_infrastructure - build r42_admin_active
 ##
 ## Builds the runtime-only r42_admin_active group from the INSTALL_WAZUH flag
 ## set at deploy time. Member is added via ansible.builtin.add_host, so the

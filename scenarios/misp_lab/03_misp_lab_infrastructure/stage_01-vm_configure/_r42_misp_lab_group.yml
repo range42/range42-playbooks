@@ -1,5 +1,5 @@
 ##
-## misp_lab_bundles stage_01 - baseline on admin-misp-standalone
+## misp_lab stage_01 - baseline on admin-misp-standalone
 ##
 ## Group-level baseline applied to r42_misp_lab_group (admin-misp-standalone).
 ## Mirrors the catalog_try / pre-bundle pattern : basics + dotfiles + firewall.

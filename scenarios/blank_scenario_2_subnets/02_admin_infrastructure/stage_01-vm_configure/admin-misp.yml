@@ -11,7 +11,7 @@
 ## VM's /home/alice/misp-standalone/.env BEFORE the deploy, or customize the
 ## local catalog .env before running. See the bundle's README.md.
 ##
-## Gated by INSTALL_MISP (default NO per blank_scenario_2_subnets_bundles feature_flags.yml).
+## Gated by INSTALL_MISP (default NO per blank_scenario_2_subnets feature_flags.yml).
 ##
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.misp-standalone/main.yml"

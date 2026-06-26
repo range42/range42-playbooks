@@ -6,7 +6,7 @@
 ## rotation). The wazuh-agent install on the client group is a separate
 ## group-level finalize step ; see _finalize-baseline-admin_wazuh_client.yml.
 ##
-## Gated by INSTALL_WAZUH (default NO per dev_deployer_ui_lab_bundles feature_flags.yml).
+## Gated by INSTALL_WAZUH (default NO per dev_deployer_ui_lab feature_flags.yml).
 ##
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh/main.yml"

@@ -1,6 +1,6 @@
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### debug_scenario_a_bundles - 02_admin_infrastructure - stage_00 - admin group #### #### #### #### ####
+#### #### #### #### debug_scenario_a - 02_admin_infrastructure - stage_00 - admin group #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 # Optional admin VM(s) gated by feature flags. Default NO per
