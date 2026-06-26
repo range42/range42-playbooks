@@ -39,3 +39,7 @@
             iso_url: "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.raw",
             iso_file_name: "debian-12-genericcloud-amd64.img",
           }
+        - {
+            iso_url: "https://dl-cdn.alpinelinux.org/alpine/v3.21/releases/cloud/nocloud_alpine-3.21.0-x86_64-bios-cloudinit-r0.qcow2",
+            iso_file_name: "nocloud_alpine-3.21.0-x86_64-bios-cloudinit-r0.img",
+          }
