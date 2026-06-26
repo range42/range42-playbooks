@@ -2,15 +2,16 @@
 ##
 ## 01 - template bootstrap
 ##
-## Idempotent template provisioning : download cloud-init source files and
-## build the Ubuntu Noble template (VMID 9232 - 2cpu/8gb/64gb).
-##
-## At T-01 (kunai bundles refactor) this entry still uses the legacy
-## scenario-local template files moved from 01_init_proxmox/. A follow-up
-## T-task will swap these imports for the shared bundle at
-## bundles/core/proxmox/configure/templates/ already used by demo_lab.
+## Idempotent template provisioning :
+##   1. Download the cloud-init source files.
+##   2. Build the Ubuntu Noble medium-02 template (VMID 9232) only - used by
+##      all team VMs + optional admin-wazuh / admin-misp.
 ##
 
-- import_playbook: ./templates/_main_download_cloudinit_files.yml
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/_main_download_cloudinit_files.yml"
 
-- import_playbook: ./templates/ubuntu_noble/_main_ubuntu_noble.yml
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/ubuntu_noble/main.yml"
+  vars:
+    manifest_path:       "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/scenarios/kunai_lab/manifest/scenario_vms.json"
+    template_bundle_dir: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/ubuntu_noble"
+    templates_whitelist: ["medium-02"]
