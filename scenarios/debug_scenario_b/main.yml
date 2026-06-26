@@ -33,17 +33,13 @@
 #### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
+# Templates bootstrap via the shared bundle (canonical Pattern A).
 # Cloud-init source files (always) + alpine-nano template 9903 for dsb-vm-01
-# (always). Medium template 9232 only when the admin tier is requested
-# (admin-wazuh / admin-misp use template 9232).
+# (always) + ubuntu_noble medium-02 template 9232 only when the admin tier
+# is requested (gating preserved inside _main.yml).
 #
 
-- import_playbook: ./01_templates-bootstrap/templates/_main_download_cloudinit_files.yml
-
-- import_playbook: ./01_templates-bootstrap/templates/alpine/_main_alpine.yml
-
-- import_playbook: ./01_templates-bootstrap/templates/ubuntu_noble/_main_ubuntu_noble.yml
-  when: (INSTALL_WAZUH | default("NO") | upper == "YES") or (INSTALL_MISP | default("NO") | upper == "YES")
+- import_playbook: ./01_templates-bootstrap/_main.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
