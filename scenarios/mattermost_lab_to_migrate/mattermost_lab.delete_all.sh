@@ -12,7 +12,7 @@
 ##   scenario on the same Proxmox (demo_lab, blank_scenario_2_subnets,
 ##   blank_scenario_4_subnets, blank_scenario_6_subnets, _init_lab, kunai_lab,
 ##   misp_lab, nextcloud_lab, dev_deployer_ui_lab). Running this script removes
-##   9232 - those scenarios will need to re-run their 01_init_proxmox/ to rebuild
+##   9232 - those scenarios will need to re-run their 01_templates-bootstrap/ to rebuild
 ##   it before re-deploy.
 ##   Use mattermost_lab.delete_vms_only.sh instead to keep the template intact.
 ##
