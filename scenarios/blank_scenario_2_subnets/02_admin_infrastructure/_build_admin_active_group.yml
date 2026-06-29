@@ -43,6 +43,34 @@
       when: INSTALL_MISP | default("NO") | upper == "YES"
       changed_when: false
 
+    - name: add r42.bs2-admin-gitea to r42_admin_active when INSTALL_GITEA=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-gitea
+        groups: r42_admin_active
+      when: INSTALL_GITEA | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-mattermost to r42_admin_active when INSTALL_MATTERMOST=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-mattermost
+        groups: r42_admin_active
+      when: INSTALL_MATTERMOST | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-nextcloud to r42_admin_active when INSTALL_NEXTCLOUD=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-nextcloud
+        groups: r42_admin_active
+      when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-rocketchat to r42_admin_active when INSTALL_ROCKETCHAT=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-rocketchat
+        groups: r42_admin_active
+      when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
+      changed_when: false
+
     - name: add r42.bs2-admin-deployer-api-gateway to r42_admin_active (always created)
       ansible.builtin.add_host:
         name: r42.bs2-admin-deployer-api-gateway

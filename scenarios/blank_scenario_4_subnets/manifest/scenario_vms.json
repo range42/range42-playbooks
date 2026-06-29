@@ -149,6 +149,34 @@
       "ip": "192.168.142.134",
       "role": "admin",
       "bridge": "vmbr142"
+    },
+    {
+      "vm_id": 4135,
+      "vm_name": "bs4-admin-gitea",
+      "ip": "192.168.142.135",
+      "role": "admin",
+      "bridge": "vmbr142"
+    },
+    {
+      "vm_id": 4136,
+      "vm_name": "bs4-admin-mattermost",
+      "ip": "192.168.142.136",
+      "role": "admin",
+      "bridge": "vmbr142"
+    },
+    {
+      "vm_id": 4137,
+      "vm_name": "bs4-admin-nextcloud",
+      "ip": "192.168.142.137",
+      "role": "admin",
+      "bridge": "vmbr142"
+    },
+    {
+      "vm_id": 4138,
+      "vm_name": "bs4-admin-rocketchat",
+      "ip": "192.168.142.138",
+      "role": "admin",
+      "bridge": "vmbr142"
     }
   ],
   "templates": [

@@ -13,6 +13,10 @@
 ##   client VM                              VM creation gate                add_host condition
 ##   ------------------------------------- ------------------------------- ----------------------
 ##   r42.bs6-admin-misp                    INSTALL_MISP (default NO)       INSTALL_MISP=YES
+##   r42.bs6-admin-gitea                   INSTALL_GITEA (default NO)      INSTALL_GITEA=YES
+##   r42.bs6-admin-mattermost              INSTALL_MATTERMOST (default NO) INSTALL_MATTERMOST=YES
+##   r42.bs6-admin-nextcloud               INSTALL_NEXTCLOUD (default NO)  INSTALL_NEXTCLOUD=YES
+##   r42.bs6-admin-rocketchat              INSTALL_ROCKETCHAT (default NO) INSTALL_ROCKETCHAT=YES
 ##   r42.bs6-admin-deployer-api-gateway    (always created)                always added
 ##   r42.bs6-admin-deployer-api-backend    (always created)                always added
 ##   r42.bs6-admin-deployer-ui             (always created)                always added
@@ -35,6 +39,34 @@
         name: r42.bs6-admin-misp
         groups: r42_blank_scenario_6_subnets_wazuh_clients_active
       when: INSTALL_MISP | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs6-admin-gitea to r42_blank_scenario_6_subnets_wazuh_clients_active when INSTALL_GITEA=YES
+      ansible.builtin.add_host:
+        name: r42.bs6-admin-gitea
+        groups: r42_blank_scenario_6_subnets_wazuh_clients_active
+      when: INSTALL_GITEA | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs6-admin-mattermost to r42_blank_scenario_6_subnets_wazuh_clients_active when INSTALL_MATTERMOST=YES
+      ansible.builtin.add_host:
+        name: r42.bs6-admin-mattermost
+        groups: r42_blank_scenario_6_subnets_wazuh_clients_active
+      when: INSTALL_MATTERMOST | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs6-admin-nextcloud to r42_blank_scenario_6_subnets_wazuh_clients_active when INSTALL_NEXTCLOUD=YES
+      ansible.builtin.add_host:
+        name: r42.bs6-admin-nextcloud
+        groups: r42_blank_scenario_6_subnets_wazuh_clients_active
+      when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs6-admin-rocketchat to r42_blank_scenario_6_subnets_wazuh_clients_active when INSTALL_ROCKETCHAT=YES
+      ansible.builtin.add_host:
+        name: r42.bs6-admin-rocketchat
+        groups: r42_blank_scenario_6_subnets_wazuh_clients_active
+      when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
       changed_when: false
 
     - name: add admin deployer trio + 24 team VMs to r42_blank_scenario_6_subnets_wazuh_clients_active (always)

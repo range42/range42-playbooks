@@ -23,3 +23,26 @@ features:
     label: "Tailscale VPN client"
     description: "Per-group install. Off by default."
     default: false
+
+  #
+  # optional admin docker-compose services (no devkit)
+  #
+  - id: GITEA
+    label: "Gitea - code services"
+    description: "Deploys an admin-gitea VM (vm_id 4135, IP 192.168.142.135) and runs the gitea docker-compose stack (postgres + gitea + provisioner) from the shared admin bundle. Off by default."
+    default: false
+
+  - id: MATTERMOST
+    label: "Mattermost - chat services"
+    description: "Deploys an admin-mattermost VM (vm_id 4136, IP 192.168.142.136) and runs the mattermost docker-compose stack (postgres + mattermost + provisioner) from the shared admin bundle. Off by default."
+    default: false
+
+  - id: NEXTCLOUD
+    label: "Nextcloud - files storage services"
+    description: "Deploys an admin-nextcloud VM (vm_id 4137, IP 192.168.142.137) and runs the nextcloud docker-compose stack (postgres + redis + nextcloud + provisioner) from the shared admin bundle. Align NC_DOMAIN in the catalog .env to the VM IP before deploy. Off by default."
+    default: false
+
+  - id: ROCKETCHAT
+    label: "RocketChat - chat services"
+    description: "Deploys an admin-rocketchat VM (vm_id 4138, IP 192.168.142.138) and runs the rocketchat docker-compose stack (mongodb + mongo-init-replica + rocketchat + provisioner) from the shared admin bundle. MongoDB replica-set cold-start takes ~90-180s on first deploy. Off by default."
+    default: false

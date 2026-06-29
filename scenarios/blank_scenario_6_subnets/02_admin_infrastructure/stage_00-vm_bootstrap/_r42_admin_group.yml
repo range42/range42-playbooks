@@ -44,6 +44,70 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+  when: INSTALL_GITEA | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs6-admin-gitea"
+    global_vm_ssh_name:    "r42.bs6-admin-gitea"
+    global_vm_id:          6145
+    global_vm_description: "blank_scenario_6_subnets - Gitea docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.145"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+  when: INSTALL_MATTERMOST | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs6-admin-mattermost"
+    global_vm_ssh_name:    "r42.bs6-admin-mattermost"
+    global_vm_id:          6146
+    global_vm_description: "blank_scenario_6_subnets - Mattermost docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.146"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+  when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs6-admin-nextcloud"
+    global_vm_ssh_name:    "r42.bs6-admin-nextcloud"
+    global_vm_id:          6147
+    global_vm_description: "blank_scenario_6_subnets - Nextcloud docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.147"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+  when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs6-admin-rocketchat"
+    global_vm_ssh_name:    "r42.bs6-admin-rocketchat"
+    global_vm_id:          6148
+    global_vm_description: "blank_scenario_6_subnets - Rocket.Chat docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.148"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
   vars:
     global_vm_name:        "bs6-admin-deployer-api-gateway"
     global_vm_ssh_name:    "r42.bs6-admin-deployer-api-gateway"

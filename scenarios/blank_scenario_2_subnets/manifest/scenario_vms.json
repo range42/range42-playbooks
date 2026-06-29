@@ -11,7 +11,11 @@
     {"vm_id": 2121, "vm_name": "bs2-admin-deployer-api-gateway",    "ip": "192.168.142.121", "role": "admin", "group": "admin", "bridge": "vmbr142"},
     {"vm_id": 2122, "vm_name": "bs2-admin-deployer-api-backend",    "ip": "192.168.142.122", "role": "admin", "group": "admin", "bridge": "vmbr142"},
     {"vm_id": 2123, "vm_name": "bs2-admin-deployer-ui",             "ip": "192.168.142.123", "role": "admin", "group": "admin", "bridge": "vmbr142"},
-    {"vm_id": 2124, "vm_name": "bs2-admin-misp",                    "ip": "192.168.142.124", "role": "admin", "group": "admin", "bridge": "vmbr142"}
+    {"vm_id": 2124, "vm_name": "bs2-admin-misp",                    "ip": "192.168.142.124", "role": "admin", "group": "admin", "bridge": "vmbr142"},
+    {"vm_id": 2125, "vm_name": "bs2-admin-gitea",                   "ip": "192.168.142.125", "role": "admin", "group": "admin", "bridge": "vmbr142"},
+    {"vm_id": 2126, "vm_name": "bs2-admin-mattermost",              "ip": "192.168.142.126", "role": "admin", "group": "admin", "bridge": "vmbr142"},
+    {"vm_id": 2127, "vm_name": "bs2-admin-nextcloud",               "ip": "192.168.142.127", "role": "admin", "group": "admin", "bridge": "vmbr142"},
+    {"vm_id": 2128, "vm_name": "bs2-admin-rocketchat",              "ip": "192.168.142.128", "role": "admin", "group": "admin", "bridge": "vmbr142"}
   ],
   "templates": [
     {"vm_id": 9901, "vm_name": "template-vm-nano",                  "spec": "1cpu/1gb/16gb",  "ip": "192.168.140.201", "bridge": "vmbr140"},

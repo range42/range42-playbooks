@@ -26,6 +26,26 @@ features:
     description: "Deploys an admin-misp VM (vm_id 2124, IP 192.168.142.124) and runs the misp-standalone docker-compose stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/. Operator must populate the catalog's .env file with secrets (MISP_DB_PASSWORD, DB_ROOT_PASSWORD, MISP_ADMIN_PASSWORD, MISP_SALT, etc.) BEFORE deploying with INSTALL_MISP=YES."
     default: false
 
+  - id: GITEA
+    label: "Gitea - code services"
+    description: "Deploys a bs2-admin-gitea VM (vm_id 2125, IP 192.168.142.125) and runs the gitea docker-compose stack (postgres + gitea) from the admin bundle. Optional admin service, off by default."
+    default: false
+
+  - id: MATTERMOST
+    label: "Mattermost - chat services"
+    description: "Deploys a bs2-admin-mattermost VM (vm_id 2126, IP 192.168.142.126) and runs the mattermost docker-compose stack (postgres + mattermost) from the admin bundle. Optional admin service, off by default."
+    default: false
+
+  - id: NEXTCLOUD
+    label: "Nextcloud - files storage services"
+    description: "Deploys a bs2-admin-nextcloud VM (vm_id 2127, IP 192.168.142.127) and runs the nextcloud docker-compose stack (postgres + redis + nextcloud) from the admin bundle. Align NC_DOMAIN in the catalog .env to include this VM IP before deploy. Optional admin service, off by default."
+    default: false
+
+  - id: ROCKETCHAT
+    label: "RocketChat - chat services"
+    description: "Deploys a bs2-admin-rocketchat VM (vm_id 2128, IP 192.168.142.128) and runs the rocketchat docker-compose stack (mongodb + rocketchat) from the admin bundle. MongoDB replica-set cold-start takes ~90-180s on first deploy. Optional admin service, off by default."
+    default: false
+
   - id: TAILSCALE
     label: "Tailscale VPN client"
     description: "Per-group install. Off by default."
