@@ -30,6 +30,14 @@
 
 - import_playbook: ./stage_01-vm_configure/admin-misp.yml
 
+- import_playbook: ./stage_01-vm_configure/admin-gitea.yml
+
+- import_playbook: ./stage_01-vm_configure/admin-mattermost.yml
+
+- import_playbook: ./stage_01-vm_configure/admin-nextcloud.yml
+
+- import_playbook: ./stage_01-vm_configure/admin-rocketchat.yml
+
 - import_playbook: ./stage_01-vm_configure/deployer_api_backend.yml
 
 - import_playbook: ./stage_01-vm_configure/deployer_api_gateway.yml
