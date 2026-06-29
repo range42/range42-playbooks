@@ -10,7 +10,7 @@
 ##   blank_scenario_4_subnets, blank_scenario_6_subnets, _init_lab, kunai_lab,
 ##   misp_lab, dev_deployer_ui_lab, nextcloud_lab, mattermost_lab,
 ##   gitea_registry_lab). Running this script removes 9232 - those
-##   scenarios will need to re-run their 01_init_proxmox/ to rebuild it before
+##   scenarios will need to re-run their 01_templates-bootstrap/ to rebuild it before
 ##   re-deploy. Use gitea_lab.delete_vms_only.sh instead to keep the template
 ##   intact.
 ##

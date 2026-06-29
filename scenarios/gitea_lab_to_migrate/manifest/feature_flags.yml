@@ -1,0 +1,27 @@
+---
+# Feature flags for gitea_lab - optional components that can be
+# toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
+#
+# This file is the single source of truth :
+#   - the deploy TUI (range42-context --tui) reads `features` to render the
+#     checkbox modal before invoking `range42-context deploy`
+#   - the playbooks read the `INSTALL_<NAME>` variables via
+#     `when: INSTALL_<NAME> | default("YES"|"NO") | upper == "YES"` on the
+#     relevant `import_playbook` / `block:` entries
+#
+# Convention :
+#   - `id` is UPPERCASE (matches the variable name : `id: GITEA` -> `INSTALL_GITEA`)
+#   - `default: true|false` is the checkbox initial state in the TUI
+#   - the playbook `default("YES"|"NO")` fallback should align with this
+#   - `| upper` makes the check case-insensitive : YES / yes / Yes all match
+
+features:
+  - id: GITEA
+    label: "Gitea - self-hosted git service"
+    description: "Deploys an admin-gitea-standalone VM (vm_id 1183, IP 192.168.142.183) under 02_admin_infrastructure/ running the gitea docker-compose stack from range42-catalog/03_container_layer/docker/admin/gitea/ via the shared bundle bundles/admin/software.install.gitea/. Default YES : gitea_lab is the Gitea showcase scenario. The same flag defaults NO in the general scenarios that offer it as an optional add-on. NOTE : the 03_student_infrastructure tier (student-gitea-client-01, vm_id 1184, IP 192.168.142.184) runs the end-to-end SSH-cycle validation against this Gitea server - generate an ed25519 key on the client, register it via the Gitea admin API, and verify SSH auth (git@gitea via port 2222)."
+    default: true
+
+  - id: TAILSCALE
+    label: "Tailscale VPN client"
+    description: "Per-group install. Off by default."
+    default: false

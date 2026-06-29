@@ -1,3 +1,30 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+####                                                                      ####
+####  DORMANT PLAY - NOT WIRED INTO THE STANDALONE gitea_lab DEPLOY       ####
+####                                                                      ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+##
+## This play is NOT imported by main.yml (nor by _main_stage_01.yml). It is
+## dormant : nothing in the gitea_lab standalone scenario runs it. It is kept
+## here as a starting point for a future cross-service scenario.
+##
+## It references the role `service.configure.gitea_oauth2_app`, which DOES NOT
+## EXIST in any repo yet. The role would have to be authored before this play
+## can do anything ; running it as-is against a populated app list would fail
+## with a "role not found" error.
+##
+## However, `gitea_oauth2_apps_to_register` defaults to `[]`, so the
+## include_role loop has zero iterations. In a standalone gitea_lab context the
+## play is therefore a safe no-op even if someone wired it in by mistake : the
+## missing role is never invoked because the loop never runs.
+##
+## Kept for a future cross-service scenario (e.g. admin_services_lab) that will :
+##   1. author the `service.configure.gitea_oauth2_app` role, and
+##   2. populate `gitea_oauth2_apps_to_register` with real consumer service URLs
+##      (mattermost / rocketchat / nextcloud redirect URIs, etc.).
+##
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
 ##
 ## gitea_lab stage_02 - register OAuth2 applications in Gitea
 ##
