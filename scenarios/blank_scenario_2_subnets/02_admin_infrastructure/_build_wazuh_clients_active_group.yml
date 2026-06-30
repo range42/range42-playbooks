@@ -14,9 +14,9 @@
 ##   client VM                              VM creation gate                add_host condition
 ##   ------------------------------------- ------------------------------- ----------------------
 ##   r42.bs2-admin-misp                    INSTALL_MISP (default NO)       INSTALL_MISP=YES
-##   r42.bs2-admin-deployer-api-gateway    (always created)                always added
-##   r42.bs2-admin-deployer-api-backend    (always created)                always added
-##   r42.bs2-admin-deployer-ui             (always created)                always added
+##   r42.bs2-admin-deployer-api-gateway    INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
+##   r42.bs2-admin-deployer-api-backend    INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
+##   r42.bs2-admin-deployer-ui             INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
 ##   r42.bs2-team-143-01..02               (always created)                always added
 ##   r42.bs2-team-144-01..02               (always created)                always added
 ##
@@ -63,22 +63,25 @@
       when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.bs2-admin-deployer-api-gateway to r42_blank_scenario_2_subnets_wazuh_clients_active (always)
+    - name: add r42.bs2-admin-deployer-api-gateway to r42_blank_scenario_2_subnets_wazuh_clients_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.bs2-admin-deployer-api-gateway
         groups: r42_blank_scenario_2_subnets_wazuh_clients_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.bs2-admin-deployer-api-backend to r42_blank_scenario_2_subnets_wazuh_clients_active (always)
+    - name: add r42.bs2-admin-deployer-api-backend to r42_blank_scenario_2_subnets_wazuh_clients_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.bs2-admin-deployer-api-backend
         groups: r42_blank_scenario_2_subnets_wazuh_clients_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.bs2-admin-deployer-ui to r42_blank_scenario_2_subnets_wazuh_clients_active (always)
+    - name: add r42.bs2-admin-deployer-ui to r42_blank_scenario_2_subnets_wazuh_clients_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.bs2-admin-deployer-ui
         groups: r42_blank_scenario_2_subnets_wazuh_clients_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false
 
     - name: add r42.bs2-team-143-01 to r42_blank_scenario_2_subnets_wazuh_clients_active (team tier, always)

@@ -19,6 +19,11 @@ features:
     description: "Deploys an admin-misp VM (vm_id 4134, IP 192.168.142.134) and runs the misp-standalone docker-compose stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/. Operator must populate the catalog's .env file with secrets BEFORE deploying with INSTALL_MISP=YES."
     default: false
 
+  - id: DEPLOYER_UI
+    label: "Deployer platform - range42 management UI + API + Kong gateway"
+    description: "Deploys the 3 deployer admin VMs (vm_ids 4131/4132/4133: api-gateway/Kong, api-backend, ui) and installs the deployer platform via the shared bundles. Off by default for blank_scenario_4_subnets (opt-in management stack)."
+    default: false
+
   - id: TAILSCALE
     label: "Tailscale VPN client"
     description: "Per-group install. Off by default."

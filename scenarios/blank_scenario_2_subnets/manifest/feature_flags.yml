@@ -26,6 +26,11 @@ features:
     description: "Deploys an admin-misp VM (vm_id 2124, IP 192.168.142.124) and runs the misp-standalone docker-compose stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/. Operator must populate the catalog's .env file with secrets (MISP_DB_PASSWORD, DB_ROOT_PASSWORD, MISP_ADMIN_PASSWORD, MISP_SALT, etc.) BEFORE deploying with INSTALL_MISP=YES."
     default: false
 
+  - id: DEPLOYER_UI
+    label: "Deployer platform - range42 management UI + API + Kong gateway"
+    description: "Deploys the 3 deployer admin VMs (vm_ids 2121/2122/2123: api-gateway/Kong, api-backend, ui) and installs the deployer platform via the shared bundles. Off by default for blank_scenario_2_subnets (opt-in management stack)."
+    default: false
+
   - id: GITEA
     label: "Gitea - code services"
     description: "Deploys a bs2-admin-gitea VM (vm_id 2125, IP 192.168.142.125) and runs the gitea docker-compose stack (postgres + gitea) from the admin bundle. Optional admin service, off by default."

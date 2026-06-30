@@ -12,9 +12,9 @@
 ##   ------------------------------------- -------------------------------- ----------------------
 ##   r42.bs4-admin-wazuh                   INSTALL_WAZUH (default NO)       INSTALL_WAZUH=YES
 ##   r42.bs4-admin-misp                    INSTALL_MISP (default NO)        INSTALL_MISP=YES
-##   r42.bs4-admin-deployer-api-gateway    (none, always created)           always added
-##   r42.bs4-admin-deployer-api-backend    (none, always created)           always added
-##   r42.bs4-admin-deployer-ui             (none, always created)           always added
+##   r42.bs4-admin-deployer-api-gateway    INSTALL_DEPLOYER_UI (default NO)  INSTALL_DEPLOYER_UI=YES
+##   r42.bs4-admin-deployer-api-backend    INSTALL_DEPLOYER_UI (default NO)  INSTALL_DEPLOYER_UI=YES
+##   r42.bs4-admin-deployer-ui             INSTALL_DEPLOYER_UI (default NO)  INSTALL_DEPLOYER_UI=YES
 ##
 
 - name: build r42_admin_active dynamic group from INSTALL flags
@@ -63,20 +63,23 @@
       when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.bs4-admin-deployer-api-gateway to r42_admin_active (always created)
+    - name: add r42.bs4-admin-deployer-api-gateway to r42_admin_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.bs4-admin-deployer-api-gateway
         groups: r42_admin_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.bs4-admin-deployer-api-backend to r42_admin_active (always created)
+    - name: add r42.bs4-admin-deployer-api-backend to r42_admin_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.bs4-admin-deployer-api-backend
         groups: r42_admin_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.bs4-admin-deployer-ui to r42_admin_active (always created)
+    - name: add r42.bs4-admin-deployer-ui to r42_admin_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.bs4-admin-deployer-ui
         groups: r42_admin_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false

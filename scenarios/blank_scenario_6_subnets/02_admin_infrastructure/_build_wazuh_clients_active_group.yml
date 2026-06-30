@@ -17,9 +17,9 @@
 ##   r42.bs6-admin-mattermost              INSTALL_MATTERMOST (default NO) INSTALL_MATTERMOST=YES
 ##   r42.bs6-admin-nextcloud               INSTALL_NEXTCLOUD (default NO)  INSTALL_NEXTCLOUD=YES
 ##   r42.bs6-admin-rocketchat              INSTALL_ROCKETCHAT (default NO) INSTALL_ROCKETCHAT=YES
-##   r42.bs6-admin-deployer-api-gateway    (always created)                always added
-##   r42.bs6-admin-deployer-api-backend    (always created)                always added
-##   r42.bs6-admin-deployer-ui             (always created)                always added
+##   r42.bs6-admin-deployer-api-gateway    INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
+##   r42.bs6-admin-deployer-api-backend    INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
+##   r42.bs6-admin-deployer-ui             INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
 ##   r42.bs6-team-143-01..04               (always created)                always added
 ##   r42.bs6-team-144-01..04               (always created)                always added
 ##   r42.bs6-team-145-01..04               (always created)                always added
@@ -69,7 +69,7 @@
       when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add admin deployer trio + 24 team VMs to r42_blank_scenario_6_subnets_wazuh_clients_active (always)
+    - name: add admin deployer trio to r42_blank_scenario_6_subnets_wazuh_clients_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: "{{ item }}"
         groups: r42_blank_scenario_6_subnets_wazuh_clients_active
@@ -77,6 +77,14 @@
         - r42.bs6-admin-deployer-api-gateway
         - r42.bs6-admin-deployer-api-backend
         - r42.bs6-admin-deployer-ui
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add 24 team VMs to r42_blank_scenario_6_subnets_wazuh_clients_active (always)
+      ansible.builtin.add_host:
+        name: "{{ item }}"
+        groups: r42_blank_scenario_6_subnets_wazuh_clients_active
+      loop:
         - r42.bs6-team-143-01
         - r42.bs6-team-143-02
         - r42.bs6-team-143-03
