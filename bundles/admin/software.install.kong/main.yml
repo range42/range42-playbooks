@@ -113,11 +113,29 @@
         mode: "0644"
       notify: restart kong
 
+    - name: Ensure kong.service drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/system/kong.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Drop-in - clear unix sockets before nginx start (fixes EADDRINUSE after an unclean shutdown)
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/kong.service.d/override.conf
+        content: |
+          [Service]
+          ExecStartPre=-/usr/bin/find /usr/local/kong/sockets -type s -delete
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart kong
+
     - name: Enable + start kong
       ansible.builtin.systemd:
         name: kong
         enabled: true
         state: started
+        daemon_reload: true
 
   handlers:
     - name: restart kong
