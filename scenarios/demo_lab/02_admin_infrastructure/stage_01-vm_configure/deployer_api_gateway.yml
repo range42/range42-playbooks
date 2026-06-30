@@ -11,6 +11,7 @@
 ##
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.kong/main.yml"
+  when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
   vars:
     global_vm_ssh_name: "r42.admin-deployer-api-gateway"
     global_vm_ci_ip:    "192.168.142.101"

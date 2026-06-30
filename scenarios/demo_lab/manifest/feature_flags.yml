@@ -41,6 +41,11 @@ features:
     description: "Deploys ...."
     default: false
 
+  - id: DEPLOYER_UI
+    label: "Deployer platform - range42 management UI + API + Kong gateway"
+    description: "Deploys the 3 deployer admin VMs (vm_ids 1101/1102/1103: api-gateway/Kong, api-backend, ui) and installs the deployer platform via the shared bundles. Off by default for demo_lab (opt-in management stack)."
+    default: false
+
   - id: GITEA
     label: "Gitea - code services"
     description: "Deploys ...."

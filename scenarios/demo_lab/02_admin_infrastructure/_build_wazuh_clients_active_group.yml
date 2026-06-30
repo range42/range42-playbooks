@@ -15,9 +15,9 @@
 ##   client VM                              VM creation gate                 add_host condition
 ##   -------------------------------------- ------------------------------- ----------------------
 ##   r42.admin-misp                          INSTALL_MISP (default NO)       INSTALL_MISP=YES
-##   r42.admin-deployer-api-gateway          (none, always created)          always added
-##   r42.admin-deployer-api-backend          (none, always created)          always added
-##   r42.admin-deployer-ui                   (none, always created)          always added
+##   r42.admin-deployer-api-gateway          INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
+##   r42.admin-deployer-api-backend          INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
+##   r42.admin-deployer-ui                   INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
 ##   r42.vuln-box-00 .. vuln-box-04          (ctf tier, always created)      always added
 ##
 ## The wazuh server itself (r42.admin-wazuh) is EXCLUDED by design.
@@ -69,22 +69,25 @@
       when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.admin-deployer-api-gateway to r42_demo_lab_wazuh_clients_active (always created)
+    - name: add r42.admin-deployer-api-gateway to r42_demo_lab_wazuh_clients_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.admin-deployer-api-gateway
         groups: r42_demo_lab_wazuh_clients_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.admin-deployer-api-backend to r42_demo_lab_wazuh_clients_active (always created)
+    - name: add r42.admin-deployer-api-backend to r42_demo_lab_wazuh_clients_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.admin-deployer-api-backend
         groups: r42_demo_lab_wazuh_clients_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.admin-deployer-ui to r42_demo_lab_wazuh_clients_active (always created)
+    - name: add r42.admin-deployer-ui to r42_demo_lab_wazuh_clients_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.admin-deployer-ui
         groups: r42_demo_lab_wazuh_clients_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false
 
     - name: add r42.vuln-box-00 to r42_demo_lab_wazuh_clients_active (ctf tier, always created)

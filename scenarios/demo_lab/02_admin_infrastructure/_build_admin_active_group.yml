@@ -17,15 +17,14 @@
 ##   ----------------------------------- -------------------------------- ----------------------
 ##   r42.admin-wazuh                      INSTALL_WAZUH (default YES)      INSTALL_WAZUH=YES
 ##   r42.admin-misp                       INSTALL_MISP (default NO)        INSTALL_MISP=YES
-##   r42.admin-deployer-api-gateway       (none, always created)           always added
-##   r42.admin-deployer-api-backend       (none, always created)           always added
-##   r42.admin-deployer-ui                (none, always created)           always added
+##   r42.admin-deployer-api-gateway       INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
+##   r42.admin-deployer-api-backend       INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
+##   r42.admin-deployer-ui                INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
 ##
 ## With INSTALL_WAZUH=NO (operator opts out of the SIEM), the baseline skips
 ## admin-wazuh cleanly. Same for INSTALL_MISP=NO and admin-misp. The 3
-## deployer-* are always part of the group today (their stage_00 bootstrap
-## is unconditional). A future INSTALL_DEPLOYER_* flag set could move them
-## to gated add_host calls without breaking this file's contract.
+## deployer-* are gated behind INSTALL_DEPLOYER_UI (default NO) ; with it unset
+## they are not bootstrapped in stage_00 and not added to this group.
 ##
 
 - name: build r42_admin_active dynamic group from INSTALL flags
@@ -74,20 +73,23 @@
       when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.admin-deployer-api-gateway to r42_admin_active (always created in stage_00)
+    - name: add r42.admin-deployer-api-gateway to r42_admin_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.admin-deployer-api-gateway
         groups: r42_admin_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.admin-deployer-api-backend to r42_admin_active (always created in stage_00)
+    - name: add r42.admin-deployer-api-backend to r42_admin_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.admin-deployer-api-backend
         groups: r42_admin_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false
 
-    - name: add r42.admin-deployer-ui to r42_admin_active (always created in stage_00)
+    - name: add r42.admin-deployer-ui to r42_admin_active when INSTALL_DEPLOYER_UI=YES
       ansible.builtin.add_host:
         name: r42.admin-deployer-ui
         groups: r42_admin_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
       changed_when: false
