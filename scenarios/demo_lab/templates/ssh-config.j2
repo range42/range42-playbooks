@@ -66,6 +66,18 @@ Host r42.admin-deployer-api-backend
 Host r42.admin-deployer-ui
     Hostname 192.168.142.103
 
+Host r42.admin-gitea
+    Hostname 192.168.142.113
+
+Host r42.admin-mattermost
+    Hostname 192.168.142.114
+
+Host r42.admin-nextcloud
+    Hostname 192.168.142.115
+
+Host r42.admin-rocketchat
+    Hostname 192.168.142.116
+
 Host r42.admin* r42.testing*
     User alice
     IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
