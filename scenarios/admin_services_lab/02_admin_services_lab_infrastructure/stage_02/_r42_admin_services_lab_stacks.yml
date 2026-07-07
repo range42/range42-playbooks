@@ -47,7 +47,7 @@
         name: service.configure.gitea_oauth2_app
       vars:
         gitea_oauth2_app_name:     "Mattermost"
-        gitea_oauth2_redirect_uri: "http://{{ ansible_default_ipv4.address }}:8065/signup/gitlab/complete"
+        gitea_oauth2_redirect_uri: "https://{{ ansible_default_ipv4.address }}:8065/signup/gitlab/complete"
 
     - name: capture Mattermost OAuth2 credentials
       ansible.builtin.set_fact:
@@ -62,7 +62,7 @@
         name: service.configure.gitea_oauth2_app
       vars:
         gitea_oauth2_app_name:     "Rocket.Chat"
-        gitea_oauth2_redirect_uri: "http://{{ ansible_default_ipv4.address }}:3500/_oauth/Gitea"
+        gitea_oauth2_redirect_uri: "https://{{ ansible_default_ipv4.address }}:3500/_oauth/Gitea"
 
     - name: capture Rocket.Chat OAuth2 credentials
       ansible.builtin.set_fact:
@@ -258,9 +258,10 @@
 
     - name: wait for Rocket.Chat API to be reachable
       ansible.builtin.uri:
-        url: "http://localhost:3500/health"
+        url: "https://localhost:3500/health"
         status_code: 200
         return_content: false
+        validate_certs: false
       register: _rc_api_check
       retries: 30
       delay: 10
@@ -268,18 +269,19 @@
 
     - name: authenticate to Rocket.Chat REST API
       ansible.builtin.uri:
-        url: "http://localhost:3500/api/v1/login"
+        url: "https://localhost:3500/api/v1/login"
         method: POST
         body_format: json
         body:
           username: "{{ rocketchat_admin_user | default('admin') }}"
           password: "{{ rocketchat_admin_pass | default('Admin1234!') }}"
+        validate_certs: false
       register: _rc_login
       no_log: true
 
     - name: create Gitea custom OAuth provider in Rocket.Chat
       ansible.builtin.uri:
-        url: "http://localhost:3500/api/v1/settings.addCustomOAuth"
+        url: "https://localhost:3500/api/v1/settings.addCustomOAuth"
         method: POST
         body_format: json
         body:
@@ -288,10 +290,11 @@
           X-Auth-Token: "{{ _rc_login.json.data.authToken }}"
           X-User-Id:    "{{ _rc_login.json.data.userId }}"
         status_code: [200, 400]
+        validate_certs: false
 
     - name: enable Rocket.Chat Gitea OAuth boolean settings
       ansible.builtin.uri:
-        url: "http://localhost:3500/api/v1/settings/{{ item }}"
+        url: "https://localhost:3500/api/v1/settings/{{ item }}"
         method: POST
         body_format: json
         body:
@@ -299,6 +302,7 @@
         headers:
           X-Auth-Token: "{{ _rc_login.json.data.authToken }}"
           X-User-Id:    "{{ _rc_login.json.data.userId }}"
+        validate_certs: false
       loop:
         - "Accounts_OAuth_Custom-Gitea"
         - "Accounts_OAuth_Custom-Gitea-merge_users"
@@ -306,7 +310,7 @@
 
     - name: configure Rocket.Chat Gitea OAuth string settings
       ansible.builtin.uri:
-        url: "http://localhost:3500/api/v1/settings/{{ item.id }}"
+        url: "https://localhost:3500/api/v1/settings/{{ item.id }}"
         method: POST
         body_format: json
         body:
@@ -314,6 +318,7 @@
         headers:
           X-Auth-Token: "{{ _rc_login.json.data.authToken }}"
           X-User-Id:    "{{ _rc_login.json.data.userId }}"
+        validate_certs: false
       loop:
         - { id: "Accounts_OAuth_Custom-Gitea-url",            value: "https://{{ ansible_default_ipv4.address }}:3000" }
         - { id: "Accounts_OAuth_Custom-Gitea-id",             value: "{{ rc_oauth2_client_id }}" }
