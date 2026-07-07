@@ -56,6 +56,12 @@
         port: 8065
         protocol: "tcp"
       - ip: "all"
+        port: 3001
+        protocol: "tcp"
+      - ip: "all"
+        port: 3223
+        protocol: "tcp"
+      - ip: "all"
         port: 8080
         protocol: "tcp"
 

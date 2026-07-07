@@ -157,3 +157,67 @@
         timeout: 120
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: deploy gitea-registry docker-compose stack
+  hosts: r42_admin_services_lab_group
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars:
+    LABEL_PROJECT_TYPE: "admin"
+    LABEL_PROJET_NAME: "gitea-registry"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/gitea-registry"
+    REMOTE_PROJECT_DIR: "/home/alice/gitea-registry"
+    #
+    OPERATOR_USER: alice
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: patch gitea-registry .env with VM IP and ports
+  hosts: r42_admin_services_lab_group
+  become: true
+
+  tasks:
+    - name: configure gitea-registry .env — domain
+      ansible.builtin.lineinfile:
+        path: /home/alice/gitea-registry/.env
+        regexp: '^GITEA_DOMAIN='
+        line: "GITEA_DOMAIN={{ ansible_default_ipv4.address }}"
+
+    - name: configure gitea-registry .env — base URL
+      ansible.builtin.lineinfile:
+        path: /home/alice/gitea-registry/.env
+        regexp: '^GITEA_BASE_URL='
+        line: "GITEA_BASE_URL=http://{{ ansible_default_ipv4.address }}:3001"
+
+    - name: configure gitea-registry .env — HTTP port
+      ansible.builtin.lineinfile:
+        path: /home/alice/gitea-registry/.env
+        regexp: '^HTTP_PORT='
+        line: "HTTP_PORT=3001"
+
+    - name: configure gitea-registry .env — SSH port
+      ansible.builtin.lineinfile:
+        path: /home/alice/gitea-registry/.env
+        regexp: '^SSH_PORT='
+        line: "SSH_PORT=3223"
+
+    - name: reload gitea-registry to apply updated .env
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate --no-deps gitea
+        chdir: /home/alice/gitea-registry
+      changed_when: true
+
+    - name: wait for gitea-registry to be reachable after restart
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 3001
+        delay: 10
+        timeout: 120
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
