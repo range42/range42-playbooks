@@ -80,6 +80,12 @@
         port: 3000
         protocol: "tcp"
       - ip: "all"
+        port: 3001
+        protocol: "tcp"
+      - ip: "all"
+        port: 3223
+        protocol: "tcp"
+      - ip: "all"
         port: 3500
         protocol: "tcp"
       - ip: "all"
@@ -178,22 +184,40 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: patch gitea-registry .env with VM IP and ports
+- name: patch gitea-registry .env with VM IP, TLS and ports
   hosts: r42_admin_services_lab_group
   become: true
+  ##
+  ## The catalog .env ships GITEA_DOMAIN=localhost / GITEA_BASE_URL=https://localhost:3001
+  ## with GITEA_TLS_MODE=self-signed already set. After rsync+first-start those defaults
+  ## are active but the TLS cert has no IP SAN, so external HTTPS connections fail.
+  ## This play updates domain+URL to the VM IP and force-recreates cert-gen + gitea.
+  ##
 
   tasks:
-    - name: configure gitea-registry .env — domain
+    - name: configure gitea-registry .env — domain (VM IP for HTTPS cert SAN)
       ansible.builtin.lineinfile:
         path: /home/alice/gitea-registry/.env
         regexp: '^GITEA_DOMAIN='
         line: "GITEA_DOMAIN={{ ansible_default_ipv4.address }}"
 
-    - name: configure gitea-registry .env — base URL
+    - name: configure gitea-registry .env — base URL (HTTPS with VM IP)
       ansible.builtin.lineinfile:
         path: /home/alice/gitea-registry/.env
         regexp: '^GITEA_BASE_URL='
-        line: "GITEA_BASE_URL=http://{{ ansible_default_ipv4.address }}:3001"
+        line: "GITEA_BASE_URL=https://{{ ansible_default_ipv4.address }}:3001"
+
+    - name: configure gitea-registry .env — TLS mode
+      ansible.builtin.lineinfile:
+        path: /home/alice/gitea-registry/.env
+        regexp: '^GITEA_TLS_MODE='
+        line: "GITEA_TLS_MODE=self-signed"
+
+    - name: configure gitea-registry .env — protocol
+      ansible.builtin.lineinfile:
+        path: /home/alice/gitea-registry/.env
+        regexp: '^GITEA_PROTOCOL='
+        line: "GITEA_PROTOCOL=https"
 
     - name: configure gitea-registry .env — HTTP port
       ansible.builtin.lineinfile:
@@ -207,7 +231,13 @@
         regexp: '^SSH_PORT='
         line: "SSH_PORT=3223"
 
-    - name: reload gitea-registry to apply updated .env
+    - name: regenerate gitea-registry TLS certificate with VM IP SAN (re-run cert-gen)
+      ansible.builtin.command:
+        cmd: docker compose up --force-recreate --no-deps cert-gen
+        chdir: /home/alice/gitea-registry
+      changed_when: true
+
+    - name: reload gitea-registry to apply updated ROOT_URL and new TLS certificate
       ansible.builtin.command:
         cmd: docker compose up -d --force-recreate --no-deps gitea
         chdir: /home/alice/gitea-registry
