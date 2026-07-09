@@ -38,6 +38,13 @@ default_admin_vm_ci_password: "REPLACE_ME"
 # admin vm (alice) ssh public key - populated by credentials.generate
 default_admin_vm_ci_ssh_key: "ssh-ed25519 AAAA... alice CODENAME-SCENARIO"
 
+# trainee (bob) password + ssh key - populated by the wizard.
+# The human `student` (per-VM) + `trainer` users derive their password from their per-VM pubkey
+# + this secret ; the bob_1..N extra pubkeys (ssh_key_student_user_extra_N_pub_key in the generated
+# vault) are the per-VM unique SSH keys. alice remains the deploy user.
+default_trainee_vm_ci_password: "REPLACE_ME"
+default_trainee_vm_ci_ssh_key: "ssh-ed25519 AAAA... bob CODENAME-SCENARIO"
+
 
 #### WAZUH ####
 
