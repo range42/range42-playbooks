@@ -6,7 +6,7 @@
 ##   - tailscale-on-group            : optional (gated INSTALL_TAILSCALE, default NO)
 ##   - compute-creds                 : load the vault, set per-host student + trainer creds (facts)
 ##   - human user `student`          : add_user + authorized_keys (per-VM unique bob_N) + sudo NOPASSWD + oh-my-zsh
-##   - human user `trainer`          : add_user + sudo NOPASSWD (present here so the trainer can SSH in).
+##   - human user `trainer`          : add_user + sudo NOPASSWD + oh-my-zsh (present here so the trainer can SSH in).
 ##                                     Its authorized_keys (the trainer-student-access pubkey) is added by
 ##                                     _finalize-trainer_student_access.yml (cross-tier, after key gen).
 ##   - gitclone-kunai-repository     : clone the 5 kunai repos into the STUDENT home
@@ -100,6 +100,11 @@
     TARGET_GROUP: "r42_kunai_lab_students_group"
     TARGET_USER: "trainer"
     SUDO_NOPASSWD: true
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/software.install.warmup.dot_files/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_students_group"
+    TARGET_USER: "trainer"
 # NB: the trainer's authorized_keys on the student VMs (the trainer-student-access pubkey) is added by
 #     _finalize-trainer_student_access.yml (cross-tier), after that key is generated on the trainer VM.
 
