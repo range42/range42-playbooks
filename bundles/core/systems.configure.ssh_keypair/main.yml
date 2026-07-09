@@ -1,0 +1,20 @@
+---
+# ============================================================================
+# bundles/core/systems.configure.ssh_keypair/main.yml
+# ============================================================================
+# Thin bundle: deploy an SSH keypair into a user's ~/.ssh via the catalog role
+# `systems.configure.ssh_keypair`.
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP              ansible group to target
+#   TARGET_USER               user whose ~/.ssh receives the keypair
+#   SSH_KEYPAIR_PRIVATE_SRC   path on the controller to the private key
+# OPTIONAL:
+#   SSH_KEYPAIR_PUBLIC_SRC, SSH_KEYPAIR_NAME
+# ============================================================================
+
+- name: configure ssh keypair for a user
+  hosts: "{{ TARGET_GROUP }}"
+  become: true
+  roles:
+    - systems.configure.ssh_keypair
