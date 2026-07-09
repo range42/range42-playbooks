@@ -11,3 +11,6 @@
 ##
 
 - import_playbook: ./stage_01-vm_configure/_baseline_trainer.yml
+
+# Phase 1B : trainer -> students SSH client config (after the trainer user + keypair)
+- import_playbook: ./stage_01-vm_configure/_finalize-trainer_ssh_config.yml
