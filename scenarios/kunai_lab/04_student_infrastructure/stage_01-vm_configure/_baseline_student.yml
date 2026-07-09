@@ -1,6 +1,7 @@
 ##
 ## Baseline for r42_kunai_lab_students_group (Phase 1B : human sudo users)
 ##
+##   - os_auto_updates               : disable apt-daily + unattended-upgrades FIRST (frees the dpkg lock)
 ##   - system-baseline-docker-host   : packages + dotfiles (alice) + Docker + docker-compose
 ##   - network-baseline-ssh          : firewall opens port 22
 ##   - tailscale-on-group            : optional (gated INSTALL_TAILSCALE, default NO)
@@ -14,6 +15,11 @@
 ##
 ## alice stays the DEPLOY user (ansible connection) ; student/trainer are the human accounts.
 ##
+
+## --- disable OS background auto-updates FIRST (before any apt task frees the dpkg lock) ---
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.os_auto_updates/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_students_group"
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-docker-host/main.yml"
   vars:
