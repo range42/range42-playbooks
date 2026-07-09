@@ -1,0 +1,25 @@
+---
+# ============================================================================
+# bundles/core/software.install.warmup.dot_files/main.yml
+# ============================================================================
+# Thin bundle: deploy the dotfiles (oh-my-zsh + zshrc, sets the login shell to
+# zsh) for a given user on a target group, via the catalog role
+# `software.install.warmup.dot_files` (reused as-is, parameterized by OPERATOR_USER).
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP     ansible group to target
+#   TARGET_USER      user whose dotfiles are deployed (-> role OPERATOR_USER)
+# OPTIONAL:
+#   INSTALL_ZSH_DOTFILES (def YES), INSTALL_VIM_DOTFILES (def NO), APPLY_FOR_ROOT (def NO)
+# ============================================================================
+
+- name: install dotfiles (oh-my-zsh) for a user
+  hosts: "{{ TARGET_GROUP }}"
+  become: true
+  roles:
+    - role: software.install.warmup.dot_files
+      vars:
+        OPERATOR_USER: "{{ TARGET_USER }}"
+        INSTALL_ZSH_DOTFILES: "{{ INSTALL_ZSH_DOTFILES | default('YES') }}"
+        INSTALL_VIM_DOTFILES: "{{ INSTALL_VIM_DOTFILES | default('NO') }}"
+        APPLY_FOR_ROOT: "{{ APPLY_FOR_ROOT | default('NO') }}"
