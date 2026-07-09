@@ -406,6 +406,25 @@
         regexp: '^NC_BASE_URL='
         line: "NC_BASE_URL=https://{{ ansible_default_ipv4.address }}:8443"
 
+    - name: configure Nextcloud .env — Collabora URL (must be reachable from student browsers)
+      ansible.builtin.lineinfile:
+        path: /home/alice/nextcloud/.env
+        regexp: '^NC_COLLABORA_URL='
+        line: "NC_COLLABORA_URL=https://{{ ansible_default_ipv4.address }}:9443"
+
+    - name: configure Nextcloud richdocuments wopi_url — override provisioner hook default
+      # The post-installation hook sets wopi_url from NC_COLLABORA_URL, but the hook runs
+      # before this .env patch is applied (compose up fires hooks immediately on first boot).
+      # This occ call corrects the value so editing works without a full redeploy.
+      ansible.builtin.command:
+        cmd: >
+          docker compose exec -T nextcloud
+          php occ config:app:set richdocuments wopi_url
+          --value "https://{{ ansible_default_ipv4.address }}:9443"
+        chdir: /home/alice/nextcloud
+      become: true
+      changed_when: true
+
     - name: regenerate TLS certificate for VM IP (re-run cert-gen with updated .env)
       ansible.builtin.command:
         cmd: docker compose up --force-recreate --no-deps cert-gen
