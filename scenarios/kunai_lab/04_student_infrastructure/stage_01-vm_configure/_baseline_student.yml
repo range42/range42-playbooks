@@ -91,6 +91,8 @@
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"
     TARGET_USER: "student"
+    WARMUP_INSTALL_VIM_DOTFILES: "YES"   # vimrc for student + root
+    WARMUP_APPLY_FOR_ROOT: "YES"         # zsh + oh-my-zsh + vimrc for root too (applied once per VM here)
 
 ## --- human user `trainer` on the student VMs (SSH-in from the trainer VM) ---
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.add_user/main.yml"
@@ -111,6 +113,7 @@
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"
     TARGET_USER: "trainer"
+    WARMUP_INSTALL_VIM_DOTFILES: "YES"   # vimrc for the trainer user (root already handled by the student import above)
 # NB: the trainer's authorized_keys on the student VMs (the trainer-student-access pubkey) is added by
 #     _finalize-trainer_student_access.yml (cross-tier), after that key is generated on the trainer VM.
 

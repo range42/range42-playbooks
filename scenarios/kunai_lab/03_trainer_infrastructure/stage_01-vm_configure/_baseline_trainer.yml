@@ -87,6 +87,8 @@
   vars:
     TARGET_GROUP: "r42_kunai_lab_trainer_group"
     TARGET_USER: "trainer"
+    WARMUP_INSTALL_VIM_DOTFILES: "YES"   # vimrc for trainer + root
+    WARMUP_APPLY_FOR_ROOT: "YES"         # zsh + oh-my-zsh + vimrc for root too
 
 ## --- repos + toolchain, repointed to the TRAINER human user ---
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/gitclone-kunai-repository/main.yml"
