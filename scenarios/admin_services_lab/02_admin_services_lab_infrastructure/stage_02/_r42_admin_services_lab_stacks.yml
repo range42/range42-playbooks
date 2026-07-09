@@ -412,14 +412,24 @@
         regexp: '^NC_COLLABORA_URL='
         line: "NC_COLLABORA_URL=https://{{ ansible_default_ipv4.address }}:9443"
 
-    - name: configure Nextcloud richdocuments wopi_url — override provisioner hook default
-      # The post-installation hook sets wopi_url from NC_COLLABORA_URL, but the hook runs
-      # before this .env patch is applied (compose up fires hooks immediately on first boot).
-      # This occ call corrects the value so editing works without a full redeploy.
+    - name: configure Nextcloud richdocuments — internal wopi_url (server-side discovery, no TLS)
+      # The post-installation hook already sets wopi_url=http://collabora:9980, but it runs
+      # before the .env patch and may default to localhost:9443 if NC_COLLABORA_URL was unset.
+      # Idempotently enforce the correct two-URL split here.
       ansible.builtin.command:
         cmd: >
           docker compose exec -T nextcloud
           php occ config:app:set richdocuments wopi_url
+          --value "http://collabora:9980"
+        chdir: /home/alice/nextcloud
+      become: true
+      changed_when: true
+
+    - name: configure Nextcloud richdocuments — public_wopi_url (browser-facing, through nginx TLS proxy)
+      ansible.builtin.command:
+        cmd: >
+          docker compose exec -T nextcloud
+          php occ config:app:set richdocuments public_wopi_url
           --value "https://{{ ansible_default_ipv4.address }}:9443"
         chdir: /home/alice/nextcloud
       become: true
