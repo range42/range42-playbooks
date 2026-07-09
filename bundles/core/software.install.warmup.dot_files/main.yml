@@ -9,17 +9,24 @@
 # REQUIRED caller vars:
 #   TARGET_GROUP     ansible group to target
 #   TARGET_USER      user whose dotfiles are deployed (-> role OPERATOR_USER)
-# OPTIONAL:
-#   INSTALL_ZSH_DOTFILES (def YES), INSTALL_VIM_DOTFILES (def NO), APPLY_FOR_ROOT (def NO)
+# OPTIONAL caller vars (public UPPERCASE knobs, routed through _warmup_* internal
+# vars so they never self-reference the role vars of the same name -> no recursive
+# templating ; same pattern as system-baseline-*):
+#   WARMUP_INSTALL_ZSH_DOTFILES (def YES), WARMUP_INSTALL_VIM_DOTFILES (def NO),
+#   WARMUP_APPLY_FOR_ROOT (def NO)
 # ============================================================================
 
 - name: install dotfiles (oh-my-zsh) for a user
   hosts: "{{ TARGET_GROUP }}"
   become: true
+  vars:
+    _warmup_zsh_dotfiles: "{{ WARMUP_INSTALL_ZSH_DOTFILES | default('YES') }}"
+    _warmup_vim_dotfiles: "{{ WARMUP_INSTALL_VIM_DOTFILES | default('NO') }}"
+    _warmup_apply_for_root: "{{ WARMUP_APPLY_FOR_ROOT | default('NO') }}"
   roles:
     - role: software.install.warmup.dot_files
       vars:
         OPERATOR_USER: "{{ TARGET_USER }}"
-        INSTALL_ZSH_DOTFILES: "{{ INSTALL_ZSH_DOTFILES | default('YES') }}"
-        INSTALL_VIM_DOTFILES: "{{ INSTALL_VIM_DOTFILES | default('NO') }}"
-        APPLY_FOR_ROOT: "{{ APPLY_FOR_ROOT | default('NO') }}"
+        INSTALL_ZSH_DOTFILES: "{{ _warmup_zsh_dotfiles }}"
+        INSTALL_VIM_DOTFILES: "{{ _warmup_vim_dotfiles }}"
+        APPLY_FOR_ROOT: "{{ _warmup_apply_for_root }}"
