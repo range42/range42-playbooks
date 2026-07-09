@@ -1,0 +1,26 @@
+---
+# ============================================================================
+# bundles/core/systems.configure.os_auto_updates/main.yml
+# ============================================================================
+# Thin bundle: disable (or enable) the OS background auto-updater on a target
+# group, via the catalog role `systems.configure.os_auto_updates`.
+#
+# Run this EARLY in a scenario baseline (before any apt task) so the auto-updater
+# never holds the dpkg lock during provisioning. Stopping the units also releases
+# a lock that is already held.
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP           ansible group to target
+# OPTIONAL caller vars:
+#   OS_AUTO_UPDATES_STATE  (def "disabled" in the role ; set "enabled" to restore).
+#                          Passed via -e or the import vars: (global/play scope), the
+#                          role reads it directly - do NOT re-forward it here (a role
+#                          var of the same name would self-reference -> recursion).
+# ============================================================================
+
+- name: configure OS background auto-updates on a group
+  hosts: "{{ TARGET_GROUP }}"
+  become: true
+  gather_facts: true
+  roles:
+    - role: systems.configure.os_auto_updates
