@@ -1,0 +1,19 @@
+##
+## admin-nextcloud - Nextcloud docker-compose stack on r42.bs6-admin-nextcloud
+##
+## Delegates to the shared bundle (catalog .env seed + Docker baseline +
+## firewall 22/8080 + docker-compose deploy of nextcloud : postgres + redis +
+## nextcloud + provisioner). Optional admin service.
+##
+## NOTE : align NC_DOMAIN in the catalog .env to include this VM IP
+## (192.168.142.147) before deploy, else Nextcloud rejects access (untrusted
+## domain). See the bundle README.
+##
+## Gated by INSTALL_NEXTCLOUD (default NO).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.nextcloud/main.yml"
+  when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.bs6-admin-nextcloud"
+    global_vm_ci_ip:    "192.168.142.147"

@@ -1,0 +1,33 @@
+##
+## Baseline for r42_admin_active runtime group (kunai_lab) :
+##   - system-baseline-default     : packages + dotfiles (no Docker - the wazuh
+##                                   stack uses native OS packages ; docker is
+##                                   installed per-VM by the misp bundle when
+##                                   INSTALL_MISP=YES)
+##   - network-baseline-ssh        : firewall opens port 22 (wazuh / misp service
+##                                   ports opened by their respective bundles)
+##   - tailscale-on-group          : optional tailscale install (gated INSTALL_TAILSCALE,
+##                                   default NO)
+##
+## Targets r42_admin_active (built by ../_build_admin_active_group.yml from the
+## INSTALL_<flag> values at deploy time), so each baseline play only runs on
+## admin VMs that stage_00 actually created. Net effect : per-VM gating, no
+## UNREACHABLE on the admin VMs whose flag is NO. With every flag NO, the group
+## is empty and the imports skip silently (ok=0).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-default/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+    INSTALL_TAILSCALE: "NO"
+    tailscale_hostnames:
+      - "admin-wazuh"
+      - "admin-misp"

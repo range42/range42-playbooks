@@ -39,6 +39,15 @@ default_admin_vm_ci_password: "REPLACE_ME"
 default_admin_vm_ci_ssh_key: "ssh-ed25519 AAAA... alice CODENAME-SCENARIO"
 
 
+#### WAZUH ####
+
+# wazuh admin password
+# WAZUH_PASSWORD is consumed by credentials.vault template
+# and mapped to infrastructure_wazuh_admin_password in the generated vault.
+# Used by the admin-wazuh VM stack when INSTALL_WAZUH=YES.
+WAZUH_PASSWORD: "REPLACE_ME"
+
+
 #### DEPLOYER-CLI KNOWN HOSTS ####
 
 # operator-side known_hosts snapshot used by the wait-for-SSH task

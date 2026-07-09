@@ -1,0 +1,43 @@
+# ============================================================================
+# bundles/ctf/misconfiguration/system/lpe-01/main.yml
+# ============================================================================
+# Deploys SUID-based Linux LPE misconfiguration vulnerable container via docker-compose.
+# Mirrors the catalog source tree exactly :
+#   {{ env RANGE42_INVENTORY__DOCKER__CTF }}/misconfiguration/system/lpe-01/
+#
+# Exposed port (default) : 2222 (host -> 22 in container)
+#
+# REQUIRED vars :
+#   - global_vm_ssh_name : inventory hostname for the target VM
+#
+# OPTIONAL vars :
+#   - OPERATOR_USER         : SSH user (default = default_admin_vm_ci_user from group_vars)
+#   - REMOTE_PROJECT_DIR    : compose deploy dir (default = /tmp/deploy-lpe-01)
+#   - CLEAN_UP_DEPLOY_DIR   : YES/NO (default NO)
+#   - SEND_POC_DIR          : YES/NO (default NO)
+#
+# TODO BUNDLE_PORTS_TCP : declared exposed ports for per-host firewall agregation
+#   BUNDLE_PORTS_TCP: [2222]
+#
+# Example call-site :
+#
+# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/misconfiguration/system/lpe-01/main.yml"
+#   vars:
+#     global_vm_ssh_name: "r42.vuln-box-03"
+# ============================================================================
+
+- name: deploy CTF - linux SUID LPE misconfig (lpe-01) - exposed_port:2222
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  roles:
+    - software.configure.docker-compose
+  vars:
+    LABEL_PROJECT_TYPE: "CTF"
+    LABEL_PROJET_NAME: "lpe-01"
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY__DOCKER__CTF') }}/misconfiguration/system/lpe-01/"
+    REMOTE_PROJECT_DIR: "/tmp/deploy-lpe-01"
+    OPERATOR_USER: "{{ default_admin_vm_ci_user }}"
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"

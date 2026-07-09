@@ -1,0 +1,34 @@
+---
+##
+## misp_lab - 02_admin_infrastructure - build r42_misp_lab_wazuh_clients_active
+##
+## Structure : runtime-only group built via add_host on the proxmox host
+## (which has ansible_connection: local) based on the deploy-time state.
+## Mirror of _build_admin_active_group.yml (Option A pattern) applied to the
+## wazuh-agent client list.
+##
+## Used by _finalize-baseline-admin_wazuh_client.yml as wazuh_clients_group.
+## Per-host gating without inventory file modification.
+##
+## Membership map :
+##
+##   client VM                       VM creation gate              add_host condition
+##   ------------------------------ ----------------------------- ----------------------
+##   r42.admin-misp-standalone       (always created, IS workload) always added
+##
+## The wazuh server itself (r42.admin-wazuh) is EXCLUDED by design (a server
+## does not run its own agent).
+##
+## `hosts: proxmox` (not localhost) so the play matches the wrapper's
+## `-l "all"` filter.
+##
+
+- name: build r42_misp_lab_wazuh_clients_active dynamic group from INSTALL flags
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: add r42.admin-misp-standalone to r42_misp_lab_wazuh_clients_active (workload VM, always created)
+      ansible.builtin.add_host:
+        name: r42.admin-misp-standalone
+        groups: r42_misp_lab_wazuh_clients_active
+      changed_when: false

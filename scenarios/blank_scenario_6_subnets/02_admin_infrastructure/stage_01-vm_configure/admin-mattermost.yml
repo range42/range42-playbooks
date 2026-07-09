@@ -1,0 +1,15 @@
+##
+## admin-mattermost - Mattermost docker-compose stack on r42.bs6-admin-mattermost
+##
+## Delegates to the shared bundle (catalog .env seed + Docker baseline +
+## firewall 22/8065 + docker-compose deploy of mattermost : postgres +
+## mattermost + provisioner). Optional admin service.
+##
+## Gated by INSTALL_MATTERMOST (default NO).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.mattermost/main.yml"
+  when: INSTALL_MATTERMOST | default("NO") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.bs6-admin-mattermost"
+    global_vm_ci_ip:    "192.168.142.146"

@@ -1,0 +1,102 @@
+##
+## bundles/core/proxmox/configure/templates/ubuntu_noble/main.yml
+##
+## Shared playbook that creates the Ubuntu Noble VM template family on a
+## Proxmox hypervisor. Idempotent : templates already finalized are left
+## as-is. Templates that exist as VMs are apt-updated then converted.
+##
+## Required vars (passed by the calling scenario via `import_playbook vars:`) :
+##
+##   manifest_path           absolute path to the scenario's
+##                           `manifest/scenario_vms.json`. Used by
+##                           `_update_templates.yml` to enumerate the
+##                           template VM IDs and probe each one's state.
+##
+##   template_bundle_dir     absolute path to this bundle's `ubuntu_noble/`
+##                           directory. Used by `_update_templates.yml` to
+##                           render `range42-template-bootstrap.yaml.j2`.
+##
+## Optional vars (defaults match the historical demo_lab behaviour) :
+##
+##   templates_whitelist     []    # if empty, install the full set ; else
+##                                 # only the short codes listed :
+##                                 #   nano | micro-01 | micro-02
+##                                 #   small-01 | small-02 | small-04
+##                                 #   medium-02 | medium-04 | medium-06
+##                                 #   large-04 | large-06 | large-08
+##
+##   template_subnet_octet   140   # template network used to apt-update templates before clone-to-vm.
+##
+##   apt_proxy_url           ""    # if non-empty, the bootstrap snippet
+##                                 # includes apt.http_proxy = <url> so the
+##                                 # apt update during template prep goes
+##                                 # through this proxy. Also drives the
+##                                 # persistent cicustom attach via
+##                                 # `_apply_apt_proxy.yml`.
+##
+## Vault loading uses `$RANGE42_ACTIVE_CONFIG_DIR/secrets/default_vault.yml`
+## (env var exported by `range42-context use`).
+##
+
+
+# ---- ubuntu_noble template family ----
+
+- import_playbook: ./00-template-vm-nano.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "nano" in (templates_whitelist | default([]))
+
+- import_playbook: ./01-template-vm-micro-01-2g-24g.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "micro-01" in (templates_whitelist | default([]))
+
+- import_playbook: ./01-template-vm-micro-02-2g-24g.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "micro-02" in (templates_whitelist | default([]))
+
+- import_playbook: ./02-template-vm-small-01-4g-32g.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "small-01" in (templates_whitelist | default([]))
+
+- import_playbook: ./02-template-vm-small-02-4g-32g.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "small-02" in (templates_whitelist | default([]))
+
+- import_playbook: ./02-template-vm-small-04-4g-32g.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "small-04" in (templates_whitelist | default([]))
+
+- import_playbook: ./03-template-vm-medium-02-8g-64g.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "medium-02" in (templates_whitelist | default([]))
+
+- import_playbook: ./03-template-vm-medium-04-8g-64g.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "medium-04" in (templates_whitelist | default([]))
+
+- import_playbook: ./03-template-vm-medium-06-8g-64g.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "medium-06" in (templates_whitelist | default([]))
+
+- import_playbook: ./04-template-vm-large-04-8g-64g.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "large-04" in (templates_whitelist | default([]))
+
+- import_playbook: ./04-template-vm-large-06-8g-64g.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "large-06" in (templates_whitelist | default([]))
+
+- import_playbook: ./04-template-vm-large-08-8g-64g.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "large-08" in (templates_whitelist | default([]))
+
+
+# ---- apt-proxy cicustom (attach if apt_proxy_url set, detach otherwise) ----
+
+- import_playbook: ./_apply_apt_proxy.yml
+
+
+# ---- update + finalize templates (idempotent : early-exits if all templates
+#      are already finalized ; otherwise starts VMs, runs apt update via
+#      cloud-init bootstrap snippet, auto-poweroff, then converts to template)
+
+- import_playbook: ./_update_templates.yml

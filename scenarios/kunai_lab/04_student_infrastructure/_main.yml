@@ -1,0 +1,19 @@
+---
+##
+## 04 - student infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## 5 VMs : student-kunai-01..05 (192.168.142.105..109, VMIDs 1105..1109).
+##
+## Split into stage_00 + stage_01 sibling files so the top-level main.yml can
+## interleave them with the other tiers' stages. See main.yml.
+##
+## This wrapper imports both stages back-to-back, useful for running the
+## student tier in isolation. NOT used by the main scenario deploy.
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

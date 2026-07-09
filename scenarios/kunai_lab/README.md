@@ -117,14 +117,12 @@ All 6 VMs reach via ProxyJump through the Proxmox jumper. Each has its own expli
 
 | Stage | Purpose |
 |---|---|
-| `01_init_proxmox/` | Download Ubuntu noble cloud-init image + create template 9232 (`template-vm-medium-02-8g-64g`). Idempotent : skips if already present. |
-| `02_kunai_lab_infrastructure/stage_00/admin_trainer_kunai_vm.yml` | VM clone from template 9232 + cloud-init + start + wait-for-SSH (admin-trainer-kunai, 1104, .104). |
-| `02_kunai_lab_infrastructure/stage_00/student_kunai_01_vm.yml` | Same flow for student-kunai-01 (1105, .105). |
-| `02_kunai_lab_infrastructure/stage_00/student_kunai_02_vm.yml` | Same flow for student-kunai-02 (1106, .106). |
-| `02_kunai_lab_infrastructure/stage_00/student_kunai_03_vm.yml` | Same flow for student-kunai-03 (1107, .107). |
-| `02_kunai_lab_infrastructure/stage_00/student_kunai_04_vm.yml` | Same flow for student-kunai-04 (1108, .108). |
-| `02_kunai_lab_infrastructure/stage_00/student_kunai_05_vm.yml` | Same flow for student-kunai-05 (1109, .109). |
-| `02_kunai_lab_infrastructure/stage_01/_r42_kunai_lab_group.yml` | Docker baseline + zsh dotfiles + firewall on all 6 VMs, then per-group repo clones (alice on the trainer, bob on the students). |
+| `01_templates-bootstrap/` | Download Ubuntu noble cloud-init image + create template 9232 (`template-vm-medium-02-8g-64g`). Idempotent : skips if already present. |
+| `02_admin_infrastructure/` | Scaffold for future Wazuh / MISP admin VMs. No VMs deployed by default ; gated via `manifest/feature_flags.yml`. |
+| `03_trainer_infrastructure/stage_00-vm_bootstrap/` | Clone + cloud-init + start + wait-for-SSH for `admin-trainer-kunai` (1104, .104). Delegated to `bundles/core/proxmox/configure/vm-bootstrap/`. |
+| `03_trainer_infrastructure/stage_01-vm_configure/` | Docker baseline + dotfiles + firewall (port 22) + kunai-project repos clone on the trainer. Uses `system-baseline-docker-host` + `network-baseline-ssh` + `tailscale-on-group` (gated off). |
+| `04_student_infrastructure/stage_00-vm_bootstrap/` | Same vm-bootstrap flow for 5 student VMs (1105..1109, .105..109). |
+| `04_student_infrastructure/stage_01-vm_configure/` | Same Docker baseline + dotfiles + firewall + kunai-project repos clone on the 5 students. |
 
 ## Entry points
 
@@ -145,13 +143,16 @@ kunai_lab/
   main.yml                                   full deploy entrypoint
   main_vms_only.yml                          fast redeploy (skip templates)
   manifest/scenario_vms.json                 source of truth for VMID / IP / bridge
+  manifest/feature_flags.yml                 optional gated components (Wazuh, MISP, Tailscale - off by default)
   README.md
   kunai_lab.setup.sh                         full deploy wrapper
   kunai_lab.setup_vms_only.sh                fast redeploy wrapper
   kunai_lab.delete_vms_only.sh               VM teardown
   kunai_lab.delete_all.sh                    alias
   kunai_lab.reset.setup.sh                   teardown + deploy
-  01_init_proxmox/                           Ubuntu noble cloud-init image + template 9232
-  02_kunai_lab_infrastructure/               6-VM stage_00 + stage_01 (baseline + repo clones)
+  01_templates-bootstrap/                    Ubuntu noble cloud-init image + template 9232
+  02_admin_infrastructure/                   scaffold for future Wazuh / MISP (gated off)
+  03_trainer_infrastructure/                 trainer VM (admin-trainer-kunai) - stage_00 + stage_01
+  04_student_infrastructure/                 5 student VMs - stage_00 + stage_01
   templates/                                 scenario-level templates (inventory, vars, ssh-config, vault example)
 ```

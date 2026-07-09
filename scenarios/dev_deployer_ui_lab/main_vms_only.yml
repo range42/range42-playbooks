@@ -2,88 +2,38 @@
 ##
 ## dev_deployer_ui_lab - main_vms_only playbook
 ##
-## Skips the 01_init_proxmox template creation stage (template 9232 assumed
-## already present from a prior dev_deployer_ui_lab.setup.sh run, or from
-## another scenario that builds the same medium template - misp_lab,
-## blank_scenario_2_subnets, demo_lab).
-## Used by `range42-context deploy-vms`.
+## Structure : same multi-level pattern as main.yml (skips 01_templates-bootstrap, templates assumed already present).
+##
+## Same global stage discipline as main.yml : ALL tiers stage_00 first, then
+## ALL tiers stage_01, then cross-tier finalize.
 ##
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### 02_dev_deployer_ui_lab_infrastructure - STAGE 00 #### #### ##
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/stage_00/dev_deployer_ui_vm.yml
-
-  vars:
-    global_vm_name: "dev-deployer-ui"
-    global_vm_ssh_name: "r42.dev-deployer-ui"
-    global_vm_id: 1190
-    global_vm_description: "dev_deployer_ui_lab - Ubuntu LTS host for deployer-ui frontend"
-    global_vm_tag_name: "dev-deployer-ui-lab"
-    global_vm_ci_ip: "192.168.142.190"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/stage_00/dev_backend_vm.yml
-
-  vars:
-    global_vm_name: "dev-backend"
-    global_vm_ssh_name: "r42.dev-backend"
-    global_vm_id: 1191
-    global_vm_description: "dev_deployer_ui_lab - Ubuntu LTS host for backend API"
-    global_vm_tag_name: "dev-deployer-ui-lab"
-    global_vm_ci_ip: "192.168.142.191"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/stage_00/dev_kong_vm.yml
-
-  vars:
-    global_vm_name: "dev-kong"
-    global_vm_ssh_name: "r42.dev-kong"
-    global_vm_id: 1192
-    global_vm_description: "dev_deployer_ui_lab - Ubuntu LTS host for Kong API gateway"
-    global_vm_tag_name: "dev-deployer-ui-lab"
-    global_vm_ci_ip: "192.168.142.192"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
+#### skip 01_templates-bootstrap (templates already exist)
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### 02_dev_deployer_ui_lab_infrastructure - STAGE 01 #### #### ##
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/stage_01/_r42_dev_deployer_ui_lab_group.yml
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
-  vars:
-    OPERATOR_USER: alice
-
-    INSTALL_VIM_DOTFILES: "YES"
-    INSTALL_ZSH_DOTFILES: "YES"
-
-    INSTALL_PACKAGES_BASICS: "YES"
-    INSTALL_PACKAGES_FIREWALLS: "YES"
-    #
-    INSTALL_PACKAGES_DOCKER: "YES"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
-    #
-    INSTALL_PACKAGES_UTILS_JSON: "YES"
-    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
-
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
-
-    INSTALL_TAILSCALE: "NO"
-
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
+- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/_main_stage_00.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_dev_deployer_ui_lab_wazuh_clients_active ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

@@ -1,0 +1,54 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 00  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+##
+## Per-VM bootstrap of the 3 dev VMs - all always-on.
+## Each VM is delivered as a bare Docker host ; the application stack is
+## installed in stage_01 via the bundle gated by its INSTALL_<NAME> flag.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+  vars:
+    global_vm_name:        "dev-deployer-ui"
+    global_vm_ssh_name:    "r42.dev-deployer-ui"
+    global_vm_id:          1190
+    global_vm_description: "dev_deployer_ui_lab - host for deployer-ui frontend (Docker)"
+    global_vm_tag_name:    "dev-deployer-ui-lab"
+    global_vm_ci_ip:       "192.168.142.190"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+  vars:
+    global_vm_name:        "dev-backend"
+    global_vm_ssh_name:    "r42.dev-backend"
+    global_vm_id:          1191
+    global_vm_description: "dev_deployer_ui_lab - host for deployer-api-backend FastAPI (Docker)"
+    global_vm_tag_name:    "dev-deployer-ui-lab"
+    global_vm_ci_ip:       "192.168.142.191"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+  vars:
+    global_vm_name:        "dev-kong"
+    global_vm_ssh_name:    "r42.dev-kong"
+    global_vm_id:          1192
+    global_vm_description: "dev_deployer_ui_lab - host for Kong API gateway (Docker)"
+    global_vm_tag_name:    "dev-deployer-ui-lab"
+    global_vm_ci_ip:       "192.168.142.192"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"

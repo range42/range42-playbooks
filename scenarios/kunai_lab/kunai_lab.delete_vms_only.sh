@@ -6,7 +6,7 @@
 ## VM IDs are read from the scenario manifest :
 ##   manifest/scenario_vms.json
 ##
-## Lifted from dev_deployer_ui_lab.delete_vms_only.sh, scoped to the kunai_lab
+## Same shape as demo_lab.delete_vms_only.sh, scoped to the kunai_lab
 ## manifest (6 VMs : admin-trainer-kunai 1104 + student-kunai-01..05 1105..1109).
 ##
 

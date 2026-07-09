@@ -1,0 +1,31 @@
+##
+## _finalize-baseline-admin_wazuh_client - cross-tier post-setup action
+##
+## Installs the wazuh agent on the dev_deployer_ui_lab wazuh clients group.
+##
+## Ordering constraints (TWO independent deps - both must be satisfied) :
+##   1. AFTER admin-wazuh.yml (tier 02 stage_01) : the wazuh server must
+##      exist + be reachable so the agents can enroll with the manager.
+##   2. AFTER all tiers stage_01 : the agent target VMs (3 dev tier + admin-misp
+##      if INSTALL_MISP=YES) must already be created (stage_00) AND baselined
+##      (stage_01). Otherwise the agent install hits UNREACHABLE.
+##
+## Both constraints satisfied by importing this file at the TOP-LEVEL main.yml
+## as the LAST entry, AFTER all tier _main_stage_01.yml imports. NEVER import
+## from inside a tier's _main.yml / _main_stage_01.yml - that would
+## re-introduce the cross-tier ordering bug.
+##
+## Group-level scope : targets r42_dev_deployer_ui_lab_wazuh_clients_active
+## (runtime group built by _build_wazuh_clients_active_group.yml from INSTALL
+## flags ; up to 4 hosts : 3 dev VMs always + admin-misp if INSTALL_MISP=YES
+## - excludes the wazuh server itself by design).
+##
+## Per-host gating via the runtime active group : no UNREACHABLE on VMs that
+## don't exist at deploy time (e.g. admin-misp with INSTALL_MISP=NO).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh-agent/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    wazuh_clients_group: "r42_dev_deployer_ui_lab_wazuh_clients_active"
+    global_vm_ci_ip:     "192.168.142.193"

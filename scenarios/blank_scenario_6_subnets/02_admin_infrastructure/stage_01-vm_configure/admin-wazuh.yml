@@ -1,0 +1,11 @@
+##
+## admin-wazuh - Wazuh SIEM server stack on r42.bs6-admin-wazuh
+##
+## Delegates to the shared bundle. Gated by INSTALL_WAZUH (default NO).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.bs6-admin-wazuh"
+    global_vm_ci_ip:    "192.168.142.140"

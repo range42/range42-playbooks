@@ -1,0 +1,21 @@
+##
+## admin-misp - MISP threat intel stack on r42.admin-misp
+##
+## Delegates to the shared bundle which provides the full pipeline (Docker
+## install + docker-compose deploy of misp-standalone : MariaDB + Redis +
+## misp-modules + misp + provisioner). The bundle pushes .env.example as
+## .env directly on the VM (pre_tasks in the deploy play) so docker compose
+## can load env_file: .env regardless of the local catalog state.
+##
+## To use strong secrets (vs the catalog's weak placeholders), populate the
+## VM's /home/alice/misp-standalone/.env BEFORE the deploy, or customize the
+## local catalog .env before running. See the bundle's README.md.
+##
+## Gated by INSTALL_MISP (default NO per kunai_lab feature_flags.yml).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.misp-standalone/main.yml"
+  when: INSTALL_MISP | default("NO") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.admin-misp"
+    global_vm_ci_ip:    "192.168.142.111"

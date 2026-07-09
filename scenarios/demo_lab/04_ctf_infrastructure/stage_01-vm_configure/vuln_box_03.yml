@@ -1,0 +1,51 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### vuln-box-03 - per-host CTF imports + firewall agregation  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Note : vite CVE-2022-44615 was previously deployed inline on this host but
+# does not exist in the catalog. Dropped during the bundle extraction ; if
+# the catalog gains the source, re-introduce as a normal bundle import.
+#
+
+- name: configure firewall - r42.vuln-box-03 (aggregated from imported CTF bundles)
+  become: true
+  hosts: r42.vuln-box-03
+  roles:
+    - software.configure.firewalls
+  vars:
+    # TODO derive from each bundle BUNDLE_PORTS_TCP once the contract is implemented
+    firewall_rules:
+      - { ip: "all", port: 22,   protocol: "tcp" }
+      - { ip: "all", port: 1111, protocol: "tcp" }   # sudo CVE-2023-22809
+      - { ip: "all", port: 1112, protocol: "tcp" }   # sudo CVE-2025-32462
+      - { ip: "all", port: 1113, protocol: "tcp" }   # sudo CVE-2025-32463
+      - { ip: "all", port: 2222, protocol: "tcp" }   # lpe-01 (SSH into vulnerable container)
+      - { ip: "all", port: 7001, protocol: "tcp" }   # vite CVE-2025-30208
+      - { ip: "all", port: 8082, protocol: "tcp" }   # php CVE-2019-11043
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/misconfiguration/system/lpe-01/main.yml"
+  vars:
+    global_vm_ssh_name: "r42.vuln-box-03"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/system/sudo/CVE-2023-22809/main.yml"
+  vars:
+    global_vm_ssh_name: "r42.vuln-box-03"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/system/sudo/CVE-2025-32462/main.yml"
+  vars:
+    global_vm_ssh_name: "r42.vuln-box-03"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/system/sudo/CVE-2025-32463/main.yml"
+  vars:
+    global_vm_ssh_name: "r42.vuln-box-03"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/web/vite/CVE-2025-30208/main.yml"
+  vars:
+    global_vm_ssh_name: "r42.vuln-box-03"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/web/php/CVE-2019-11043/main.yml"
+  vars:
+    global_vm_ssh_name: "r42.vuln-box-03"

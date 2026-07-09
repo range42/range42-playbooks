@@ -1,8 +1,8 @@
 ---
 ################################################################################
-# range42 — scenario-specific variables (blank_scenario_2_subnets)
+# range42 - scenario-specific variables (blank_scenario_2_subnets)
 #
-# Minimal network lab — 2 team subnets, 2 VMs each.
+# Minimal network lab - 2 team subnets, 2 VMs each.
 # Optional admin infrastructure (wazuh + deployer platform) on vmbr142.
 #
 # For shared variables → group_vars/all/vars.yml
@@ -28,7 +28,7 @@ student_additionnal_keys_count: 1
 
 #### CLOUD-INIT USERNAMES ####
 
-# admin vm user (not secret — password and ssh key are in vault)
+# admin vm user (not secret - password and ssh key are in vault)
 default_admin_vm_ci_user: "alice"
 
 # student vm user

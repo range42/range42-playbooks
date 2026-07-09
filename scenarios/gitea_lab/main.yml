@@ -1,53 +1,56 @@
 ---
 ##
-## gitea_lab - full deploy entrypoint
-## Usage: ./gitea_lab.setup.sh   (or range42-context deploy)
+## gitea_lab - main playbook
+##
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global
+## stage interleaving across tiers without rewriting per-tier plays.
+##
+## Two-tier lab :
+##   - 02_admin_infrastructure  : admin-gitea-standalone (VMID 1183, IP .183) -
+##     runs the Gitea docker-compose stack, gated by INSTALL_GITEA (default YES
+##     per manifest/feature_flags.yml - gitea_lab is the Gitea showcase scenario).
+##   - 03_student_infrastructure : student-gitea-client-01 (VMID 1184, IP .184) -
+##     Ubuntu LTS client used for the end-to-end SSH-cycle validation against the
+##     Gitea server.
+##
+## Global stage discipline (mirror of demo_lab / mattermost_lab) :
+##   1. 01_templates-bootstrap                    create the shared template (9232)
+##   2. ALL tiers stage_00 (vm_bootstrap)         create every VM first
+##   3. ALL tiers stage_01 (vm_configure)         configure every VM after
+##   4. CROSS-TIER FINALIZE                        student SSH-cycle glue, run LAST
+##
+## The CROSS-TIER FINALIZE (03_student_infrastructure SSH-cycle glue) is imported
+## LAST, on purpose : it generates an ed25519 key on the student client, registers
+## it with the Gitea server via the admin API, and verifies SSH auth. It therefore
+## DEPENDS on the INSTALL_GITEA Gitea server being up and reachable - which is only
+## true once both tiers' stage_01 has completed.
 ##
 
-- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+- import_playbook: ./01_templates-bootstrap/_main.yml
 
-- import_playbook: ./02_gitea_lab_infrastructure/stage_00/gitea_lab_vm.yml
-  vars:
-    global_vm_name: "admin-gitea-standalone"
-    global_vm_ssh_name: "r42.admin-gitea-standalone"
-    global_vm_id: 1183
-    global_vm_description: "gitea_lab - Ubuntu LTS host for Gitea via docker-compose"
-    global_vm_tag_name: "gitea-lab"
-    global_vm_ci_ip: "192.168.142.183"
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./02_gitea_lab_infrastructure/stage_01/_r42_gitea_lab_group.yml
-  vars:
-    OPERATOR_USER: alice
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
-    INSTALL_VIM_DOTFILES: "YES"
-    INSTALL_ZSH_DOTFILES: "YES"
+- import_playbook: ./03_student_infrastructure/_main_stage_00.yml
 
-    INSTALL_PACKAGES_BASICS: "YES"
-    INSTALL_PACKAGES_FIREWALLS: "YES"
-    #
-    INSTALL_PACKAGES_DOCKER: "YES"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
-    #
-    INSTALL_PACKAGES_UTILS_JSON: "YES"
-    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
 
-    INSTALL_TAILSCALE: "NO"
+- import_playbook: ./03_student_infrastructure/_main_stage_01.yml
 
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
-      - ip: "all"
-        port: 3000
-        protocol: "tcp"
-      - ip: "all"
-        port: 2222
-        protocol: "tcp"
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### CROSS-TIER FINALIZE - student SSH-cycle glue (runs LAST)  #### ####
+#### #### depends on the INSTALL_GITEA gitea server being up        #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./03_student_infrastructure/_main.yml
+- import_playbook: ./03_student_infrastructure/stage_01-vm_configure/student_gitea_client_01.yml

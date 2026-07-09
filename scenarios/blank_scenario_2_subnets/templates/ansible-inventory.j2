@@ -7,18 +7,42 @@ all:
         r42_admin:
           hosts:
             r42.bs2-admin-wazuh:
+            r42.bs2-admin-misp:
+            r42.bs2-admin-gitea:
+            r42.bs2-admin-mattermost:
+            r42.bs2-admin-nextcloud:
+            r42.bs2-admin-rocketchat:
             r42.bs2-admin-deployer-api-gateway:
             r42.bs2-admin-deployer-api-backend:
             r42.bs2-admin-deployer-ui:
 
-        r42_admin_wazuh_clients:
-          hosts:
-            r42.bs2-admin-deployer-api-gateway:
-            r42.bs2-admin-deployer-api-backend:
-            r42.bs2-admin-deployer-ui:
+        ####
 
         r42_blank_group:
           hosts:
+            r42.bs2-team-143-01:
+            r42.bs2-team-143-02:
+            r42.bs2-team-144-01:
+            r42.bs2-team-144-02:
+
+        ####
+
+        # All potential wazuh-agent clients (every non-server VM in the scenario).
+        # This static group is the POTENTIAL set. At deploy time, the runtime
+        # group r42_blank_scenario_2_subnets_wazuh_clients_active is built by
+        # _build_wazuh_clients_active_group.yml based on INSTALL_<flag> values
+        # (admin-misp is added only when INSTALL_MISP=YES). The wazuh-agent
+        # finalize play targets the runtime active group, not this static set.
+        r42_blank_scenario_2_subnets_wazuh_clients:
+          hosts:
+            r42.bs2-admin-misp:
+            r42.bs2-admin-gitea:
+            r42.bs2-admin-mattermost:
+            r42.bs2-admin-nextcloud:
+            r42.bs2-admin-rocketchat:
+            r42.bs2-admin-deployer-api-gateway:
+            r42.bs2-admin-deployer-api-backend:
+            r42.bs2-admin-deployer-ui:
             r42.bs2-team-143-01:
             r42.bs2-team-143-02:
             r42.bs2-team-144-01:

@@ -1,0 +1,29 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### misp_lab - 02_admin_infrastructure - stage_00 - admin group #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Optional admin-wazuh VM gated by INSTALL_WAZUH (default NO per manifest/feature_flags.yml).
+#
+#   - admin-wazuh (1187, 192.168.142.187, vmbr142) : Wazuh SIEM server
+#     (gated INSTALL_WAZUH, default NO)
+#
+# No admin-misp here : MISP IS the workload, deployed on admin-misp-standalone
+# (vm_id 1180, IP 192.168.142.180) via tier 03_misp_lab_infrastructure/.
+#
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "admin-wazuh"
+    global_vm_ssh_name:    "r42.admin-wazuh"
+    global_vm_id:          1187
+    global_vm_description: "misp_lab - Wazuh SIEM server (optional)"
+    global_vm_tag_name:    "misp-lab"
+    global_vm_ci_ip:       "192.168.142.187"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

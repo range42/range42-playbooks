@@ -1,19 +1,22 @@
 {
   "scenario": "gitea_lab",
   "version": 1,
+  "description": "Two-tier scenario delivering the Gitea docker-compose stack on admin-gitea-standalone (VMID 1183, IP 192.168.142.183, vmbr142) via the shared bundle bundles/admin/software.install.gitea/, against the catalog element range42-catalog/03_container_layer/docker/admin/gitea/. Gitea is modeled as an admin-tier service gated by INSTALL_GITEA (default YES - gitea_lab is the Gitea showcase scenario). The student-gitea-client-01 VM (VMID 1184, IP 192.168.142.184, vmbr142) is an Ubuntu LTS client running the end-to-end SSH-cycle validation against the Gitea server. Template VMID 9232 (template-vm-medium-02-8g-64g, 2cpu/8gb/64gb) is built by this scenario's 01_templates-bootstrap/ (idempotent : skipped if already present from another scenario such as blank_scenario_2_subnets, demo_lab, misp_lab, nextcloud_lab, or mattermost_lab).",
   "vms": [
     {
       "vm_id": 1183,
       "vm_name": "admin-gitea-standalone",
       "ip": "192.168.142.183",
-      "role": "gitea-lab",
+      "role": "admin",
+      "group": "admin",
       "bridge": "vmbr142"
     },
     {
       "vm_id": 1184,
       "vm_name": "student-gitea-client-01",
       "ip": "192.168.142.184",
-      "role": "gitea-lab",
+      "role": "student",
+      "group": "student",
       "bridge": "vmbr142"
     }
   ],

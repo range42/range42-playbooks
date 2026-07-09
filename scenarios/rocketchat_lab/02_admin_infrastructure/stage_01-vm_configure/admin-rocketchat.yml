@@ -1,0 +1,17 @@
+##
+## admin-rocketchat - Rocket.Chat docker-compose stack on r42.admin-rocketchat-standalone
+##
+## Delegates to the shared bundle which provides the full pipeline (catalog .env
+## seed + Docker baseline + firewall 22/3000 + docker compose up of the
+## rocketchat stack from range42-catalog).
+##
+## Gated by INSTALL_ROCKETCHAT (default YES per rocketchat_lab feature_flags.yml -
+## this is the Rocket.Chat showcase scenario ; general scenarios that wire this
+## wrapper default NO).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.rocketchat/main.yml"
+  when: INSTALL_ROCKETCHAT | default("YES") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.admin-rocketchat-standalone"
+    global_vm_ci_ip:    "192.168.142.185"

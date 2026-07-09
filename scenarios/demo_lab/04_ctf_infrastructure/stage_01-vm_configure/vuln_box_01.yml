@@ -1,0 +1,42 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### vuln-box-01 - per-host CTF imports + firewall agregation  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+- name: configure firewall - r42.vuln-box-01 (aggregated from imported CTF bundles)
+  become: true
+  hosts: r42.vuln-box-01
+  roles:
+    - software.configure.firewalls
+  vars:
+    # TODO derive from each bundle BUNDLE_PORTS_TCP once the contract is implemented
+    firewall_rules:
+      - { ip: "all", port: 22,   protocol: "tcp" }
+      - { ip: "all", port: 2218, protocol: "tcp" }   # openssh CVE-2018-15473
+      - { ip: "all", port: 2224, protocol: "tcp" }   # openssh CVE-2024-6387
+      - { ip: "all", port: 2225, protocol: "tcp" }   # erlang-ssh CVE-2025-32433
+      - { ip: "all", port: 8443, protocol: "tcp" }   # openssl CVE-2014-0160 (Heartbleed)
+      - { ip: "all", port: 9443, protocol: "tcp" }   # openssl CVE-2022-0778
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/crypto/openssl/CVE-2014-0160/main.yml"
+  vars:
+    global_vm_ssh_name: "r42.vuln-box-01"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/crypto/openssl/CVE-2022-0778/main.yml"
+  vars:
+    global_vm_ssh_name: "r42.vuln-box-01"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/network/erlang-ssh/CVE-2025-32433/main.yml"
+  vars:
+    global_vm_ssh_name: "r42.vuln-box-01"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/network/openssh/CVE-2018-15473/main.yml"
+  vars:
+    global_vm_ssh_name: "r42.vuln-box-01"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/network/openssh/CVE-2024-6387/main.yml"
+  vars:
+    global_vm_ssh_name: "r42.vuln-box-01"
