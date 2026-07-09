@@ -425,12 +425,14 @@
       become: true
       changed_when: true
 
-    - name: configure Nextcloud richdocuments — public_wopi_url (browser-facing, through nginx TLS proxy)
+    - name: configure Nextcloud richdocuments — activate-config (flushes discovery cache, auto-detects public URL)
+      # richdocuments:activate-config reads the discovery XML (from wopi_url) and derives
+      # public_wopi_url from it. With server_name set on the Collabora container the discovery
+      # XML embeds the correct external URL, so auto-detection sets the right public_wopi_url.
       ansible.builtin.command:
         cmd: >
-          docker compose exec -T nextcloud
-          php occ config:app:set richdocuments public_wopi_url
-          --value "https://{{ ansible_default_ipv4.address }}:9443"
+          docker compose exec -T --user www-data nextcloud
+          php occ richdocuments:activate-config
         chdir: /home/alice/nextcloud
       become: true
       changed_when: true
