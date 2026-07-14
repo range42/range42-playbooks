@@ -9,5 +9,5 @@ Caller vars: `TARGET_GROUP`, `TARGET_USER` (required) ; `WARMUP_INSTALL_ZSH_DOTF
 distinct `WARMUP_` prefix (routed through `_warmup_*` internal vars) so they never self-reference
 the role vars of the same name - which would trigger recursive templating.
 
-> Distinct from the API-driven `bundles/core/linux/ubuntu/install/dot-files/` (which is
-> `hosts: all`) : this one is group-targeted for scenario composition.
+> Group-targeted for scenario composition. The old `hosts: all` API-driven duplicate over the
+> same underlying role was decommissioned.

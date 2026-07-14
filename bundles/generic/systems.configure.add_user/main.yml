@@ -5,8 +5,8 @@
 # Thin bundle: create a user (home + shell + password) on a target group via the
 # catalog role `systems.configure.add_user`.
 #
-# (The existing bundles/core/linux/ubuntu/configure/add-user/ is `hosts: all` and
-#  API-driven ; this one is group-targeted for scenario composition. Same role.)
+# (Group-targeted for scenario composition. The old `hosts: all` API-driven
+#  duplicate over the same role was decommissioned.)
 #
 # REQUIRED caller vars:
 #   TARGET_GROUP     ansible group to target
