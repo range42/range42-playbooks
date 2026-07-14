@@ -1,5 +1,5 @@
 ##
-## bundles/core/proxmox/configure/templates/ubuntu_noble/main.yml
+## bundles/proxmox/template.build.ubuntu_noble/main.yml
 ##
 ## Shared playbook that creates the Ubuntu Noble VM template family on a
 ## Proxmox hypervisor. Idempotent : templates already finalized are left

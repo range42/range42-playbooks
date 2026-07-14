@@ -1,4 +1,4 @@
-# bundles/core/proxmox/configure/templates/ubuntu_noble
+# bundles/proxmox/template.build.ubuntu_noble
 
 Shared playbook that creates the Ubuntu Noble VM template family on a Proxmox
 hypervisor. Lifted from `scenarios/blank_scenario_2_subnets/01_init_proxmox/templates/`
@@ -88,20 +88,20 @@ Re-running the bundle on a hypervisor that already has the templates is safe :
 ```yaml
 - import_playbook: ../../bundles/core/proxmox/configure/templates/_main_download_cloudinit_files.yml
 
-- import_playbook: ../../bundles/core/proxmox/configure/templates/ubuntu_noble/main.yml
+- import_playbook: ../../bundles/proxmox/template.build.ubuntu_noble/main.yml
   vars:
     manifest_path:       "{{ playbook_dir }}/manifest/scenario_vms.json"
-    template_bundle_dir: "{{ playbook_dir }}/../../bundles/core/proxmox/configure/templates/ubuntu_noble"
+    template_bundle_dir: "{{ playbook_dir }}/../../bundles/proxmox/template.build.ubuntu_noble"
 ```
 
 Scenarios that need a subset of the family + a different subnet (e.g. bs2 once
 migrated) override the optional vars :
 
 ```yaml
-- import_playbook: ../../bundles/core/proxmox/configure/templates/ubuntu_noble/main.yml
+- import_playbook: ../../bundles/proxmox/template.build.ubuntu_noble/main.yml
   vars:
     manifest_path:         "{{ playbook_dir }}/manifest/scenario_vms.json"
-    template_bundle_dir:   "{{ playbook_dir }}/../../bundles/core/proxmox/configure/templates/ubuntu_noble"
+    template_bundle_dir:   "{{ playbook_dir }}/../../bundles/proxmox/template.build.ubuntu_noble"
     template_subnet_octet: 140
     templates_whitelist:   [medium-02]    # only the medium-02 template
     apt_proxy_url:         "http://apt-proxy.lan:3142"

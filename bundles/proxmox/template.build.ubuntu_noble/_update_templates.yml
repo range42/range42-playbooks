@@ -1,5 +1,5 @@
 ##
-## bundles/core/proxmox/configure/templates/ubuntu_noble/_update_templates.yml
+## bundles/proxmox/template.build.ubuntu_noble/_update_templates.yml
 ## pre-update + finalize ubuntu_noble templates
 ##
 ## After all templates are created (but BEFORE convert to template), this playbook:
@@ -42,7 +42,7 @@
           Scenario must pass `manifest_path` (path to manifest/scenario_vms.json)
           and `template_bundle_dir` (path to this bundle's ubuntu_noble dir)
           via the `import_playbook vars:` block calling
-          bundles/core/proxmox/configure/templates/ubuntu_noble/main.yml.
+          bundles/proxmox/template.build.ubuntu_noble/main.yml.
 
     #### #### #### debug apt_proxy_url visibility - fully safe vs undefined #### #### ####
 

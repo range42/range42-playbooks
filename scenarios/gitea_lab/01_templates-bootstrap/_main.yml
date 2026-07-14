@@ -15,8 +15,8 @@
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/_main_download_cloudinit_files.yml"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/ubuntu_noble/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/template.build.ubuntu_noble/main.yml"
   vars:
     manifest_path:       "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/scenarios/gitea_lab/manifest/scenario_vms.json"
-    template_bundle_dir: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/ubuntu_noble"
+    template_bundle_dir: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/template.build.ubuntu_noble"
     templates_whitelist: ["medium-02"]

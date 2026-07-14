@@ -1,5 +1,5 @@
 ##
-## bundles/core/proxmox/configure/templates/ubuntu_noble/_apply_apt_proxy.yml
+## bundles/proxmox/template.build.ubuntu_noble/_apply_apt_proxy.yml
 ## apt proxy via cloud-init cicustom (optional)
 ##
 ## Attaches /var/lib/vz/snippets/range42-apt-proxy.yaml as cloud-init vendor-data
