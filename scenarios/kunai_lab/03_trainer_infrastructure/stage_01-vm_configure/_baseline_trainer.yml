@@ -19,7 +19,7 @@
 ##
 
 ## --- disable OS background auto-updates FIRST (before any apt task frees the dpkg lock) ---
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.os_auto_updates/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.configure.os_auto_updates/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_trainer_group"
 
@@ -63,7 +63,7 @@
       no_log: true
 
 ## --- human user `trainer` (keypair to SSH out + sudo NOPASSWD + oh-my-zsh) ---
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.add_user/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.configure.add_user/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_trainer_group"
     TARGET_USER: "trainer"
@@ -71,19 +71,19 @@
     TARGET_SHELL_PATH: "/usr/bin/zsh"
     TARGET_UPDATE_PASSWORD: "always"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.authorized_keys/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.configure.authorized_keys/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_trainer_group"
     TARGET_USER: "trainer"
     AUTHORIZED_KEY: "{{ _kunai_trainer_pubkey }}"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.sudo/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.configure.sudo/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_trainer_group"
     TARGET_USER: "trainer"
     SUDO_NOPASSWD: true
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/software.install.warmup.dot_files/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.configure.dotfiles/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_trainer_group"
     TARGET_USER: "trainer"
@@ -96,7 +96,7 @@
     GITCLONE_KUNAI_TARGET_GROUP: "r42_kunai_lab_trainer_group"
     GITCLONE_KUNAI_OPERATOR_USER: "trainer"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/software.install.kunai_official_workshop/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/software.install.kunai_official_workshop/main.yml"
   vars:
     KUNAI_TARGET_GROUP: "r42_kunai_lab_trainer_group"
     KUNAI_OPERATOR_USER: "trainer"

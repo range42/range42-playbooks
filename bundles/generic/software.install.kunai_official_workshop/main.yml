@@ -1,6 +1,6 @@
 ---
 # ============================================================================
-# bundles/core/software.install.kunai_official_workshop/main.yml
+# bundles/generic/software.install.kunai_official_workshop/main.yml
 # ============================================================================
 # Thin bundle: installs the CIRCL Kunai OFFICIAL workshop toolchain on a target
 # group by invoking the catalog role `software.install.kunai_official_workshop`
@@ -14,7 +14,7 @@
 #   KUNAI_MISP_LOCAL_ENABLE, KUNAI_MISP_URL, KUNAI_MISP_KEY
 #
 # Example call-site:
-#   - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/software.install.kunai_official_workshop/main.yml"
+#   - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/software.install.kunai_official_workshop/main.yml"
 #     vars:
 #       KUNAI_TARGET_GROUP: "r42_kunai_lab_students_group"
 # ============================================================================

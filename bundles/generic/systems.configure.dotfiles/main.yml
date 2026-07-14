@@ -1,6 +1,6 @@
 ---
 # ============================================================================
-# bundles/core/software.install.warmup.dot_files/main.yml
+# bundles/generic/systems.configure.dotfiles/main.yml
 # ============================================================================
 # Thin bundle: deploy the dotfiles (oh-my-zsh + zshrc, sets the login shell to
 # zsh) for a given user on a target group, via the catalog role

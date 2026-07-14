@@ -1,6 +1,6 @@
 ---
 # ============================================================================
-# bundles/core/systems.configure.add_user/main.yml
+# bundles/generic/systems.configure.add_user/main.yml
 # ============================================================================
 # Thin bundle: create a user (home + shell + password) on a target group via the
 # catalog role `systems.configure.add_user`.

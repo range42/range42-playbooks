@@ -14,7 +14,7 @@ lives in the role; this bundle only sets `hosts` + `become` and calls the role.
 ## Example call-site
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/software.install.kunai_official_workshop/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/software.install.kunai_official_workshop/main.yml"
   vars:
     KUNAI_TARGET_GROUP: "r42_kunai_lab_students_group"
 ```

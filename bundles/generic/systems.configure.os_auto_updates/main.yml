@@ -1,6 +1,6 @@
 ---
 # ============================================================================
-# bundles/core/systems.configure.os_auto_updates/main.yml
+# bundles/generic/systems.configure.os_auto_updates/main.yml
 # ============================================================================
 # Thin bundle: disable (or enable) the OS background auto-updater on a target
 # group, via the catalog role `systems.configure.os_auto_updates`.

@@ -1,6 +1,6 @@
 ---
 # ============================================================================
-# bundles/core/systems.configure.ssh_keypair/main.yml
+# bundles/generic/systems.configure.ssh_keypair/main.yml
 # ============================================================================
 # Thin bundle: deploy an SSH keypair into a user's ~/.ssh via the catalog role
 # `systems.configure.ssh_keypair`.

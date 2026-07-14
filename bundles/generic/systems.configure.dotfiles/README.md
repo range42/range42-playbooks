@@ -1,4 +1,4 @@
-# software.install.warmup.dot_files (bundle)
+# systems.configure.dotfiles (bundle)
 
 Thin bundle: invokes the catalog role `software.install.warmup.dot_files` on a target group
 for a given user (oh-my-zsh + zshrc + login shell = zsh). The role is reused as-is
