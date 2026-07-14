@@ -406,15 +406,39 @@
         regexp: '^NC_BASE_URL='
         line: "NC_BASE_URL=https://{{ ansible_default_ipv4.address }}:8443"
 
-    - name: configure Nextcloud .env — Collabora URL (must be reachable from student browsers)
+    - name: configure Nextcloud .env — Collabora URL (same port as Nextcloud, path-based routing)
+      # Collabora is proxied at /browser/, /cool/, /hosting/ on the same nginx port as Nextcloud.
+      # Using the same origin eliminates the need for a second TLS certificate exception in browsers.
       ansible.builtin.lineinfile:
         path: /home/alice/nextcloud/.env
         regexp: '^NC_COLLABORA_URL='
-        line: "NC_COLLABORA_URL=https://{{ ansible_default_ipv4.address }}:9443"
+        line: "NC_COLLABORA_URL=https://{{ ansible_default_ipv4.address }}:8443"
+
+    - name: restart Collabora to pick up patched server_name from .env (NC_HOST_IP)
+      # Collabora starts during stack deploy with the catalog .env (NC_HOST_IP=127.0.0.1).
+      # The .env is patched above with the real VM IP. Collabora must be restarted so that
+      # server_name=<vm_ip>:8443 is embedded in its discovery XML before activate-config runs.
+      # Without this restart, activate-config reads urlsrc=https://127.0.0.1:8443 from the
+      # discovery XML and sets public_wopi_url to 127.0.0.1, which the browser cannot reach.
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate --no-deps collabora
+        chdir: /home/alice/nextcloud
+      become: true
+      changed_when: true
+
+    - name: wait for Collabora discovery endpoint to be ready after restart
+      ansible.builtin.command:
+        cmd: docker exec nextcloud-collabora curl -sf http://localhost:9980/hosting/discovery
+      become: true
+      register: _collabora_ready
+      retries: 12
+      delay: 5
+      until: _collabora_ready.rc == 0
+      changed_when: false
 
     - name: configure Nextcloud richdocuments — internal wopi_url (server-side discovery, no TLS)
       # The post-installation hook already sets wopi_url=http://collabora:9980, but it runs
-      # before the .env patch and may default to localhost:9443 if NC_COLLABORA_URL was unset.
+      # before the .env patch and may default to localhost:8443 if NC_COLLABORA_URL was unset.
       # Idempotently enforce the correct two-URL split here.
       ansible.builtin.command:
         cmd: >
