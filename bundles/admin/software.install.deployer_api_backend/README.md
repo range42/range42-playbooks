@@ -1,4 +1,4 @@
-# bundles/admin/software.install.deployer-api-backend
+# bundles/admin/software.install.deployer_api_backend
 
 Deploys range42-backend-api as a Docker container, following the canonical
 deploy method shipped by the [range42-backend-api repo](../../../range42-backend-api/)
@@ -43,7 +43,7 @@ Kong is parallel/not in the UI->backend path for this POC (kong.yml is empty).
 ## Call-site example
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.deployer-api-backend/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.deployer_api_backend/main.yml"
   vars:
     global_vm_ssh_name: "r42.admin-deployer-api-backend"
     global_vm_ci_ip:    "192.168.142.102"
