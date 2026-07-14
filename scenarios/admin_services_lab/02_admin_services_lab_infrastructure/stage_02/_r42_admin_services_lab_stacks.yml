@@ -462,6 +462,22 @@
       become: true
       changed_when: true
 
+    - name: configure Nextcloud richdocuments — wopi_callback_url (re-assert after activate-config)
+      # activate-config clears wopi_callback_url to empty. When empty, Nextcloud builds the
+      # WOPISrc parameter from OVERWRITECLIURL (https://<vm-ip>:8443), but Collabora's
+      # coolwsd.xml WOPI storage allowlist only contains "nextcloud" (Docker service name).
+      # Collabora rejects any WOPISrc whose host does not match the allowlist with
+      # "Unauthorized WOPI host". Re-assert http://nextcloud so WOPISrc uses the Docker
+      # service name, which is in the allowlist and reachable over the internal bridge network.
+      ansible.builtin.command:
+        cmd: >
+          docker compose exec -T nextcloud
+          php occ config:app:set richdocuments wopi_callback_url
+          --value "http://nextcloud"
+        chdir: /home/alice/nextcloud
+      become: true
+      changed_when: true
+
     - name: regenerate TLS certificate for VM IP (re-run cert-gen with updated .env)
       ansible.builtin.command:
         cmd: docker compose up --force-recreate --no-deps cert-gen
