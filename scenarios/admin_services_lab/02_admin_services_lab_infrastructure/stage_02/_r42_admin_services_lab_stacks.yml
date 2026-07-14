@@ -555,16 +555,17 @@
   tasks:
 
     # ── Mattermost: resolve incoming-webhook URL ────────────────────────────────
-    - name: read Mattermost credentials JSON from container volume
-      ansible.builtin.command:
-        cmd: docker exec mattermost cat /tokens/mattermost-credentials.json
+    # The tokens volume is mounted only in the provisioner container, not in
+    # the mattermost service — read straight from the host volume path instead.
+    - name: read Mattermost credentials JSON from tokens volume (host path)
+      ansible.builtin.slurp:
+        src: /var/lib/docker/volumes/mattermost_mattermost-tokens/_data/mattermost-credentials.json
       register: _mm_creds_raw
-      changed_when: false
 
     - name: derive external Mattermost webhook URL (replace localhost → host IP, http → https)
       ansible.builtin.set_fact:
         _mm_webhook_url: >-
-          {{ (_mm_creds_raw.stdout | from_json).service_specific.incoming_webhook_url
+          {{ (_mm_creds_raw.content | b64decode | from_json).service_specific.incoming_webhook_url
              | regex_replace('^http://localhost', 'https://' + ansible_default_ipv4.address) }}
 
     # ── Rocket.Chat: create incoming webhook integration ────────────────────────
@@ -580,6 +581,21 @@
       register: _rc_login_p4
       no_log: true
 
+    - name: grant admin role message-impersonate permission (required for incoming webhooks)
+      ansible.builtin.uri:
+        url:         "{{ _rc_base }}/api/v1/permissions.update"
+        method:      POST
+        body_format: json
+        body:
+          permissions:
+            - _id:   "message-impersonate"
+              roles: ["admin", "bot"]
+        headers:
+          X-Auth-Token: "{{ _rc_login_p4.json.data.authToken }}"
+          X-User-Id:    "{{ _rc_login_p4.json.data.userId }}"
+        status_code: [200]
+        validate_certs: false
+
     - name: create Rocket.Chat incoming webhook for Gitea events
       ansible.builtin.uri:
         url:         "{{ _rc_base }}/api/v1/integrations.create"
@@ -590,7 +606,7 @@
           name:          "Gitea Events"
           enabled:       true
           channel:       "#general"
-          username:      "gitea"
+          username:      "{{ _rc_user }}"
           scriptEnabled: false
         headers:
           X-Auth-Token: "{{ _rc_login_p4.json.data.authToken }}"
@@ -604,7 +620,24 @@
         _rc_webhook_url: >-
           https://{{ ansible_default_ipv4.address }}:3500/hooks/{{ _rc_wh_resp.json.integration._id }}/{{ _rc_wh_resp.json.integration.token }}
 
-    # ── Gitea: register per-repo outgoing webhooks on hello-range42 ─────────────
+    # ── Gitea: ensure hello-range42 repo exists, then register outgoing webhooks ──
+    - name: create hello-range42 repo in Gitea org (idempotent)
+      ansible.builtin.uri:
+        url:              "{{ _gitea_api }}/orgs/{{ _gitea_org }}/repos"
+        method:           POST
+        url_username:     "{{ _gitea_user }}"
+        url_password:     "{{ _gitea_pass }}"
+        force_basic_auth: true
+        body_format:      json
+        body:
+          name:          "{{ _gitea_repo }}"
+          description:   "Training hello-world repository"
+          private:       false
+          auto_init:     true
+          default_branch: "main"
+        status_code: [201, 409]
+        validate_certs: false
+
     - name: register Gitea → Mattermost webhook on hello-range42
       ansible.builtin.uri:
         url:              "{{ _gitea_api }}/repos/{{ _gitea_org }}/{{ _gitea_repo }}/hooks"
@@ -620,6 +653,7 @@
           config:
             url:          "{{ _mm_webhook_url }}"
             content_type: "json"
+            channel:      "#general"
         status_code: [201]
         validate_certs: false
 
@@ -638,6 +672,7 @@
           config:
             url:          "{{ _rc_webhook_url }}"
             content_type: "json"
+            channel:      "#general"
         status_code: [201]
         validate_certs: false
 
