@@ -5,15 +5,15 @@
 ##   - network.configure.tailscale_client         : tailscale install (INSTALL_TAILSCALE=YES)
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.baseline.with_utils/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.with_utils/main.yml"
   vars:
     target_group: "r42_student_box_group"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.baseline.ssh/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
   vars:
     target_group: "r42_student_box_group"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.configure.tailscale_client/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
   vars:
     target_group: "r42_student_box_group"
     INSTALL_TAILSCALE: "YES"

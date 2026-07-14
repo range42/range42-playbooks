@@ -8,10 +8,10 @@
 ##      all team VMs + optional admin-wazuh / admin-misp.
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/cloud_init_image.download.all/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.all/main.yml"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/template.build.ubuntu_noble/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.ubuntu_noble/main.yml"
   vars:
     manifest_path:       "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/scenarios/kunai_lab/manifest/scenario_vms.json"
-    template_bundle_dir: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/template.build.ubuntu_noble"
+    template_bundle_dir: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.ubuntu_noble"
     templates_whitelist: ["medium-02"]

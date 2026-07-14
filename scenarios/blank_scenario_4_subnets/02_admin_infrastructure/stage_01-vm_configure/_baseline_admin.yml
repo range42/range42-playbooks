@@ -5,15 +5,15 @@
 ##   - network.configure.tailscale_client         : optional tailscale install (gated INSTALL_TAILSCALE, default NO)
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.baseline.default/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.default/main.yml"
   vars:
     target_group: "r42_admin_active"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.baseline.ssh/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
   vars:
     target_group: "r42_admin_active"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.configure.tailscale_client/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
   vars:
     target_group: "r42_admin_active"
     INSTALL_TAILSCALE: "NO"

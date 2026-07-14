@@ -29,7 +29,7 @@ Each play loads the scenario's vault from
 ## Call-site
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.wazuh/main.yml"
   when: INSTALL_WAZUH | default("YES") | upper == "YES"
   vars:
     global_vm_ssh_name: "r42.admin-wazuh"

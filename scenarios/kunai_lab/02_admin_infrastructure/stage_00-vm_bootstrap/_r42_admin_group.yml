@@ -10,7 +10,7 @@
 #     (gated INSTALL_WAZUH, default NO)
 #
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/vm.bootstrap/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
   when: INSTALL_WAZUH | default("NO") | upper == "YES"
   vars:
     global_vm_name:        "admin-wazuh"
@@ -26,7 +26,7 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/vm.bootstrap/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
   when: INSTALL_MISP | default("NO") | upper == "YES"
   vars:
     global_vm_name:        "admin-misp"

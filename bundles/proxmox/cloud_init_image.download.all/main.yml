@@ -12,10 +12,10 @@
 # bundle instead of `.all`.
 # ============================================================================
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/cloud_init_image.download.ubuntu_lts_minimal/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.ubuntu_lts_minimal/main.yml"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/cloud_init_image.download.ubuntu_lts_server/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.ubuntu_lts_server/main.yml"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/cloud_init_image.download.debian/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.debian/main.yml"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/cloud_init_image.download.alpine/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.alpine/main.yml"

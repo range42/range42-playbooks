@@ -9,7 +9,7 @@
 #
 # Example call-site :
 #
-# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.baseline.deployer_backend_api/main.yml"
+# - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.deployer_backend_api/main.yml"
 #   vars:
 #     target_group: "r42_admin"
 # ============================================================================

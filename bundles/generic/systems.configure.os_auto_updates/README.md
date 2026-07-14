@@ -12,7 +12,7 @@ not re-forward it (a role var of the same name would self-reference and trigger 
 ## Example call-site
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.configure.os_auto_updates/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.os_auto_updates/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"
 ```

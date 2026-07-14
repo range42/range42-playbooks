@@ -33,7 +33,7 @@
 # at each layer = no cycle in the reference graph.
 # ============================================================================
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/repo.clone/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/repo.clone/main.yml"
   vars:
     target_group:           "{{ GITCLONE_KUNAI_TARGET_GROUP }}"
     GITCLONE_OPERATOR_USER: "{{ GITCLONE_KUNAI_OPERATOR_USER | default('alice') }}"

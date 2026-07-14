@@ -53,7 +53,7 @@ Matches the convention used by the other admin docker-compose stacks.
 ## Call-site
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.rocketchat/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.rocketchat/main.yml"
   when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
   vars:
     global_vm_ssh_name: "r42.admin-rocketchat-standalone"

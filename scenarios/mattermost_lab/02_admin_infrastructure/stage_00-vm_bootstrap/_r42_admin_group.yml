@@ -12,7 +12,7 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/vm.bootstrap/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
   when: INSTALL_MATTERMOST | default("YES") | upper == "YES"
   vars:
     global_vm_name:        "admin-mattermost-standalone"

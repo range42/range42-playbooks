@@ -18,7 +18,7 @@ Then a second play on the VM's ssh alias :
 ## Call-site example
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/vm.bootstrap/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
   vars:
     global_vm_id:                 1100
     global_vm_name:               "admin-wazuh"
