@@ -427,8 +427,9 @@
       changed_when: true
 
     - name: wait for Collabora discovery endpoint to be ready after restart
+      # Poll from the nextcloud container (same Docker network) — collabora/code has no curl.
       ansible.builtin.command:
-        cmd: docker exec nextcloud-collabora curl -sf http://localhost:9980/hosting/discovery
+        cmd: docker exec nextcloud curl -sf http://collabora:9980/hosting/discovery
       become: true
       register: _collabora_ready
       retries: 12
