@@ -1,21 +1,20 @@
 # ============================================================================
-# bundles/core/network-baseline-kong/main.yml
+# bundles/generic/network.baseline.deployer_backend_api/main.yml
 # ============================================================================
-# Network policy : SSH + Kong gateway proxy (HTTP + HTTPS).
-# Opens 22/tcp + 8000/tcp + 8443/tcp on the target group. Designed for VMs
-# hosting the Kong API gateway (proxy ports). Admin API stays on 127.0.0.1:8001
-# (not exposed by this policy).
+# Network policy : SSH + deployer-backend-api (FastAPI).
+# Opens 22/tcp + 8000/tcp on the target group. Designed for VMs hosting
+# the range42-backend-api service (default API port = 8000).
 #
 # REQUIRED vars : target_group
 #
 # Example call-site :
 #
-# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-kong/main.yml"
+# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.baseline.deployer_backend_api/main.yml"
 #   vars:
 #     target_group: "r42_admin"
 # ============================================================================
 
-- name: network-baseline-kong - configure firewall (ports 22, 8000, 8443)
+- name: network.baseline.deployer_backend_api - configure firewall (ports 22, 8000)
   hosts: "{{ target_group }}"
   become: true
   roles:
@@ -24,4 +23,3 @@
     firewall_rules:
       - { ip: "all", port: 22,   protocol: "tcp" }
       - { ip: "all", port: 8000, protocol: "tcp" }
-      - { ip: "all", port: 8443, protocol: "tcp" }

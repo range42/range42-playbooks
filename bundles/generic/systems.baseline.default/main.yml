@@ -2,7 +2,7 @@
 # bundles/generic/systems.baseline.default/main.yml
 # ============================================================================
 # Group-level baseline : basic packages + dotfiles.
-# Firewall  = bundles/core/network-baseline-*  Tailscale = bundles/core/tailscale-on-group/
+# Firewall  = bundles/generic/network.baseline.*  Tailscale = bundles/generic/network.configure.tailscale_client/
 #
 # REQUIRED : target_group
 #

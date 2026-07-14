@@ -1,5 +1,5 @@
 # ============================================================================
-# bundles/core/network-baseline-deployer-ui/main.yml
+# bundles/generic/network.baseline.deployer_ui/main.yml
 # ============================================================================
 # Network policy : SSH + deployer-ui (Vite/Node).
 # Opens 22/tcp + 3000/tcp on the target group. Designed for VMs hosting
@@ -9,12 +9,12 @@
 #
 # Example call-site :
 #
-# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-deployer-ui/main.yml"
+# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.baseline.deployer_ui/main.yml"
 #   vars:
 #     target_group: "r42_admin"
 # ============================================================================
 
-- name: network-baseline-deployer-ui - configure firewall (ports 22, 3000)
+- name: network.baseline.deployer_ui - configure firewall (ports 22, 3000)
   hosts: "{{ target_group }}"
   become: true
   roles:

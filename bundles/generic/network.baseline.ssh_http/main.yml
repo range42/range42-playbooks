@@ -1,5 +1,5 @@
 # ============================================================================
-# bundles/core/network-baseline-ssh-http/main.yml
+# bundles/generic/network.baseline.ssh_http/main.yml
 # ============================================================================
 # Network policy : SSH + HTTP + HTTPS.
 # Opens 22, 80, 443 on the target group. Standard web-facing VM profile.
@@ -8,12 +8,12 @@
 #
 # Example call-site :
 #
-# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh-http/main.yml"
+# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.baseline.ssh_http/main.yml"
 #   vars:
 #     target_group: "r42_admin"
 # ============================================================================
 
-- name: network-baseline-ssh-http - configure firewall (ports 22, 80, 443)
+- name: network.baseline.ssh_http - configure firewall (ports 22, 80, 443)
   hosts: "{{ target_group }}"
   become: true
   roles:

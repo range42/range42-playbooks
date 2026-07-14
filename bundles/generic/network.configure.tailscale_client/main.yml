@@ -1,5 +1,5 @@
 # ============================================================================
-# bundles/core/tailscale-on-group/main.yml
+# bundles/generic/network.configure.tailscale_client/main.yml
 # ============================================================================
 # Group-level tailscale setup :
 #   - Play 1 : cleanup stale client entries on the wazuh server (so re-joining
@@ -28,7 +28,7 @@
 #
 # Example call-site :
 #
-# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
+# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.configure.tailscale_client/main.yml"
 #   vars:
 #     target_group: "r42_admin"
 #     INSTALL_TAILSCALE: "YES"

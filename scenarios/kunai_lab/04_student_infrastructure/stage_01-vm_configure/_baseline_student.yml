@@ -3,8 +3,8 @@
 ##
 ##   - os_auto_updates               : disable apt-daily + unattended-upgrades FIRST (frees the dpkg lock)
 ##   - systems.baseline.docker_host  : packages + dotfiles (alice) + Docker + docker-compose
-##   - network-baseline-ssh          : firewall opens port 22
-##   - tailscale-on-group            : optional (gated INSTALL_TAILSCALE, default NO)
+##   - network.baseline.ssh         : firewall opens port 22
+##   - network.configure.tailscale_client           : optional (gated INSTALL_TAILSCALE, default NO)
 ##   - compute-creds                 : load the vault, set per-host student + trainer creds (facts)
 ##   - human user `student`          : add_user + authorized_keys (per-VM unique bob_N) + sudo NOPASSWD + oh-my-zsh
 ##   - human user `trainer`          : add_user + sudo NOPASSWD + oh-my-zsh (present here so the trainer can SSH in).
@@ -27,11 +27,11 @@
     BASELINE_INSTALL_UTILS_JSON: "YES"
     BASELINE_INSTALL_UTILS_NETWORK: "YES"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.baseline.ssh/main.yml"
   vars:
     target_group: "r42_kunai_lab_students_group"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.configure.tailscale_client/main.yml"
   vars:
     target_group: "r42_kunai_lab_students_group"
     INSTALL_TAILSCALE: "NO"

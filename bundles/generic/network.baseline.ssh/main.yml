@@ -1,5 +1,5 @@
 # ============================================================================
-# bundles/core/network-baseline-ssh/main.yml
+# bundles/generic/network.baseline.ssh/main.yml
 # ============================================================================
 # Network policy : SSH only.
 # Opens 22/tcp on the target group. Minimum baseline for any managed VM.
@@ -8,12 +8,12 @@
 #
 # Example call-site :
 #
-# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
+# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.baseline.ssh/main.yml"
 #   vars:
 #     target_group: "r42_admin"
 # ============================================================================
 
-- name: network-baseline-ssh - configure firewall (port 22)
+- name: network.baseline.ssh - configure firewall (port 22)
   hosts: "{{ target_group }}"
   become: true
   roles:

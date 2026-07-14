@@ -1,19 +1,19 @@
 ##
 ## Baseline for r42_student_box_group :
 ##   - systems.baseline.with_utils  : packages + dotfiles + utils (net + json)
-##   - network-baseline-ssh        : firewall opens port 22
-##   - tailscale-on-group          : tailscale install (INSTALL_TAILSCALE=YES)
+##   - network.baseline.ssh       : firewall opens port 22
+##   - network.configure.tailscale_client         : tailscale install (INSTALL_TAILSCALE=YES)
 ##
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.baseline.with_utils/main.yml"
   vars:
     target_group: "r42_student_box_group"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.baseline.ssh/main.yml"
   vars:
     target_group: "r42_student_box_group"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/network.configure.tailscale_client/main.yml"
   vars:
     target_group: "r42_student_box_group"
     INSTALL_TAILSCALE: "YES"
