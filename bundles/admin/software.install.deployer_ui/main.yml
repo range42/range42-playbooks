@@ -1,5 +1,5 @@
 # ============================================================================
-# bundles/admin/software.install.deployer-ui/main.yml
+# bundles/admin/software.install.deployer_ui/main.yml
 # ============================================================================
 # Deploys range42-deployer-ui as a Docker container, following the canonical
 # deploy method shipped by the repo (multi-stage Dockerfile + docker-compose
@@ -44,7 +44,7 @@
 #
 # Example call-site (in scenarios/<scenario>/02_admin_infrastructure/stage_01-vm_configure/deployer_ui.yml) :
 #
-# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.deployer-ui/main.yml"
+# - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.deployer_ui/main.yml"
 #   vars:
 #     global_vm_ssh_name: "r42.admin-deployer-ui"
 #     global_vm_ci_ip:    "192.168.142.103"
@@ -135,7 +135,7 @@
       ansible.builtin.copy:
         dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/.env"
         content: |
-          # Managed by range42 / bundles/admin/software.install.deployer-ui
+          # Managed by range42 / bundles/admin/software.install.deployer_ui
           # Host port for the Docker container.
           UI_PORT={{ UI_PORT_RESOLVED }}
         owner: root

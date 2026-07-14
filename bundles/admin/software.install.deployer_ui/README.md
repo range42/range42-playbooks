@@ -1,4 +1,4 @@
-# bundles/admin/software.install.deployer-ui
+# bundles/admin/software.install.deployer_ui
 
 Deploys range42-deployer-ui as a Docker container, following the canonical
 deploy method shipped by the [range42-deployer-ui repo](../../../range42-deployer-ui/)
@@ -31,7 +31,7 @@ The upstream repo ships a multi-stage Dockerfile :
 ## Call-site example
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.deployer-ui/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.deployer_ui/main.yml"
   vars:
     global_vm_ssh_name: "r42.admin-deployer-ui"
     global_vm_ci_ip:    "192.168.142.103"
