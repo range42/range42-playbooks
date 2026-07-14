@@ -10,7 +10,7 @@ Wazuh server stack install bundle - 7 plays on the wazuh server host :
 6. wait for manager API on port 55000 + daemons ready
 7. run wazuh-passwords-tool.sh to set the admin password from the vault
 
-Companion bundle `bundles/admin/software.install.wazuh-agent/` installs the
+Companion bundle `bundles/admin/software.install.wazuh_agent/` installs the
 agent on client hosts and points them at this server.
 
 ## Required vars

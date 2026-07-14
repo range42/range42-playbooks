@@ -1,4 +1,4 @@
-# bundles/admin/software.install.wazuh-agent
+# bundles/admin/software.install.wazuh_agent
 
 Wazuh agent install bundle - 1 play on every host of the wazuh clients group.
 
@@ -21,7 +21,7 @@ key exchange ; no admin password reads from this bundle.
 ## Call-site
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh-agent/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh_agent/main.yml"
   when: INSTALL_WAZUH | default("YES") | upper == "YES"
   vars:
     wazuh_clients_group: "r42_admin_wazuh_clients"

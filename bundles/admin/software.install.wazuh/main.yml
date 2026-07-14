@@ -3,7 +3,7 @@
 # ============================================================================
 # Wazuh server stack install playbook : firewall, indexer, dashboard,
 # manager + filebeat-oss, passwords-tool. Companion to
-# bundles/admin/software.install.wazuh-agent/ which installs the agent on
+# bundles/admin/software.install.wazuh_agent/ which installs the agent on
 # wazuh client hosts.
 #
 # REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
