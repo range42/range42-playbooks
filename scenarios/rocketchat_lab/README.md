@@ -64,7 +64,7 @@ To deploy the VM without Rocket.Chat (bare Docker host) : `-e INSTALL_ROCKETCHAT
 | Path | Purpose |
 |---|---|
 | `01_templates-bootstrap/_main.yml` | Build template 9232 (`medium-02`) via the shared templates bundle. Idempotent. |
-| `02_admin_infrastructure/_main_stage_00.yml` | VM bootstrap (clone 9232 + cloud-init + start + wait-for-SSH) via the core vm-bootstrap bundle, gated INSTALL_ROCKETCHAT. |
+| `02_admin_infrastructure/_main_stage_00.yml` | VM bootstrap (clone 9232 + cloud-init + start + wait-for-SSH) via the core vm.bootstrap bundle, gated INSTALL_ROCKETCHAT. |
 | `02_admin_infrastructure/_main_stage_01.yml` | Build `r42_admin_active` + baseline (Docker, dotfiles, firewall 22) + `admin-rocketchat.yml` thin wrapper -> the rocketchat bundle (firewall 3000 + docker compose up). |
 | `02_admin_infrastructure/stage_01-vm_configure/admin_rocketchat_standalone.devkit/` | install / snapshot / revert helpers for the VM. |
 

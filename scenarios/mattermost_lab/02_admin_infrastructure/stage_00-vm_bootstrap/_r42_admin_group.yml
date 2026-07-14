@@ -6,13 +6,13 @@
 # Per-VM bootstrap of the admin platform VM :
 #   - admin-mattermost-standalone (gated INSTALL_MATTERMOST, default YES) : Mattermost docker-compose host
 #
-# Delegates to the shared core vm-bootstrap bundle (clone template + cloud-init
+# Delegates to the shared core vm.bootstrap bundle (clone template + cloud-init
 # + start + wait-for-SSH), same as blank_scenario_* / demo_lab.
 #
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/vm.bootstrap/main.yml"
   when: INSTALL_MATTERMOST | default("YES") | upper == "YES"
   vars:
     global_vm_name:        "admin-mattermost-standalone"

@@ -1,6 +1,6 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
-# vm-bootstrap - shared per-VM stage_00 playbook
+# vm.bootstrap - shared per-VM stage_00 playbook
 #
 #   clone template -> wait proxmox unlock -> set tag -> set cloudinit -> start VM -> wait openssh + cloudinit
 #
