@@ -535,3 +535,110 @@
         nextcloud_public_ip:           "{{ ansible_default_ipv4.address }}"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: wire Gitea outgoing webhooks to Mattermost and Rocket.Chat
+  hosts: r42_admin_services_lab_group
+  become: true
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  vars:
+    _gitea_api:       "https://localhost:{{ gitea_port | default(3000) }}/api/v1"
+    _gitea_user:      "{{ GITEA_ADMIN_USER      | default('admin') }}"
+    _gitea_pass:      "{{ GITEA_ADMIN_PASS      | default('Admin1234!') }}"
+    _gitea_org:       "{{ GITEA_ORG_NAME        | default('range42-training') }}"
+    _gitea_repo:      "hello-range42"
+    _rc_base:         "https://localhost:3500"
+    _rc_user:         "{{ rocketchat_admin_user | default('admin') }}"
+    _rc_pass:         "{{ rocketchat_admin_pass | default('Admin1234!') }}"
+
+  tasks:
+
+    # ── Mattermost: resolve incoming-webhook URL ────────────────────────────────
+    - name: read Mattermost credentials JSON from container volume
+      ansible.builtin.command:
+        cmd: docker exec mattermost cat /tokens/mattermost-credentials.json
+      register: _mm_creds_raw
+      changed_when: false
+
+    - name: derive external Mattermost webhook URL (replace localhost → host IP, http → https)
+      ansible.builtin.set_fact:
+        _mm_webhook_url: >-
+          {{ (_mm_creds_raw.stdout | from_json).service_specific.incoming_webhook_url
+             | regex_replace('^http://localhost', 'https://' + ansible_default_ipv4.address) }}
+
+    # ── Rocket.Chat: create incoming webhook integration ────────────────────────
+    - name: authenticate to Rocket.Chat REST API
+      ansible.builtin.uri:
+        url:          "{{ _rc_base }}/api/v1/login"
+        method:       POST
+        body_format:  json
+        body:
+          username: "{{ _rc_user }}"
+          password: "{{ _rc_pass }}"
+        validate_certs: false
+      register: _rc_login_p4
+      no_log: true
+
+    - name: create Rocket.Chat incoming webhook for Gitea events
+      ansible.builtin.uri:
+        url:         "{{ _rc_base }}/api/v1/integrations.create"
+        method:      POST
+        body_format: json
+        body:
+          type:          "webhook-incoming"
+          name:          "Gitea Events"
+          enabled:       true
+          channel:       "#general"
+          username:      "gitea"
+          scriptEnabled: false
+        headers:
+          X-Auth-Token: "{{ _rc_login_p4.json.data.authToken }}"
+          X-User-Id:    "{{ _rc_login_p4.json.data.userId }}"
+        status_code: [200]
+        validate_certs: false
+      register: _rc_wh_resp
+
+    - name: derive external Rocket.Chat webhook URL
+      ansible.builtin.set_fact:
+        _rc_webhook_url: >-
+          https://{{ ansible_default_ipv4.address }}:3500/hooks/{{ _rc_wh_resp.json.integration._id }}/{{ _rc_wh_resp.json.integration.token }}
+
+    # ── Gitea: register per-repo outgoing webhooks on hello-range42 ─────────────
+    - name: register Gitea → Mattermost webhook on hello-range42
+      ansible.builtin.uri:
+        url:              "{{ _gitea_api }}/repos/{{ _gitea_org }}/{{ _gitea_repo }}/hooks"
+        method:           POST
+        url_username:     "{{ _gitea_user }}"
+        url_password:     "{{ _gitea_pass }}"
+        force_basic_auth: true
+        body_format:      json
+        body:
+          type:   "slack"
+          active: true
+          events: ["push", "pull_request", "issues", "issue_comment"]
+          config:
+            url:          "{{ _mm_webhook_url }}"
+            content_type: "json"
+        status_code: [201]
+        validate_certs: false
+
+    - name: register Gitea → Rocket.Chat webhook on hello-range42
+      ansible.builtin.uri:
+        url:              "{{ _gitea_api }}/repos/{{ _gitea_org }}/{{ _gitea_repo }}/hooks"
+        method:           POST
+        url_username:     "{{ _gitea_user }}"
+        url_password:     "{{ _gitea_pass }}"
+        force_basic_auth: true
+        body_format:      json
+        body:
+          type:   "slack"
+          active: true
+          events: ["push", "pull_request", "issues", "issue_comment"]
+          config:
+            url:          "{{ _rc_webhook_url }}"
+            content_type: "json"
+        status_code: [201]
+        validate_certs: false
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
