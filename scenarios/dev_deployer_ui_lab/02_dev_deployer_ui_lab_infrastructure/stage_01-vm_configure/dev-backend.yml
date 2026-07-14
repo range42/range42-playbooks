@@ -22,3 +22,7 @@
   vars:
     global_vm_ssh_name: "r42.dev-backend"
     global_vm_ci_ip:    "192.168.142.191"
+    # CORS: this lab's UI is r42.dev-deployer-ui (192.168.142.190), not the
+    # bundle default r42.admin-deployer-ui. Match the origin(s) the operator
+    # browses the UI from (ssh name or IP), else the browser blocks UI->backend.
+    DEPLOYER_UI_CORS_REGEX: '^https?://(r42\.dev-deployer-ui|192\.168\.142\.190)(:\d+)?$'
