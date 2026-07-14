@@ -14,7 +14,7 @@
 ## Gated by INSTALL_MISP (default NO per blank_scenario_2_subnets feature_flags.yml).
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.misp-standalone/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.misp_standalone/main.yml"
   when: INSTALL_MISP | default("NO") | upper == "YES"
   vars:
     global_vm_ssh_name: "r42.bs2-admin-misp"

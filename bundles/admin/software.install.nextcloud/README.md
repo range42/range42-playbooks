@@ -10,7 +10,7 @@ Nextcloud docker-compose stack install bundle - 4 plays :
 The catalog source is `range42-catalog/03_container_layer/docker/admin/nextcloud/`
 (postgres + redis + nextcloud + provisioner `build:` = 4 services).
 
-> Note vs `software.install.misp-standalone` (3 plays) : this bundle adds an
+> Note vs `software.install.misp_standalone` (3 plays) : this bundle adds an
 > explicit firewall play (Play 3) to open 8080. A reusable software bundle owns
 > its own service port so `INSTALL_NEXTCLOUD=YES` works in any scenario - the
 > scenario baseline only opens 22.

@@ -1,4 +1,4 @@
-# bundles/admin/software.install.misp-standalone
+# bundles/admin/software.install.misp_standalone
 
 MISP standalone docker-compose stack install bundle - 3 plays :
 
@@ -45,7 +45,7 @@ Matches the convention used by the other admin docker-compose stacks.
 ## Call-site
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.misp-standalone/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.misp_standalone/main.yml"
   when: INSTALL_MISP | default("NO") | upper == "YES"
   vars:
     global_vm_ssh_name: "r42.admin-misp"

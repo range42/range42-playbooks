@@ -14,7 +14,7 @@ Gitea is a self-hosted git server. It exposes TWO service endpoints :
 - HTTP web UI / API on host port **3000**
 - Git over SSH on host port **2222** (offset from the host sshd on 22)
 
-> Note vs `software.install.misp-standalone` (3 plays) : this bundle adds an
+> Note vs `software.install.misp_standalone` (3 plays) : this bundle adds an
 > explicit firewall play (Play 3) to open 3000 + 2222. A reusable software
 > bundle owns its own service ports so `INSTALL_GITEA=YES` works in any
 > scenario - the scenario baseline only opens 22.

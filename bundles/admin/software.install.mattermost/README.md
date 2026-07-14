@@ -10,7 +10,7 @@ Mattermost docker-compose stack install bundle - 4 plays :
 The catalog source is `range42-catalog/03_container_layer/docker/admin/mattermost/`
 (postgres:16-alpine + mattermost-team-edition + provisioner `build:` = 3 services).
 
-> Note vs `software.install.misp-standalone` (3 plays) : this bundle adds an
+> Note vs `software.install.misp_standalone` (3 plays) : this bundle adds an
 > explicit firewall play (Play 3) to open 8065. A reusable software bundle owns
 > its own service port so `INSTALL_MATTERMOST=YES` works in any scenario - the
 > scenario baseline only opens 22.

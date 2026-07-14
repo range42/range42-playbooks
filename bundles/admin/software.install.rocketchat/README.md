@@ -10,7 +10,7 @@ Rocket.Chat docker-compose stack install bundle - 4 plays :
 The catalog source is `range42-catalog/03_container_layer/docker/admin/rocketchat/`
 (mongodb:6.0 + mongo-init-replica + rocketchat/rocket.chat:latest + provisioner `build:` = 4 services).
 
-> Note vs `software.install.misp-standalone` (3 plays) : this bundle adds an
+> Note vs `software.install.misp_standalone` (3 plays) : this bundle adds an
 > explicit firewall play (Play 3) to open 3000. A reusable software bundle owns
 > its own service port so `INSTALL_ROCKETCHAT=YES` works in any scenario - the
 > scenario baseline only opens 22.
