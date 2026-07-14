@@ -1,11 +1,11 @@
 ##
 ## Baseline for r42_admin_active runtime group (blank_scenario_6_subnets) :
-##   - system-baseline-default     : packages + dotfiles
+##   - systems.baseline.default    : packages + dotfiles
 ##   - network-baseline-ssh        : firewall opens port 22
 ##   - tailscale-on-group          : optional tailscale install (gated INSTALL_TAILSCALE, default NO)
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-default/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.baseline.default/main.yml"
   vars:
     target_group: "r42_admin_active"
 

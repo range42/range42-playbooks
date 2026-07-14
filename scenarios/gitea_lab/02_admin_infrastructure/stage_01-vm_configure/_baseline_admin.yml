@@ -1,6 +1,6 @@
 ##
 ## Baseline for r42_admin_active runtime group (gitea_lab) :
-##   - system-baseline-default     : packages + dotfiles
+##   - systems.baseline.default    : packages + dotfiles
 ##   - network-baseline-ssh        : firewall opens port 22 (the gitea
 ##                                   service ports 3000 + 2222 are opened by the
 ##                                   software.install.gitea bundle itself)
@@ -12,7 +12,7 @@
 ## VM that stage_00 actually created.
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-default/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.baseline.default/main.yml"
   vars:
     target_group: "r42_admin_active"
 

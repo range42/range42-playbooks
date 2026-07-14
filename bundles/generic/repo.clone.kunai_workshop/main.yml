@@ -1,7 +1,7 @@
 # ============================================================================
-# bundles/core/gitclone-kunai-repository/main.yml
+# bundles/generic/repo.clone.kunai_workshop/main.yml
 # ============================================================================
-# Static-URLs wrapper around `bundles/core/gitclone/`. Clones the 5
+# Static-URLs wrapper around `bundles/generic/repo.clone/`. Clones the 5
 # kunai-project ecosystem repositories into <operator_home>/kunai-project/
 # on the target group.
 #
@@ -20,20 +20,20 @@
 #
 # Example call-site :
 #
-#   - import_playbook: ".../bundles/core/gitclone-kunai-repository/main.yml"
+#   - import_playbook: ".../bundles/generic/repo.clone.kunai_workshop/main.yml"
 #     vars:
 #       GITCLONE_KUNAI_TARGET_GROUP: "r42_kunai_lab_students_group"
 #
 # ----------------------------------------------------------------------------
 # Naming convention : the wrapper-facing names use the GITCLONE_KUNAI_* prefix
 # (including TARGET_GROUP) to break the 2-cycle that would arise if both this
-# wrapper AND the inner gitclone bundle used the same `target_group` name.
+# wrapper AND the inner repo.clone bundle used the same `target_group` name.
 # The wrapper's import_playbook vars: maps GITCLONE_KUNAI_* (caller-side)
 # to GITCLONE_* + target_group (inner-bundle-side). Different LHS/RHS names
 # at each layer = no cycle in the reference graph.
 # ============================================================================
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/gitclone/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/repo.clone/main.yml"
   vars:
     target_group:           "{{ GITCLONE_KUNAI_TARGET_GROUP }}"
     GITCLONE_OPERATOR_USER: "{{ GITCLONE_KUNAI_OPERATOR_USER | default('alice') }}"

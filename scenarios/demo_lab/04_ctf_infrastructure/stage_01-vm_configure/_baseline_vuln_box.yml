@@ -6,12 +6,12 @@
 
 ##
 ## Baseline for r42_vuln_box_group :
-##   - system-baseline-docker-host : packages + dotfiles + Docker + docker-compose
+##   - systems.baseline.docker_host : packages + dotfiles + Docker + docker-compose
 ##   - network-baseline-ssh        : firewall opens port 22
 ##   - tailscale-on-group          : optional tailscale install (gated by INSTALL_TAILSCALE)
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-docker-host/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.baseline.docker_host/main.yml"
   vars:
     target_group: "r42_vuln_box_group"
 

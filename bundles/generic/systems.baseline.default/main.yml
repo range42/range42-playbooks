@@ -1,5 +1,5 @@
 # ============================================================================
-# bundles/core/system-baseline-default/main.yml
+# bundles/generic/systems.baseline.default/main.yml
 # ============================================================================
 # Group-level baseline : basic packages + dotfiles.
 # Firewall  = bundles/core/network-baseline-*  Tailscale = bundles/core/tailscale-on-group/
@@ -43,7 +43,7 @@
 # first templated `when:` (typically NTP).
 # ============================================================================
 
-- name: system-baseline-default - install basics packages
+- name: systems.baseline.default - install basics packages
   hosts: "{{ target_group }}"
   become: true
   vars:
@@ -67,7 +67,7 @@
         INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "{{ _baseline_ntp }}"
         SPECIFIC_PACKAGES_CLEANING: "{{ _baseline_cleaning }}"
 
-- name: system-baseline-default - install dot files
+- name: systems.baseline.default - install dot files
   hosts: "{{ target_group }}"
   become: true
   vars:

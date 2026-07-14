@@ -1,6 +1,6 @@
 ##
 ## Baseline for r42_admin_active runtime group (debug_scenario_b) :
-##   - system-baseline-default     : packages + dotfiles (no Docker - the wazuh
+##   - systems.baseline.default    : packages + dotfiles (no Docker - the wazuh
 ##                                   stack uses native OS packages ; docker is
 ##                                   installed per-VM by the misp bundle when
 ##                                   INSTALL_MISP=YES)
@@ -16,7 +16,7 @@
 ## is empty and the imports skip silently (ok=0).
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-default/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.baseline.default/main.yml"
   vars:
     target_group: "r42_admin_active"
 

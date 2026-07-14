@@ -1,17 +1,17 @@
 # ============================================================================
-# bundles/core/system-baseline-docker-host/main.yml
+# bundles/generic/systems.baseline.docker_host/main.yml
 # ============================================================================
 # Baseline profile : adds Docker + docker-compose. For VMs hosting
 # docker-compose stacks (CTF vuln-boxes, docker-driven admin VMs).
 #
-# Delta vs `system-baseline-default` :
+# Delta vs `systems.baseline.default` :
 #   BASELINE_INSTALL_DOCKER          default YES (vs NO)
 #   BASELINE_INSTALL_DOCKER_COMPOSE  default YES (vs NO)
 #   BASELINE_INSTALL_UTILS_NETWORK   default NO  (vs YES)
 #
 # REQUIRED : target_group
 # Caller-facing API + 2-stage indirection rationale : see comment in
-# `system-baseline-default/main.yml` (BASELINE_* prefix is intentional -
+# `systems.baseline.default/main.yml` (BASELINE_* prefix is intentional -
 # allows scenario override while breaking the 2-cycle in the variable graph).
 #
 # Example :
@@ -20,7 +20,7 @@
 #       target_group: "r42_vuln_box_group"
 # ============================================================================
 
-- name: system-baseline-docker-host - install basics packages
+- name: systems.baseline.docker_host - install basics packages
   hosts: "{{ target_group }}"
   become: true
   vars:
@@ -44,7 +44,7 @@
         INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "{{ _baseline_ntp }}"
         SPECIFIC_PACKAGES_CLEANING: "{{ _baseline_cleaning }}"
 
-- name: system-baseline-docker-host - install dot files
+- name: systems.baseline.docker_host - install dot files
   hosts: "{{ target_group }}"
   become: true
   vars:

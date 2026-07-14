@@ -2,7 +2,7 @@
 ## Baseline for r42_kunai_lab_trainer_group (Phase 1B : human sudo user)
 ##
 ##   - os_auto_updates               : disable apt-daily + unattended-upgrades FIRST (frees the dpkg lock)
-##   - system-baseline-docker-host   : packages + dotfiles (alice) + Docker + docker-compose
+##   - systems.baseline.docker_host  : packages + dotfiles (alice) + Docker + docker-compose
 ##   - network-baseline-ssh          : firewall opens port 22
 ##   - tailscale-on-group            : optional (gated INSTALL_TAILSCALE, default NO)
 ##   - compute-creds                 : load the vault, set trainer creds + private-key path (facts)
@@ -11,7 +11,7 @@
 ##                                      trainer-student-access key generated on this VM by
 ##                                      _finalize-trainer_ssh_config.yml ; pushed to students by
 ##                                      _finalize-trainer_student_access.yml)
-##   - gitclone-kunai-repository     : clone the 5 kunai repos into the TRAINER home
+##   - repo.clone.kunai_workshop     : clone the 5 kunai repos into the TRAINER home
 ##   - software.install.kunai_official_workshop : toolchain for the TRAINER (always installed - core of the lab)
 ##
 ## alice stays the DEPLOY user (ansible connection) ; trainer is the human account.
@@ -23,7 +23,7 @@
   vars:
     TARGET_GROUP: "r42_kunai_lab_trainer_group"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-docker-host/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.baseline.docker_host/main.yml"
   vars:
     target_group: "r42_kunai_lab_trainer_group"
     BASELINE_INSTALL_UTILS_JSON: "YES"
@@ -91,7 +91,7 @@
     WARMUP_APPLY_FOR_ROOT: "YES"         # zsh + oh-my-zsh + vimrc for root too
 
 ## --- repos + toolchain, repointed to the TRAINER human user ---
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/gitclone-kunai-repository/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/repo.clone.kunai_workshop/main.yml"
   vars:
     GITCLONE_KUNAI_TARGET_GROUP: "r42_kunai_lab_trainer_group"
     GITCLONE_KUNAI_OPERATOR_USER: "trainer"

@@ -6,7 +6,7 @@
 
 ##
 ## Baseline for r42_dev_deployer_ui_lab_group (static, 3 VMs always-on) :
-##   - system-baseline-docker-host : packages + dotfiles + Docker + docker compose
+##   - systems.baseline.docker_host : packages + dotfiles + Docker + docker compose
 ##   - network-baseline-ssh        : firewall opens port 22 (app ports opened
 ##                                   by their respective bundles in stage_01)
 ##   - tailscale-on-group          : optional tailscale install (gated by INSTALL_TAILSCALE,
@@ -16,7 +16,7 @@
 ## (no _build_active_group needed - the 3 dev VMs are unconditional).
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-docker-host/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/systems.baseline.docker_host/main.yml"
   vars:
     target_group: "r42_dev_deployer_ui_lab_group"
 

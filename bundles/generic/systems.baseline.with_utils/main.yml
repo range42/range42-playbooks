@@ -1,15 +1,15 @@
 # ============================================================================
-# bundles/core/system-baseline-with-utils/main.yml
+# bundles/generic/systems.baseline.with_utils/main.yml
 # ============================================================================
 # Baseline profile : adds UTILS packages (network + json) on top of default.
 # For VMs needing a CLI debug toolkit (ping, dig, curl, jq, ...).
 #
-# Delta vs `system-baseline-default` :
+# Delta vs `systems.baseline.default` :
 #   BASELINE_INSTALL_UTILS_JSON     default YES (vs NO)
 #
 # REQUIRED : target_group
 # Caller-facing API + 2-stage indirection rationale : see comment in
-# `system-baseline-default/main.yml` (BASELINE_* prefix is intentional -
+# `systems.baseline.default/main.yml` (BASELINE_* prefix is intentional -
 # allows scenario override while breaking the 2-cycle in the variable graph).
 #
 # Example :
@@ -18,7 +18,7 @@
 #       target_group: "r42_student_box_group"
 # ============================================================================
 
-- name: system-baseline-with-utils - install basics packages
+- name: systems.baseline.with_utils - install basics packages
   hosts: "{{ target_group }}"
   become: true
   vars:
@@ -42,7 +42,7 @@
         INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "{{ _baseline_ntp }}"
         SPECIFIC_PACKAGES_CLEANING: "{{ _baseline_cleaning }}"
 
-- name: system-baseline-with-utils - install dot files
+- name: systems.baseline.with_utils - install dot files
   hosts: "{{ target_group }}"
   become: true
   vars:

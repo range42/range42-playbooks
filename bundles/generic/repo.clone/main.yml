@@ -1,7 +1,7 @@
 # ============================================================================
-# bundles/core/gitclone/main.yml
+# bundles/generic/repo.clone/main.yml
 # ============================================================================
-# Generic gitclone bundle : clones a caller-provided list of repositories on
+# Generic repo.clone bundle : clones a caller-provided list of repositories on
 # a target group of VMs.
 #
 # REQUIRED caller vars (passed via import_playbook vars:) :
@@ -15,7 +15,7 @@
 #
 # Example call-site :
 #
-#   - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/gitclone/main.yml"
+#   - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/generic/repo.clone/main.yml"
 #     vars:
 #       target_group: "r42_kunai_lab_students_group"
 #       GITCLONE_OPERATOR_USER: "alice"
@@ -26,7 +26,7 @@
 #
 # ----------------------------------------------------------------------------
 
-- name: gitclone - clone repos on {{ target_group }}
+- name: repo.clone - clone repos on {{ target_group }}
   hosts: "{{ target_group }}"
   become: true
   gather_facts: false
@@ -45,7 +45,7 @@
     _gitclone_depth:         "{{ GITCLONE_DEPTH | default(1) }}"
 
   tasks:
-    - name: gitclone - ensure parent directory exists ({{ _gitclone_repos_dir }})
+    - name: repo.clone - ensure parent directory exists ({{ _gitclone_repos_dir }})
       ansible.builtin.file:
         path: "{{ _gitclone_repos_dir }}"
         state: directory
@@ -53,7 +53,7 @@
         group: "{{ _gitclone_operator_user }}"
         mode: "0755"
 
-    - name: gitclone - clone repositories ({{ _gitclone_operator_user }})
+    - name: repo.clone - clone repositories ({{ _gitclone_operator_user }})
       ansible.builtin.git:
         repo: "{{ item.url }}"
         dest: "{{ _gitclone_repos_dir }}/{{ item.name }}"
