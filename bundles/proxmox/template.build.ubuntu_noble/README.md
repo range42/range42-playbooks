@@ -86,7 +86,7 @@ Re-running the bundle on a hypervisor that already has the templates is safe :
 ## Calling pattern (example from `scenarios/demo_lab/main.yml`)
 
 ```yaml
-- import_playbook: ../../bundles/core/proxmox/configure/templates/_main_download_cloudinit_files.yml
+- import_playbook: ../../bundles/proxmox/cloud_init_image.download.all/main.yml
 
 - import_playbook: ../../bundles/proxmox/template.build.ubuntu_noble/main.yml
   vars:

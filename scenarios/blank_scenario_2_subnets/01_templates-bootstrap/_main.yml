@@ -12,7 +12,7 @@
 ## (subsequent runs are no-ops on already-finalized templates).
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/_main_download_cloudinit_files.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/cloud_init_image.download.all/main.yml"
 
 - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/proxmox/template.build.ubuntu_noble/main.yml"
   vars:
