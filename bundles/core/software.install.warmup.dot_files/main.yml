@@ -1,0 +1,32 @@
+---
+# ============================================================================
+# bundles/core/software.install.warmup.dot_files/main.yml
+# ============================================================================
+# Thin bundle: deploy the dotfiles (oh-my-zsh + zshrc, sets the login shell to
+# zsh) for a given user on a target group, via the catalog role
+# `software.install.warmup.dot_files` (reused as-is, parameterized by OPERATOR_USER).
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP     ansible group to target
+#   TARGET_USER      user whose dotfiles are deployed (-> role OPERATOR_USER)
+# OPTIONAL caller vars (public UPPERCASE knobs, routed through _warmup_* internal
+# vars so they never self-reference the role vars of the same name -> no recursive
+# templating ; same pattern as system-baseline-*):
+#   WARMUP_INSTALL_ZSH_DOTFILES (def YES), WARMUP_INSTALL_VIM_DOTFILES (def NO),
+#   WARMUP_APPLY_FOR_ROOT (def NO)
+# ============================================================================
+
+- name: install dotfiles (oh-my-zsh) for a user
+  hosts: "{{ TARGET_GROUP }}"
+  become: true
+  vars:
+    _warmup_zsh_dotfiles: "{{ WARMUP_INSTALL_ZSH_DOTFILES | default('YES') }}"
+    _warmup_vim_dotfiles: "{{ WARMUP_INSTALL_VIM_DOTFILES | default('NO') }}"
+    _warmup_apply_for_root: "{{ WARMUP_APPLY_FOR_ROOT | default('NO') }}"
+  roles:
+    - role: software.install.warmup.dot_files
+      vars:
+        OPERATOR_USER: "{{ TARGET_USER }}"
+        INSTALL_ZSH_DOTFILES: "{{ _warmup_zsh_dotfiles }}"
+        INSTALL_VIM_DOTFILES: "{{ _warmup_vim_dotfiles }}"
+        APPLY_FOR_ROOT: "{{ _warmup_apply_for_root }}"

@@ -1,0 +1,30 @@
+---
+##
+## kunai_lab - push the trainer-student-access pubkey to the students' `trainer` authorized_keys.
+## Cross-tier finalize : runs AFTER all stage_01 (the key is generated on the trainer VM by
+## _finalize-trainer_ssh_config.yml, and the students' `trainer` user exists). ADDITIVE
+## (AUTHORIZED_KEY_EXCLUSIVE: false) - never removes existing keys (alice is a separate account,
+## untouched ; the trainer private key stays ONLY on the trainer VM).
+##
+
+- name: kunai_lab - read the trainer-student-access public key (from the trainer VM)
+  hosts: r42_kunai_lab_trainer_group
+  gather_facts: false
+  become: true
+  tasks:
+    - name: slurp trainer-student-access.pub
+      ansible.builtin.slurp:
+        src: /home/trainer/.ssh/trainer-student-access.pub
+      register: _tsa_pub_raw
+
+    - name: expose the pubkey as a fact
+      ansible.builtin.set_fact:
+        _kunai_trainer_access_pubkey: "{{ _tsa_pub_raw.content | b64decode | trim }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.authorized_keys/main.yml"
+  when: groups['r42_kunai_lab_trainer_group'] | default([]) | length > 0
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_students_group"
+    TARGET_USER: "trainer"
+    AUTHORIZED_KEY: "{{ hostvars[groups['r42_kunai_lab_trainer_group'][0]]._kunai_trainer_access_pubkey }}"
+    AUTHORIZED_KEY_EXCLUSIVE: false

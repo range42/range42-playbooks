@@ -32,6 +32,13 @@
 
 - import_playbook: ./04_student_infrastructure/_main_stage_01.yml
 
+#
+# Phase 1B cross-tier finalizes (MUST mirror main.yml) : trainer->student access + created_users record.
+#
+- import_playbook: ./_finalize-trainer_student_access.yml
+
+- import_playbook: ./_finalize-created_users_record.yml
+
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### BUILD r42_kunai_lab_wazuh_clients_active  #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

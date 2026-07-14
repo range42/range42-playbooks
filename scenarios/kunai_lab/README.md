@@ -2,7 +2,7 @@
 
 Multi-VM training scenario that delivers 6 Ubuntu LTS hosts (1 trainer + 5 students) pre-provisioned with the Docker baseline plus the [kunai-project](https://github.com/kunai-project) ecosystem repositories pre-cloned in the operator home. Designed to run the kunai workshops out of the box.
 
-The 6 VMs are cloned from the project standard medium Ubuntu noble template (VMID 9232 - 2cpu / 8gb RAM / 64gb disk) onto the shared services bridge `vmbr142`. Single in-VM user `alice` on every VM (project convention - matches demo_lab and the blank scenarios). The kunai-project repos are pre-cloned into `/home/alice/kunai-project/` on the trainer and on each student VM.
+The 6 VMs are cloned from the project standard medium Ubuntu noble template (VMID 9232 - 2cpu / 8gb RAM / 64gb disk) onto the shared services bridge `vmbr142`. **User model** : `alice` is the deploy/transport user (ansible connects as alice, unchanged) ; on top, each VM gets a **human sudo account** - `trainer` on the trainer VM, `student` on each student VM (per-VM unique credentials). The kunai-project repos + toolchain are installed in the **human user's** home (`/home/trainer/`, `/home/student/`). See the [User model](#user-model-phase-1b) section.
 
 ## Scope
 
@@ -13,7 +13,8 @@ The 6 VMs are cloned from the project standard medium Ubuntu noble template (VMI
 - Basic utilities : curl, git, jq, vim, network diagnostic tools
 - UFW firewall enabled with port 22 open
 - NTP time sync
-- 5 kunai-project repositories cloned into `/home/alice/kunai-project/` on every VM (trainer + 5 students) :
+- human sudo accounts on every VM : `trainer` (trainer VM) + `student` (each student VM), per-VM unique creds
+- 5 kunai-project repositories cloned into the human user's home (`/home/trainer/kunai-project/` on the trainer, `/home/student/kunai-project/` on each student) :
   - `workshops`
   - `kunai-doc`
   - `kunai-build-docker`
@@ -27,6 +28,25 @@ The 6 VMs are cloned from the project standard medium Ubuntu noble template (VMI
 - Application-level firewall openings (kept closed at scenario time on purpose)
 
 Once kunai_lab is deployed, the trainer walks through the workshops with the students from `r42.admin-trainer-kunai`, and students follow along on their own `r42.student-kunai-NN` VM with the same repo layout.
+
+## User model (Phase 1B)
+
+Three roles, cleanly separated :
+
+- **`alice`** - the DEPLOY user. Ansible connects (SSH transport) as alice on every VM, as during provisioning. Unchanged. Not a workshop account.
+- **`student`** - the human sudo account on each student VM. Same username on all 5 VMs, but **UNIQUE credentials per VM** : a per-VM SSH key (`bob_1..5`, one per VM) + a derived password. Students log in with their key (handed off out-of-band by the trainer) or the password.
+- **`trainer`** - the human sudo account. Present on the trainer VM AND on every student VM (so the trainer can `ssh student-kunai-0X` to reach any student). On the trainer VM a **passphrase-less `trainer-student-access` key** is generated (stays ONLY on the trainer VM) ; its pubkey is authorized on the students' `trainer` account. `~trainer/.ssh/config` maps `student-kunai-01..05` to their IPs.
+
+**Credentials reference** : every created human account + its derived password + the SSH key it uses are recorded at deploy in `<workspace>/secrets/created_users.json`. The keys themselves live under `<workspace>/ssh_keys/student_keys/`.
+
+**Security notes (intentional)** :
+- `student` and `trainer` both have **NOPASSWD sudo** (passwordless root) - intended for a training lab.
+- the `trainer-student-access` private key lives **only on the trainer VM**, never on a student VM - a student (even root on their own VM) cannot use it to hop to other VMs.
+- passwords are DERIVED from the per-VM public key + a secret vault salt : unique per VM, non-predictable. Override at deploy with `-e STUDENT_PASSWORD=...` (common to all students) / `-e TRAINER_PASSWORD=...`.
+
+> Enabling this tier makes the wizard generate the per-student keys, so it needs a workspace **re-init** (not just a redeploy) the first time. A re-init rotates the keys, so re-deploy afterwards.
+
+> If a student VM is **rebuilt** (new SSH host key), the trainer's `~/.ssh/config` uses `StrictHostKeyChecking accept-new`, which accepts unknown hosts but rejects a *changed* key. Clear the stale entry on the trainer VM before reconnecting : `ssh-keygen -R <student-ip>` (e.g. `ssh-keygen -R 192.168.142.105`).
 
 ## Network architecture
 
@@ -56,7 +76,7 @@ No dedicated subnet. The 6 VMs live on `vmbr142`, the shared services bridge. Th
 | student-kunai-04     | 1108  | 192.168.142.108   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
 | student-kunai-05     | 1109  | 192.168.142.109   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
 
-Single in-VM user `alice` on every VM (project convention - matches demo_lab and the blank scenarios). SSH transport user is also `alice` on every VM.
+The "In-VM user" column is the SSH transport / deploy user (`alice` on every VM, project convention). Each VM ALSO has a human sudo account - `trainer` on the trainer VM, `student` on each student VM - created by Phase 1B (see the [User model](#user-model-phase-1b) section).
 
 Source of truth : `manifest/scenario_vms.json`.
 
@@ -66,7 +86,7 @@ For the project-wide view of which VMIDs and IPs are reserved across all scenari
 
 ## kunai-project repositories
 
-The stage_01 software install step clones the 5 repositories below into `/home/<operator_user>/kunai-project/` on each VM (depth 1, force-updated on re-run).
+The stage_01 software install step clones the 5 repositories below into the human user's home (`/home/trainer/kunai-project/` on the trainer, `/home/student/kunai-project/` on each student ; depth 1, force-updated on re-run).
 
 | Repository           | Source                                                  | Purpose                                                        |
 |----------------------|---------------------------------------------------------|----------------------------------------------------------------|
@@ -106,9 +126,15 @@ range42-context delete            # same as delete-vms here (template 9232 is sh
 Once the playbook completes :
 
 ```
-ssh r42.admin-trainer-kunai   # trainer, SSH as alice, repos under /home/alice/kunai-project/
-ssh r42.student-kunai-01      # student 01, SSH as alice, repos under /home/alice/kunai-project/
-# ... and so on for student-kunai-02 .. 05
+# operator (deploy transport) connects as alice :
+ssh r42.admin-trainer-kunai   # trainer VM
+ssh r42.student-kunai-01      # student 01 ... through student-kunai-05
+
+# workshop accounts (passwords + key files -> secrets/created_users.json) :
+#   trainer VM  -> user `trainer` (repos under /home/trainer/kunai-project/)
+#   student VMs -> user `student` (repos under /home/student/kunai-project/)
+# from the trainer VM, the trainer reaches each student directly :
+#   ssh student-kunai-01      # ... through student-kunai-05 (via ~trainer/.ssh/config)
 ```
 
 All 6 VMs reach via ProxyJump through the Proxmox jumper. Each has its own explicit `Host r42.*` entry in `~/.ssh/config_range42-*` (no wildcard pattern).
@@ -133,6 +159,7 @@ All 6 VMs reach via ProxyJump through the Proxmox jumper. Each has its own expli
 | `kunai_lab.delete_vms_only.sh` | Destroys the 6 kunai_lab VMs, preserves the template. |
 | `kunai_lab.delete_all.sh` | Alias of `delete_vms_only.sh` (template 9232 is shared, never owned by kunai_lab). |
 | `kunai_lab.reset.setup.sh` | Convenience : delete the 6 VMs + redeploy in one shot. |
+| `kunai_lab.reset.ssh_keys.sh` | Clear `~/.ssh/known_hosts` entries for every manifest IP after a redeploy reuses the same IPs (fixes REMOTE HOST IDENTIFICATION CHANGED). |
 
 All scripts require `RANGE42_ANSIBLE_ROLES__INVENTORY_DIR` and `RANGE42_VAULT_PASSWORD_FILE` to be exported - set by `range42-context use <codename> kunai_lab`.
 
@@ -150,6 +177,7 @@ kunai_lab/
   kunai_lab.delete_vms_only.sh               VM teardown
   kunai_lab.delete_all.sh                    alias
   kunai_lab.reset.setup.sh                   teardown + deploy
+  kunai_lab.reset.ssh_keys.sh                clear known_hosts for all manifest IPs
   01_templates-bootstrap/                    Ubuntu noble cloud-init image + template 9232
   02_admin_infrastructure/                   scaffold for future Wazuh / MISP (gated off)
   03_trainer_infrastructure/                 trainer VM (admin-trainer-kunai) - stage_00 + stage_01

@@ -1,0 +1,19 @@
+---
+# ============================================================================
+# bundles/core/systems.configure.sudo/main.yml
+# ============================================================================
+# Thin bundle: grant/revoke sudo for a user via the catalog role
+# `systems.configure.sudo`.
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP     ansible group to target
+#   TARGET_USER      user to grant/revoke sudo
+# OPTIONAL:
+#   SUDO_STATE (present|absent), SUDO_NOPASSWD (bool)
+# ============================================================================
+
+- name: configure sudo for a user
+  hosts: "{{ TARGET_GROUP }}"
+  become: true
+  roles:
+    - systems.configure.sudo
