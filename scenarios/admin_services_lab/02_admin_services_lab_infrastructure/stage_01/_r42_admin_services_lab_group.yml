@@ -18,6 +18,10 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
+- import_playbook: ../../../../bundles/core/linux/ubuntu/configure/terminfo/main.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
 - name: install basics packages
   hosts: r42_admin_services_lab_group
   become: true
