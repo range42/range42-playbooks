@@ -608,6 +608,7 @@
           channel:       "#general"
           username:      "{{ _rc_user }}"
           scriptEnabled: false
+          overrideDestinationChannelEnabled: true
         headers:
           X-Auth-Token: "{{ _rc_login_p4.json.data.authToken }}"
           X-User-Id:    "{{ _rc_login_p4.json.data.userId }}"
