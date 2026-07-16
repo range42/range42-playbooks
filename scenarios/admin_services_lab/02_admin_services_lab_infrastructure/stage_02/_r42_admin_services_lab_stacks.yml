@@ -677,4 +677,31 @@
         status_code: [201]
         validate_certs: false
 
+    # ── gitea-registry: notify Rocket.Chat on every package push (issue #172) ──
+    # System-wide hook (fires for all owners/orgs). The registry provisioner
+    # skips this at first boot (GITEA_WEBHOOK_URL empty — Rocket.Chat does not
+    # exist yet in stage_01); wired here once the RC incoming webhook is up.
+    # is_system_webhook selects a SYSTEM hook (fires on package events) —
+    # without it /admin/hooks creates a "default" hook (repo template) that
+    # package events never trigger.
+    - name: register gitea-registry → Rocket.Chat package webhook (system hook)
+      ansible.builtin.uri:
+        url:              "https://localhost:{{ gitea_registry_port | default(3001) }}/api/v1/admin/hooks"
+        method:           POST
+        url_username:     "{{ GITEA_REGISTRY_ADMIN_USER | default('gitea-admin') }}"
+        url_password:     "{{ GITEA_REGISTRY_ADMIN_PASS | default('Admin1234!') }}"
+        force_basic_auth: true
+        body_format:      json
+        body:
+          type:   "slack"
+          active: true
+          events: ["package"]
+          config:
+            url:               "{{ _rc_webhook_url }}"
+            content_type:      "json"
+            channel:           "#general"
+            is_system_webhook: "true"
+        status_code: [201]
+        validate_certs: false
+
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
