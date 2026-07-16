@@ -1,7 +1,7 @@
 {
   "scenario": "misp_lab",
   "version": 1,
-  "description": "Single-VM scenario delivering an Ubuntu LTS host with the Docker baseline (docker, docker compose, zsh, curl, git, jq, vim, network utils) on vmbr142, then deploying the misp-standalone docker-compose stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/ via the shared bundle bundles/admin/software.install.misp-standalone/. MISP IS the workload of this scenario (always deployed, no INSTALL_MISP flag). The lab VM is admin-misp-standalone (VMID 1180, IP 192.168.142.180). Optional admin-wazuh VM (VMID 1187, IP 192.168.142.187, vmbr142, gated by INSTALL_WAZUH, default off) deploys a Wazuh SIEM server + agent on admin-misp-standalone.",
+  "description": "Single-VM scenario delivering an Ubuntu LTS host with the Docker baseline (docker, docker compose, zsh, curl, git, jq, vim, network utils) on vmbr142, then deploying the misp-standalone docker-compose stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/ via the shared bundle bundles/admin/software.install.misp_standalone/. MISP IS the workload of this scenario (always deployed, no INSTALL_MISP flag). The lab VM is admin-misp-standalone (VMID 1180, IP 192.168.142.180). Optional admin-wazuh VM (VMID 1187, IP 192.168.142.187, vmbr142, gated by INSTALL_WAZUH, default off) deploys a Wazuh SIEM server + agent on admin-misp-standalone.",
   "vms": [
     {"vm_id": 1187, "vm_name": "admin-wazuh",            "ip": "192.168.142.187", "role": "admin",    "group": "admin",    "bridge": "vmbr142"},
     {"vm_id": 1180, "vm_name": "admin-misp-standalone",  "ip": "192.168.142.180", "role": "misp-lab", "group": "misp-lab", "bridge": "vmbr142"}

@@ -10,7 +10,7 @@ Mattermost docker-compose stack install bundle - 4 plays :
 The catalog source is `range42-catalog/03_container_layer/docker/admin/mattermost/`
 (postgres:16-alpine + mattermost-team-edition + provisioner `build:` = 3 services).
 
-> Note vs `software.install.misp-standalone` (3 plays) : this bundle adds an
+> Note vs `software.install.misp_standalone` (3 plays) : this bundle adds an
 > explicit firewall play (Play 3) to open 8065. A reusable software bundle owns
 > its own service port so `INSTALL_MATTERMOST=YES` works in any scenario - the
 > scenario baseline only opens 22.
@@ -51,7 +51,7 @@ Matches the convention used by the other admin docker-compose stacks.
 ## Call-site
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.mattermost/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.mattermost/main.yml"
   when: INSTALL_MATTERMOST | default("NO") | upper == "YES"
   vars:
     global_vm_ssh_name: "r42.admin-mattermost-standalone"

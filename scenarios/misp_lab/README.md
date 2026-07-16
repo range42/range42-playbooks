@@ -10,7 +10,7 @@ The lab VM (`admin-misp-standalone`, VMID 1180, IP `192.168.142.180` on
 (VMID 9232 - 2cpu / 8gb RAM / 64gb disk).
 
 **MISP IS the workload** of this scenario - always deployed via the shared
-bundle `bundles/admin/software.install.misp-standalone/`. There is NO
+bundle `bundles/admin/software.install.misp_standalone/`. There is NO
 `INSTALL_MISP` flag : if you don't want MISP, this is not the right scenario
 (use `_init_lab` or a `blank_scenario_*` instead).
 
@@ -101,7 +101,7 @@ misp_lab/
     stage_00-vm_bootstrap/misp_lab_vm.yml
     stage_01-vm_configure/
       _r42_misp_lab_group.yml         basics + dotfiles + firewall (22/80/443)
-      misp-standalone.yml             thin wrapper to bundles/admin/software.install.misp-standalone/
+      misp-standalone.yml             thin wrapper to bundles/admin/software.install.misp_standalone/
   templates/                          scenario-level j2 (inventory, ssh-config, ansible-vars, vault-example)
 ```
 

@@ -68,7 +68,7 @@ To deploy the server VM without Gitea (bare Docker host) : `-e INSTALL_GITEA=NO`
 | Path | Purpose |
 |---|---|
 | `01_templates-bootstrap/_main.yml` | Build template 9232 (`medium-02`) via the shared templates bundle. Idempotent. |
-| `02_admin_infrastructure/_main_stage_00.yml` | Server VM bootstrap (clone 9232 + cloud-init + start + wait-for-SSH) via the core vm-bootstrap bundle, gated INSTALL_GITEA. |
+| `02_admin_infrastructure/_main_stage_00.yml` | Server VM bootstrap (clone 9232 + cloud-init + start + wait-for-SSH) via the core vm.bootstrap bundle, gated INSTALL_GITEA. |
 | `02_admin_infrastructure/_main_stage_01.yml` | Build `r42_admin_active` + baseline (Docker, dotfiles, firewall) + the Gitea install via the gitea bundle (firewall 3000/2222 + docker compose up). |
 | `03_student_infrastructure/_main_stage_00.yml` | Student client VM bootstrap (clone 9232 + cloud-init + start + wait-for-SSH). |
 | `03_student_infrastructure/_main_stage_01.yml` | Student SSH-only baseline (basic packages incl. git, dotfiles, firewall port 22). |

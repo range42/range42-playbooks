@@ -1,0 +1,26 @@
+---
+# ============================================================================
+# bundles/generic/software.install.kunai_official_workshop/main.yml
+# ============================================================================
+# Thin bundle: installs the CIRCL Kunai OFFICIAL workshop toolchain on a target
+# group by invoking the catalog role `software.install.kunai_official_workshop`
+# (range42-catalog/02_ansible_layer/admin/roles/).
+#
+# REQUIRED caller vars:
+#   KUNAI_TARGET_GROUP   ansible group to target (e.g. r42_kunai_lab_students_group)
+#
+# OPTIONAL caller vars (role defaults apply otherwise):
+#   KUNAI_VERSION, KUNAI_ARCH, KUNAI_OPERATOR_USER, KUNAI_PYKUNAI_VERSION,
+#   KUNAI_MISP_LOCAL_ENABLE, KUNAI_MISP_URL, KUNAI_MISP_KEY
+#
+# Example call-site:
+#   - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/software.install.kunai_official_workshop/main.yml"
+#     vars:
+#       KUNAI_TARGET_GROUP: "r42_kunai_lab_students_group"
+# ============================================================================
+
+- name: install kunai official workshop toolchain
+  hosts: "{{ KUNAI_TARGET_GROUP }}"
+  become: true
+  roles:
+    - software.install.kunai_official_workshop

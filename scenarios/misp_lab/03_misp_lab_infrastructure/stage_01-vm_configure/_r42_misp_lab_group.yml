@@ -7,7 +7,7 @@
 ## related tooling and for the operator workflow inside the VM).
 ##
 ## The misp-standalone docker-compose stack deploy is in a sibling file
-## misp-standalone.yml (thin wrapper to bundles/admin/software.install.misp-standalone/).
+## misp-standalone.yml (thin wrapper to bundles/admin/software.install.misp_standalone/).
 ## Imported via 03_misp_lab_infrastructure/_main_stage_01.yml.
 ##
 ## Note : the bundle also installs Docker baseline on its first play, but

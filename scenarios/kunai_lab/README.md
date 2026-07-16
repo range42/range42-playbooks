@@ -145,9 +145,9 @@ All 6 VMs reach via ProxyJump through the Proxmox jumper. Each has its own expli
 |---|---|
 | `01_templates-bootstrap/` | Download Ubuntu noble cloud-init image + create template 9232 (`template-vm-medium-02-8g-64g`). Idempotent : skips if already present. |
 | `02_admin_infrastructure/` | Scaffold for future Wazuh / MISP admin VMs. No VMs deployed by default ; gated via `manifest/feature_flags.yml`. |
-| `03_trainer_infrastructure/stage_00-vm_bootstrap/` | Clone + cloud-init + start + wait-for-SSH for `admin-trainer-kunai` (1104, .104). Delegated to `bundles/core/proxmox/configure/vm-bootstrap/`. |
-| `03_trainer_infrastructure/stage_01-vm_configure/` | Docker baseline + dotfiles + firewall (port 22) + kunai-project repos clone on the trainer. Uses `system-baseline-docker-host` + `network-baseline-ssh` + `tailscale-on-group` (gated off). |
-| `04_student_infrastructure/stage_00-vm_bootstrap/` | Same vm-bootstrap flow for 5 student VMs (1105..1109, .105..109). |
+| `03_trainer_infrastructure/stage_00-vm_bootstrap/` | Clone + cloud-init + start + wait-for-SSH for `admin-trainer-kunai` (1104, .104). Delegated to `bundles/proxmox/vm.bootstrap/`. |
+| `03_trainer_infrastructure/stage_01-vm_configure/` | Docker baseline + dotfiles + firewall (port 22) + kunai-project repos clone on the trainer. Uses `systems.baseline.docker_host` + `network.baseline.ssh` + `network.configure.tailscale_client` (gated off). |
+| `04_student_infrastructure/stage_00-vm_bootstrap/` | Same vm.bootstrap flow for 5 student VMs (1105..1109, .105..109). |
 | `04_student_infrastructure/stage_01-vm_configure/` | Same Docker baseline + dotfiles + firewall + kunai-project repos clone on the 5 students. |
 
 ## Entry points

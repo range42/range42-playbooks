@@ -6,25 +6,25 @@
 
 ##
 ## Baseline for r42_dev_deployer_ui_lab_group (static, 3 VMs always-on) :
-##   - system-baseline-docker-host : packages + dotfiles + Docker + docker compose
-##   - network-baseline-ssh        : firewall opens port 22 (app ports opened
+##   - systems.baseline.docker_host : packages + dotfiles + Docker + docker compose
+##   - network.baseline.ssh       : firewall opens port 22 (app ports opened
 ##                                   by their respective bundles in stage_01)
-##   - tailscale-on-group          : optional tailscale install (gated by INSTALL_TAILSCALE,
+##   - network.configure.tailscale_client         : optional tailscale install (gated by INSTALL_TAILSCALE,
 ##                                   default NO)
 ##
 ## Targets the static r42_dev_deployer_ui_lab_group from templates/ansible-inventory.j2
 ## (no _build_active_group needed - the 3 dev VMs are unconditional).
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-docker-host/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.docker_host/main.yml"
   vars:
     target_group: "r42_dev_deployer_ui_lab_group"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
   vars:
     target_group: "r42_dev_deployer_ui_lab_group"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
   vars:
     target_group: "r42_dev_deployer_ui_lab_group"
     INSTALL_TAILSCALE: "NO"

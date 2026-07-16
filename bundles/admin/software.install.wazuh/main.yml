@@ -3,7 +3,7 @@
 # ============================================================================
 # Wazuh server stack install playbook : firewall, indexer, dashboard,
 # manager + filebeat-oss, passwords-tool. Companion to
-# bundles/admin/software.install.wazuh-agent/ which installs the agent on
+# bundles/admin/software.install.wazuh_agent/ which installs the agent on
 # wazuh client hosts.
 #
 # REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
@@ -18,7 +18,7 @@
 #
 # Example call-site (in scenarios/<scenario>/02_admin_infrastructure/_main.yml) :
 #
-#   - import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh/main.yml"
+#   - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.wazuh/main.yml"
 #     when: INSTALL_WAZUH | default("YES") | upper == "YES"
 #     vars:
 #       global_vm_ssh_name:    "r42.admin-wazuh"

@@ -10,7 +10,7 @@ Wazuh server stack install bundle - 7 plays on the wazuh server host :
 6. wait for manager API on port 55000 + daemons ready
 7. run wazuh-passwords-tool.sh to set the admin password from the vault
 
-Companion bundle `bundles/admin/software.install.wazuh-agent/` installs the
+Companion bundle `bundles/admin/software.install.wazuh_agent/` installs the
 agent on client hosts and points them at this server.
 
 ## Required vars
@@ -29,7 +29,7 @@ Each play loads the scenario's vault from
 ## Call-site
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.wazuh/main.yml"
   when: INSTALL_WAZUH | default("YES") | upper == "YES"
   vars:
     global_vm_ssh_name: "r42.admin-wazuh"

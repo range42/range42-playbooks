@@ -7,7 +7,7 @@
 ## Provisions a single Ubuntu LTS VM (admin-misp-standalone) on vmbr142 from
 ## the project standard medium template (VMID 9232 : 2cpu / 8gb / 64gb) and
 ## deploys the misp-standalone docker-compose stack on it via the shared
-## bundle bundles/admin/software.install.misp-standalone/.
+## bundle bundles/admin/software.install.misp_standalone/.
 ##
 ## MISP IS the workload of this scenario - always deployed (no INSTALL_MISP
 ## flag). The optional admin tier (admin-wazuh) is gated by INSTALL_WAZUH

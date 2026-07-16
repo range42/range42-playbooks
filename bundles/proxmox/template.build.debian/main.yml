@@ -1,0 +1,30 @@
+##
+## bundles/proxmox/template.build.debian/main.yml
+##
+## Shared playbook that creates the Debian VM template family on a Proxmox
+## hypervisor. Idempotent : templates already finalized are left as-is.
+##
+## Debian templates are minimal (no apt-update flow needed unlike ubuntu_noble)
+## so each per-template file creates + immediately converts the VM to a
+## Proxmox template inline. No finalize step.
+##
+## Required vars (passed by the calling scenario via `import_playbook vars:`) :
+##
+##   (none required ; debian templates use hardcoded vm_id + IP from legacy)
+##
+## Optional vars :
+##
+##   templates_whitelist     []    # if empty, install the full set ; else
+##                                 # only the short codes listed :
+##                                 #   debian-nano
+##
+## Vault loading uses `$RANGE42_ACTIVE_CONFIG_DIR/secrets/default_vault.yml`
+## (env var exported by `range42-context use`).
+##
+
+
+# ---- debian template family ----
+
+- import_playbook: ./00-template-vm-debian-nano.yml
+  when: (templates_whitelist | default([])) | length == 0
+        or "debian-nano" in (templates_whitelist | default([]))

@@ -1,9 +1,9 @@
 ##
 ## Baseline for r42_admin_active runtime group (blank_scenario_2_subnets) :
-##   - system-baseline-default     : packages + dotfiles
-##   - network-baseline-ssh        : firewall opens port 22 (wazuh / misp service
+##   - systems.baseline.default    : packages + dotfiles
+##   - network.baseline.ssh       : firewall opens port 22 (wazuh / misp service
 ##                                   ports opened by their respective bundles)
-##   - tailscale-on-group          : optional tailscale install (gated INSTALL_TAILSCALE,
+##   - network.configure.tailscale_client         : optional tailscale install (gated INSTALL_TAILSCALE,
 ##                                   default NO)
 ##
 ## Targets r42_admin_active (built by ../_build_admin_active_group.yml from the
@@ -13,15 +13,15 @@
 ## get it only when their flag is YES.
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-default/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.default/main.yml"
   vars:
     target_group: "r42_admin_active"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
   vars:
     target_group: "r42_admin_active"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
   vars:
     target_group: "r42_admin_active"
     INSTALL_TAILSCALE: "NO"

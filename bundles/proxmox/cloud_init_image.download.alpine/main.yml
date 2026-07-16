@@ -1,0 +1,30 @@
+# ============================================================================
+# bundles/proxmox/cloud_init_image.download.alpine/main.yml
+# ============================================================================
+# Downloads the Alpine 3.21 nocloud cloud-init image onto the Proxmox `local`
+# storage. One of the base images used to build the VM templates.
+# Idempotent : proxmox_controller `storage_download_iso` skips if already present.
+# (Source is a .qcow2 URL ; stored locally as ...-r0.img, as in the original.)
+#
+# hosts: proxmox   REQUIRED env: RANGE42_ACTIVE_CONFIG_DIR (vault load, kept for
+# parity with the other download bundles ; the download itself needs no vault var).
+#
+# Extracted (with the 3 sibling per-image bundles) from the former
+# templates/_main_download_cloudinit_files.yml loop. `cloud_init_image.download.all`
+# composes the 4 ; scenarios import `.all` by default.
+# ============================================================================
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - name: cloud_init_image.download.alpine - download alpine-3.21 nocloud image
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "storage_download_iso"
+        proxmox_storage: "local"
+        iso_file_content_type: "iso"
+        iso_url: "https://dl-cdn.alpinelinux.org/alpine/v3.21/releases/cloud/nocloud_alpine-3.21.0-x86_64-bios-cloudinit-r0.qcow2"
+        iso_file_name: "nocloud_alpine-3.21.0-x86_64-bios-cloudinit-r0.img"

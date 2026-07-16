@@ -2,36 +2,36 @@
 ## Baseline for r42_kunai_lab_students_group (Phase 1B : human sudo users)
 ##
 ##   - os_auto_updates               : disable apt-daily + unattended-upgrades FIRST (frees the dpkg lock)
-##   - system-baseline-docker-host   : packages + dotfiles (alice) + Docker + docker-compose
-##   - network-baseline-ssh          : firewall opens port 22
-##   - tailscale-on-group            : optional (gated INSTALL_TAILSCALE, default NO)
+##   - systems.baseline.docker_host  : packages + dotfiles (alice) + Docker + docker-compose
+##   - network.baseline.ssh         : firewall opens port 22
+##   - network.configure.tailscale_client           : optional (gated INSTALL_TAILSCALE, default NO)
 ##   - compute-creds                 : load the vault, set per-host student + trainer creds (facts)
 ##   - human user `student`          : add_user + authorized_keys (per-VM unique bob_N) + sudo NOPASSWD + oh-my-zsh
 ##   - human user `trainer`          : add_user + sudo NOPASSWD + oh-my-zsh (present here so the trainer can SSH in).
 ##                                     Its authorized_keys (the trainer-student-access pubkey) is added by
 ##                                     _finalize-trainer_student_access.yml (cross-tier, after key gen).
-##   - gitclone-kunai-repository     : clone the 5 kunai repos into the STUDENT home
+##   - repo.clone.kunai_workshop     : clone the 5 kunai repos into the STUDENT home
 ##   - software.install.kunai_official_workshop : toolchain for the STUDENT (always installed - core of the lab)
 ##
 ## alice stays the DEPLOY user (ansible connection) ; student/trainer are the human accounts.
 ##
 
 ## --- disable OS background auto-updates FIRST (before any apt task frees the dpkg lock) ---
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.os_auto_updates/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.os_auto_updates/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/system-baseline-docker-host/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.docker_host/main.yml"
   vars:
     target_group: "r42_kunai_lab_students_group"
     BASELINE_INSTALL_UTILS_JSON: "YES"
     BASELINE_INSTALL_UTILS_NETWORK: "YES"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/network-baseline-ssh/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
   vars:
     target_group: "r42_kunai_lab_students_group"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/tailscale-on-group/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
   vars:
     target_group: "r42_kunai_lab_students_group"
     INSTALL_TAILSCALE: "NO"
@@ -67,7 +67,7 @@
       no_log: true
 
 ## --- human user `student` (per-VM unique key + password, sudo NOPASSWD, oh-my-zsh) ---
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.add_user/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.add_user/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"
     TARGET_USER: "student"
@@ -75,19 +75,19 @@
     TARGET_SHELL_PATH: "/usr/bin/zsh"
     TARGET_UPDATE_PASSWORD: "always"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.authorized_keys/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.authorized_keys/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"
     TARGET_USER: "student"
     AUTHORIZED_KEY: "{{ _kunai_student_pubkey }}"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.sudo/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.sudo/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"
     TARGET_USER: "student"
     SUDO_NOPASSWD: true
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/software.install.warmup.dot_files/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.dotfiles/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"
     TARGET_USER: "student"
@@ -95,7 +95,7 @@
     WARMUP_APPLY_FOR_ROOT: "YES"         # zsh + oh-my-zsh + vimrc for root too (applied once per VM here)
 
 ## --- human user `trainer` on the student VMs (SSH-in from the trainer VM) ---
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.add_user/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.add_user/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"
     TARGET_USER: "trainer"
@@ -103,13 +103,13 @@
     TARGET_SHELL_PATH: "/usr/bin/zsh"
     TARGET_UPDATE_PASSWORD: "always"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.sudo/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.sudo/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"
     TARGET_USER: "trainer"
     SUDO_NOPASSWD: true
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/software.install.warmup.dot_files/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.dotfiles/main.yml"
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"
     TARGET_USER: "trainer"
@@ -118,12 +118,12 @@
 #     _finalize-trainer_student_access.yml (cross-tier), after that key is generated on the trainer VM.
 
 ## --- repos + toolchain, repointed to the STUDENT human user ---
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/gitclone-kunai-repository/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/repo.clone.kunai_workshop/main.yml"
   vars:
     GITCLONE_KUNAI_TARGET_GROUP: "r42_kunai_lab_students_group"
     GITCLONE_KUNAI_OPERATOR_USER: "student"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/software.install.kunai_official_workshop/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/software.install.kunai_official_workshop/main.yml"
   vars:
     KUNAI_TARGET_GROUP: "r42_kunai_lab_students_group"
     KUNAI_OPERATOR_USER: "student"

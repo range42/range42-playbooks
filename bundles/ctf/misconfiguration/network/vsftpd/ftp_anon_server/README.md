@@ -34,7 +34,7 @@ and retrieve files. Not a CVE - a configuration drift.
 ## Call-site example
 
 ```yaml
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/misconfiguration/network/vsftpd/ftp_anon_server/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/ctf/misconfiguration/network/vsftpd/ftp_anon_server/main.yml"
   vars:
     global_vm_ssh_name: "r42.vuln-box-00"
 ```

@@ -28,7 +28,7 @@
 ## Gated by INSTALL_WAZUH (default NO).
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.wazuh-agent/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.wazuh_agent/main.yml"
   when: INSTALL_WAZUH | default("NO") | upper == "YES"
   vars:
     wazuh_clients_group: "r42_debug_scenario_a_wazuh_clients_active"

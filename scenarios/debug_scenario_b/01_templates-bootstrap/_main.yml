@@ -9,13 +9,13 @@
 ##      is requested (admin-wazuh / admin-misp use template 9232).
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/_main_download_cloudinit_files.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.all/main.yml"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/alpine/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.alpine/main.yml"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/ubuntu_noble/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.ubuntu_noble/main.yml"
   when: (INSTALL_WAZUH | default("NO") | upper == "YES") or (INSTALL_MISP | default("NO") | upper == "YES")
   vars:
     manifest_path:       "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/scenarios/debug_scenario_b/manifest/scenario_vms.json"
-    template_bundle_dir: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/templates/ubuntu_noble"
+    template_bundle_dir: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.ubuntu_noble"
     templates_whitelist: ["medium-02"]

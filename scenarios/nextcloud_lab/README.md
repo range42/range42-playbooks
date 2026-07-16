@@ -85,7 +85,7 @@ The bundle does NOT auto-fix this for you - it is an operator decision (see the 
 | Path | Purpose |
 |---|---|
 | `01_templates-bootstrap/_main.yml` | Build template 9232 (`medium-02`) via the shared templates bundle. Idempotent. |
-| `02_admin_infrastructure/_main_stage_00.yml` | VM bootstrap (clone 9232 + cloud-init + start + wait-for-SSH) via the core vm-bootstrap bundle, gated INSTALL_NEXTCLOUD. |
+| `02_admin_infrastructure/_main_stage_00.yml` | VM bootstrap (clone 9232 + cloud-init + start + wait-for-SSH) via the core vm.bootstrap bundle, gated INSTALL_NEXTCLOUD. |
 | `02_admin_infrastructure/_main_stage_01.yml` | Build `r42_admin_active` + baseline (Docker, dotfiles, firewall 22) + `admin-nextcloud.yml` thin wrapper -> the nextcloud bundle (firewall 8080 + docker compose up). |
 | `02_admin_infrastructure/stage_01-vm_configure/admin_nextcloud_standalone.devkit/` | install / snapshot / revert helpers for the VM. |
 

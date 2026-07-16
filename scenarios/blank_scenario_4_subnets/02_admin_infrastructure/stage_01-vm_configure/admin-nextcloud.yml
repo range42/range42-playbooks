@@ -13,7 +13,7 @@
 ## Gated by INSTALL_NEXTCLOUD (default NO per feature_flags.yml).
 ##
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/admin/software.install.nextcloud/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.nextcloud/main.yml"
   when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
   vars:
     global_vm_ssh_name: "r42.bs4-admin-nextcloud"

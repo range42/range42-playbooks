@@ -21,22 +21,22 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/crypto/openssl/CVE-2014-0160/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/ctf/cve/crypto/openssl/CVE-2014-0160/main.yml"
   vars:
     global_vm_ssh_name: "r42.vuln-box-01"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/crypto/openssl/CVE-2022-0778/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/ctf/cve/crypto/openssl/CVE-2022-0778/main.yml"
   vars:
     global_vm_ssh_name: "r42.vuln-box-01"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/network/erlang-ssh/CVE-2025-32433/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/ctf/cve/network/erlang-ssh/CVE-2025-32433/main.yml"
   vars:
     global_vm_ssh_name: "r42.vuln-box-01"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/network/openssh/CVE-2018-15473/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/ctf/cve/network/openssh/CVE-2018-15473/main.yml"
   vars:
     global_vm_ssh_name: "r42.vuln-box-01"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/ctf/cve/network/openssh/CVE-2024-6387/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/ctf/cve/network/openssh/CVE-2024-6387/main.yml"
   vars:
     global_vm_ssh_name: "r42.vuln-box-01"

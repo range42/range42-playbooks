@@ -21,7 +21,7 @@
       ansible.builtin.set_fact:
         _kunai_trainer_access_pubkey: "{{ _tsa_pub_raw.content | b64decode | trim }}"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/systems.configure.authorized_keys/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.authorized_keys/main.yml"
   when: groups['r42_kunai_lab_trainer_group'] | default([]) | length > 0
   vars:
     TARGET_GROUP: "r42_kunai_lab_students_group"

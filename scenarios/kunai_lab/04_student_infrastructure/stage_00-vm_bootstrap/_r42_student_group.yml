@@ -6,12 +6,12 @@
 # 5 VMs : student-kunai-01..05 (1105..1109, 192.168.142.105..109, vmbr142).
 # Cloned from template 9232 (template-vm-medium-02-8g-64g, 2cpu/8gb/64gb).
 #
-# Per-VM provisioning is delegated to the shared vm-bootstrap bundle :
-# bundles/core/proxmox/configure/vm-bootstrap/main.yml
+# Per-VM provisioning is delegated to the shared vm.bootstrap bundle :
+# bundles/proxmox/vm.bootstrap/main.yml
 # (clone template -> wait Proxmox unlock -> set tag -> set cloudinit -> start -> wait openssh + cloudinit)
 #
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
   vars:
     global_vm_name:        "student-kunai-01"
     global_vm_ssh_name:    "r42.student-kunai-01"
@@ -26,7 +26,7 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
   vars:
     global_vm_name:        "student-kunai-02"
     global_vm_ssh_name:    "r42.student-kunai-02"
@@ -41,7 +41,7 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
   vars:
     global_vm_name:        "student-kunai-03"
     global_vm_ssh_name:    "r42.student-kunai-03"
@@ -56,7 +56,7 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
   vars:
     global_vm_name:        "student-kunai-04"
     global_vm_ssh_name:    "r42.student-kunai-04"
@@ -71,7 +71,7 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/bundles/core/proxmox/configure/vm-bootstrap/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
   vars:
     global_vm_name:        "student-kunai-05"
     global_vm_ssh_name:    "r42.student-kunai-05"
