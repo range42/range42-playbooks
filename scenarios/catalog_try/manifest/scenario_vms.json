@@ -6,6 +6,6 @@
     {"vm_id": 1250, "vm_name": "catalog-try-vm-docker", "ip": "192.168.142.250", "role": "catalog-try", "bridge": "vmbr142"}
   ],
   "templates": [
-    {"vm_id": 9221, "vm_name": "template-vm-small-01-4g-32g", "spec": "1cpu/4gb/32gb", "ip": "192.168.142.221", "bridge": "vmbr140"}
+    {"vm_id": 9221, "vm_name": "template-vm-small-01-4g-32g", "spec": "1cpu/4gb/32gb", "ip": "192.168.140.221", "bridge": "vmbr140"}
   ]
 }

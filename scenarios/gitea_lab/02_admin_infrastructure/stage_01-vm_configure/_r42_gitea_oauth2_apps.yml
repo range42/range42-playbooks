@@ -1,0 +1,77 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+####                                                                      ####
+####  DORMANT PLAY - NOT WIRED INTO THE STANDALONE gitea_lab DEPLOY       ####
+####                                                                      ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+##
+## This play is NOT imported by main.yml (nor by _main_stage_01.yml). It is
+## dormant : nothing in the gitea_lab standalone scenario runs it. It is kept
+## here as a starting point for a future cross-service scenario.
+##
+## It references the role `service.configure.gitea_oauth2_app`, which DOES NOT
+## EXIST in any repo yet. The role would have to be authored before this play
+## can do anything ; running it as-is against a populated app list would fail
+## with a "role not found" error.
+##
+## However, `gitea_oauth2_apps_to_register` defaults to `[]`, so the
+## include_role loop has zero iterations. In a standalone gitea_lab context the
+## play is therefore a safe no-op even if someone wired it in by mistake : the
+## missing role is never invoked because the loop never runs.
+##
+## Kept for a future cross-service scenario (e.g. admin_services_lab) that will :
+##   1. author the `service.configure.gitea_oauth2_app` role, and
+##   2. populate `gitea_oauth2_apps_to_register` with real consumer service URLs
+##      (mattermost / rocketchat / nextcloud redirect URIs, etc.).
+##
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+##
+## gitea_lab stage_02 - register OAuth2 applications in Gitea
+##
+## Run this play AFTER all consumer service stacks are up so their redirect
+## URIs are known. For gitea_lab standalone there are no consumers; import
+## this play from a cross-service scenario (e.g. admin_services_lab) and
+## override gitea_oauth2_apps_to_register with actual service URLs.
+##
+## Produces Ansible facts per registered app:
+##   gitea_oauth2_client_id, gitea_oauth2_client_secret
+## (pass these into the consumer service role that follows this play)
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: register OAuth2 apps in Gitea for consumer services
+  hosts: r42_gitea_lab_group
+  become: false
+
+  vars:
+    #
+    # Override in main.yml or ansible-vars.yml with actual service URLs.
+    # Each entry maps to one call of service.configure.gitea_oauth2_app.
+    # Leave empty for a standalone gitea_lab deployment.
+    #
+    # gitea_oauth2_apps_to_register:
+    #   - name: mattermost
+    #     redirect_uri: "http://{{ mattermost_ip }}:8065/oauth/gitea/complete"
+    #   - name: rocketchat
+    #     redirect_uri: "http://{{ rocketchat_ip }}:3000/_oauth/gitea"
+    #   - name: nextcloud
+    #     redirect_uri: "http://{{ nextcloud_ip }}/index.php/apps/sociallogin/custom_oauth2/gitea"
+    gitea_oauth2_apps_to_register: []
+
+    gitea_oauth2_base_url:   "http://localhost:3000"
+    gitea_oauth2_admin_user: "{{ GITEA_ADMIN_USER | default('admin') }}"
+    gitea_oauth2_admin_pass: "{{ GITEA_ADMIN_PASS | default('Admin1234!') }}"
+
+  tasks:
+    - name: register OAuth2 app - {{ item.name }}
+      ansible.builtin.include_role:
+        name: service.configure.gitea_oauth2_app
+      vars:
+        gitea_oauth2_app_name:    "{{ item.name }}"
+        gitea_oauth2_redirect_uri: "{{ item.redirect_uri }}"
+      loop: "{{ gitea_oauth2_apps_to_register }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

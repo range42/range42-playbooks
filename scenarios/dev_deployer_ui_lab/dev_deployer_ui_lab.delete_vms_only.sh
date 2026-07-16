@@ -1,13 +1,15 @@
 #!/bin/bash
 
 ##
-## dev_deployer_ui_lab.delete_vms_only.sh - destroy the dev_deployer_ui_lab VMs, keep templates
+## delete VMs only - scenario VMs (filter by vm_id), keep templates
+## faster redeploy: skip 01_templates-bootstrap (templates already exist)
 ##
-## VM IDs are read from the scenario manifest :
+## VM IDs are read from the scenario manifest:
 ##   manifest/scenario_vms.json
 ##
-## Lifted from misp_lab.delete_vms_only.sh, scoped to the dev_deployer_ui_lab
-## manifest (3 VMs : dev-deployer-ui 1190, dev-backend 1191, dev-kong 1192).
+## Companions:
+##   - dev_deployer_ui_lab.delete_vms_only.sh (this) - VMs only, keep templates
+##   - dev_deployer_ui_lab.delete_all.sh             - VMs + this scenario's templates
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -23,8 +25,8 @@ mapfile -t SCENARIO_VM_IDS  < <(jq -r '.vms[].vm_id' "$MANIFEST")
 mapfile -t INFRASTRUCTURE_IP < <(jq -r '.vms[].ip'   "$MANIFEST")
 ID_REGEX=$(printf '|%s' "${SCENARIO_VM_IDS[@]}" | sed 's/^|//')
 
-echo ":: stopping and deleting dev_deployer_ui_lab VMs (keeping templates)..."
-echo ":: dev_deployer_ui_lab VMs: ${SCENARIO_VM_IDS[*]}"
+echo ":: stopping and deleting scenario VMs (keeping templates)..."
+echo ":: scenario VMs: ${SCENARIO_VM_IDS[*]}"
 echo ""
 
 VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
@@ -43,5 +45,5 @@ done
 
 echo ""
 echo ":: done - templates preserved"
-echo ":: redeploy with: range42-context deploy-vms  (or ./dev_deployer_ui_lab.setup_vms_only.sh)"
+echo ":: redeploy with: range42-context deploy"
 echo ""

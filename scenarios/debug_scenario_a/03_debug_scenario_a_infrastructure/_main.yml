@@ -1,0 +1,19 @@
+---
+##
+## 03 - debug_scenario_a infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the single lab VM for the debug_scenario_a scenario :
+##   - dsa-vm-01 (VMID 8001, IP 192.168.147.250, vmbr147) : Alpine debug VM
+##
+## This tier is split into stage_00 + stage_01 sibling files so the top-level
+## main.yml can interleave them with the admin tier's stages :
+##   stage_00 (across all tiers) -> stage_01 (across all tiers) -> finalize.
+## See main.yml for the global ordering.
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

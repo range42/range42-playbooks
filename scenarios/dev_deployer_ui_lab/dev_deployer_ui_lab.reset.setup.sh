@@ -3,8 +3,6 @@
 ##
 ## reset - delete this scenario's VMs (filter by vm_id from manifest) then re-deploy
 ##
-## Convenience shortcut equivalent to : delete_vms_only.sh + setup.sh.
-##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
@@ -34,6 +32,11 @@ for ip in "${INFRASTRUCTURE_IP[@]}"; do
     ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
 done
 
+##
+## Trailing "$@" propagates any extra args to ansible-playbook.
+##
+
 ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \
 	-l "all" \
-	"./main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set - run: range42-context use <codename> <scenario>}"
+	"./main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set - run: range42-context use <codename> <scenario>}" \
+	"$@"

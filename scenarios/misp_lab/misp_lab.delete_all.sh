@@ -6,13 +6,14 @@
 ## VM IDs and template IDs are read from the scenario manifest:
 ##   manifest/scenario_vms.json
 ##
-## ⚠ WARNING ⚠
+## WARNING
 ##   The medium ubuntu_noble template (VMID 9232) declared in misp_lab's
 ##   manifest is also created and used by every other ubuntu_noble-consuming
-##   scenario on the same Proxmox (demo_lab, blank_scenario_2_subnets,
-##   blank_scenario_4_subnets, blank_scenario_6_subnets, _init_lab, kunai_lab,
-##   dev_deployer_ui_lab). Running this script removes 9232 - those scenarios
-##   will need to re-run their 01_init_proxmox/ to rebuild it before re-deploy.
+##   scenario on the same Proxmox (demo_lab_bundles, kunai_lab_bundles,
+##   blank_scenario_2/4/6_subnets, _init_lab, dev_deployer_ui_lab,
+##   debug_scenario_a/b_bundles). Running this script removes 9232 - those
+##   scenarios will need to re-run their 01_templates-bootstrap/ to rebuild
+##   it before re-deploy.
 ##   Use misp_lab.delete_vms_only.sh instead to keep the template intact.
 ##
 ## Companions:

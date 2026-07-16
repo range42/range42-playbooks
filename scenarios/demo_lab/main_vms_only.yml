@@ -1,13 +1,43 @@
 ---
 ##
-## deploy VMs only — skip template download and creation
-## use after: demo_lab.delete_vms_only.sh
+## demo_lab - main_vms_only playbook
+##
+## Structure : same multi-level pattern as main.yml (skips 01_templates-bootstrap, templates assumed already present).
+##
+## Same global stage discipline as main.yml : ALL tiers stage_00 first, then
+## ALL tiers stage_01, then cross-tier finalize.
 ##
 
-#### skip 01_init_proxmox (templates already exist)
+#### skip 01_templates-bootstrap (templates already exist)
 
-- import_playbook: ./02_admin_infrastructure/_main.yml
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-#- import_playbook: ./03_student_infrastructure/_main.yml
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
-- import_playbook: ./04_ctf_infrastructure/_main.yml
+#- import_playbook: ./03_student_infrastructure/_main_stage_00.yml
+
+- import_playbook: ./04_ctf_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+#- import_playbook: ./03_student_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./04_ctf_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_demo_lab_wazuh_clients_active  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

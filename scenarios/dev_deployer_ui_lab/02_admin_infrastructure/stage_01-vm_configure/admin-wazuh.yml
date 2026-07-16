@@ -1,0 +1,16 @@
+##
+## admin-wazuh - wazuh server stack on r42.admin-wazuh
+##
+## Delegates to the shared bundle which provides the full server pipeline
+## (firewall + indexer + dashboard + manager + filebeat-oss + password
+## rotation). The wazuh-agent install on the client group is a separate
+## group-level finalize step ; see _finalize-baseline-admin_wazuh_client.yml.
+##
+## Gated by INSTALL_WAZUH (default NO per dev_deployer_ui_lab feature_flags.yml).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.wazuh/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.admin-wazuh"
+    global_vm_ci_ip:    "192.168.142.193"

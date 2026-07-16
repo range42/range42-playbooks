@@ -1,13 +1,81 @@
 ---
 ##
-## debug_scenario_a — 1 VM on vmbr147 (minimal debug/dev scenario)
+## debug_scenario_a - main playbook
+##
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
+##
+## Provisions 1 lab VM on vmbr147 (Alpine nano - fast debug iteration).
+## Optional admin tier (gated by feature flags, default NO per
+## manifest/feature_flags.yml) :
+##   - admin-wazuh (INSTALL_WAZUH, default NO) - Wazuh SIEM server
+##   - admin-misp  (INSTALL_MISP,  default NO) - MISP threat intel stack
+##
+## Lab topology :
+##   - dsa-vm-01 (192.168.147.250, VMID 8001, vmbr147) - Alpine debug VM
+##
+## Optional admin tier (192.168.142.0/24 admin band) :
+##   - admin-wazuh (192.168.142.150, VMID 8050, vmbr142)
+##   - admin-misp  (192.168.142.151, VMID 8051, vmbr142)
+##
+## Global stage discipline (mirror of kunai_lab / demo_lab) :
+##   1. 01_templates-bootstrap                          create the shared templates
+##      (medium 9232 only when INSTALL_WAZUH=YES or INSTALL_MISP=YES)
+##   2. ALL tiers stage_00 (vm_bootstrap)               create every VM first
+##   3. ALL tiers stage_01 (vm_configure)               configure every VM after
+##   4. cross-tier finalize (wazuh-agent on dsa-vm-01)  when INSTALL_WAZUH=YES
+##
+## This ordering guarantees that any cross-tier configure step (e.g. wazuh
+## agent install on tier 03 client reaching the wazuh server on tier 02)
+## sees ALL target VMs created AND baselined before firing.
 ##
 
-- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
-# - import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
-# - import_playbook: ./01_init_proxmox/templates/debian/_main_debian.yml
-- import_playbook: ./01_init_proxmox/templates/alpine/_main_alpine.yml
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Templates bootstrap via the shared bundle (canonical Pattern A).
+# Cloud-init source files (always) + alpine-nano template 9903 for dsa-vm-01
+# (always) + ubuntu_noble medium-02 template 9232 only when the admin tier
+# is requested (gating preserved inside _main.yml).
+#
 
-####
+- import_playbook: ./01_templates-bootstrap/_main.yml
 
-- import_playbook: ./02_network_lab/_main.yml
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
+
+- import_playbook: ./03_debug_scenario_a_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./03_debug_scenario_a_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_debug_scenario_a_wazuh_clients_active  ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Build the runtime wazuh-clients active group from INSTALL flags BEFORE the
+# cross-tier finalize runs. Mirror of _build_admin_active_group (Option A).
+#
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# wazuh-agent install on dsa-vm-01 [+ admin-misp if INSTALL_MISP=YES]. Targets
+# r42_debug_scenario_a_wazuh_clients_active (runtime). Runs LAST so the wazuh
+# server (tier 02 stage_01) is reachable AND the agent target VMs (tier 02
+# admin-misp + tier 03 stage_00 + stage_01) are created + baselined. Gated by
+# INSTALL_WAZUH.
+#
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

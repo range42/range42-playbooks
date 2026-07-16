@@ -1,0 +1,26 @@
+##
+## _finalize-baseline-admin_wazuh_client - cross-tier post-setup action
+##
+## Installs the wazuh agent on the blank_scenario_2_subnets wazuh clients
+## group (3 deployer-* + 4 team VMs + admin-misp [if INSTALL_MISP=YES]).
+##
+## Ordering constraints (TWO independent deps - both must be satisfied) :
+##   1. AFTER admin-wazuh.yml (tier 02 stage_01) : the wazuh server must
+##      exist + be reachable so the agents can enroll with the manager.
+##   2. AFTER tier 03 stage_01 : the team VMs targeted by this play must
+##      already be created (stage_00) AND baselined (stage_01).
+##
+## Both constraints satisfied by importing this file at the TOP-LEVEL main.yml
+## as the LAST entry, AFTER all tier _main_stage_01.yml imports.
+##
+## Group-level scope : targets r42_blank_scenario_2_subnets_wazuh_clients_active
+## (runtime group built by _build_wazuh_clients_active_group.yml).
+##
+## Gated by INSTALL_WAZUH (default NO).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.wazuh_agent/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    wazuh_clients_group: "r42_blank_scenario_2_subnets_wazuh_clients_active"
+    global_vm_ci_ip:     "192.168.142.120"

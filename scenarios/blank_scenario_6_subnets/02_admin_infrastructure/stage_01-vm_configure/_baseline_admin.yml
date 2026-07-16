@@ -1,0 +1,25 @@
+##
+## Baseline for r42_admin_active runtime group (blank_scenario_6_subnets) :
+##   - systems.baseline.default    : packages + dotfiles
+##   - network.baseline.ssh       : firewall opens port 22
+##   - network.configure.tailscale_client         : optional tailscale install (gated INSTALL_TAILSCALE, default NO)
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.default/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+    INSTALL_TAILSCALE: "NO"
+    tailscale_hostnames:
+      - "bs6-admin-wazuh"
+      - "bs6-admin-misp"
+      - "bs6-admin-deployer-api-gateway"
+      - "bs6-admin-deployer-api-backend"
+      - "bs6-admin-deployer-ui"

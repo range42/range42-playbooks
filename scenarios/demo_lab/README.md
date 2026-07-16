@@ -1,8 +1,14 @@
 # demo_lab
 
-Default scenario — deploys admin services (wazuh, deployer API/UI) and CTF vulnerable boxes.
+POC clone of demo_lab that imports the wazuh stack from `bundles/wazuh/main.yml`
+instead of the local `02_admin_infrastructure/stage_01/mon_wazuh.yml`. Same VM
+IDs, IPs, and inventory groups as demo_lab - **destroy demo_lab before deploying
+demo_lab to avoid Proxmox collisions on the same hypervisor**.
 
-> **Work in progress** — the deployer UI and backend API are not yet configured on their VMs.
+If this POC works, the next step is to migrate demo_lab itself to use the same
+bundle (and then bs2/bs4/bs6). See `_TODO_bundle_actions.md` at the repo root.
+
+> **Work in progress** - the deployer UI and backend API are not yet configured on their VMs.
 > Docker registry, student infrastructure, and additional services will be added later.
 
 ## Network architecture

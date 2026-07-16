@@ -4,8 +4,8 @@
 #
 # These variables are specific to this scenario. kunai_lab is a 6-VM training
 # scenario delivering Ubuntu LTS hosts pre-provisioned with the Docker baseline
-# plus the kunai-project ecosystem repositories pre-cloned in the operator home
-# (alice on the trainer VM, bob on the 5 student VMs).
+# plus the kunai-project ecosystem repositories. alice = cloud-init/deploy user on all
+# 6 VMs ; the human sudo users (trainer + student) are created per-VM by the scenario.
 #
 # For shared variables -> group_vars/all/vars.yml
 # For secrets -> vault.yml (see vault.yml.example)
@@ -24,14 +24,21 @@ INFRASTRUCTURE_SCENARIO: "kunai_lab"
 context_auto_generate_ssh_keys: "YES"
 context_auto_generate_vm_passwords: "YES"
 
-# number of additional student ssh keys (bob_1 .. bob_N)
-# no student extras for kunai_lab (single in-VM user alice on every VM, project convention)
-student_additionnal_keys_count: 0
+# number of additional student ssh keys (bob_1 .. bob_N) - one per student VM (5).
+# SINGLE-n spelling : MUST match the wizard var (credentials.generate) so it actually
+# governs the generated count (the double-n form is dead config). Used as the per-VM
+# UNIQUE SSH key for the human `student` user (Phase 1B provisioning).
+student_additional_keys_count: 5
 
 
 #### CLOUD-INIT USERNAMES ####
 
 # admin vm user (not secret - password and ssh key are in vault)
 # cloud-init user is alice on all 6 VMs (medium template default, project
-# convention - matches demo_lab and the blank scenarios)
+# convention - matches demo_lab and the blank scenarios). alice = DEPLOY user.
 default_admin_vm_ci_user: "alice"
+
+# trainee tier : drives the wizard to generate the bob base key + trainee password + bob_1..N.
+# Consumed by the scenario user-provisioning bundles to create the HUMAN sudo users `student`
+# (per-VM unique key) + `trainer` (Phase 1B). alice stays the deploy user.
+default_trainee_vm_ci_user: "bob"

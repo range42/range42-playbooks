@@ -1,0 +1,18 @@
+---
+##
+## 01 - template bootstrap
+##
+## Idempotent template provisioning :
+##   1. Download the cloud-init source files.
+##   2. Build the Ubuntu Noble templates needed by this scenario :
+##      - small-01 (VMID 9221) : team VMs + deployer trio (always)
+##      - medium-02 (VMID 9232) : optional admin-wazuh / admin-misp (gated)
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.all/main.yml"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.ubuntu_noble/main.yml"
+  vars:
+    manifest_path:       "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/scenarios/blank_scenario_4_subnets/manifest/scenario_vms.json"
+    template_bundle_dir: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.ubuntu_noble"
+    templates_whitelist: ["small-01", "medium-02"]

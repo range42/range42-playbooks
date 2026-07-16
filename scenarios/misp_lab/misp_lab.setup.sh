@@ -1,13 +1,19 @@
 #!/bin/bash
 
 ##
-## misp_lab.setup.sh - run the main playbook (template + VM + Docker baseline)
+## misp_lab.setup.sh - run the main playbook (template + 1 lab VM + MISP stack [+ optional admin tier])
 ##
-## Same shape as catalog_try.setup.sh / demo_lab.setup.sh. Requires
-## RANGE42_ANSIBLE_ROLES__INVENTORY_DIR and RANGE42_VAULT_PASSWORD_FILE to be
-## exported - set by `range42-context use <codename> misp_lab`.
+## Same shape as kunai_lab.setup.sh (bundle-driven scenario wrappers).
+## Requires RANGE42_ANSIBLE_ROLES__INVENTORY_DIR and RANGE42_VAULT_PASSWORD_FILE
+## to be exported - set by `range42-context use <codename> misp_lab`.
+##
+## Trailing "$@" propagates any extra args to ansible-playbook.
+## Typical use : feature flag overrides from the TUI, e.g.
+##   ./misp_lab.setup.sh -e INSTALL_WAZUH=YES
+## See ./manifest/feature_flags.yml for the list of toggleable features.
 ##
 
 ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \
 	-l "all" \
-	"./main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set - run: range42-context use <codename> <scenario>}"
+	"./main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set - run: range42-context use <codename> <scenario>}" \
+	"$@"

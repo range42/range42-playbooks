@@ -1,0 +1,20 @@
+---
+##
+## 02 - admin infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the admin platform VMs :
+##   - admin-wazuh (VMID 2120, IP 192.168.142.120) : Wazuh SIEM server
+##     (gated by INSTALL_WAZUH, default NO per manifest/feature_flags.yml).
+##   - admin-misp  (VMID 2124, IP 192.168.142.124) : MISP threat intel stack
+##     (gated by INSTALL_MISP, default NO).
+##   - admin-deployer-api-gateway (VMID 2121, IP 192.168.142.121) : always created
+##   - admin-deployer-api-backend (VMID 2122, IP 192.168.142.122) : always created
+##   - admin-deployer-ui          (VMID 2123, IP 192.168.142.123) : always created
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

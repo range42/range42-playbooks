@@ -1,0 +1,168 @@
+# ============================================================================
+# bundles/admin/software.install.kong/main.yml
+# ============================================================================
+# Kong API Gateway (community edition) POC install playbook.
+#
+# POC scope : DB-less mode (no Postgres / Cassandra dependency). All gateway
+# state lives in a declarative file `/etc/kong/kong.yml`. Suitable for a
+# proof-of-concept where the gateway configuration is static or managed via
+# git rather than via the admin API at runtime.
+#
+# Plays :
+#   1. Configure firewall on the kong host (ports 22 / 8000 / 8443)
+#   2. Add Kong APT repo + install the `kong` package
+#   3. Drop /etc/kong/kong.conf (DB-less mode, listen on 0.0.0.0:8000+8443,
+#      admin API restricted to 127.0.0.1:8001)
+#   4. Drop minimal /etc/kong/kong.yml declarative config (empty by default)
+#   5. Enable + start the systemd unit
+#   6. Probe /status on the admin API to confirm kong is up
+#
+# REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
+#   - global_vm_ssh_name : inventory hostname for the kong host
+#                          (e.g. "r42.admin-deployer-api-gateway")
+#   - global_vm_ci_ip    : IP of the kong host (used only for documentation /
+#                          future plugin templating ; not consumed by the
+#                          POC plays themselves)
+#
+# Upgrade path to production (out of scope for this POC) :
+#   - Provision a Postgres database for kong
+#   - Switch database/declarative_config in kong.conf
+#   - Run `kong migrations bootstrap` once
+#   - Use a separate bundle `software.install.kong-postgres` if/when needed
+#
+# Example call-site (in scenarios/<scenario>/02_admin_infrastructure/stage_01-vm_configure/<host>.yml) :
+#
+# - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.kong/main.yml"
+#   vars:
+#     global_vm_ssh_name: "r42.admin-deployer-api-gateway"
+#     global_vm_ci_ip:    "192.168.142.101"
+# ============================================================================
+
+- name: install kong - firewall (open proxy ports 8000 + 8443, keep admin API localhost-only)
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  roles:
+    - software.configure.firewalls
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+      - ip: "all"
+        port: 8000
+        protocol: "tcp"
+      - ip: "all"
+        port: 8443
+        protocol: "tcp"
+
+# ============================================================================
+
+- name: install kong - APT repo + package
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  tasks:
+    - name: Add Kong APT repo via official setup script (idempotent)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        curl -1sLf "https://packages.konghq.com/public/gateway-39/setup.deb.sh" | bash
+      args:
+        creates: /etc/apt/sources.list.d/konghq-gateway-39.list
+        executable: /bin/bash
+
+    - name: Install kong package
+      ansible.builtin.apt:
+        name: kong
+        state: present
+        update_cache: true
+
+# ============================================================================
+
+- name: install kong - configure DB-less mode + minimal declarative config
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  tasks:
+    - name: Write /etc/kong/kong.conf (DB-less mode)
+      ansible.builtin.copy:
+        dest: /etc/kong/kong.conf
+        content: |
+          # Kong configuration - DB-less mode (POC).
+          # Managed by range42 / bundles/admin/software.install.kong.
+          database = off
+          declarative_config = /etc/kong/kong.yml
+          proxy_listen = 0.0.0.0:8000, 0.0.0.0:8443 ssl
+          admin_listen = 127.0.0.1:8001
+          log_level = info
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart kong
+
+    - name: Write /etc/kong/kong.yml (minimal declarative config)
+      ansible.builtin.copy:
+        dest: /etc/kong/kong.yml
+        content: |
+          _format_version: "3.0"
+          _transform: true
+
+          # POC : empty declarative config.
+          # Populate `services:`, `routes:`, `plugins:`, `consumers:` blocks as needed.
+          services: []
+          routes: []
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart kong
+
+    - name: Ensure kong.service drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/system/kong.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Drop-in - clear unix sockets before nginx start (fixes EADDRINUSE after an unclean shutdown)
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/kong.service.d/override.conf
+        content: |
+          [Service]
+          ExecStartPre=-/usr/bin/find /usr/local/kong/sockets -type s -delete
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart kong
+
+    - name: Enable + start kong
+      ansible.builtin.systemd:
+        name: kong
+        enabled: true
+        state: started
+        daemon_reload: true
+
+  handlers:
+    - name: restart kong
+      ansible.builtin.systemd:
+        name: kong
+        state: restarted
+
+# ============================================================================
+
+- name: install kong - verify gateway is up
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  tasks:
+    - name: Wait for kong admin API to be reachable on 127.0.0.1:8001
+      ansible.builtin.wait_for:
+        port: 8001
+        host: 127.0.0.1
+        delay: 3
+        timeout: 60
+
+    - name: Probe /status endpoint on the admin API
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8001/status
+        return_content: true
+        status_code: 200
+      register: kong_status
+
+    - name: Show kong /status JSON output
+      ansible.builtin.debug:
+        var: kong_status.json

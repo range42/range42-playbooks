@@ -2,109 +2,76 @@
 ##
 ## dev_deployer_ui_lab - main playbook
 ##
-## Provisions 3 Ubuntu LTS VMs on vmbr142 from the project standard medium
-## template (VMID 9232 : 2cpu / 8gb / 64gb). Each VM is delivered with the
-## Docker baseline pre-installed (docker, docker compose, zsh dotfiles, basic
-## utilities, firewall opening port 22 only).
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
 ##
-## The 3 VMs are intended to host, in a later step, the deployer-ui stack :
-##   - dev-deployer-ui  (192.168.142.190, VMID 1190)   - frontend
-##   - dev-backend      (192.168.142.191, VMID 1191)   - backend API
-##   - dev-kong         (192.168.142.192, VMID 1192)   - Kong API gateway
+## Provisions 3 dev VMs on vmbr142 from the project standard medium template
+## (VMID 9232 : 2cpu / 8gb / 64gb) hosting the deployer-ui platform stack via
+## bundles : dev-deployer-ui (frontend), dev-backend (api backend), dev-kong
+## (api gateway). Each VM application stack is gated by an INSTALL flag
+## (default YES) so the operator can opt out per-component for dev iteration.
 ##
-## The application stacks themselves are intentionally NOT installed by this
-## scenario - the goal here is to deliver 3 ready-to-use Docker hosts. The
-## actual deployer-ui / backend / kong docker-compose stacks are deployed in
-## a follow-up step (range42-catalog elements or operator manual docker compose).
+## Optional admin VMs gated by feature flags :
+##   - admin-wazuh (INSTALL_WAZUH, default NO)
+##   - admin-misp  (INSTALL_MISP,  default NO)
 ##
-## Mirrors the misp_lab single-VM pattern, extended for 3 VMs :
-##   01_init_proxmox                              : download cloud-init image + create template 9232 (idempotent skip if already present)
-##   02_dev_deployer_ui_lab_infrastructure/stage_00 : 3 VM clones + cloud-init + start + wait-for-SSH (one file per VM)
-##   02_dev_deployer_ui_lab_infrastructure/stage_01 : Docker baseline applied to the group in one pass
+## Topology (single in-VM user alice on every VM, project convention) :
+##   - dev-deployer-ui (192.168.142.190, VMID 1190)  always-on, INSTALL_DEPLOYER_UI gates the app
+##   - dev-backend     (192.168.142.191, VMID 1191)  always-on, INSTALL_DEPLOYER_API_BACKEND gates the app
+##   - dev-kong        (192.168.142.192, VMID 1192)  always-on, INSTALL_KONG gates the app
+##   - admin-wazuh     (192.168.142.193, VMID 1193)  gated by INSTALL_WAZUH
+##   - admin-misp      (192.168.142.194, VMID 1194)  gated by INSTALL_MISP
+##
+## Global stage discipline (mirror of kunai_lab / demo_lab) :
+##   1. 01_templates-bootstrap                          create the shared template
+##   2. ALL tiers stage_00 (vm_bootstrap)               create every VM first
+##   3. ALL tiers stage_01 (vm_configure)               configure every VM after
+##   4. cross-tier finalize (wazuh-agent on lab clients) when INSTALL_WAZUH=YES
+##
+## This ordering guarantees that any cross-tier configure step (e.g. wazuh
+## agent install on dev tier clients reaching the wazuh server on tier 02)
+## sees ALL target VMs created AND baselined before firing.
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### 01_init_proxmox - template creation #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
-- import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+- import_playbook: ./01_templates-bootstrap/_main.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### 02_dev_deployer_ui_lab_infrastructure - STAGE 00 #### #### ##
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/stage_00/dev_deployer_ui_vm.yml
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
-  vars:
-    global_vm_name: "dev-deployer-ui"
-    global_vm_ssh_name: "r42.dev-deployer-ui"
-    global_vm_id: 1190
-    global_vm_description: "dev_deployer_ui_lab - Ubuntu LTS host for deployer-ui frontend"
-    global_vm_tag_name: "dev-deployer-ui-lab"
-    global_vm_ci_ip: "192.168.142.190"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/stage_00/dev_backend_vm.yml
-
-  vars:
-    global_vm_name: "dev-backend"
-    global_vm_ssh_name: "r42.dev-backend"
-    global_vm_id: 1191
-    global_vm_description: "dev_deployer_ui_lab - Ubuntu LTS host for backend API"
-    global_vm_tag_name: "dev-deployer-ui-lab"
-    global_vm_ci_ip: "192.168.142.191"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/stage_00/dev_kong_vm.yml
-
-  vars:
-    global_vm_name: "dev-kong"
-    global_vm_ssh_name: "r42.dev-kong"
-    global_vm_id: 1192
-    global_vm_description: "dev_deployer_ui_lab - Ubuntu LTS host for Kong API gateway"
-    global_vm_tag_name: "dev-deployer-ui-lab"
-    global_vm_ci_ip: "192.168.142.192"
-    #
-    global_template_vm_id: 9232
-    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
+- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/_main_stage_00.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### 02_dev_deployer_ui_lab_infrastructure - STAGE 01 #### #### ##
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/stage_01/_r42_dev_deployer_ui_lab_group.yml
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
 
-  vars:
-    OPERATOR_USER: alice
-
-    INSTALL_VIM_DOTFILES: "YES"
-    INSTALL_ZSH_DOTFILES: "YES"
-
-    INSTALL_PACKAGES_BASICS: "YES"
-    INSTALL_PACKAGES_FIREWALLS: "YES"
-    #
-    INSTALL_PACKAGES_DOCKER: "YES"
-    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
-    #
-    INSTALL_PACKAGES_UTILS_JSON: "YES"
-    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
-
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
-
-    INSTALL_TAILSCALE: "NO"
-
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
+- import_playbook: ./02_dev_deployer_ui_lab_infrastructure/_main_stage_01.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_dev_deployer_ui_lab_wazuh_clients_active ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Build the runtime wazuh-clients active group from INSTALL flags BEFORE the
+# cross-tier finalize runs. Mirror of _build_admin_active_group (Option A).
+#
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# wazuh-agent install on r42_dev_deployer_ui_lab_wazuh_clients_active
+# (3 dev VMs always + admin-misp gated by INSTALL_MISP). Runs LAST so the
+# wazuh server (tier 02 stage_01) is reachable AND all dev tier VMs are
+# created + baselined. Gated by INSTALL_WAZUH.
+#
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

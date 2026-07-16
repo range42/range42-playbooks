@@ -1,0 +1,45 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### debug_scenario_a - 02_admin_infrastructure - stage_00 - admin group #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Optional admin VM(s) gated by feature flags. Default NO per
+# manifest/feature_flags.yml (minimal debug scenario, monitoring opt-in).
+#
+#   - admin-wazuh (8050, 192.168.142.150, vmbr142) : Wazuh SIEM server
+#     (gated INSTALL_WAZUH, default NO)
+#   - admin-misp  (8051, 192.168.142.151, vmbr142) : MISP threat intel stack
+#     (gated INSTALL_MISP,  default NO)
+#
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "admin-wazuh"
+    global_vm_ssh_name:    "r42.admin-wazuh"
+    global_vm_id:          8050
+    global_vm_description: "debug_scenario_a - Wazuh SIEM server (optional)"
+    global_vm_tag_name:    "debug-scenario-a"
+    global_vm_ci_ip:       "192.168.142.150"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_MISP | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "admin-misp"
+    global_vm_ssh_name:    "r42.admin-misp"
+    global_vm_id:          8051
+    global_vm_description: "debug_scenario_a - MISP threat intel stack (optional)"
+    global_vm_tag_name:    "debug-scenario-a"
+    global_vm_ci_ip:       "192.168.142.151"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

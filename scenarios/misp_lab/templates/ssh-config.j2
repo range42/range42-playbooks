@@ -39,6 +39,22 @@ Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
     Port 22
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      ADMIN BAND (vmbr142, gated by INSTALL_WAZUH)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# admin-wazuh entry is emitted UNCONDITIONALLY so the operator can SSH-in
+# for debugging even when the VM hasn't been deployed. The VM is only
+# created when INSTALL_WAZUH=YES at deploy time.
+#
+
+Host r42.admin-wazuh
+    Hostname 192.168.142.187
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
+    Port 22
+    ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #                                      MISP-LAB VM
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 

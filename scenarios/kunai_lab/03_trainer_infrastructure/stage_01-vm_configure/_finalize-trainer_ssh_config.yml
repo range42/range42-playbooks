@@ -1,0 +1,58 @@
+---
+##
+## kunai_lab - trainer SSH setup (on the trainer VM) :
+##   1. generate a PASSPHRASE-LESS `trainer-student-access` key (outbound only, trainer -> students).
+##      The private key stays ONLY on the trainer VM (never on students -> a student cannot use it to
+##      hop to other VMs).
+##   2. deploy ~trainer/.ssh/config so `ssh student-kunai-0X` uses that key (no passphrase -> no agent
+##      needed, ssh reads the IdentityFile directly).
+## The pubkey is pushed to the students' `trainer` authorized_keys by
+## _finalize-trainer_student_access.yml (cross-tier, after all stage_01).
+## Student targets mirror manifest/scenario_vms.json (student-kunai-01..05 / .105-.109).
+##
+
+- name: kunai_lab - trainer SSH setup (key + client config)
+  hosts: r42_kunai_lab_trainer_group
+  gather_facts: false
+  become: true
+  vars:
+    _kunai_students:
+      - { name: "student-kunai-01", ip: "192.168.142.105" }
+      - { name: "student-kunai-02", ip: "192.168.142.106" }
+      - { name: "student-kunai-03", ip: "192.168.142.107" }
+      - { name: "student-kunai-04", ip: "192.168.142.108" }
+      - { name: "student-kunai-05", ip: "192.168.142.109" }
+  tasks:
+    - name: ensure ~trainer/.ssh exists
+      ansible.builtin.file:
+        path: /home/trainer/.ssh
+        state: directory
+        owner: trainer
+        group: trainer
+        mode: "0700"
+
+    - name: generate the passphrase-less trainer-student-access key (outbound to students)
+      community.crypto.openssh_keypair:
+        path: /home/trainer/.ssh/trainer-student-access
+        type: ed25519
+        comment: "trainer-student-access kunai_lab"
+        mode: "0600"
+        regenerate: never
+      become_user: trainer
+
+    - name: deploy ~trainer/.ssh/config (ssh student-kunai-0X)
+      ansible.builtin.copy:
+        dest: /home/trainer/.ssh/config
+        owner: trainer
+        group: trainer
+        mode: "0600"
+        content: |
+          # range42 kunai_lab - trainer -> students. Managed by ansible, do not edit.
+          {% for s in _kunai_students %}
+          Host {{ s.name }}
+              HostName {{ s.ip }}
+              User trainer
+              IdentityFile ~/.ssh/trainer-student-access
+              StrictHostKeyChecking accept-new
+
+          {% endfor %}

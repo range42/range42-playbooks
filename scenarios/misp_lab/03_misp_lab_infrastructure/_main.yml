@@ -1,0 +1,15 @@
+---
+##
+## 03 - misp_lab infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the misp lab VM :
+##   - admin-misp-standalone (VMID 1180, IP 192.168.142.180) : MISP threat
+##     intel stack on Ubuntu Noble + Docker baseline
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

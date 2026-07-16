@@ -1,0 +1,17 @@
+##
+## _finalize-baseline-admin_wazuh_client - cross-tier post-setup action
+##
+## Installs the wazuh agent on the blank_scenario_4_subnets wazuh clients
+## group (3 deployer-* + 16 team VMs + admin-misp [if INSTALL_MISP=YES]).
+##
+## Group-level scope : targets r42_blank_scenario_4_subnets_wazuh_clients_active
+## (runtime group built by _build_wazuh_clients_active_group.yml).
+##
+## Gated by INSTALL_WAZUH (default NO).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.wazuh_agent/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    wazuh_clients_group: "r42_blank_scenario_4_subnets_wazuh_clients_active"
+    global_vm_ci_ip:     "192.168.142.130"

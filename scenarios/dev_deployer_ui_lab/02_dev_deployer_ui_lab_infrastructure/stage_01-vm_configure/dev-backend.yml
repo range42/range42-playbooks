@@ -1,0 +1,24 @@
+##
+## dev-backend - range42-backend-api FastAPI (Docker, canonical method)
+##
+## Delegates to the shared bundle which provisions the FastAPI backend via
+## the repo's canonical Docker path : multi-stage build (Python 3.13 +
+## SQLAlchemy async + Alembic + ansible-runner), docker-compose up -d --build,
+## SQLite DB on a bind-mounted workspace dir, vault password file bind-mounted
+## from host, alembic upgrade head, /docs/openapi.json probe.
+##
+## Backend connection : CORS-based (POC). The deployer-ui calls this backend
+## directly (Origin header matched against CORS_ORIGIN_REGEX in the bundle's
+## .env). See the bundle README for the upgrade path (image-based deploys,
+## TLS / reverse proxy, etc.).
+##
+## Gated by INSTALL_DEPLOYER_API_BACKEND (default YES per feature_flags.yml).
+## With INSTALL_DEPLOYER_API_BACKEND=NO, the dev-backend VM stays as a bare
+## Docker host (baseline applied, no app stack).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.deployer_api_backend/main.yml"
+  when: INSTALL_DEPLOYER_API_BACKEND | default("YES") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.dev-backend"
+    global_vm_ci_ip:    "192.168.142.191"
