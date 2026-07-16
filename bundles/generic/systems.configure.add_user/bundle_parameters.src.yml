@@ -1,0 +1,46 @@
+---
+bundle: generic/systems.configure.add_user
+
+description: Create a user (home, shell, hashed password) on a target group via the catalog role systems.configure.add_user
+
+optional: false
+
+params:
+  - name: TARGET_GROUP
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Ansible inventory group the play targets in hosts
+
+  - name: TARGET_USER
+    type: string
+    required: true
+    default_where: role-defaults
+    description: Login name of the user to create
+
+  - name: TARGET_PASSWORD
+    type: string
+    required: true
+    default_where: role-defaults
+    description: Plaintext password (hashed with sha512 by the role) - override the placeholder default
+
+  - name: TARGET_SHELL_PATH
+    type: string
+    required: false
+    default_where: role-defaults
+    description: Login shell path for the created user
+
+  - name: TARGET_UPDATE_PASSWORD
+    type: string
+    required: false
+    default_where: role-defaults
+    allowed: [always, on_create]
+    description: When the user module resets the password - always every run or only on_create
+
+  - name: CHANGE_PWD_AT_LOGON
+    type: bool
+    required: false
+    default_where: role-defaults
+    bool_style: yaml
+    description: Force a password change on next logon via chage when true

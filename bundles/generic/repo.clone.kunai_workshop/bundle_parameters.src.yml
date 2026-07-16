@@ -1,0 +1,31 @@
+---
+bundle: generic/repo.clone.kunai_workshop
+
+description: Static-URL wrapper that clones the 5 kunai-project ecosystem repos into the operator kunai-project directory
+
+optional: false
+
+params:
+  - name: GITCLONE_KUNAI_TARGET_GROUP
+    target: true
+    type: string
+    required: true
+    default_where: none
+    renamed_to: [target_group]
+    description: Ansible group name whose VMs receive the kunai-project repo clones
+
+  - name: GITCLONE_KUNAI_OPERATOR_USER
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: alice
+    renamed_to: [GITCLONE_OPERATOR_USER]
+    description: Operator user that owns the cloned repos
+
+  - name: GITCLONE_KUNAI_REPOS_DIR
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: /home/<operator>/kunai-project
+    renamed_to: [GITCLONE_REPOS_DIR]
+    description: Parent directory on the target that will hold the cloned repos
