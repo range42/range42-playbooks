@@ -1,0 +1,25 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "admin",
+  "bundle": "admin/software.install.nextcloud",
+  "description": "Nextcloud docker-compose stack (postgres + redis + nextcloud + provisioner) installed on a dedicated VM from the catalog element",
+  "optional": true,
+  "install_flag": "INSTALL_NEXTCLOUD",
+  "params": [
+    {
+      "name": "global_vm_ssh_name",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "call-site",
+      "description": "Inventory hostname of the Nextcloud VM; used as the hosts target of the install, firewall and deploy plays"
+    },
+    {
+      "name": "global_vm_ci_ip",
+      "type": "string",
+      "required": true,
+      "default_where": "call-site",
+      "description": "IP of the Nextcloud server; passed at the call-site as documentation of the web UI endpoint and not otherwise consumed by the plays"
+    }
+  ]
+}

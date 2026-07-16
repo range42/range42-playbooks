@@ -1,0 +1,60 @@
+---
+bundle: admin/software.install.deployer_ui
+
+description: Deploy range42-deployer-ui as a Docker container (multi-stage build then nginx SPA on UI_PORT) with firewall, optional tailscale, and a /health probe.
+
+optional: true
+
+install_flag: INSTALL_DEPLOYER_UI
+
+params:
+
+  - name: global_vm_ssh_name
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Inventory host of the deployer-ui VM, e.g. r42.admin-deployer-ui (the play hosts value). Canonical name Phase 2 = TARGET_ANSIBLE_HOSTS.
+
+  - name: global_vm_ci_ip
+    type: string
+    required: true
+    default_where: none
+    description: IP of the deployer-ui VM (defined at the vm.bootstrap call-site, passed here by the scenario).
+
+  - name: UI_PORT
+    type: int
+    required: false
+    default_where: bundle-inline
+    default: "3000"
+    description: Host port the container listens on; opened in the firewall, written to .env, and probed on /health.
+
+  - name: LOCAL_CODE_PATH
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') + '/range42-deployer-ui/' }}"
+    description: Controller path to the range42-deployer-ui checkout rsynced to the VM; defaults to the repo under RANGE42_GITDIR__ROOT_DIR.
+
+  - name: REMOTE_PROJECT_DIR
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "/var/www/range42_deployer_ui"
+    description: Remote project root where the source is synced and docker compose runs.
+
+  - name: INSTALL_TAILSCALE
+    type: bool
+    required: false
+    default_where: bundle-inline
+    default: "NO"
+    bool_style: yesno
+    description: Gates the tailscale install + nftables-disable play; when NO that play is a no-op.
+
+  - name: infrastructure_tailscale_authkey
+    type: string
+    required: false
+    from_vault: true
+    default_where: none
+    renamed_to: [tailscale_authkey]
+    description: Tailnet auth key read from the scenario vault; only consumed when INSTALL_TAILSCALE is YES.

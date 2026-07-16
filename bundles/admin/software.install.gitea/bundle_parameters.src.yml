@@ -1,0 +1,20 @@
+---
+bundle: admin/software.install.gitea
+description: Install the Gitea docker-compose stack (postgres + gitea + provisioner) on a dedicated VM.
+optional: true
+install_flag: INSTALL_GITEA
+
+params:
+
+  - name: global_vm_ssh_name
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Inventory host of the Gitea VM, e.g. r42.admin-gitea-standalone (the play hosts value).
+
+  - name: global_vm_ci_ip
+    type: string
+    required: true
+    default_where: none
+    description: IP of the Gitea server, e.g. 192.168.142.183 (informational at the call-site; web UI on 3000, git-over-SSH on 2222).
