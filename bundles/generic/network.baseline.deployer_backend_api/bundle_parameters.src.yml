@@ -1,0 +1,14 @@
+---
+bundle: generic/network.baseline.deployer_backend_api
+
+description: Firewall baseline opening SSH (22) and the deployer-backend-api FastAPI port (8000) on the target group.
+
+optional: false
+
+params:
+  - name: target_group
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Ansible host group this firewall policy is applied to (used in the play hosts line).

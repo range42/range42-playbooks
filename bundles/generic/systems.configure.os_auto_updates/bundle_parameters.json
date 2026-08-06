@@ -1,0 +1,30 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "generic",
+  "bundle": "generic/systems.configure.os_auto_updates",
+  "description": "Disable or enable the OS background auto-updater on a target group before provisioning",
+  "optional": false,
+  "params": [
+    {
+      "name": "TARGET_GROUP",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Ansible inventory group the play targets (used in hosts)"
+    },
+    {
+      "name": "OS_AUTO_UPDATES_STATE",
+      "type": "string",
+      "required": false,
+      "default_where": "role-defaults",
+      "allowed": [
+        "disabled",
+        "enabled"
+      ],
+      "description": "Whether to disable (default) or re-enable the OS auto-updater ; read directly by the role from play/extra-vars scope",
+      "default": "disabled",
+      "default_review": true
+    }
+  ]
+}

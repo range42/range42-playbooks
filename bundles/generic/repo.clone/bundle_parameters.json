@@ -1,0 +1,50 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "generic",
+  "bundle": "generic/repo.clone",
+  "description": "Clone a caller-provided list of git repositories on a target group of VMs, owned by an operator user.",
+  "optional": false,
+  "params": [
+    {
+      "name": "target_group",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Ansible group or host(s) this bundle runs against (the play hosts value). Canonical name Phase 2 = TARGET_ANSIBLE_HOSTS."
+    },
+    {
+      "name": "GITCLONE_REPOS",
+      "type": "list",
+      "items": "{ name: string (dest dir basename), url: string (git remote URL) }",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": [],
+      "description": "Repositories to clone. Each entry becomes GITCLONE_REPOS_DIR/name cloned from url."
+    },
+    {
+      "name": "GITCLONE_OPERATOR_USER",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "alice",
+      "description": "become_user that owns the cloned repos and the parent directory."
+    },
+    {
+      "name": "GITCLONE_REPOS_DIR",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "/home/{{ GITCLONE_OPERATOR_USER }}/repos",
+      "description": "Parent directory the repositories are cloned into (defaults under the operator user home)."
+    },
+    {
+      "name": "GITCLONE_DEPTH",
+      "type": "int",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": 1,
+      "description": "Shallow clone depth passed to the git module."
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+---
+bundle: proxmox/vm.bootstrap
+description: >-
+  Shared per-VM stage_00 - clone template, wait proxmox unlock, set tag, set cloud-init,
+  start the VM, wait for SSH + cloud-init.
+optional: false
+
+params:
+
+  - name: global_vm_ssh_name
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: SSH alias or inventory host of the new VM (the wait play hosts value). Canonical name Phase 2 = TARGET_ANSIBLE_HOSTS.
+
+  - name: global_vm_id
+    renamed_to: [vm_new_id, vm_id]
+    type: int
+    required: true
+    default_where: none
+    description: Proxmox VM id of the new VM (clone target, tag, cloud-init, start).
+
+  - name: global_vm_name
+    renamed_to: [vm_name]
+    type: string
+    required: true
+    default_where: none
+    description: Hostname or Proxmox name of the new VM.
+
+  - name: global_vm_tag_name
+    renamed_to: [vm_tag_name]
+    type: string
+    required: true
+    default_where: none
+    description: Proxmox tag applied to the VM (free-text; e.g. admin, kunai-lab, gitea-lab, debug-scenario-a, init-vm-00).
+
+  - name: global_vm_ci_ip
+    renamed_to: [vm_ci_ip]
+    type: string
+    required: true
+    default_where: none
+    description: Cloud-init IP of the new VM.
+
+  - name: global_template_vm_id
+    renamed_to: [vm_id]
+    type: int
+    required: true
+    default_where: none
+    description: Proxmox VM id of the source template to clone.
+
+  - name: global_vm_ci_ip_gw
+    renamed_to: [vm_ci_ip_gw]
+    type: string
+    required: true
+    default_where: none
+    description: Default gateway for the VM subnet.
+
+  - name: global_vm_net_virtio_bridge
+    renamed_to: [vm_net_virtio_bridge]
+    type: string
+    required: true
+    default_where: none
+    description: Proxmox bridge the VM NIC attaches to (e.g. vmbr142).
+
+  - name: global_vm_description
+    renamed_to: [vm_description]
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: ""
+    description: Free-text VM description.
+
+  - name: global_template_name
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: ""
+    description: Human label of the template (used in task names only; no role target).
+
+  - name: global_vm_ci_dns_ips
+    renamed_to: [vm_ci_dns_ips]
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "1.1.1.1"
+    description: Cloud-init DNS server(s).
+
+  - name: global_vm_ci_netmask
+    renamed_to: [vm_ci_netmask]
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "24"
+    description: Cloud-init netmask (CIDR bits).

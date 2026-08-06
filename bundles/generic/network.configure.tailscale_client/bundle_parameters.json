@@ -1,0 +1,56 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "generic",
+  "bundle": "generic/network.configure.tailscale_client",
+  "description": "Install tailscale on a target group and clean up its stale tailnet client entries on the wazuh server",
+  "optional": true,
+  "install_flag": "INSTALL_TAILSCALE",
+  "params": [
+    {
+      "name": "target_group",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Ansible group name whose VMs get tailscale installed and nftables disabled"
+    },
+    {
+      "name": "tailscale_hostnames",
+      "type": "list",
+      "required": true,
+      "default_where": "none",
+      "items": "short hostname string of a client to purge from the tailnet (e.g. admin-wazuh)",
+      "description": "Short hostnames whose stale tailnet client entries are deleted on the wazuh server before re-join"
+    },
+    {
+      "name": "tailscale_cleanup_host",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "r42.admin-wazuh",
+      "description": "Host running the wazuh server where stale tailscale client entries are purged"
+    },
+    {
+      "name": "infrastructure_tailscale_authkey",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "renamed_to": [
+        "tailscale_authkey"
+      ],
+      "description": "Tailnet auth key read from the scenario vault and passed to the install role"
+    },
+    {
+      "name": "infrastructure_tailscale_apikey",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "renamed_to": [
+        "tailscale_api_key"
+      ],
+      "description": "Tailnet device-management API key from the scenario vault, used by the cleanup play to purge stale client entries on the wazuh server"
+    }
+  ]
+}

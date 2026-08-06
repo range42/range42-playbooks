@@ -1,0 +1,64 @@
+---
+bundle: generic/software.install.kunai_official_workshop
+
+description: Installs the CIRCL Kunai official workshop toolchain on a target group
+
+optional: false
+
+params:
+  - name: KUNAI_TARGET_GROUP
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Ansible group to run the toolchain install against
+
+  - name: KUNAI_VERSION
+    type: string
+    required: false
+    default_where: role-defaults
+    renamed_to: [kunai_version]
+    description: Pinned kunai eBPF binary release tag to download and verify
+
+  - name: KUNAI_ARCH
+    type: string
+    required: false
+    default_where: role-defaults
+    renamed_to: [kunai_arch]
+    description: CPU architecture suffix for the kunai binary artifact
+
+  - name: KUNAI_OPERATOR_USER
+    type: string
+    required: false
+    default_where: role-defaults
+    renamed_to: [kunai_operator_user]
+    description: Local user that owns the toolchain and runs the exercises
+
+  - name: KUNAI_PYKUNAI_VERSION
+    type: string
+    required: false
+    default_where: role-defaults
+    renamed_to: [kunai_pykunai_version]
+    description: pykunai pipx package version to install for the operator user
+
+  - name: KUNAI_MISP_LOCAL_ENABLE
+    type: bool
+    required: false
+    default_where: role-defaults
+    renamed_to: [kunai_misp_local_enable]
+    bool_style: yaml
+    description: Enable the optional local MISP feed block in m2k-config.toml
+
+  - name: KUNAI_MISP_URL
+    type: string
+    required: false
+    default_where: role-defaults
+    renamed_to: [kunai_misp_url]
+    description: URL of the local MISP instance when the local feed is enabled
+
+  - name: KUNAI_MISP_KEY
+    type: string
+    required: false
+    default_where: role-defaults
+    renamed_to: [kunai_misp_key]
+    description: MISP reader API key used when the local feed is enabled
