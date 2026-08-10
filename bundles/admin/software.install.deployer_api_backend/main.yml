@@ -83,10 +83,14 @@
 #   Both rsyncs copy the controller's checkouts as-is - branch, local commits
 #   and uncommitted edits included. That is deliberate for a dev lab (edit,
 #   redeploy, no push round-trip), but it means what runs here can exist on no
-#   git remote. So the run records ref / short sha / dirty file count for
-#   range42-backend-api AND range42-playbooks in
-#   /var/lib/range42/deployer_api_backend.version and echoes them in the play
-#   output. `*_dirty=0` is the only evidence the deploy matches a pushed commit.
+#   git remote. So the run records ref / short sha / uncommitted file count /
+#   upstream branch / unpushed commit count for range42-backend-api AND
+#   range42-playbooks in /var/lib/range42/deployer_api_backend.version and
+#   echoes them in the play output.
+#   Reading it : `*_dirty=0` alone proves nothing about reproducibility - a
+#   commit that was never pushed is perfectly clean. A tree's sha exists on a
+#   remote only when `*_dirty=0` AND `*_unpushed=0` AND `*_upstream` is not
+#   `none`.
 #
 # Precondition : `range42-context use <C> <S>` MUST be active before running.
 # It exports the env vars above AND sets ANSIBLE_CONFIG so the encrypted
@@ -276,9 +280,11 @@
       ansible.builtin.shell:
         cmd: |
           cd {{ item.path | quote }}
-          printf '%s_ref=%s\n'   {{ item.key | quote }} "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
-          printf '%s_sha=%s\n'   {{ item.key | quote }} "$(git rev-parse --short HEAD     2>/dev/null || echo unknown)"
-          printf '%s_dirty=%s\n' {{ item.key | quote }} "$(git status --porcelain         2>/dev/null | wc -l)"
+          printf '%s_ref=%s\n'      {{ item.key | quote }} "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+          printf '%s_sha=%s\n'      {{ item.key | quote }} "$(git rev-parse --short HEAD     2>/dev/null || echo unknown)"
+          printf '%s_dirty=%s\n'    {{ item.key | quote }} "$(git status --porcelain         2>/dev/null | wc -l)"
+          printf '%s_upstream=%s\n' {{ item.key | quote }} "$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo none)"
+          printf '%s_unpushed=%s\n' {{ item.key | quote }} "$(git rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo unknown)"
         executable: /bin/bash
       delegate_to: localhost
       become: false

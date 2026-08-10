@@ -82,13 +82,19 @@ playbooks_source_path=/home/alice/range42-playbooks/
 backend_api_ref=dev
 backend_api_sha=257e62a
 backend_api_dirty=0
+backend_api_upstream=origin/dev
+backend_api_unpushed=0
 playbooks_ref=fix/dev-deployer-ui-lab-hardening
-playbooks_sha=bafe53a
+playbooks_sha=498b875
 playbooks_dirty=9
+playbooks_upstream=origin/fix/dev-deployer-ui-lab-hardening
+playbooks_unpushed=0
 deployed_at=2026-08-10T09:29:40Z
 ```
 
-`*_dirty=0` is the only evidence that what runs on the VM matches a pushed commit. The file lives outside `REMOTE_PROJECT_DIR` on purpose — inside, its timestamp would bust the Docker build cache on every no-op re-run.
+Reading it: `*_dirty=0` on its own proves nothing about reproducibility — a commit that was never pushed is perfectly clean, and its sha exists on no remote. A tree is recoverable from a remote only when **`*_dirty=0` and `*_unpushed=0` and `*_upstream` is not `none`**. `*_dirty` is the uncommitted-file count, nothing more.
+
+The file lives outside `REMOTE_PROJECT_DIR` on purpose — inside, its timestamp would bust the Docker build cache on every no-op re-run.
 
 ## CORS configuration
 

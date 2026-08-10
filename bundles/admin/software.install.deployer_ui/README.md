@@ -63,10 +63,14 @@ source_path=/home/alice/range42-deployer-ui/
 ref=dev
 sha=a1b2c3d
 dirty=4
+upstream=origin/dev
+unpushed=0
 deployed_at=2026-08-10T09:12:44Z
 ```
 
-`dirty=0` is the only evidence that what runs on the VM matches a pushed commit. The file lives outside `REMOTE_PROJECT_DIR` on purpose — inside, its timestamp would bust the Docker build cache on every no-op re-run.
+Reading it: `dirty=0` on its own proves nothing about reproducibility — a commit that was never pushed is perfectly clean, and its sha exists on no remote. The deployed code is recoverable from a remote only when **`dirty=0` and `unpushed=0` and `upstream` is not `none`**. `dirty` is the uncommitted-file count, nothing more.
+
+The file lives outside `REMOTE_PROJECT_DIR` on purpose — inside, its timestamp would bust the Docker build cache on every no-op re-run.
 
 ## Backend connection (CORS path)
 

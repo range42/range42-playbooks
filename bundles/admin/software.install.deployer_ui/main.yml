@@ -44,9 +44,13 @@
 #   commits and uncommitted edits included. That is deliberate for a dev lab
 #   (edit, redeploy, no push round-trip), but it means the deployed bundle can
 #   exist on no git remote. So the run records what it shipped in
-#   /var/lib/range42/deployer_ui.version (ref, short sha, dirty file count,
-#   timestamp) and echoes it in the play output. `dirty=0` there is the only
-#   evidence that what runs on the VM matches a pushed commit.
+#   /var/lib/range42/deployer_ui.version (ref, short sha, uncommitted file
+#   count, upstream branch, unpushed commit count, timestamp) and echoes it in
+#   the play output.
+#   Reading it : `dirty=0` alone proves nothing about reproducibility - a
+#   commit that was never pushed is perfectly clean. The deployed sha exists
+#   on a remote only when `dirty=0` AND `unpushed=0` AND `upstream` is not
+#   `none`.
 #   The file lives outside REMOTE_PROJECT_DIR on purpose : inside, its
 #   timestamp would bust the Docker build cache on every no-op re-run.
 #
@@ -165,9 +169,11 @@
       ansible.builtin.shell:
         cmd: |
           cd {{ LOCAL_CODE_PATH_RESOLVED | quote }}
-          printf 'ref=%s\n'   "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
-          printf 'sha=%s\n'   "$(git rev-parse --short HEAD     2>/dev/null || echo unknown)"
-          printf 'dirty=%s\n' "$(git status --porcelain         2>/dev/null | wc -l)"
+          printf 'ref=%s\n'      "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+          printf 'sha=%s\n'      "$(git rev-parse --short HEAD     2>/dev/null || echo unknown)"
+          printf 'dirty=%s\n'    "$(git status --porcelain         2>/dev/null | wc -l)"
+          printf 'upstream=%s\n' "$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo none)"
+          printf 'unpushed=%s\n' "$(git rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo unknown)"
         executable: /bin/bash
       delegate_to: localhost
       become: false
