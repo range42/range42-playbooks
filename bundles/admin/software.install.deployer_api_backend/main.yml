@@ -29,6 +29,8 @@
 #        read by the backend's in-container ansible-runner)
 #      - Rsync the backend-api source (Docker build context only, BAKED into
 #        the image at build time per upstream README, not bind-mounted)
+#      - Record the controller-side git provenance of both synced trees in
+#        /var/lib/range42/deployer_api_backend.version (see below)
 #      - Render .env (PORT, UID/GID, CORS, RANGE42_WORKSPACE_ROOT,
 #        API_BACKEND_WWWAPP_PLAYBOOKS_DIR, RANGE42_DB_URL,
 #        WEB_CONCURRENCY=1 invariant)
@@ -41,7 +43,8 @@
 #   5. Wait for /docs/openapi.json to return 200 (container HEALTHCHECK uses
 #      the same endpoint).
 #   6. Post-deploy seed : register the Proxmox host with the backend via
-#      POST /v1/proxmox/hosts (idempotent via 409 ; reads creds from
+#      POST /v1/proxmox/hosts (idempotent : the backend keys on `name` and
+#      updates in place, keeping the host id stable ; reads creds from
 #      <workspace>/secrets/default_vault.yml). Required before any deploy
 #      via the backend can succeed (the backend looks up target_host_id in
 #      its proxmox_hosts table).
@@ -75,6 +78,19 @@
 #   - RANGE42_INFRASTRUCTURE_CODENAME, RANGE42_INFRASTRUCTURE_LAB
 #   - RANGE42_GITDIR__ROOT_DIR
 #   - RANGE42_ACTIVE_WORKSPACE      : <C>-<S> workspace dir name
+#
+# Source provenance (this bundle deploys the controller's WORKING TREES) :
+#   Both rsyncs copy the controller's checkouts as-is - branch, local commits
+#   and uncommitted edits included. That is deliberate for a dev lab (edit,
+#   redeploy, no push round-trip), but it means what runs here can exist on no
+#   git remote. So the run records ref / short sha / uncommitted file count /
+#   upstream branch / unpushed commit count for range42-backend-api AND
+#   range42-playbooks in /var/lib/range42/deployer_api_backend.version and
+#   echoes them in the play output.
+#   Reading it : `*_dirty=0` alone proves nothing about reproducibility - a
+#   commit that was never pushed is perfectly clean. A tree's sha exists on a
+#   remote only when `*_dirty=0` AND `*_unpushed=0` AND `*_upstream` is not
+#   `none`.
 #
 # Precondition : `range42-context use <C> <S>` MUST be active before running.
 # It exports the env vars above AND sets ANSIBLE_CONFIG so the encrypted
@@ -260,6 +276,63 @@
           - "--exclude=.env"
           - "--exclude=.env.local"
 
+    - name: Capture controller-side git provenance of the synced trees
+      ansible.builtin.shell:
+        cmd: |
+          # Bail rather than run git in the playbook cwd (also a repo) and
+          # stamp the wrong tree. failed_when:false keeps the deploy going.
+          cd {{ item.path | quote }} || exit 1
+          printf '%s_ref=%s\n'      {{ item.key | quote }} "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+          printf '%s_sha=%s\n'      {{ item.key | quote }} "$(git rev-parse --short HEAD     2>/dev/null || echo unknown)"
+          printf '%s_dirty=%s\n'    {{ item.key | quote }} "$(git status --porcelain         2>/dev/null | wc -l)"
+          printf '%s_upstream=%s\n' {{ item.key | quote }} "$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo none)"
+          printf '%s_unpushed=%s\n' {{ item.key | quote }} "$(git rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo unknown)"
+        executable: /bin/bash
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      failed_when: false
+      loop:
+        - { key: "backend_api", path: "{{ LOCAL_CODE_PATH_RESOLVED }}" }
+        - { key: "playbooks", path: "{{ PLAYBOOKS_SRC_RESOLVED }}" }
+      loop_control:
+        label: "{{ item.key }}"
+      register: api_src_provenance
+
+    - name: Create /var/lib/range42 (provenance records, outside the build context)
+      ansible.builtin.file:
+        path: /var/lib/range42
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Record what was actually deployed (ref + sha + dirty state)
+      ansible.builtin.copy:
+        dest: /var/lib/range42/deployer_api_backend.version
+        content: |
+          # Managed by range42 / bundles/admin/software.install.deployer_api_backend
+          # Provenance of the two source trees rsynced from the controller : the
+          # backend image build context, and the playbooks tree the in-container
+          # ansible-runner reads at deploy time. dirty > 0 means this deploy
+          # carries uncommitted controller-side edits and matches no commit on
+          # any remote.
+          backend_api_source_path={{ LOCAL_CODE_PATH_RESOLVED }}
+          playbooks_source_path={{ PLAYBOOKS_SRC_RESOLVED }}
+          {% for line in api_src_provenance.results | map(attribute='stdout_lines') | flatten %}
+          {{ line }}
+          {% endfor %}
+          deployed_at={{ ansible_facts.date_time.iso8601 }}
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Show the deployed source provenance
+      ansible.builtin.debug:
+        msg: >-
+          deployed sources :
+          {{ api_src_provenance.results | map(attribute='stdout_lines') | flatten | join(' ') }}
+
     - name: Render .env (PORT, UID/GID, CORS, workspace path, WEB_CONCURRENCY=1 invariant)
       ansible.builtin.copy:
         dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/.env"
@@ -417,7 +490,7 @@
   vars:
     API_PORT_RESOLVED: "{{ API_PORT | default('8000') }}"
   tasks:
-    - name: Register Proxmox host with backend (idempotent via 409)
+    - name: Register Proxmox host with backend (idempotent upsert on name)
       ansible.builtin.uri:
         url: "http://127.0.0.1:{{ API_PORT_RESOLVED }}/v1/proxmox/hosts"
         method: POST
@@ -427,9 +500,12 @@
           api_url: "https://{{ proxmox_api_host }}"
           node_name: "{{ proxmox_node }}"
           token_ref: "{{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
-        status_code: [200, 201, 409]
+        # 201 = first registration, 200 = re-seed of an existing host (the
+        # backend refreshes api_url / node / token and keeps the same id, so
+        # deployments already pointing at it stay valid).
+        status_code: [200, 201]
       register: register_proxmox_result
 
     - name: Show Proxmox host registration result
       ansible.builtin.debug:
-        msg: "Proxmox host registration on backend : HTTP {{ register_proxmox_result.status }} (200/201 = created, 409 = already registered)"
+        msg: "Proxmox host registration on backend : HTTP {{ register_proxmox_result.status }} (201 = registered, 200 = already registered, refreshed in place)"

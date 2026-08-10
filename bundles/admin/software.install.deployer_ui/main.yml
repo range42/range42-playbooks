@@ -12,9 +12,14 @@
 #   2. Configure firewall on the host : open UI_PORT, keep 22
 #   3. Sync the deployer-ui source tree from the controller to the VM
 #      (excludes node_modules, .git, dist)
-#   4. Template `.env` on the VM with UI_PORT
-#   5. Run `docker compose up -d --build` in the project dir
-#   6. Wait for /health endpoint to return 200
+#   4. Record the controller-side git provenance of what was just synced in
+#      /var/lib/range42/deployer_ui.version (see "Source provenance" below)
+#   5. Template `.env` on the VM with UI_PORT
+#   6. Render `public/config.json` when BACKEND_API_URL is set, so the SPA
+#      registers this deployment's backend on first launch instead of making
+#      the operator retype the URL in the Settings modal
+#   7. Run `docker compose up -d --build` in the project dir
+#   8. Wait for /health endpoint to return 200
 #
 # REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
 #   - global_vm_ssh_name : inventory hostname for the deployer-ui host
@@ -27,6 +32,35 @@
 #                           (default = $RANGE42_GITDIR__ROOT_DIR/range42-deployer-ui/)
 #   - REMOTE_PROJECT_DIR  : remote project root (default /var/www/range42_deployer_ui)
 #   - UI_PORT             : host port the container listens on (default 3000)
+#   - BACKEND_API_URL     : backend-api base URL the SPA should register on
+#                           first launch (e.g. "http://192.168.142.191:8000").
+#                           Unset = no config.json rendered, operator configures
+#                           the backend by hand in the Settings modal.
+#   - PROXMOX_NODE_NAME   : Proxmox node that backend targets, paired with
+#                           BACKEND_API_URL in config.json (default "pve")
+#
+# Source provenance (this bundle deploys the controller's WORKING TREE) :
+#   The rsync below copies the controller's checkout as-is - branch, local
+#   commits and uncommitted edits included. That is deliberate for a dev lab
+#   (edit, redeploy, no push round-trip), but it means the deployed bundle can
+#   exist on no git remote. So the run records what it shipped in
+#   /var/lib/range42/deployer_ui.version (ref, short sha, uncommitted file
+#   count, upstream branch, unpushed commit count, timestamp) and echoes it in
+#   the play output.
+#   Reading it : `dirty=0` alone proves nothing about reproducibility - a
+#   commit that was never pushed is perfectly clean. The deployed sha exists
+#   on a remote only when `dirty=0` AND `unpushed=0` AND `upstream` is not
+#   `none`.
+#   The file lives outside REMOTE_PROJECT_DIR on purpose : inside, its
+#   timestamp would bust the Docker build cache on every no-op re-run.
+#
+# Runtime config (config.json) :
+#   Rendered into the source tree's `public/` BEFORE the Docker build, so vite
+#   copies it verbatim into `dist/` and nginx serves it next to index.html.
+#   The SPA fetches /config.json at boot and seeds its backend host list from
+#   it (no-op once the operator has registered or dismissed a host - their
+#   choice always wins). Chosen over a VITE_* build arg so the same source can
+#   target any backend without baking the lab's IP into the image.
 #
 # Backend connection (production) :
 #   The bundled `nginx/default.conf` in the deployer-ui repo serves only the
@@ -131,6 +165,56 @@
           - "--exclude=.env"
           - "--exclude=.env.local"
 
+    - name: Capture controller-side git provenance of the synced source tree
+      ansible.builtin.shell:
+        cmd: |
+          # Bail rather than run git in the playbook cwd (also a repo) and
+          # stamp the wrong tree. failed_when:false keeps the deploy going.
+          cd {{ LOCAL_CODE_PATH_RESOLVED | quote }} || exit 1
+          printf 'ref=%s\n'      "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+          printf 'sha=%s\n'      "$(git rev-parse --short HEAD     2>/dev/null || echo unknown)"
+          printf 'dirty=%s\n'    "$(git status --porcelain         2>/dev/null | wc -l)"
+          printf 'upstream=%s\n' "$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo none)"
+          printf 'unpushed=%s\n' "$(git rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo unknown)"
+        executable: /bin/bash
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      failed_when: false
+      register: ui_src_provenance
+
+    - name: Create /var/lib/range42 (provenance records, outside the build context)
+      ansible.builtin.file:
+        path: /var/lib/range42
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Record what was actually deployed (ref + sha + dirty state)
+      ansible.builtin.copy:
+        dest: /var/lib/range42/deployer_ui.version
+        content: |
+          # Managed by range42 / bundles/admin/software.install.deployer_ui
+          # Provenance of the source tree rsynced from the controller.
+          # dirty > 0 means this deploy carries uncommitted controller-side
+          # edits and matches no commit on any remote.
+          repo=range42-deployer-ui
+          source_path={{ LOCAL_CODE_PATH_RESOLVED }}
+          {% for line in ui_src_provenance.stdout_lines %}
+          {{ line }}
+          {% endfor %}
+          deployed_at={{ ansible_facts.date_time.iso8601 }}
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Show the deployed source provenance
+      ansible.builtin.debug:
+        msg: >-
+          deployer-ui source :
+          {{ ui_src_provenance.stdout_lines | join(' ') | default('unknown', true) }}
+
     - name: Template /var/www/range42_deployer_ui/.env (UI_PORT)
       ansible.builtin.copy:
         dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/.env"
@@ -141,6 +225,21 @@
         owner: root
         group: root
         mode: "0644"
+
+    - name: Render public/config.json (backend the SPA registers on first launch)
+      ansible.builtin.copy:
+        dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/public/config.json"
+        content: |
+          {
+            "defaultBackendUrl": {{ BACKEND_API_URL | to_json }},
+            "defaultNodeName": {{ PROXMOX_NODE_NAME | default('pve') | to_json }}
+          }
+        owner: root
+        group: root
+        mode: "0644"
+      when: BACKEND_API_URL | default('') | length > 0
+      # No else-branch needed : config.json is not tracked in the repo, so the
+      # rsync --delete above already removed any stale copy before this point.
 
     - name: Run docker compose up -d --build
       ansible.builtin.command:

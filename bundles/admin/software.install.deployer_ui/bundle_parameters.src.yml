@@ -43,6 +43,19 @@ params:
     default: "/var/www/range42_deployer_ui"
     description: Remote project root where the source is synced and docker compose runs.
 
+  - name: BACKEND_API_URL
+    type: string
+    required: false
+    default_where: none
+    description: Backend-api base URL rendered into public/config.json before the Docker build, so the SPA registers this deployment's backend on first launch. Unset means no config.json is rendered and the operator sets the backend by hand in the Settings modal.
+
+  - name: PROXMOX_NODE_NAME
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "pve"
+    description: Proxmox node the backend targets, paired with BACKEND_API_URL in config.json. Only consumed when BACKEND_API_URL is set.
+
   - name: INSTALL_TAILSCALE
     type: bool
     required: false

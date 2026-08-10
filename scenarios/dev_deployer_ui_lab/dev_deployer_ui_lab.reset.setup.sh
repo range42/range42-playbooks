@@ -4,6 +4,20 @@
 ## reset - delete this scenario's VMs (filter by vm_id from manifest) then re-deploy
 ##
 
+# Environment checks run FIRST, before the delete block below. This script
+# destroys the lab and then redeploys it ; a guard placed after the deletion
+# would leave the operator with neither -- VMs gone, redeploy refused.
+# Fail fast on a stale workspace. `RANGE42_BUNDLE_DIR` anchors every
+# `import_playbook` in this scenario and is exported by `sourced_range42`. A
+# workspace generated before that export exists resolves every bundle path to
+# `/admin/...` and dies with an opaque "the playbook could not be found".
+# Fix: re-run the workspace.credentials role (or `range42-context` re-init) to
+# regenerate `sourced_range42`, then `range42-context use <codename> <scenario>`.
+: "${RANGE42_BUNDLE_DIR:?RANGE42_BUNDLE_DIR is not set - your workspace predates the bundle-root export ; regenerate sourced_range42 and re-run: range42-context use <codename> dev_deployer_ui_lab}"
+: "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR:?RANGE42_ANSIBLE_ROLES__INVENTORY_DIR is not set - run: range42-context use <codename> dev_deployer_ui_lab}"
+
+: "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set - run: range42-context use <codename> <scenario>}"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
 
@@ -38,5 +52,5 @@ done
 
 ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \
 	-l "all" \
-	"./main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set - run: range42-context use <codename> <scenario>}" \
+	"./main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE}" \
 	"$@"
