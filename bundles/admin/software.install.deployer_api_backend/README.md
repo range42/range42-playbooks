@@ -38,6 +38,7 @@ Kong is parallel/not in the UI->backend path for this POC (kong.yml is empty).
 | `REMOTE_PROJECT_DIR` | `/var/www/range42_backend_api` |
 | `API_PORT` | `8000` |
 | `WORKSPACE_DIR_HOST` | `/home/range42/range42.config` |
+| `PLAYBOOKS_DEST_DIR` | `/home/range42/range42-playbooks` |
 | `DEPLOYER_UI_CORS_REGEX` | `^https?://r42\.admin-deployer-ui(:\d+)?$` |
 
 ## Call-site example
@@ -52,17 +53,18 @@ Kong is parallel/not in the UI->backend path for this POC (kong.yml is empty).
 ## What runs
 
 The bundle mirrors the upstream README's Quick Start - Option 1 (Docker) :
-`docker compose up` against an image built from local source. No source
-bind-mount at runtime ; code, playbooks, and inventory are baked into the
-image at build time. Schema bootstrap is handled in-process by the app on
-startup, so no explicit migration step is needed.
+`docker compose up` against an image built from local source. The backend-api
+source is baked into the image at build time ; the range42-playbooks repo is
+bind-mounted read-only at runtime (the backend's ansible-runner reads its
+scenarios + bundles tree). Schema is migrated at deploy time via an explicit
+`alembic upgrade head` step (see the Database section below).
 
 1. **Docker install** : invokes `software.install.warmup.basic_packages` role with `INSTALL_PACKAGES_DOCKER=YES` + `INSTALL_PACKAGES_DOCKER_COMPOSE=YES` (Docker Engine + compose plugin via the project's standard install path)
 2. **Firewall** : applies `software.configure.firewalls` role with rules for ports 22 + API_PORT
 3. **Workspace dir** : creates `/home/range42/range42.config/` on the host owned by UID/GID 1000 (mode 0700) - holds the SQLite DB + events.jsonl + ansible-runner artefacts + per-deployment `<C>-<S>/secrets/vault_pass.txt` ; persists across container restarts
 4. **Sync source (build context)** : rsync's the backend-api repo from the controller to `REMOTE_PROJECT_DIR` (excludes `.git`, `.venv`, `collections`, `__pycache__`, `.pytest_cache`, `.env*`). This is the Docker build context only - the source is BAKED into the image at build time, NOT bind-mounted at runtime
 5. **Render .env** : writes the env file consumed by docker compose (PORT, UID/GID, IMAGE_NAME, SSH_KEY_PATH, VAULT_PASSWORD_FILE empty by default, CORS_ORIGIN_REGEX, RANGE42_WORKSPACE_ROOT, WEB_CONCURRENCY=1, UVICORN_WORKERS=1, DEBUG=false)
-6. **Render docker-compose.override.yml** : single runtime bind-mount of the workspace dir. The upstream compose's SSH key mount is preserved.
+6. **Render docker-compose.override.yml** : two runtime bind-mounts - the workspace dir (RW) and the range42-playbooks repo (RO). The upstream compose's SSH key mount is preserved.
 7. **Compose up** : `docker compose up -d --build` builds the multi-stage image locally on the VM the first time (Python 3.13 builder + slim runtime), then starts the container
 8. **Verify** : waits for the API port + probes `/docs/openapi.json` (same endpoint the container's HEALTHCHECK uses) - expects HTTP 200
 
@@ -96,20 +98,11 @@ btrfs / zfs / tmpfs). The backend refuses NFS / CIFS / FUSE at deployment-
 create with HTTP 409 / `WORKSPACE_NON_LOCAL_FS`. The bundle uses a host path
 that is local FS by construction (system disk).
 
-Schema bootstrap is handled in-process by the app on startup (per the
-upstream README's Quick Start - `docker compose up` is sufficient). No
-explicit `alembic upgrade head` step in the bundle. If a future schema
-bump requires manual migration, run it once on the host with the source
-tree available :
-
-```bash
-cd /var/www/range42_backend_api
-docker run --rm -v "$(pwd)/alembic.ini:/app/alembic.ini:ro" \
-                -v "$(pwd)/alembic:/app/alembic:ro" \
-                --env-file .env \
-                range42-backend-api:local \
-                alembic upgrade head
-```
+Schema is migrated at deploy time. The bundle runs `alembic upgrade head`
+via `docker compose run --rm` right after `docker compose up`, bind-mounting
+`alembic.ini` + `alembic/` from the rsynced source (the upstream image does
+not bake them in). The app does not create tables on startup, so this step is
+required for a fresh DB ; re-running the bundle re-applies it idempotently.
 
 ## Vault password file
 

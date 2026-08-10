@@ -26,7 +26,7 @@
 #        r42.deployer-key_<user> via relative symlinks)
 #      - Rsync the range42-playbooks repo from controller to
 #        /home/range42/range42-playbooks/ (bind-mounted RO into container ;
-#        used by backend to launch ansible-runner against scenarios/_universal)
+#        read by the backend's in-container ansible-runner)
 #      - Rsync the backend-api source (Docker build context only, BAKED into
 #        the image at build time per upstream README, not bind-mounted)
 #      - Render .env (PORT, UID/GID, CORS, RANGE42_WORKSPACE_ROOT,
@@ -293,8 +293,8 @@
           RANGE42_WORKSPACE_ROOT=/home/range42/range42.config
 
           # Playbooks repo INSIDE the container (bind-mounted RO via override compose).
-          # Must contain scenarios/_universal/main.yml (per Philippe's design ; the
-          # backend launches ansible-runner against this path).
+          # Provides the range42-playbooks scenarios + bundles tree that the
+          # backend's in-container ansible-runner reads at deploy time.
           API_BACKEND_WWWAPP_PLAYBOOKS_DIR=/home/range42/range42-playbooks
 
           # SQLite DB - file lives in the workspace bind-mount, so it survives
@@ -320,9 +320,9 @@
           # Managed by range42 - additional bind-mounts on top of the upstream compose.
           # 1. Workspace dir (RW) : SQLite + events.jsonl + per-deployment secrets/
           #    (vault_pass.txt + default_vault.yml) + ssh_keys/ + inventory/.
-          # 2. Playbooks repo (RO) : ansible-runner reads from here to launch
-          #    scenarios/_universal and its bundles. Read-only by design ; updates
-          #    require a fresh bundle run (which re-rsyncs from controller).
+          # 2. Playbooks repo (RO) : ansible-runner reads the scenarios + bundles
+          #    tree from here. Read-only by design ; updates require a fresh bundle
+          #    run (which re-rsyncs from controller).
           services:
             api:
               volumes:

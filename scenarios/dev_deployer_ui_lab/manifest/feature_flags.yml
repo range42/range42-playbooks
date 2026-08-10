@@ -19,7 +19,7 @@
 features:
   - id: DEPLOYER_UI
     label: "deployer-ui (frontend SPA)"
-    description: "Deploys the range42-deployer-ui frontend (Node 24 multi-stage build, nginx serve, port 80) on the dev-deployer-ui VM via the canonical Docker bundle. Skipping leaves the VM as a bare Docker host."
+    description: "Deploys the range42-deployer-ui frontend (Node 24 multi-stage build, nginx on container port 80 published on host UI_PORT default 3000) on the dev-deployer-ui VM via the canonical Docker bundle. Skipping leaves the VM as a bare Docker host."
     default: true
 
   - id: DEPLOYER_API_BACKEND
