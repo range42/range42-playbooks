@@ -7,7 +7,7 @@
 # import in their 01_templates-bootstrap stage.
 #
 # Replaces the former loose include templates/_main_download_cloudinit_files.yml
-# (moved to decom/). Behaviour is identical : the same 4 images are fetched onto
+# (since retired). Behaviour is identical : the same 4 images are fetched onto
 # the Proxmox `local` storage. For finer control, import a single per-image
 # bundle instead of `.all`.
 # ============================================================================

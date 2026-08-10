@@ -158,9 +158,6 @@ bundles/                                       # grammar: <tier>/<subject>.<verb
 │   ├── network.configure.{tailscale_client,ufw_rules}/
 │   ├── repo.clone.{...,kunai_workshop}/
 │   └── software.install.kunai_official_workshop/
-├── decom/                                     # dead code staged for deletion (backend/UI-only)
-│   ├── linux/ubuntu/{install/*,configure/add-user}/       # old API-driven primitives
-│   └── vms/{create,delete,start-stop-pause-resume}-vms-* + snapshot/*   # legacy VM CRUD
 └── ctf/                                       # CVE + misconfiguration taxonomy (unchanged)
     ├── cve/**
     └── misconfiguration/**
@@ -195,7 +192,6 @@ bundles/                               # Reusable actions, grammar <tier>/<subje
 ├── admin/                             # app stacks (docker-compose) on dedicated VMs
 ├── proxmox/                           # vm.bootstrap, template.build.*, cloud_init_image.download.*
 ├── generic/                           # systems/network/repo/software composition primitives
-├── decom/                             # dead code staged for deletion (backend/UI-only)
 └── ctf/                               # CVE + misconfiguration taxonomy
 ```
 
