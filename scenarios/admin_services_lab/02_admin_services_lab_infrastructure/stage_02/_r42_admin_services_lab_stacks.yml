@@ -1,0 +1,707 @@
+##
+## admin_services_lab stage_02 - register OAuth2 apps in Gitea and deploy service stacks
+##
+## Three plays in ONE file so that set_fact values set in Play 1 (OAuth2 credentials)
+## persist into Play 2 and Play 3. Splitting across import_playbook would lose facts.
+##
+## Play 1 (become: false):
+##   - Register Mattermost, Rocket.Chat, Nextcloud OAuth2 apps in Gitea
+##   - Capture per-service client_id/secret as host facts immediately after each call
+##
+## Play 2 (become: true):
+##   - Deploy Mattermost, Rocket.Chat, Nextcloud docker-compose stacks
+##   - Re-write Mattermost and Rocket.Chat .env files AFTER rsync (rsync overwrites
+##     any pre-written .env with the catalog default, which lacks OAuth2 settings)
+##   - Force-recreate the service containers to pick up the new .env values
+##
+## Play 3 (become: false):
+##   - Wait for Nextcloud to be reachable on port 8443 (nginx HTTPS)
+##   - Configure Nextcloud OIDC provider via occ (tasks use become: true per-task)
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: register OAuth2 apps in Gitea and write service env files
+  hosts: r42_admin_services_lab_group
+  become: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  vars:
+    gitea_oauth2_base_url:   "{{ gitea_protocol | default('https') }}://localhost:{{ gitea_port | default(3000) }}"
+    gitea_oauth2_admin_user: "{{ GITEA_ADMIN_USER | default('admin') }}"
+    gitea_oauth2_admin_pass: "{{ GITEA_ADMIN_PASS | default('Admin1234!') }}"
+
+  tasks:
+    - name: wait for Gitea HTTP API to be reachable
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 3000
+        delay: 15
+        timeout: 300
+
+    #### #### Mattermost #### ####
+
+    - name: register Mattermost OAuth2 app in Gitea
+      ansible.builtin.include_role:
+        name: service.configure.gitea_oauth2_app
+      vars:
+        gitea_oauth2_app_name:     "Mattermost"
+        gitea_oauth2_redirect_uri: "https://{{ ansible_default_ipv4.address }}:8065/signup/gitlab/complete"
+
+    - name: capture Mattermost OAuth2 credentials
+      ansible.builtin.set_fact:
+        mm_oauth2_client_id:     "{{ gitea_oauth2_client_id }}"
+        mm_oauth2_client_secret: "{{ gitea_oauth2_client_secret }}"
+      no_log: true
+
+    #### #### Rocket.Chat #### ####
+
+    - name: register Rocket.Chat OAuth2 app in Gitea
+      ansible.builtin.include_role:
+        name: service.configure.gitea_oauth2_app
+      vars:
+        gitea_oauth2_app_name:     "Rocket.Chat"
+        gitea_oauth2_redirect_uri: "https://{{ ansible_default_ipv4.address }}:3500/_oauth/Gitea"
+
+    - name: capture Rocket.Chat OAuth2 credentials
+      ansible.builtin.set_fact:
+        rc_oauth2_client_id:     "{{ gitea_oauth2_client_id }}"
+        rc_oauth2_client_secret: "{{ gitea_oauth2_client_secret }}"
+      no_log: true
+
+    #### #### Nextcloud #### ####
+
+    - name: register Nextcloud OAuth2 app in Gitea
+      ansible.builtin.include_role:
+        name: service.configure.gitea_oauth2_app
+      vars:
+        gitea_oauth2_app_name:     "Nextcloud"
+        gitea_oauth2_redirect_uri: "https://{{ ansible_default_ipv4.address }}:8443/apps/user_oidc/code"
+
+    - name: capture Nextcloud OAuth2 credentials
+      ansible.builtin.set_fact:
+        nc_oauth2_client_id:     "{{ gitea_oauth2_client_id }}"
+        nc_oauth2_client_secret: "{{ gitea_oauth2_client_secret }}"
+      no_log: true
+
+    - name: assert all OAuth2 secrets are non-empty
+      ansible.builtin.assert:
+        that:
+          - mm_oauth2_client_secret | length > 0
+          - rc_oauth2_client_secret | length > 0
+          - nc_oauth2_client_secret | length > 0
+        fail_msg: >-
+          One or more OAuth2 client_secrets are empty — the app already existed in Gitea
+          and the secret is not recoverable via the API. Delete the apps in Gitea
+          (Admin > Applications) and re-run stage_02, or run reset.setup.sh to rebuild.
+
+    - name: pre-approve Gitea OAuth2 grants for admin user (bypass PKCE-contaminated grant-form on first login)
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - gitea-db
+          - psql
+          - -U
+          - gitea
+          - -d
+          - gitea
+          - -c
+          - |-
+            WITH admin AS (SELECT id FROM "user" WHERE lower_name='admin')
+            INSERT INTO oauth2_grant (user_id, application_id, counter, scope, nonce, created_unix, updated_unix)
+            SELECT admin.id, oa.id, 0,
+                   CASE oa.name
+                     WHEN 'Nextcloud' THEN 'openid email profile'
+                     WHEN 'Rocket.Chat' THEN 'openid'
+                     ELSE ''
+                   END, '',
+                   EXTRACT(EPOCH FROM NOW())::bigint,
+                   EXTRACT(EPOCH FROM NOW())::bigint
+            FROM oauth2_application oa, admin
+            WHERE oa.name IN ('Mattermost', 'Rocket.Chat', 'Nextcloud')
+            ON CONFLICT (user_id, application_id) DO NOTHING;
+      become: true
+      changed_when: false
+
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: deploy Mattermost, Rocket.Chat, Nextcloud docker-compose stacks
+  hosts: r42_admin_services_lab_group
+  become: true
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: check if Mattermost compose.yml exists (for volume cleanup)
+      ansible.builtin.stat:
+        path: /home/alice/mattermost/compose.yml
+      register: mm_compose_stat
+
+    - name: tear down Mattermost stack and wipe Postgres volume (clean deploy)
+      ansible.builtin.command:
+        cmd: docker compose down --volumes --remove-orphans
+        chdir: /home/alice/mattermost
+      changed_when: true
+      when: mm_compose_stat.stat.exists
+
+    - name: deploy Mattermost stack
+      ansible.builtin.include_role:
+        name: software.configure.docker-compose
+      vars:
+        LABEL_PROJECT_TYPE:  "admin"
+        LABEL_PROJET_NAME:   "mattermost"
+        LOCAL__PROJECT_DIR:  "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/mattermost"
+        REMOTE_PROJECT_DIR:  "/home/alice/mattermost"
+        OPERATOR_USER:       alice
+        CLEAN_UP_DEPLOY_DIR: "NO"
+        SEND_POC_DIR:        "NO"
+        FORCE_RECREATE:      "YES"
+
+    - name: write Mattermost .env with OAuth2 settings (overwrites catalog default rsynced above)
+      ansible.builtin.include_role:
+        name: service.configure.mattermost_gitea_oauth2
+      vars:
+        mattermost_gitea_base_url:      "https://{{ ansible_default_ipv4.address }}:3000"
+        mattermost_gitea_client_id:     "{{ mm_oauth2_client_id }}"
+        mattermost_gitea_client_secret: "{{ mm_oauth2_client_secret }}"
+
+    - name: reload Mattermost container to apply OAuth2 .env settings
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate mattermost
+        chdir: /home/alice/mattermost
+      changed_when: true
+
+    - name: wait for Mattermost provisioner to finish
+      ansible.builtin.command:
+        cmd: docker wait mattermost-provisioner
+      become: true
+      changed_when: false
+      register: _prov_exit
+      failed_when: _prov_exit.rc != 0 or _prov_exit.stdout | trim != '0'
+
+    - name: link Mattermost admin account to Gitea GitLab-SSO
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - mattermost-db
+          - psql
+          - -U
+          - mattermost
+          - -d
+          - mattermost
+          - -c
+          - "UPDATE users SET authservice='gitlab', authdata='1', password='' WHERE email='admin@range42.local';"
+      become: true
+      changed_when: true
+
+    - name: ensure shared certs directory exists on host
+      ansible.builtin.file:
+        path: /home/alice/certs
+        state: directory
+        mode: '0755'
+
+    - name: extract Gitea TLS certificate from container (bind-mounted into RC via compose)
+      ansible.builtin.command:
+        cmd: docker exec gitea cat /certs/server.crt
+      register: _gitea_cert_pem
+      changed_when: false
+
+    - name: write Gitea cert to host (bind-mounted into RC container as /certs/gitea.crt)
+      ansible.builtin.copy:
+        content: "{{ _gitea_cert_pem.stdout }}"
+        dest: /home/alice/certs/gitea.crt
+        mode: '0644'
+
+    - name: check if Rocket.Chat compose.yml exists (for volume cleanup)
+      ansible.builtin.stat:
+        path: /home/alice/rocketchat/compose.yml
+      register: rc_compose_stat
+
+    - name: tear down Rocket.Chat stack and wipe MongoDB volume (clean deploy)
+      ansible.builtin.command:
+        cmd: docker compose down --volumes --remove-orphans
+        chdir: /home/alice/rocketchat
+      changed_when: true
+      when: rc_compose_stat.stat.exists
+
+    - name: deploy Rocket.Chat stack
+      ansible.builtin.include_role:
+        name: software.configure.docker-compose
+      vars:
+        LABEL_PROJECT_TYPE:  "admin"
+        LABEL_PROJET_NAME:   "rocketchat"
+        LOCAL__PROJECT_DIR:  "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/rocketchat"
+        REMOTE_PROJECT_DIR:  "/home/alice/rocketchat"
+        OPERATOR_USER:       alice
+        CLEAN_UP_DEPLOY_DIR: "NO"
+        SEND_POC_DIR:        "NO"
+        FORCE_RECREATE:      "YES"
+
+    - name: write Rocket.Chat .env with OAuth2 settings (overwrites catalog default rsynced above)
+      ansible.builtin.include_role:
+        name: service.configure.rocketchat_gitea_oauth2
+      vars:
+        rocketchat_gitea_base_url:      "https://{{ ansible_default_ipv4.address }}:3000"
+        rocketchat_gitea_client_id:     "{{ rc_oauth2_client_id }}"
+        rocketchat_gitea_client_secret: "{{ rc_oauth2_client_secret }}"
+        rocketchat_http_port:           "3500"
+
+    - name: reload Rocket.Chat container to apply OAuth2 .env settings
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate rocketchat
+        chdir: /home/alice/rocketchat
+      changed_when: true
+
+    - name: wait for Rocket.Chat API to be reachable
+      ansible.builtin.uri:
+        url: "https://localhost:3500/health"
+        status_code: 200
+        return_content: false
+        validate_certs: false
+      register: _rc_api_check
+      retries: 30
+      delay: 10
+      until: _rc_api_check.status == 200
+
+    - name: authenticate to Rocket.Chat REST API
+      ansible.builtin.uri:
+        url: "https://localhost:3500/api/v1/login"
+        method: POST
+        body_format: json
+        body:
+          username: "{{ rocketchat_admin_user | default('admin') }}"
+          password: "{{ rocketchat_admin_pass | default('Admin1234!') }}"
+        validate_certs: false
+      register: _rc_login
+      no_log: true
+
+    - name: create Gitea custom OAuth provider in Rocket.Chat
+      ansible.builtin.uri:
+        url: "https://localhost:3500/api/v1/settings.addCustomOAuth"
+        method: POST
+        body_format: json
+        body:
+          name: "Gitea"
+        headers:
+          X-Auth-Token: "{{ _rc_login.json.data.authToken }}"
+          X-User-Id:    "{{ _rc_login.json.data.userId }}"
+        status_code: [200, 400]
+        validate_certs: false
+
+    - name: enable Rocket.Chat Gitea OAuth boolean settings
+      ansible.builtin.uri:
+        url: "https://localhost:3500/api/v1/settings/{{ item }}"
+        method: POST
+        body_format: json
+        body:
+          value: true
+        headers:
+          X-Auth-Token: "{{ _rc_login.json.data.authToken }}"
+          X-User-Id:    "{{ _rc_login.json.data.userId }}"
+        validate_certs: false
+      loop:
+        - "Accounts_OAuth_Custom-Gitea"
+        - "Accounts_OAuth_Custom-Gitea-merge_users"
+        - "Accounts_OAuth_Custom-Gitea-show_button"
+
+    - name: configure Rocket.Chat Gitea OAuth string settings
+      ansible.builtin.uri:
+        url: "https://localhost:3500/api/v1/settings/{{ item.id }}"
+        method: POST
+        body_format: json
+        body:
+          value: "{{ item.value }}"
+        headers:
+          X-Auth-Token: "{{ _rc_login.json.data.authToken }}"
+          X-User-Id:    "{{ _rc_login.json.data.userId }}"
+        validate_certs: false
+      loop:
+        - { id: "Accounts_OAuth_Custom-Gitea-url",            value: "https://{{ ansible_default_ipv4.address }}:3000" }
+        - { id: "Accounts_OAuth_Custom-Gitea-id",             value: "{{ rc_oauth2_client_id }}" }
+        - { id: "Accounts_OAuth_Custom-Gitea-secret",         value: "{{ rc_oauth2_client_secret }}" }
+        - { id: "Accounts_OAuth_Custom-Gitea-token_path",     value: "/login/oauth/access_token" }
+        - { id: "Accounts_OAuth_Custom-Gitea-token_sent_via", value: "header" }
+        - { id: "Accounts_OAuth_Custom-Gitea-identity_path",  value: "/api/v1/user" }
+        - { id: "Accounts_OAuth_Custom-Gitea-authorize_path", value: "/login/oauth/authorize" }
+        - { id: "Accounts_OAuth_Custom-Gitea-scope",          value: "openid" }
+        - { id: "Accounts_OAuth_Custom-Gitea-login_style",    value: "redirect" }
+        - { id: "Accounts_OAuth_Custom-Gitea-username_field", value: "login" }
+        - { id: "Accounts_OAuth_Custom-Gitea-name_field",     value: "full_name" }
+        - { id: "Accounts_OAuth_Custom-Gitea-email_field",    value: "email" }
+      no_log: true
+
+    - name: wait for Rocket.Chat init to complete and clear requirePasswordChange on admin
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - rocketchat-mongodb
+          - mongosh
+          - rocketchat
+          - --quiet
+          - --eval
+          - |-
+            var u=db.users.findOne({username:'admin'});
+            if(!u){process.exit(1);}
+            db.users.updateOne({username:'admin'},{$set:{requirePasswordChange:false,'emails.0.verified':true},$unset:{requirePasswordChangeReason:''}});
+            u=db.users.findOne({username:'admin'});
+            if(u.requirePasswordChange===true){process.exit(1);}
+      register: _rc_rpc
+      until: _rc_rpc.rc == 0
+      retries: 12
+      delay: 10
+      become: true
+      changed_when: true
+
+    - name: check if Nextcloud compose.yml exists (for volume cleanup)
+      ansible.builtin.stat:
+        path: /home/alice/nextcloud/compose.yml
+      register: nc_compose_stat
+
+    - name: tear down Nextcloud stack and wipe volumes (clean deploy)
+      ansible.builtin.command:
+        cmd: docker compose down --volumes --remove-orphans
+        chdir: /home/alice/nextcloud
+      changed_when: true
+      when: nc_compose_stat.stat.exists
+
+    - name: deploy Nextcloud stack
+      ansible.builtin.include_role:
+        name: software.configure.docker-compose
+      vars:
+        LABEL_PROJECT_TYPE:  "admin"
+        LABEL_PROJET_NAME:   "nextcloud"
+        LOCAL__PROJECT_DIR:  "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/nextcloud"
+        REMOTE_PROJECT_DIR:  "/home/alice/nextcloud"
+        OPERATOR_USER:       alice
+        CLEAN_UP_DEPLOY_DIR: "NO"
+        SEND_POC_DIR:        "NO"
+        FORCE_RECREATE:      "YES"
+
+    - name: configure Nextcloud .env — HTTPS port
+      ansible.builtin.lineinfile:
+        path: /home/alice/nextcloud/.env
+        regexp: '^HTTP_PORT='
+        line: "HTTP_PORT=8443"
+
+    - name: configure Nextcloud .env — TLS mode
+      ansible.builtin.lineinfile:
+        path: /home/alice/nextcloud/.env
+        regexp: '^NC_TLS_MODE='
+        line: "NC_TLS_MODE=self-signed"
+
+    - name: configure Nextcloud .env — host IP for TLS certificate SAN
+      ansible.builtin.lineinfile:
+        path: /home/alice/nextcloud/.env
+        regexp: '^NC_HOST_IP='
+        line: "NC_HOST_IP={{ ansible_default_ipv4.address }}"
+
+    - name: configure Nextcloud .env — public base URL (drives OVERWRITECLIURL for OIDC redirect URIs)
+      ansible.builtin.lineinfile:
+        path: /home/alice/nextcloud/.env
+        regexp: '^NC_BASE_URL='
+        line: "NC_BASE_URL=https://{{ ansible_default_ipv4.address }}:8443"
+
+    - name: configure Nextcloud .env — Collabora URL (same port as Nextcloud, path-based routing)
+      # Collabora is proxied at /browser/, /cool/, /hosting/ on the same nginx port as Nextcloud.
+      # Using the same origin eliminates the need for a second TLS certificate exception in browsers.
+      ansible.builtin.lineinfile:
+        path: /home/alice/nextcloud/.env
+        regexp: '^NC_COLLABORA_URL='
+        line: "NC_COLLABORA_URL=https://{{ ansible_default_ipv4.address }}:8443"
+
+    - name: restart Collabora to pick up patched server_name from .env (NC_HOST_IP)
+      # Collabora starts during stack deploy with the catalog .env (NC_HOST_IP=127.0.0.1).
+      # The .env is patched above with the real VM IP. Collabora must be restarted so that
+      # server_name=<vm_ip>:8443 is embedded in its discovery XML before activate-config runs.
+      # Without this restart, activate-config reads urlsrc=https://127.0.0.1:8443 from the
+      # discovery XML and sets public_wopi_url to 127.0.0.1, which the browser cannot reach.
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate --no-deps collabora
+        chdir: /home/alice/nextcloud
+      become: true
+      changed_when: true
+
+    - name: wait for Collabora discovery endpoint to be ready after restart
+      # Poll from the nextcloud container (same Docker network) — collabora/code has no curl.
+      ansible.builtin.command:
+        cmd: docker exec nextcloud curl -sf http://collabora:9980/hosting/discovery
+      become: true
+      register: _collabora_ready
+      retries: 12
+      delay: 5
+      until: _collabora_ready.rc == 0
+      changed_when: false
+
+    - name: configure Nextcloud richdocuments — internal wopi_url (server-side discovery, no TLS)
+      # The post-installation hook already sets wopi_url=http://collabora:9980, but it runs
+      # before the .env patch and may default to localhost:8443 if NC_COLLABORA_URL was unset.
+      # Idempotently enforce the correct two-URL split here.
+      ansible.builtin.command:
+        cmd: >
+          docker compose exec -T nextcloud
+          php occ config:app:set richdocuments wopi_url
+          --value "http://collabora:9980"
+        chdir: /home/alice/nextcloud
+      become: true
+      changed_when: true
+
+    - name: configure Nextcloud richdocuments — activate-config (flushes discovery cache, auto-detects public URL)
+      # richdocuments:activate-config reads the discovery XML (from wopi_url) and derives
+      # public_wopi_url from it. With server_name set on the Collabora container the discovery
+      # XML embeds the correct external URL, so auto-detection sets the right public_wopi_url.
+      ansible.builtin.command:
+        cmd: >
+          docker compose exec -T --user www-data nextcloud
+          php occ richdocuments:activate-config
+        chdir: /home/alice/nextcloud
+      become: true
+      changed_when: true
+
+    - name: configure Nextcloud richdocuments — wopi_callback_url (re-assert after activate-config)
+      # activate-config clears wopi_callback_url to empty. When empty, Nextcloud builds the
+      # WOPISrc parameter from OVERWRITECLIURL (https://<vm-ip>:8443), but Collabora's
+      # coolwsd.xml WOPI storage allowlist only contains "nextcloud" (Docker service name).
+      # Collabora rejects any WOPISrc whose host does not match the allowlist with
+      # "Unauthorized WOPI host". Re-assert http://nextcloud so WOPISrc uses the Docker
+      # service name, which is in the allowlist and reachable over the internal bridge network.
+      ansible.builtin.command:
+        cmd: >
+          docker compose exec -T nextcloud
+          php occ config:app:set richdocuments wopi_callback_url
+          --value "http://nextcloud"
+        chdir: /home/alice/nextcloud
+      become: true
+      changed_when: true
+
+    - name: regenerate TLS certificate for VM IP (re-run cert-gen with updated .env)
+      ansible.builtin.command:
+        cmd: docker compose up --force-recreate --no-deps cert-gen
+        chdir: /home/alice/nextcloud
+      changed_when: true
+
+    - name: reload nginx with regenerated TLS certificate
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate --no-deps nginx
+        chdir: /home/alice/nextcloud
+      changed_when: true
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: configure Nextcloud OIDC provider (Gitea)
+  hosts: r42_admin_services_lab_group
+  become: false
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  tasks:
+    - name: wait for Nextcloud HTTPS port to be reachable
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 8443
+        delay: 30
+        timeout: 600
+
+    - name: restart Nextcloud container to apply updated .env (picks up NC_BASE_URL → OVERWRITECLIURL)
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate --no-deps nextcloud
+        chdir: /home/alice/nextcloud
+      become: true
+      changed_when: true
+
+    - name: wait for Nextcloud to respond after restart
+      ansible.builtin.uri:
+        url: "https://localhost:8443/status.php"
+        validate_certs: false
+        status_code: [200, 302, 503]
+        return_content: false
+      register: _nc_health
+      retries: 30
+      delay: 10
+      failed_when: false
+      until: _nc_health.status is defined and _nc_health.status == 200
+
+    - name: configure Nextcloud OIDC with Gitea as identity provider
+      ansible.builtin.include_role:
+        name: service.configure.nextcloud_gitea_oauth2
+      vars:
+        nextcloud_gitea_base_url:      "https://{{ ansible_default_ipv4.address }}:3000"
+        nextcloud_gitea_client_id:     "{{ nc_oauth2_client_id }}"
+        nextcloud_gitea_client_secret: "{{ nc_oauth2_client_secret }}"
+        nextcloud_public_ip:           "{{ ansible_default_ipv4.address }}"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: wire Gitea outgoing webhooks to Mattermost and Rocket.Chat
+  hosts: r42_admin_services_lab_group
+  become: true
+  vars_files:
+    - "../../secrets/default_vault.yml"
+
+  vars:
+    _gitea_api:       "https://localhost:{{ gitea_port | default(3000) }}/api/v1"
+    _gitea_user:      "{{ GITEA_ADMIN_USER      | default('admin') }}"
+    _gitea_pass:      "{{ GITEA_ADMIN_PASS      | default('Admin1234!') }}"
+    _gitea_org:       "{{ GITEA_ORG_NAME        | default('range42-training') }}"
+    _gitea_repo:      "hello-range42"
+    _rc_base:         "https://localhost:3500"
+    _rc_user:         "{{ rocketchat_admin_user | default('admin') }}"
+    _rc_pass:         "{{ rocketchat_admin_pass | default('Admin1234!') }}"
+
+  tasks:
+
+    # ── Mattermost: resolve incoming-webhook URL ────────────────────────────────
+    # The tokens volume is mounted only in the provisioner container, not in
+    # the mattermost service — read straight from the host volume path instead.
+    - name: read Mattermost credentials JSON from tokens volume (host path)
+      ansible.builtin.slurp:
+        src: /var/lib/docker/volumes/mattermost_mattermost-tokens/_data/mattermost-credentials.json
+      register: _mm_creds_raw
+
+    - name: derive external Mattermost webhook URL (replace localhost → host IP, http → https)
+      ansible.builtin.set_fact:
+        _mm_webhook_url: >-
+          {{ (_mm_creds_raw.content | b64decode | from_json).service_specific.incoming_webhook_url
+             | regex_replace('^http://localhost', 'https://' + ansible_default_ipv4.address) }}
+
+    # ── Rocket.Chat: create incoming webhook integration ────────────────────────
+    - name: authenticate to Rocket.Chat REST API
+      ansible.builtin.uri:
+        url:          "{{ _rc_base }}/api/v1/login"
+        method:       POST
+        body_format:  json
+        body:
+          username: "{{ _rc_user }}"
+          password: "{{ _rc_pass }}"
+        validate_certs: false
+      register: _rc_login_p4
+      no_log: true
+
+    - name: grant admin role message-impersonate permission (required for incoming webhooks)
+      ansible.builtin.uri:
+        url:         "{{ _rc_base }}/api/v1/permissions.update"
+        method:      POST
+        body_format: json
+        body:
+          permissions:
+            - _id:   "message-impersonate"
+              roles: ["admin", "bot"]
+        headers:
+          X-Auth-Token: "{{ _rc_login_p4.json.data.authToken }}"
+          X-User-Id:    "{{ _rc_login_p4.json.data.userId }}"
+        status_code: [200]
+        validate_certs: false
+
+    - name: create Rocket.Chat incoming webhook for Gitea events
+      ansible.builtin.uri:
+        url:         "{{ _rc_base }}/api/v1/integrations.create"
+        method:      POST
+        body_format: json
+        body:
+          type:          "webhook-incoming"
+          name:          "Gitea Events"
+          enabled:       true
+          channel:       "#general"
+          username:      "{{ _rc_user }}"
+          scriptEnabled: false
+          overrideDestinationChannelEnabled: true
+        headers:
+          X-Auth-Token: "{{ _rc_login_p4.json.data.authToken }}"
+          X-User-Id:    "{{ _rc_login_p4.json.data.userId }}"
+        status_code: [200]
+        validate_certs: false
+      register: _rc_wh_resp
+
+    - name: derive external Rocket.Chat webhook URL
+      ansible.builtin.set_fact:
+        _rc_webhook_url: >-
+          https://{{ ansible_default_ipv4.address }}:3500/hooks/{{ _rc_wh_resp.json.integration._id }}/{{ _rc_wh_resp.json.integration.token }}
+
+    # ── Gitea: ensure hello-range42 repo exists, then register outgoing webhooks ──
+    - name: create hello-range42 repo in Gitea org (idempotent)
+      ansible.builtin.uri:
+        url:              "{{ _gitea_api }}/orgs/{{ _gitea_org }}/repos"
+        method:           POST
+        url_username:     "{{ _gitea_user }}"
+        url_password:     "{{ _gitea_pass }}"
+        force_basic_auth: true
+        body_format:      json
+        body:
+          name:          "{{ _gitea_repo }}"
+          description:   "Training hello-world repository"
+          private:       false
+          auto_init:     true
+          default_branch: "main"
+        status_code: [201, 409]
+        validate_certs: false
+
+    - name: register Gitea → Mattermost webhook on hello-range42
+      ansible.builtin.uri:
+        url:              "{{ _gitea_api }}/repos/{{ _gitea_org }}/{{ _gitea_repo }}/hooks"
+        method:           POST
+        url_username:     "{{ _gitea_user }}"
+        url_password:     "{{ _gitea_pass }}"
+        force_basic_auth: true
+        body_format:      json
+        body:
+          type:   "slack"
+          active: true
+          events: ["push", "pull_request", "issues", "issue_comment"]
+          config:
+            url:          "{{ _mm_webhook_url }}"
+            content_type: "json"
+            channel:      "#general"
+        status_code: [201]
+        validate_certs: false
+
+    - name: register Gitea → Rocket.Chat webhook on hello-range42
+      ansible.builtin.uri:
+        url:              "{{ _gitea_api }}/repos/{{ _gitea_org }}/{{ _gitea_repo }}/hooks"
+        method:           POST
+        url_username:     "{{ _gitea_user }}"
+        url_password:     "{{ _gitea_pass }}"
+        force_basic_auth: true
+        body_format:      json
+        body:
+          type:   "slack"
+          active: true
+          events: ["push", "pull_request", "issues", "issue_comment"]
+          config:
+            url:          "{{ _rc_webhook_url }}"
+            content_type: "json"
+            channel:      "#general"
+        status_code: [201]
+        validate_certs: false
+
+    # ── gitea-registry: notify Rocket.Chat on every package push (issue #172) ──
+    # System-wide hook (fires for all owners/orgs). The registry provisioner
+    # skips this at first boot (GITEA_WEBHOOK_URL empty — Rocket.Chat does not
+    # exist yet in stage_01); wired here once the RC incoming webhook is up.
+    # is_system_webhook selects a SYSTEM hook (fires on package events) —
+    # without it /admin/hooks creates a "default" hook (repo template) that
+    # package events never trigger.
+    - name: register gitea-registry → Rocket.Chat package webhook (system hook)
+      ansible.builtin.uri:
+        url:              "https://localhost:{{ gitea_registry_port | default(3001) }}/api/v1/admin/hooks"
+        method:           POST
+        url_username:     "{{ GITEA_REGISTRY_ADMIN_USER | default('gitea-admin') }}"
+        url_password:     "{{ GITEA_REGISTRY_ADMIN_PASS | default('Admin1234!') }}"
+        force_basic_auth: true
+        body_format:      json
+        body:
+          type:   "slack"
+          active: true
+          events: ["package"]
+          config:
+            url:               "{{ _rc_webhook_url }}"
+            content_type:      "json"
+            channel:           "#general"
+            is_system_webhook: "true"
+        status_code: [201]
+        validate_certs: false
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

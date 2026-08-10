@@ -1,22 +1,31 @@
 ##
-## gitea_registry_lab stage_01 - software install and Gitea+registry deployment on admin-gitea-registry-standalone
+## admin_services_lab stage_01 - software install and Gitea deployment on admin-all-services-lab
 ##
-## Same Docker baseline as misp_lab + zsh dotfiles + firewall.
-## Firewall opens port 22 (SSH), port 3000 (Gitea HTTP) and port 2222 (Gitea SSH).
-## Targets the r42_gitea_registry_lab_group inventory group (defined in
+## Docker baseline + zsh dotfiles + firewall.
+## Firewall opens port 22 (SSH), port 2222 (Gitea SSH), port 3000 (Gitea HTTP),
+## port 3500 (Rocket.Chat), port 8065 (Mattermost), port 8080 (Nextcloud).
+## Targets the r42_admin_services_lab_group inventory group (defined in
 ## templates/ansible-inventory.j2), currently containing a single host:
-## r42.admin-gitea-registry-standalone.
+## r42.admin-all-services-lab.
 ##
-## Play 4 deploys the gitea-registry docker-compose stack via the
+## Play 4 deploys the Gitea docker-compose stack via the
 ## software.configure.docker-compose role (installs rsync, syncs files, runs
 ## docker_compose_v2).
+## Mattermost, Rocket.Chat, and Nextcloud stacks are deployed in stage_02 after
+## OAuth2 apps have been registered in Gitea.
 ## Uses the existing RANGE42_INVENTORY env var (points to range42-catalog root).
 ##
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
+- import_playbook: ../../../../bundles/core/linux/ubuntu/configure/terminfo/main.yml
+  vars:
+    terminfo_hosts: r42_admin_services_lab_group
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
 - name: install basics packages
-  hosts: r42_gitea_registry_lab_group
+  hosts: r42_admin_services_lab_group
   become: true
   roles:
     - software.install.warmup.basic_packages
@@ -41,7 +50,7 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: install dot files
-  hosts: r42_gitea_registry_lab_group
+  hosts: r42_admin_services_lab_group
   become: true
   roles:
     - software.install.warmup.dot_files
@@ -58,7 +67,7 @@
 
 - name: configure firewall - all
   become: true
-  hosts: r42_gitea_registry_lab_group
+  hosts: r42_admin_services_lab_group
   roles:
     - software.configure.firewalls
 
@@ -71,16 +80,98 @@
         port: 22
         protocol: "tcp"
       - ip: "all"
+        port: 2222
+        protocol: "tcp"
+      - ip: "all"
+        port: 3000
+        protocol: "tcp"
+      - ip: "all"
         port: 3001
         protocol: "tcp"
       - ip: "all"
         port: 3223
         protocol: "tcp"
+      - ip: "all"
+        port: 3500
+        protocol: "tcp"
+      - ip: "all"
+        port: 8065
+        protocol: "tcp"
+      - ip: "all"
+        port: 8443
+        protocol: "tcp"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: deploy gitea docker-compose stack
+  hosts: r42_admin_services_lab_group
+  become: true
+  roles:
+    - software.configure.docker-compose
+
+  vars:
+    LABEL_PROJECT_TYPE: "admin"
+    LABEL_PROJET_NAME: "gitea"
+    #
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/gitea"
+    REMOTE_PROJECT_DIR: "/home/alice/gitea"
+    #
+    OPERATOR_USER: alice
+    #
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: patch Gitea .env with VM IP and regenerate TLS certificate
+  hosts: r42_admin_services_lab_group
+  become: true
+  ##
+  ## The catalog .env ships GITEA_DOMAIN=localhost / GITEA_BASE_URL=https://localhost:3000.
+  ## After rsync+first-start those defaults are active, meaning:
+  ##   - ROOT_URL in app.ini is "https://localhost:3000" (wrong OIDC issuer/endpoints)
+  ##   - The TLS cert has no IP SAN, so external HTTPS connections to the VM IP
+  ##     fail hostname verification in Go (Mattermost), Node.js (Rocket.Chat),
+  ##     and PHP/Guzzle (Nextcloud user_oidc).
+  ## This play fixes both by updating .env and force-recreating cert-gen + gitea.
+  ##
+
+  tasks:
+    - name: configure Gitea .env — domain (VM IP for HTTPS cert SAN)
+      ansible.builtin.lineinfile:
+        path: /home/alice/gitea/.env
+        regexp: '^GITEA_DOMAIN='
+        line: "GITEA_DOMAIN={{ ansible_default_ipv4.address }}"
+
+    - name: configure Gitea .env — base URL (VM IP for OIDC discovery endpoints)
+      ansible.builtin.lineinfile:
+        path: /home/alice/gitea/.env
+        regexp: '^GITEA_BASE_URL='
+        line: "GITEA_BASE_URL=https://{{ ansible_default_ipv4.address }}:3000"
+
+    - name: regenerate Gitea TLS certificate with VM IP SAN (re-run cert-gen)
+      ansible.builtin.command:
+        cmd: docker compose up --force-recreate --no-deps cert-gen
+        chdir: /home/alice/gitea
+      changed_when: true
+
+    - name: reload Gitea to apply updated ROOT_URL and new TLS certificate
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate --no-deps gitea
+        chdir: /home/alice/gitea
+      changed_when: true
+
+    - name: wait for Gitea to be reachable after restart
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 3000
+        delay: 10
+        timeout: 120
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: deploy gitea-registry docker-compose stack
-  hosts: r42_gitea_registry_lab_group
+  hosts: r42_admin_services_lab_group
   become: true
   roles:
     - software.configure.docker-compose
@@ -100,7 +191,7 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: patch gitea-registry .env with VM IP, TLS and ports
-  hosts: r42_gitea_registry_lab_group
+  hosts: r42_admin_services_lab_group
   become: true
   ##
   ## The catalog .env ships GITEA_DOMAIN=localhost / GITEA_BASE_URL=https://localhost:3001
