@@ -18,7 +18,7 @@
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ../../../../bundles/core/linux/ubuntu/configure/terminfo/main.yml
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.terminfo/main.yml"
   vars:
     terminfo_hosts: r42_admin_services_lab_group
 

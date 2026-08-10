@@ -1,0 +1,15 @@
+---
+bundle: generic/systems.configure.terminfo
+
+description: Install the alacritty terminfo entry and allow sshd to accept the client TERM value on a target group
+
+optional: false
+
+params:
+  - name: terminfo_hosts
+    target: true
+    type: string
+    required: true
+    default_where: bundle-inline
+    default: "all"
+    description: Ansible inventory group the play targets (used in hosts) ; falls back to all when the caller omits it
