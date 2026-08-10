@@ -27,6 +27,8 @@ The upstream repo ships a multi-stage Dockerfile :
 | `LOCAL_CODE_PATH` | `{{ env RANGE42_GITDIR__ROOT_DIR }}/range42-deployer-ui/` |
 | `REMOTE_PROJECT_DIR` | `/var/www/range42_deployer_ui` |
 | `UI_PORT` | `3000` |
+| `BACKEND_API_URL` | *(unset)* — when set, rendered into `public/config.json` so the SPA pre-registers this backend |
+| `PROXMOX_NODE_NAME` | `pve` — paired with `BACKEND_API_URL` in `config.json` |
 
 ## Call-site example
 
@@ -42,17 +44,40 @@ The upstream repo ships a multi-stage Dockerfile :
 1. **Docker install** : invokes `software.install.warmup.basic_packages` role with `INSTALL_PACKAGES_DOCKER=YES` + `INSTALL_PACKAGES_DOCKER_COMPOSE=YES` (gets Docker Engine + compose plugin via the project's standard install path)
 2. **Firewall** : applies `software.configure.firewalls` role with rules for ports 22 + UI_PORT
 3. **Sync source** : rsync's the deployer-ui repo from the controller to `REMOTE_PROJECT_DIR` (excludes `.git`, `node_modules`, `dist`, `.env*`)
-4. **Template .env** : writes `UI_PORT=<port>` to `<REMOTE_PROJECT_DIR>/.env` for docker-compose to pick up
-5. **Compose up** : runs `docker compose up -d --build` in the project dir (builds the multi-stage image locally on the VM the first time, reuses cached layers afterwards)
-6. **Verify** : waits for the UI port + probes `/health` (expects HTTP 200, content `ok`)
+4. **Record provenance** : captures the controller-side `ref` / short `sha` / dirty-file count of the synced tree into `/var/lib/range42/deployer_ui.version` and echoes it in the play output
+5. **Template .env** : writes `UI_PORT=<port>` to `<REMOTE_PROJECT_DIR>/.env` for docker-compose to pick up
+6. **Render config.json** (only when `BACKEND_API_URL` is set) : writes `<REMOTE_PROJECT_DIR>/public/config.json` before the build, so vite copies it into `dist/` and nginx serves it next to `index.html`
+7. **Compose up** : runs `docker compose up -d --build` in the project dir (builds the multi-stage image locally on the VM the first time, reuses cached layers afterwards)
+8. **Verify** : waits for the UI port + probes `/health` (expects HTTP 200, content `ok`)
+
+## Source provenance
+
+This bundle deploys the **controller's working tree**, not a git clone : branch, local commits and uncommitted edits all ship as-is. That is what makes a dev lab fast (edit, redeploy, no push round-trip), but it also means the deployed bundle can exist on no git remote.
+
+Step 4 therefore records what was actually shipped :
+
+```
+# /var/lib/range42/deployer_ui.version
+repo=range42-deployer-ui
+source_path=/home/alice/range42-deployer-ui/
+ref=dev
+sha=a1b2c3d
+dirty=4
+deployed_at=2026-08-10T09:12:44Z
+```
+
+`dirty=0` is the only evidence that what runs on the VM matches a pushed commit. The file lives outside `REMOTE_PROJECT_DIR` on purpose — inside, its timestamp would bust the Docker build cache on every no-op re-run.
 
 ## Backend connection (CORS path)
 
 The bundled `nginx/default.conf` from the deployer-ui repo serves only the SPA + `/health`. It does NOT proxy `/v1`, `/v0`, `/ws` to the backend. This bundle therefore relies on the **CORS path** :
 
 - The backend (deployer-api-backend) must allow the UI's origin in `Access-Control-Allow-Origin`
-- The backend URL is configured at runtime via the in-app **Settings** modal (no build-time env var needed)
-- Operator workflow : open the UI in a browser → Settings → set backend URL → done
+- The backend URL comes from `config.json` when `BACKEND_API_URL` is set at the call-site, otherwise from the in-app **Settings** modal
+- Operator workflow with `BACKEND_API_URL` : open the UI in a browser → the backend is already registered → done
+- Operator workflow without it : open the UI → Settings → set backend URL → done
+
+The seed is a first-launch default, not a lock : the SPA only applies it when no backend has been registered yet, and records that it was offered, so a host the operator deletes stays deleted.
 
 This is the simplest path for the POC. Production hardening options (out of scope) :
 

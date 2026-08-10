@@ -63,10 +63,32 @@ scenarios + bundles tree). Schema is migrated at deploy time via an explicit
 2. **Firewall** : applies `software.configure.firewalls` role with rules for ports 22 + API_PORT
 3. **Workspace dir** : creates `/home/range42/range42.config/` on the host owned by UID/GID 1000 (mode 0700) - holds the SQLite DB + events.jsonl + ansible-runner artefacts + per-deployment `<C>-<S>/secrets/vault_pass.txt` ; persists across container restarts
 4. **Sync source (build context)** : rsync's the backend-api repo from the controller to `REMOTE_PROJECT_DIR` (excludes `.git`, `.venv`, `collections`, `__pycache__`, `.pytest_cache`, `.env*`). This is the Docker build context only - the source is BAKED into the image at build time, NOT bind-mounted at runtime
-5. **Render .env** : writes the env file consumed by docker compose (PORT, UID/GID, IMAGE_NAME, SSH_KEY_PATH, VAULT_PASSWORD_FILE empty by default, CORS_ORIGIN_REGEX, RANGE42_WORKSPACE_ROOT, WEB_CONCURRENCY=1, UVICORN_WORKERS=1, DEBUG=false)
-6. **Render docker-compose.override.yml** : two runtime bind-mounts - the workspace dir (RW) and the range42-playbooks repo (RO). The upstream compose's SSH key mount is preserved.
-7. **Compose up** : `docker compose up -d --build` builds the multi-stage image locally on the VM the first time (Python 3.13 builder + slim runtime), then starts the container
-8. **Verify** : waits for the API port + probes `/docs/openapi.json` (same endpoint the container's HEALTHCHECK uses) - expects HTTP 200
+5. **Record provenance** : captures the controller-side `ref` / short `sha` / dirty-file count of BOTH synced trees (backend-api + playbooks) into `/var/lib/range42/deployer_api_backend.version` and echoes them in the play output
+6. **Render .env** : writes the env file consumed by docker compose (PORT, UID/GID, IMAGE_NAME, SSH_KEY_PATH, VAULT_PASSWORD_FILE empty by default, CORS_ORIGIN_REGEX, RANGE42_WORKSPACE_ROOT, WEB_CONCURRENCY=1, UVICORN_WORKERS=1, DEBUG=false)
+7. **Render docker-compose.override.yml** : two runtime bind-mounts - the workspace dir (RW) and the range42-playbooks repo (RO). The upstream compose's SSH key mount is preserved.
+8. **Compose up** : `docker compose up -d --build` builds the multi-stage image locally on the VM the first time (Python 3.13 builder + slim runtime), then starts the container
+9. **Verify** : waits for the API port + probes `/docs/openapi.json` (same endpoint the container's HEALTHCHECK uses) - expects HTTP 200
+
+## Source provenance
+
+This bundle deploys the **controller's working trees**, not git clones — for both `range42-backend-api` (the image build context) and `range42-playbooks` (the tree the in-container ansible-runner reads at deploy time). Branch, local commits and uncommitted edits all ship as-is. That is what makes a dev lab fast, but it means what runs here can exist on no git remote.
+
+Step 5 therefore records what was actually shipped :
+
+```
+# /var/lib/range42/deployer_api_backend.version
+backend_api_source_path=/home/alice/range42-backend-api/
+playbooks_source_path=/home/alice/range42-playbooks/
+backend_api_ref=dev
+backend_api_sha=257e62a
+backend_api_dirty=0
+playbooks_ref=fix/dev-deployer-ui-lab-hardening
+playbooks_sha=bafe53a
+playbooks_dirty=9
+deployed_at=2026-08-10T09:29:40Z
+```
+
+`*_dirty=0` is the only evidence that what runs on the VM matches a pushed commit. The file lives outside `REMOTE_PROJECT_DIR` on purpose — inside, its timestamp would bust the Docker build cache on every no-op re-run.
 
 ## CORS configuration
 
