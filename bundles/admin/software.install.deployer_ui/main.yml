@@ -168,7 +168,9 @@
     - name: Capture controller-side git provenance of the synced source tree
       ansible.builtin.shell:
         cmd: |
-          cd {{ LOCAL_CODE_PATH_RESOLVED | quote }}
+          # Bail rather than run git in the playbook cwd (also a repo) and
+          # stamp the wrong tree. failed_when:false keeps the deploy going.
+          cd {{ LOCAL_CODE_PATH_RESOLVED | quote }} || exit 1
           printf 'ref=%s\n'      "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
           printf 'sha=%s\n'      "$(git rev-parse --short HEAD     2>/dev/null || echo unknown)"
           printf 'dirty=%s\n'    "$(git status --porcelain         2>/dev/null | wc -l)"
@@ -229,8 +231,8 @@
         dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/public/config.json"
         content: |
           {
-            "defaultBackendUrl": "{{ BACKEND_API_URL }}",
-            "defaultNodeName": "{{ PROXMOX_NODE_NAME | default('pve') }}"
+            "defaultBackendUrl": {{ BACKEND_API_URL | to_json }},
+            "defaultNodeName": {{ PROXMOX_NODE_NAME | default('pve') | to_json }}
           }
         owner: root
         group: root

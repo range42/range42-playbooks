@@ -279,7 +279,9 @@
     - name: Capture controller-side git provenance of the synced trees
       ansible.builtin.shell:
         cmd: |
-          cd {{ item.path | quote }}
+          # Bail rather than run git in the playbook cwd (also a repo) and
+          # stamp the wrong tree. failed_when:false keeps the deploy going.
+          cd {{ item.path | quote }} || exit 1
           printf '%s_ref=%s\n'      {{ item.key | quote }} "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
           printf '%s_sha=%s\n'      {{ item.key | quote }} "$(git rev-parse --short HEAD     2>/dev/null || echo unknown)"
           printf '%s_dirty=%s\n'    {{ item.key | quote }} "$(git status --porcelain         2>/dev/null | wc -l)"
