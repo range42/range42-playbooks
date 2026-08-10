@@ -43,7 +43,8 @@
 #   5. Wait for /docs/openapi.json to return 200 (container HEALTHCHECK uses
 #      the same endpoint).
 #   6. Post-deploy seed : register the Proxmox host with the backend via
-#      POST /v1/proxmox/hosts (idempotent via 409 ; reads creds from
+#      POST /v1/proxmox/hosts (idempotent : the backend keys on `name` and
+#      updates in place, keeping the host id stable ; reads creds from
 #      <workspace>/secrets/default_vault.yml). Required before any deploy
 #      via the backend can succeed (the backend looks up target_host_id in
 #      its proxmox_hosts table).
@@ -481,7 +482,7 @@
   vars:
     API_PORT_RESOLVED: "{{ API_PORT | default('8000') }}"
   tasks:
-    - name: Register Proxmox host with backend (idempotent via 409)
+    - name: Register Proxmox host with backend (idempotent upsert on name)
       ansible.builtin.uri:
         url: "http://127.0.0.1:{{ API_PORT_RESOLVED }}/v1/proxmox/hosts"
         method: POST
@@ -491,9 +492,12 @@
           api_url: "https://{{ proxmox_api_host }}"
           node_name: "{{ proxmox_node }}"
           token_ref: "{{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
-        status_code: [200, 201, 409]
+        # 201 = first registration, 200 = re-seed of an existing host (the
+        # backend refreshes api_url / node / token and keeps the same id, so
+        # deployments already pointing at it stay valid).
+        status_code: [200, 201]
       register: register_proxmox_result
 
     - name: Show Proxmox host registration result
       ansible.builtin.debug:
-        msg: "Proxmox host registration on backend : HTTP {{ register_proxmox_result.status }} (200/201 = created, 409 = already registered)"
+        msg: "Proxmox host registration on backend : HTTP {{ register_proxmox_result.status }} (201 = registered, 200 = already registered, refreshed in place)"
