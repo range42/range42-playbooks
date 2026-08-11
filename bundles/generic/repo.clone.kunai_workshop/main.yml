@@ -1,3 +1,4 @@
+---
 # ============================================================================
 # bundles/generic/repo.clone.kunai_workshop/main.yml
 # ============================================================================
@@ -35,12 +36,12 @@
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/repo.clone/main.yml"
   vars:
-    target_group:           "{{ GITCLONE_KUNAI_TARGET_GROUP }}"
+    target_group: "{{ GITCLONE_KUNAI_TARGET_GROUP }}"
     GITCLONE_OPERATOR_USER: "{{ GITCLONE_KUNAI_OPERATOR_USER | default('alice') }}"
-    GITCLONE_REPOS_DIR:     "{{ GITCLONE_KUNAI_REPOS_DIR | default('/home/' + (GITCLONE_KUNAI_OPERATOR_USER | default('alice')) + '/kunai-project') }}"
+    GITCLONE_REPOS_DIR: "{{ GITCLONE_KUNAI_REPOS_DIR | default('/home/' + (GITCLONE_KUNAI_OPERATOR_USER | default('alice')) + '/kunai-project') }}"
     GITCLONE_REPOS:
-      - { name: "workshops",          url: "https://github.com/kunai-project/workshops.git" }
-      - { name: "kunai-doc",          url: "https://github.com/kunai-project/kunai-doc.git" }
+      - { name: "workshops", url: "https://github.com/kunai-project/workshops.git" }
+      - { name: "kunai-doc", url: "https://github.com/kunai-project/kunai-doc.git" }
       - { name: "kunai-build-docker", url: "https://github.com/kunai-project/kunai-build-docker.git" }
-      - { name: "community-rules",    url: "https://github.com/kunai-project/community-rules.git" }
-      - { name: "pykunai",            url: "https://github.com/kunai-project/pykunai.git" }
+      - { name: "community-rules", url: "https://github.com/kunai-project/community-rules.git" }
+      - { name: "pykunai", url: "https://github.com/kunai-project/pykunai.git" }

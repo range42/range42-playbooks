@@ -1,3 +1,4 @@
+---
 # ============================================================================
 # bundles/admin/software.install.deployer_ui/main.yml
 # ============================================================================
@@ -121,15 +122,15 @@
     tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
   tasks:
     - name: Install + configure tailscale on the UI VM (opt-in via INSTALL_TAILSCALE=YES)
+      when: INSTALL_TAILSCALE | default('NO') | upper == "YES"
+
+# ============================================================================
+
       block:
         - include_role:
             name: software.install.tailscale
         - include_role:
             name: software.configure.tailscale_disable_nftables
-      when: INSTALL_TAILSCALE | default('NO') | upper == "YES"
-
-# ============================================================================
-
 - name: install deployer-ui - sync source + .env + docker compose up
   hosts: "{{ global_vm_ssh_name }}"
   become: true

@@ -1,3 +1,4 @@
+---
 ##
 ## bundles/proxmox/template.build.ubuntu_noble/_update_templates.yml
 ## pre-update + finalize ubuntu_noble templates
@@ -25,7 +26,6 @@
     bootstrap_snippet_path: "/var/lib/vz/snippets/range42-template-bootstrap.yaml"
 
   tasks:
-
     #### #### #### required-var check #### #### ####
     # The calling scenario must pass `manifest_path` and `template_bundle_dir`
     # via the `import_playbook vars:` block. Both are scenario-relative so the
@@ -171,7 +171,7 @@
       ansible.builtin.shell: |
         qm status {{ item.vm_id }} | grep -q 'status: stopped'
       register: stop_check
-      retries: 360                # safety cap : 360 × 5s = 30 min max per VM
+      retries: 360 # safety cap : 360 × 5s = 30 min max per VM
       delay: 5
       until: stop_check.rc == 0
       loop: "{{ templates_started }}"

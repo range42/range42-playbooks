@@ -1,3 +1,4 @@
+---
 ##
 ## bundles/proxmox/template.build.ubuntu_noble/_apply_apt_proxy.yml
 ## apt proxy via cloud-init cicustom (optional)
@@ -20,18 +21,18 @@
 
   vars:
     template_vm_ids:
-      - 9901   # nano
-      - 9211   # micro-01-2g-24g
-      - 9212   # micro-02-2g-24g
-      - 9221   # small-01-4g-32g       (used by admin-deployer-api-gateway / api-backend / ui)
-      - 9222   # small-02-4g-32g
-      - 9224   # small-04-4g-32g
-      - 9232   # medium-02-8g-64g      (used by admin-wazuh)
-      - 9234   # medium-04-8g-64g
-      - 9236   # medium-06-8g-64g
-      - 9244   # large-04-8g-64g
-      - 9246   # large-06-8g-64g
-      - 9248   # large-08-8g-64g
+      - 9901 # nano
+      - 9211 # micro-01-2g-24g
+      - 9212 # micro-02-2g-24g
+      - 9221 # small-01-4g-32g       (used by admin-deployer-api-gateway / api-backend / ui)
+      - 9222 # small-02-4g-32g
+      - 9224 # small-04-4g-32g
+      - 9232 # medium-02-8g-64g      (used by admin-wazuh)
+      - 9234 # medium-04-8g-64g
+      - 9236 # medium-06-8g-64g
+      - 9244 # large-04-8g-64g
+      - 9246 # large-06-8g-64g
+      - 9248 # large-08-8g-64g
 
   tasks:
     - name: APT-PROXY - SKIP (apt_proxy_url is empty)
@@ -47,7 +48,7 @@
       changed_when: qm_result.rc == 0
       failed_when:
         - qm_result.rc != 0
-        - "'does not exist' not in qm_result.stderr"   # skip silently if template doesn't exist yet
+        - "'does not exist' not in qm_result.stderr" # skip silently if template doesn't exist yet
       when: apt_proxy_url is defined and (apt_proxy_url | length) > 0
 
     - name: APT-PROXY - DETACH cicustom vendor FROM TEMPLATES (apt_proxy_url unset)
@@ -56,7 +57,7 @@
       loop: "{{ template_vm_ids }}"
       register: qm_unset
       changed_when: qm_unset.rc == 0
-      failed_when: false   # idempotent : VM may be missing or cicustom may already be absent ; both are non-fatal here
+      failed_when: false # idempotent : VM may be missing or cicustom may already be absent ; both are non-fatal here
       when: apt_proxy_url is not defined or (apt_proxy_url | length) == 0
 
     - name: APT-PROXY - DISPLAY STATUS

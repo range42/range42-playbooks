@@ -1,3 +1,4 @@
+---
 # ============================================================================
 # bundles/generic/network.baseline.kong/main.yml
 # ============================================================================
@@ -22,6 +23,6 @@
     - software.configure.firewalls
   vars:
     firewall_rules:
-      - { ip: "all", port: 22,   protocol: "tcp" }
+      - { ip: "all", port: 22, protocol: "tcp" }
       - { ip: "all", port: 8000, protocol: "tcp" }
       - { ip: "all", port: 8443, protocol: "tcp" }

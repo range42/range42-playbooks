@@ -1,3 +1,4 @@
+---
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 # PROMOX INIT - create debian 12 bookworm template :
@@ -77,7 +78,7 @@
       ansible.builtin.shell: qm config 9902 | grep -q '^lock:'
       register: tpl_9902_post_create_lock
       until: tpl_9902_post_create_lock.rc != 0
-      retries: 60                # 60 x 5s = 5 min max safety
+      retries: 60 # 60 x 5s = 5 min max safety
       delay: 5
       failed_when: false
       changed_when: false
@@ -85,7 +86,7 @@
       when:
         - tpl_9902_is_template.rc != 0
         - tpl_9902_exists.rc != 0
-    ####
+####
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 

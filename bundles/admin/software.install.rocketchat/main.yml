@@ -1,3 +1,4 @@
+---
 # ============================================================================
 # bundles/admin/software.install.rocketchat/main.yml
 # ============================================================================
@@ -39,15 +40,13 @@
 #       global_vm_ci_ip:    "192.168.142.185"
 #
 # ============================================================================
-
-
 - name: rocketchat - ensure catalog .env exists (cp .env.example -> .env if missing)
   hosts: proxmox
   gather_facts: false
   tasks:
     - name: cp .env.example -> .env if .env absent (force=false respects an existing customized .env)
       ansible.builtin.copy:
-        src:  "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/rocketchat/.env.example"
+        src: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/rocketchat/.env.example"
         dest: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/rocketchat/.env"
         force: false
         remote_src: true
@@ -61,10 +60,10 @@
   roles:
     - software.install.warmup.basic_packages
   vars:
-    INSTALL_PACKAGES_BASICS:               "YES"
-    INSTALL_PACKAGES_DOCKER:               "YES"
-    INSTALL_PACKAGES_DOCKER_COMPOSE:       "YES"
-    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME:  "YES"
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_DOCKER: "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -76,7 +75,7 @@
     - software.configure.firewalls
   vars:
     firewall_rules:
-      - { ip: "all", port: 22,   protocol: "tcp" }
+      - { ip: "all", port: 22, protocol: "tcp" }
       - { ip: "all", port: 3000, protocol: "tcp" }
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -103,19 +102,19 @@
 
     - name: push .env on the VM (cp .env.example -> .env if .env absent on the VM)
       ansible.builtin.copy:
-        src:   "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/rocketchat/.env.example"
-        dest:  "/home/alice/rocketchat/.env"
+        src: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/rocketchat/.env.example"
+        dest: "/home/alice/rocketchat/.env"
         owner: "alice"
         group: "alice"
-        mode:  "0600"
+        mode: "0600"
         force: false
   roles:
     - software.configure.docker-compose
   vars:
-    LABEL_PROJECT_TYPE:   "admin"
-    LABEL_PROJET_NAME:    "rocketchat"
-    LOCAL__PROJECT_DIR:   "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/rocketchat"
-    REMOTE_PROJECT_DIR:   "/home/alice/rocketchat"
-    OPERATOR_USER:        "alice"
-    CLEAN_UP_DEPLOY_DIR:  "NO"
-    SEND_POC_DIR:         "NO"
+    LABEL_PROJECT_TYPE: "admin"
+    LABEL_PROJET_NAME: "rocketchat"
+    LOCAL__PROJECT_DIR: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/rocketchat"
+    REMOTE_PROJECT_DIR: "/home/alice/rocketchat"
+    OPERATOR_USER: "alice"
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR: "NO"

@@ -1,14 +1,14 @@
 ---
 bundle: admin/software.install.deployer_ui
 
-description: Deploy range42-deployer-ui as a Docker container (multi-stage build then nginx SPA on UI_PORT) with firewall, optional tailscale, and a /health probe.
+description: Deploy range42-deployer-ui as a Docker container (multi-stage build then nginx SPA on UI_PORT) with firewall, optional tailscale, and a /health
+  probe.
 
 optional: true
 
 install_flag: INSTALL_DEPLOYER_UI
 
 params:
-
   - name: global_vm_ssh_name
     target: true
     type: string
@@ -47,7 +47,8 @@ params:
     type: string
     required: false
     default_where: none
-    description: Backend-api base URL rendered into public/config.json before the Docker build, so the SPA registers this deployment's backend on first launch. Unset means no config.json is rendered and the operator sets the backend by hand in the Settings modal.
+    description: Backend-api base URL rendered into public/config.json before the Docker build, so the SPA registers this deployment's backend on first launch.
+      Unset means no config.json is rendered and the operator sets the backend by hand in the Settings modal.
 
   - name: PROXMOX_NODE_NAME
     type: string

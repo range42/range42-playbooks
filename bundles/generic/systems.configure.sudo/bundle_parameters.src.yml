@@ -4,7 +4,6 @@ description: Grant or revoke sudo for a user on a target group, via a validated 
 optional: false
 
 params:
-
   - name: TARGET_GROUP
     target: true
     type: string

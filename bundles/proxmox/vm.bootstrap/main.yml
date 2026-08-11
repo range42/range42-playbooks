@@ -1,3 +1,4 @@
+---
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 # vm.bootstrap - shared per-VM stage_00 playbook
@@ -33,7 +34,6 @@
     - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
 
   tasks:
-
     - name: VM BOOTSTRAP - "{{ global_vm_name }}" - CLONE TEMPLATE - "{{ global_template_name | default(global_template_vm_id) }}"
       include_role:
         name: range42-ansible_roles-proxmox_controller
@@ -48,7 +48,7 @@
       ansible.builtin.shell: qm config {{ global_vm_id }} | grep -q '^lock:'
       register: vm_bootstrap_clone_lock
       until: vm_bootstrap_clone_lock.rc != 0
-      retries: 60                # 60 x 5s = 5 min max safety
+      retries: 60 # 60 x 5s = 5 min max safety
       delay: 5
       failed_when: false
       changed_when: false
@@ -100,7 +100,6 @@
       - wait/cloudinit/is_boot_finished.yml
 
   tasks:
-
     - name: VM BOOTSTRAP - "{{ global_vm_ssh_name }}" - WAIT openssh + cloud-init (via ansible.utils)
       include_role:
         name: ansible.utils

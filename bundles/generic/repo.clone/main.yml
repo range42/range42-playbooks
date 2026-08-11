@@ -1,3 +1,4 @@
+---
 # ============================================================================
 # bundles/generic/repo.clone/main.yml
 # ============================================================================
@@ -31,18 +32,18 @@
   become: true
   gather_facts: false
 
-# ============================================================================
-# Variable propagation : caller passes GITCLONE_* (uppercase prefix), bundle
-# resolves into private _gitclone_* play-vars (lowercase) with default()
-# fallbacks. The prefix split is intentional (consistent with the project's
-# BASELINE_*-style bundles + future-proof against role-level mappings if the
-# bundle ever wraps a role with the same expected var names).
-# ============================================================================
+  # ============================================================================
+  # Variable propagation : caller passes GITCLONE_* (uppercase prefix), bundle
+  # resolves into private _gitclone_* play-vars (lowercase) with default()
+  # fallbacks. The prefix split is intentional (consistent with the project's
+  # BASELINE_*-style bundles + future-proof against role-level mappings if the
+  # bundle ever wraps a role with the same expected var names).
+  # ============================================================================
   vars:
     _gitclone_operator_user: "{{ GITCLONE_OPERATOR_USER | default('alice') }}"
-    _gitclone_repos_dir:     "{{ GITCLONE_REPOS_DIR | default('/home/' + _gitclone_operator_user + '/repos') }}"
-    _gitclone_repos:         "{{ GITCLONE_REPOS | default([]) }}"
-    _gitclone_depth:         "{{ GITCLONE_DEPTH | default(1) }}"
+    _gitclone_repos_dir: "{{ GITCLONE_REPOS_DIR | default('/home/' + _gitclone_operator_user + '/repos') }}"
+    _gitclone_repos: "{{ GITCLONE_REPOS | default([]) }}"
+    _gitclone_depth: "{{ GITCLONE_DEPTH | default(1) }}"
 
   tasks:
     - name: repo.clone - ensure parent directory exists ({{ _gitclone_repos_dir }})
@@ -60,6 +61,7 @@
         depth: "{{ _gitclone_depth }}"
         update: true
         accept_hostkey: true
+      become: true
       become_user: "{{ _gitclone_operator_user }}"
       loop: "{{ _gitclone_repos }}"
       loop_control:
