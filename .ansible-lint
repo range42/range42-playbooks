@@ -22,7 +22,10 @@ warn_list:
   - yaml[trailing-spaces]
   - risky-shell-pipe
 
-# catalog and cross-repo roles not checked out in CI — stub so syntax-check passes
+# catalog and cross-repo roles not checked out in CI — stub so syntax-check passes.
+# Hand-maintained: when a bundle starts using a new catalog role, add it here,
+# and when a catalog role is renamed, update it here too — otherwise CI fails
+# with an unresolved-role error.
 mock_roles:
   - range42-ansible_roles-proxmox_controller
   - ansible.utils
