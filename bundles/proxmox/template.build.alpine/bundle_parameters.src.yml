@@ -6,7 +6,6 @@ description: >-
 optional: false
 
 params:
-
   - name: templates_whitelist
     type: list
     required: false

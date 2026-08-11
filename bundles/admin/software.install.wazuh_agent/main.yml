@@ -1,3 +1,4 @@
+---
 # ============================================================================
 # bundles/admin/software.install.wazuh_agent/main.yml
 # ============================================================================
@@ -20,10 +21,8 @@
 #       global_vm_ci_ip:       "192.168.142.100"
 #
 # ============================================================================
-
-
 - hosts: "{{ wazuh_clients_group }}"
-  become: yes
+  become: true
   become_user: root
   roles:
     - software.install.wazuh-agent

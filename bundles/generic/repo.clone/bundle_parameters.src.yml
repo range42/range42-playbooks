@@ -6,7 +6,6 @@ description: Clone a caller-provided list of git repositories on a target group 
 optional: false
 
 params:
-
   - name: target_group
     target: true
     type: string

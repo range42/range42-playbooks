@@ -6,7 +6,6 @@ description: >-
 optional: false
 
 params:
-
   - name: global_vm_ssh_name
     target: true
     type: string

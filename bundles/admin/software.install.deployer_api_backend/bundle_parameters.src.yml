@@ -8,7 +8,6 @@ optional: true
 install_flag: INSTALL_DEPLOYER_API_BACKEND
 
 params:
-
   - name: global_vm_ssh_name
     target: true
     type: string
@@ -61,7 +60,7 @@ params:
     type: string
     required: false
     default_where: bundle-inline
-    default: '^https?://r42\.admin-deployer-ui(:\d+)?$'
+    default: "^https?://r42\\.admin-deployer-ui(:\\d+)?$"
     description: Anchored CORS origin regex written to the backend .env so the deployer-ui browser Origin is accepted.
 
   - name: INSTALL_TAILSCALE

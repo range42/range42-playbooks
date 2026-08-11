@@ -7,7 +7,6 @@ optional: true
 install_flag: INSTALL_KONG
 
 params:
-
   - name: global_vm_ssh_name
     target: true
     type: string

@@ -1,3 +1,4 @@
+---
 # ============================================================================
 # bundles/generic/network.baseline.deployer_backend_api/main.yml
 # ============================================================================
@@ -21,5 +22,5 @@
     - software.configure.firewalls
   vars:
     firewall_rules:
-      - { ip: "all", port: 22,   protocol: "tcp" }
+      - { ip: "all", port: 22, protocol: "tcp" }
       - { ip: "all", port: 8000, protocol: "tcp" }

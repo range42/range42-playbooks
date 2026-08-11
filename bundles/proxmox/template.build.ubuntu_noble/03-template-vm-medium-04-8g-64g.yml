@@ -1,3 +1,4 @@
+---
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 # PROMOX INIT - create ubuntu noble template :
@@ -74,7 +75,7 @@
       ansible.builtin.shell: qm config 9234 | grep -q '^lock:'
       register: tpl_9234_post_create_lock
       until: tpl_9234_post_create_lock.rc != 0
-      retries: 60                # 60 × 5s = 5 min max safety
+      retries: 60 # 60 × 5s = 5 min max safety
       delay: 5
       failed_when: false
       changed_when: false
@@ -82,7 +83,7 @@
       when:
         - tpl_9234_is_template.rc != 0
         - tpl_9234_exists.rc != 0
-    ####
+####
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 

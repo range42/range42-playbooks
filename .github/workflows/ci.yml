@@ -1,0 +1,40 @@
+name: CI
+on:
+  push:
+    branches: [main, dev, 'feat/**', 'fix/**']
+  pull_request:
+    branches: [main, dev]
+jobs:
+  ansible-lint:
+    name: Ansible Lint
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.13-slim
+    steps:
+      - run: apt-get update && apt-get install -y --no-install-recommends git
+      - uses: actions/checkout@v6
+      - run: pip install --no-cache-dir ansible-lint==26.6.0
+      # bundles use ansible.posix (synchronize) — not shipped with ansible-core
+      - run: ansible-galaxy collection install ansible.posix
+      - run: ansible-lint bundles/
+        env:
+          # bundles/generic/repo.clone.kunai_workshop resolves its inner
+          # import_playbook path from this env var
+          RANGE42_BUNDLE_DIR: ${{ github.workspace }}/bundles
+
+  python:
+    name: Ruff + Pytest
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.13-slim
+    steps:
+      - run: apt-get update && apt-get install -y --no-install-recommends git
+      - uses: actions/checkout@v6
+      - id: pycheck
+        run: test -f pyproject.toml && echo "exists=true" >> "$GITHUB_OUTPUT" || echo "exists=false" >> "$GITHUB_OUTPUT"
+      - if: "steps.pycheck.outputs.exists == 'true'"
+        run: pip install --no-cache-dir -e ".[dev]"
+      - if: "steps.pycheck.outputs.exists == 'true'"
+        run: ruff check r42playbooks/
+      - if: "steps.pycheck.outputs.exists == 'true'"
+        run: pytest tests/ --tb=short -q

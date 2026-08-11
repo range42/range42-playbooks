@@ -1,3 +1,4 @@
+---
 # ============================================================================
 # bundles/admin/software.install.wazuh/main.yml
 # ============================================================================
@@ -25,8 +26,6 @@
 #       global_vm_ci_ip:       "192.168.142.100"
 #
 # ============================================================================
-
-
 - name: configure firewall - wazuh server
   become: true
   hosts: "{{ global_vm_ssh_name }}"
@@ -53,7 +52,7 @@
 
 - name: Install wazuh-indexer
   hosts: "{{ global_vm_ssh_name }}"
-  become: yes
+  become: true
   become_user: root
   roles:
     - role: software.install.wazuh-indexer
@@ -80,7 +79,7 @@
 
 - name: Wait for wazuh-indexer to be ready
   hosts: "{{ global_vm_ssh_name }}"
-  become: yes
+  become: true
   tasks:
     - name: Wait for wazuh-indexer API on port 9200
       ansible.builtin.wait_for:
@@ -93,7 +92,7 @@
 
 - name: Install wazuh-dashboard
   hosts: "{{ global_vm_ssh_name }}"
-  become: yes
+  become: true
   become_user: root
   roles:
     - role: software.install.wazuh-dashboard
@@ -118,7 +117,7 @@
 # # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - hosts: "{{ global_vm_ssh_name }}"
-  become: yes
+  become: true
   vars_files:
     - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
   vars:
@@ -136,7 +135,7 @@
 
 - name: Wait for wazuh-manager API before password change
   hosts: "{{ global_vm_ssh_name }}"
-  become: yes
+  become: true
   tasks:
     - name: Wait for wazuh-manager API on port 55000
       ansible.builtin.wait_for:
@@ -158,14 +157,14 @@
 
 - name: EXEC wazuh-passwords-tool.sh - if CHANGE_WAZUH_PASSWORD is true
   hosts: "{{ global_vm_ssh_name }}"
-  become: yes
+  become: true
   become_user: root
   vars_files:
     - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
 
   vars:
     CHANGE_WAZUH_PASSWORD: true
-    WAZUH_ANSIBLE_HOSTNAME: "{{ global_vm_ssh_name }}"  # not via tailscale
+    WAZUH_ANSIBLE_HOSTNAME: "{{ global_vm_ssh_name }}" # not via tailscale
     # WAZUH_ANSIBLE_HOSTNAME: "xxx.yyyy.zzzz.edge.wazuh"  # if tailscale
 
   tasks:

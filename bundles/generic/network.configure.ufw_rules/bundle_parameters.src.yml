@@ -4,7 +4,6 @@ description: Apply a caller-provided list of UFW allow-rules on a target group (
 optional: false
 
 params:
-
   - name: target_group
     target: true
     type: string

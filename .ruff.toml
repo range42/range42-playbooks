@@ -1,0 +1,6 @@
+# CI gate: syntax errors (E9) and pyflakes (F) — undefined names, unused
+# imports, broken f-strings. Same baseline as the range42 bootstrapper repo.
+# Tighten (or move into pyproject.toml [tool.ruff]) when the r42playbooks
+# package lands and owns its own lint policy.
+[lint]
+select = ["E9", "F"]

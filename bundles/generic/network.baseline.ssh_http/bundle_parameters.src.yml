@@ -4,7 +4,6 @@ description: Open the standard web-facing firewall profile (ports 22, 80, 443 tc
 optional: false
 
 params:
-
   - name: target_group
     target: true
     type: string

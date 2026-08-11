@@ -1,3 +1,4 @@
+---
 ##
 ## bundles/proxmox/template.build.debian/main.yml
 ##
@@ -21,10 +22,7 @@
 ## Vault loading uses `$RANGE42_ACTIVE_CONFIG_DIR/secrets/default_vault.yml`
 ## (env var exported by `range42-context use`).
 ##
-
-
 # ---- debian template family ----
 
 - import_playbook: ./00-template-vm-debian-nano.yml
-  when: (templates_whitelist | default([])) | length == 0
-        or "debian-nano" in (templates_whitelist | default([]))
+  when: (templates_whitelist | default([])) | length == 0 or "debian-nano" in (templates_whitelist | default([]))
