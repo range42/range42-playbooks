@@ -15,6 +15,10 @@ jobs:
       - uses: actions/checkout@v6
       - run: pip install --no-cache-dir ansible-lint==26.6.0
       - run: ansible-lint bundles/
+        env:
+          # bundles/generic/repo.clone.kunai_workshop resolves its inner
+          # import_playbook path from this env var
+          RANGE42_BUNDLE_DIR: ${{ github.workspace }}/bundles
 
   python:
     name: Ruff + Pytest

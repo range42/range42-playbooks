@@ -44,7 +44,17 @@ mock_roles:
   - software.install.wazuh-manager
   - systems.configure.add_user
   - software.install.wazuh-agent
+  - software.install.kunai_official_workshop
+  - systems.configure.authorized_keys
+  - systems.configure.os_auto_updates
+  - systems.configure.ssh_keypair
+  - systems.configure.sudo
 
 # vars defined at runtime via inventory/group_vars — stub for CI syntax-check
 extra_vars:
   global_vm_ssh_name: ci_mock
+  target_group: ci_mock_group
+  TARGET_GROUP: ci_mock_group
+  wazuh_clients_group: ci_mock_group
+  GITCLONE_KUNAI_TARGET_GROUP: ci_mock_group
+  KUNAI_TARGET_GROUP: ci_mock_group
