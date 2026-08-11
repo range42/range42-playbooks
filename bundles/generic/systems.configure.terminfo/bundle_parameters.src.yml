@@ -10,6 +10,5 @@ params:
     target: true
     type: string
     required: true
-    default_where: bundle-inline
-    default: "all"
-    description: Ansible inventory group the play targets (used in hosts) ; falls back to all when the caller omits it
+    default_where: call-site
+    description: Ansible inventory group the play targets (used in hosts) ; required, no fallback — an implicit all would touch the hypervisor and deployer
