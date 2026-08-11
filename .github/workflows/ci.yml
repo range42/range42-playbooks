@@ -14,6 +14,8 @@ jobs:
       - run: apt-get update && apt-get install -y --no-install-recommends git
       - uses: actions/checkout@v6
       - run: pip install --no-cache-dir ansible-lint==26.6.0
+      # bundles use ansible.posix (synchronize) — not shipped with ansible-core
+      - run: ansible-galaxy collection install ansible.posix
       - run: ansible-lint bundles/
         env:
           # bundles/generic/repo.clone.kunai_workshop resolves its inner
