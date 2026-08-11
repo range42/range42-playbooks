@@ -1,0 +1,41 @@
+##
+## dev_deployer_ui_lab - 02_admin_infrastructure - build r42_admin_active
+##
+## Builds the runtime-only r42_admin_active group from the INSTALL_<flag>
+## values set at deploy time. Members are added via ansible.builtin.add_host,
+## so the group is in-memory only ; the workspace inventory_default.yml is
+## NOT modified.
+##
+## Used by _baseline_admin.yml as target_group, so the baseline only runs on
+## admin VMs that stage_00 actually deployed (per INSTALL flags). The
+## admin-wazuh.yml / admin-misp.yml wrappers continue to target their VM
+## directly by name (hosts: r42.admin-*) and don't depend on this group.
+##
+## Membership map (mirrors stage_00 _r42_admin_group.yml gating) :
+##
+##   admin VM             stage_00 gate                    add_host condition
+##   -------------------- -------------------------------- ----------------------
+##   r42.admin-wazuh      INSTALL_WAZUH (default NO)       INSTALL_WAZUH=YES
+##   r42.admin-misp       INSTALL_MISP (default NO)        INSTALL_MISP=YES
+##
+## With every flag NO, the group is empty -> the baseline imports skip
+## silently (ok=0). No UNREACHABLE on uncreated admin VMs.
+##
+
+- name: build r42_admin_active dynamic group from INSTALL flags
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: add r42.admin-wazuh to r42_admin_active when INSTALL_WAZUH=YES
+      ansible.builtin.add_host:
+        name: r42.admin-wazuh
+        groups: r42_admin_active
+      when: INSTALL_WAZUH | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.admin-misp to r42_admin_active when INSTALL_MISP=YES
+      ansible.builtin.add_host:
+        name: r42.admin-misp
+        groups: r42_admin_active
+      when: INSTALL_MISP | default("NO") | upper == "YES"
+      changed_when: false

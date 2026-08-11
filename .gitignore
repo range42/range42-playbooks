@@ -1,7 +1,8 @@
-**/secrets/
-**/secret/
+**/secrets
+**/secret
 CLAUDE.md
 **/CLAUDE.md
+.claude
 
 # ansible-lint runtime cache (mock roles)
 .ansible/

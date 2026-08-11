@@ -37,6 +37,27 @@ Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
     Port 22
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      ADMIN BAND (vmbr142, gated by INSTALL_<flag>)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Both admin entries are emitted UNCONDITIONALLY so the operator can SSH-in
+# for debugging even when the matching VM hasn't been deployed. The VM is
+# only created when INSTALL_WAZUH / INSTALL_MISP=YES at deploy time.
+#
+
+Host r42.admin-wazuh
+    Hostname 192.168.142.150
+
+Host r42.admin-misp
+    Hostname 192.168.142.151
+
+Host r42.admin-*
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
+    Port 22
+    ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #                                      SUBNET 147 (vmbr147)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 

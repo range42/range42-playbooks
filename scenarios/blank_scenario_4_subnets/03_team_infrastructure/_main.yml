@@ -1,0 +1,17 @@
+---
+##
+## 03 - team infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts 16 team lab VMs across 4 subnets (4 VMs per subnet) :
+##   - vmbr143 : bs4-team-143-01..04 (VMID 4001-4004, IP 192.168.143.210-213)
+##   - vmbr144 : bs4-team-144-01..04 (VMID 4005-4008, IP 192.168.144.210-213)
+##   - vmbr145 : bs4-team-145-01..04 (VMID 4009-4012, IP 192.168.145.210-213)
+##   - vmbr146 : bs4-team-146-01..04 (VMID 4013-4016, IP 192.168.146.210-213)
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

@@ -1,0 +1,28 @@
+##
+## Baseline for r42_admin_active runtime group (nextcloud_lab) :
+##   - systems.baseline.default    : packages + dotfiles
+##   - network.baseline.ssh       : firewall opens port 22 (the nextcloud
+##                                   service port 8080 is opened by the
+##                                   software.install.nextcloud bundle itself)
+##   - network.configure.tailscale_client         : optional tailscale install (gated INSTALL_TAILSCALE,
+##                                   default NO)
+##
+## Targets r42_admin_active (built by ../_build_admin_active_group.yml from the
+## INSTALL_NEXTCLOUD value at deploy time). The baseline only runs on the admin
+## VM that stage_00 actually created.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.default/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+    INSTALL_TAILSCALE: "NO"
+    tailscale_hostnames:
+      - "admin-nextcloud-standalone"

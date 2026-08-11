@@ -1,0 +1,29 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### mattermost_lab - 02_admin_infrastructure - stage_00 - admin group #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Per-VM bootstrap of the admin platform VM :
+#   - admin-mattermost-standalone (gated INSTALL_MATTERMOST, default YES) : Mattermost docker-compose host
+#
+# Delegates to the shared core vm.bootstrap bundle (clone template + cloud-init
+# + start + wait-for-SSH), same as blank_scenario_* / demo_lab.
+#
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_MATTERMOST | default("YES") | upper == "YES"
+  vars:
+    global_vm_name:        "admin-mattermost-standalone"
+    global_vm_ssh_name:    "r42.admin-mattermost-standalone"
+    global_vm_id:          1182
+    global_vm_description: "mattermost_lab - Mattermost docker-compose host"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.182"
+    global_template_vm_id: 9232
+    global_template_name:  "template-vm-medium-02-8g-64g - id : 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

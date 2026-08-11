@@ -142,26 +142,29 @@ Each bundle contains:
 ### Current bundle structure
 
 ```text
-bundles/
-├── core/
-│   ├── proxmox/configure/default/vms/
-│   │   ├── create-vms-admin/              # Create admin VMs (stage_00 → stage_02)
-│   │   ├── create-vms-student/            # Create student VMs
-│   │   ├── create-vms-vuln/               # Create vulnerable VMs
-│   │   ├── delete-vms-admin/              # Delete + clean SSH keys
-│   │   ├── delete-vms-student/
-│   │   ├── delete-vms-vuln/
-│   │   ├── start-stop-pause-resume-vms-admin/
-│   │   ├── start-stop-pause-resume-vms-student/
-│   │   ├── start-stop-pause-resume-vms-vuln/
-│   │   └── snapshot/
-│   │       ├── create-vms-{admin,student,vuln}/
-│   │       └── revert-vms-{admin,student,vuln}/
-│   └── linux/ubuntu/
-│       ├── configure/add-user/
-│       └── install/{basic-packages,docker,docker-compose,dot-files}/
-└── ping/                                  # Connectivity test
+bundles/                                       # grammar: <tier>/<subject>.<verb>.<object>/
+├── admin/                                     # app stacks on dedicated VMs (docker-compose)
+│   └── software.install.{gitea,mattermost,nextcloud,rocketchat,misp_standalone,
+│                          wazuh,wazuh_agent,deployer_ui,deployer_api_backend,kong}/
+├── proxmox/                                   # Proxmox-side provisioning
+│   ├── vm.bootstrap/                          # shared per-VM stage_00 (clone + cloud-init + start)
+│   ├── template.build.{ubuntu_noble,alpine,debian}/
+│   └── cloud_init_image.download.{all,ubuntu_lts_minimal,ubuntu_lts_server,debian,alpine}/
+├── generic/                                   # reusable, group-targeted composition primitives
+│   ├── systems.baseline.{default,docker_host,with_utils}/
+│   ├── systems.configure.{add_user,authorized_keys,ssh_keypair,sudo,os_auto_updates,dotfiles}/
+│   ├── systems.checks.ping/                   # connectivity test (was the top-level ping bundle)
+│   ├── network.baseline.{ssh,ssh_http,kong,deployer_ui,deployer_backend_api}/
+│   ├── network.configure.{tailscale_client,ufw_rules}/
+│   ├── repo.clone.{...,kunai_workshop}/
+│   └── software.install.kunai_official_workshop/
+└── ctf/                                       # CVE + misconfiguration taxonomy (unchanged)
+    ├── cve/**
+    └── misconfiguration/**
 ```
+
+Bundles are imported at parse-time via the `RANGE42_BUNDLE_DIR` env var (exported by
+`range42-context`), e.g. `{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml`.
 
 ---
 
@@ -185,10 +188,11 @@ scenarios/
 ├── dev_deployer_ui_lab/               # In progress - deployer-ui integration
 └── _init_lab/                         # Shared init playbooks
 
-bundles/                               # Reusable actions (work in progress)
-├── core/proxmox/                      # VM lifecycle bundles
-├── core/linux/ubuntu/                 # OS-level bundles
-└── ping/                              # Connectivity test
+bundles/                               # Reusable actions, grammar <tier>/<subject>.<verb>.<object>
+├── admin/                             # app stacks (docker-compose) on dedicated VMs
+├── proxmox/                           # vm.bootstrap, template.build.*, cloud_init_image.download.*
+├── generic/                           # systems/network/repo/software composition primitives
+└── ctf/                               # CVE + misconfiguration taxonomy
 ```
 
 ## Secrets

@@ -1,0 +1,44 @@
+---
+##
+## kunai_lab - record the created human users (+ derived passwords + key hint) to the workspace.
+## Runs on the controller (deployer-cli) after the user provisioning ; reads the per-host creds
+## facts set by the baselines' compute-creds plays. Passwords are DERIVED (not known otherwise),
+## so this JSON is the operator's reference to hand credentials + keys to the students + trainer.
+##
+## Output : ~/range42.config/<codename>-<scenario>/secrets/created_users.json
+## NB : holds cleartext derived passwords -> 0600 ; fold into the vault-encryption backlog (v2).
+##
+
+- name: kunai_lab - record created human users to secrets/created_users.json
+  hosts: localhost
+  gather_facts: false
+  run_once: true
+  tasks:
+    - name: assert the creds facts were computed for every student host
+      ansible.builtin.assert:
+        that:
+          - hostvars[item]._kunai_student_password is defined
+        fail_msg: "no _kunai_student_password fact for {{ item }} - the compute-creds play did not run for this host (deploy order issue)"
+      loop: "{{ groups['r42_kunai_lab_students_group'] | default([]) }}"
+
+    - name: collect student creds (per VM, unique key + password)
+      ansible.builtin.set_fact:
+        _kunai_students_rec: "{{ _kunai_students_rec | default([]) + [ {'vm': item | regex_replace('^r42\\.', ''), 'user': 'student', 'password': hostvars[item]._kunai_student_password | default(''), 'ssh_key': 'ssh_keys/student_keys/additional.students/*-student-key_bob_' ~ (hostvars[item].student_key_index | default('?'))} ] }}"
+      loop: "{{ groups['r42_kunai_lab_students_group'] | default([]) }}"
+      no_log: true
+
+    - name: collect the trainer creds (single ; same password on every VM)
+      ansible.builtin.set_fact:
+        _kunai_trainer_rec:
+          vm: "{{ (groups['r42_kunai_lab_trainer_group'] | default(['n/a']))[0] | regex_replace('^r42\\.', '') }}"
+          user: "trainer"
+          password: "{{ hostvars[(groups['r42_kunai_lab_trainer_group'] | default(['']))[0]]._kunai_trainer_password | default('') }}"
+          ssh_key_inbound: "ssh_keys/student_keys/*-student-key_bob"
+      no_log: true
+
+    - name: write created_users.json
+      ansible.builtin.copy:
+        dest: "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/created_users.json"
+        mode: "0600"
+        content: "{{ {'students': (_kunai_students_rec | default([])), 'trainer': (_kunai_trainer_rec | default({})), 'notes': ['SSH keys live in this workspace under ssh_keys/student_keys/ (paths above are relative to the workspace root ; expand the glob for the exact filename).', 'students log in with their bob_N private key (handed off out-of-band by the trainer) or the password below.', 'trainer INBOUND key (to log into the trainer VM) = the bob base key (ssh_key_inbound above).', 'trainer -> students uses a passphrase-less trainer-student-access key that lives ONLY on the trainer VM (generated there, never handed off).', 'all human accounts (student, trainer) have NOPASSWD sudo - intentional for the lab.']} | to_nice_json }}"
+      no_log: true

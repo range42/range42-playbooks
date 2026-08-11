@@ -1,0 +1,41 @@
+---
+bundle: proxmox/template.build.ubuntu_noble
+
+description: Creates the Ubuntu Noble VM template family on a Proxmox hypervisor (create, apt-update, convert)
+
+optional: false
+
+params:
+  - name: manifest_path
+    type: string
+    required: true
+    default_where: none
+    description: Absolute path to the scenario manifest scenario_vms.json enumerating template VM IDs
+
+  - name: template_bundle_dir
+    type: string
+    required: true
+    default_where: none
+    description: Absolute path to this bundle ubuntu_noble dir used to render the bootstrap snippet
+
+  - name: templates_whitelist
+    type: list
+    required: false
+    default_where: bundle-inline
+    default: "[]"
+    items: "short code string such as nano, micro-01, small-02, medium-04, large-08"
+    description: Subset of template short codes to build - empty means build the whole family
+
+  - name: template_subnet_octet
+    type: int
+    required: false
+    default_where: bundle-inline
+    default: 140
+    description: Third octet of the template subnet on vmbr140 used for the apt-update pass
+
+  - name: apt_proxy_url
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: ""
+    description: If set, apt update runs through this proxy and a persistent cicustom is attached for clones

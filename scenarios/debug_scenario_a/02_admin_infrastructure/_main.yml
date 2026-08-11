@@ -1,0 +1,27 @@
+---
+##
+## 02 - admin infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the optional admin platform VMs for the debug_scenario_a scenario :
+##   - admin-wazuh (VMID 8050, IP 192.168.142.150) : Wazuh SIEM server
+##     (gated by INSTALL_WAZUH, default NO per manifest/feature_flags.yml).
+##   - admin-misp  (VMID 8051, IP 192.168.142.151) : MISP threat intel stack
+##     (gated by INSTALL_MISP, default NO).
+##
+## This tier is split into stage_00 + stage_01 sibling files so the top-level
+## main.yml can interleave them with the other tier's stages :
+##   stage_00 (across all tiers) -> stage_01 (across all tiers) -> finalize.
+## See main.yml for the global ordering.
+##
+## This wrapper imports both stages back-to-back, useful for running the
+## admin tier in isolation (e.g. devkit debug). NOT used by the main scenario
+## deploy - main.yml imports _main_stage_00.yml / _main_stage_01.yml directly
+## to satisfy the global stage discipline.
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

@@ -4,11 +4,33 @@ all:
       children:
         ####
 
+        # dev tier - 3 VMs hosting the deployer-ui platform stack
         r42_dev_deployer_ui_lab_group:
           hosts:
             r42.dev-deployer-ui:
             r42.dev-backend:
             r42.dev-kong:
+
+        ####
+
+        # admin tier - 2 optional VMs (wazuh + misp), gated by INSTALL_WAZUH / INSTALL_MISP
+        r42_admin:
+          hosts:
+            r42.admin-wazuh:
+            r42.admin-misp:
+
+        # All potential wazuh-agent clients (every non-server VM in the scenario).
+        # This static group is the POTENTIAL set. At deploy time, the runtime
+        # group r42_dev_deployer_ui_lab_wazuh_clients_active is built by
+        # _build_wazuh_clients_active_group.yml based on INSTALL_<flag> values.
+        # The wazuh-agent finalize play targets the runtime active group, not
+        # this static set.
+        r42_dev_deployer_ui_lab_wazuh_clients:
+          hosts:
+            r42.dev-deployer-ui:
+            r42.dev-backend:
+            r42.dev-kong:
+            r42.admin-misp:
 
         ####
 

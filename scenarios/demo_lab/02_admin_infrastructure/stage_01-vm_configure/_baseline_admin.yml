@@ -1,0 +1,38 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 01  #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+##
+## Baseline for r42_admin_active runtime group :
+##   - systems.baseline.default    : packages + dotfiles
+##   - network.baseline.ssh       : firewall opens port 22
+##   - network.configure.tailscale_client         : optional tailscale install (gated by INSTALL_TAILSCALE)
+##
+## Targets r42_admin_active (built by ../_build_admin_active_group.yml from the
+## INSTALL_<flag> values at deploy time), so each baseline play only runs on
+## admin VMs that stage_00 actually created. Net effect : per-VM gating, no
+## UNREACHABLE on the admin VMs whose flag is NO (e.g. INSTALL_WAZUH=NO -> the
+## baseline does not try to reach r42.admin-wazuh).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.default/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
+  vars:
+    target_group: "r42_admin_active"
+    INSTALL_TAILSCALE: "NO"
+    tailscale_hostnames:
+      - "admin-wazuh"
+      # - "admin-builder-docker-registry"  # disabled — re-enable when needed
+      - "admin-deployer-api-gateway"
+      - "admin-deployer-api-backend"
+      - "admin-deployer-ui"
+      # - "testing-wazuh-client"           # disabled — re-enable when wazuh config is validated

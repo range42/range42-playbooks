@@ -1,0 +1,22 @@
+---
+bundle: admin/software.install.wazuh_agent
+
+description: Install and enrol the Wazuh agent on every host of the clients group, reporting to the Wazuh server
+
+optional: true
+
+install_flag: INSTALL_WAZUH
+
+params:
+  - name: wazuh_clients_group
+    target: true
+    type: string
+    required: true
+    default_where: call-site
+    description: Inventory group whose hosts receive the Wazuh agent (used as the play hosts pattern)
+
+  - name: global_vm_ci_ip
+    type: string
+    required: true
+    default_where: call-site
+    description: IP of the Wazuh server the enrolled agents report to (feeds the manager address)

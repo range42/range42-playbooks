@@ -1,0 +1,13 @@
+---
+##
+## 03 - debug_scenario_a infrastructure - stage_01 (vm_configure)
+##
+## Structure : stage_01 unit imported by top-level main.yml ; cross-tier finalize (wazuh-agent on lab clients) lives at main.yml level, not here.
+##
+## Currently a placeholder no-op : the alpine debug VM has nothing to install
+## beyond the cloud-init baseline already applied at boot. The cross-tier
+## wazuh-agent finalize (targets dsa-vm-01 when INSTALL_WAZUH=YES) lives at
+## the top-level main.yml as the LAST import - not here.
+##
+
+- import_playbook: ./stage_01-vm_configure/_r42_debug_group.yml

@@ -1,0 +1,18 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/template.build.alpine",
+  "description": "Create the Alpine VM template family on a Proxmox hypervisor - clone-less inline build then convert to template. Idempotent, skips templates already finalized.",
+  "optional": false,
+  "params": [
+    {
+      "name": "templates_whitelist",
+      "type": "list",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": [],
+      "items": "short code string, e.g. alpine-nano",
+      "description": "If empty build the full alpine set, otherwise only the listed short codes."
+    }
+  ]
+}

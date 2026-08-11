@@ -1,0 +1,25 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "admin",
+  "bundle": "admin/software.install.rocketchat",
+  "description": "Rocket.Chat docker-compose stack (mongodb + rocketchat + provisioner) installed on a dedicated VM",
+  "optional": true,
+  "install_flag": "INSTALL_ROCKETCHAT",
+  "params": [
+    {
+      "name": "global_vm_ssh_name",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "call-site",
+      "description": "Inventory hostname of the Rocket.Chat VM (used as hosts for the install, firewall and deploy plays)"
+    },
+    {
+      "name": "global_vm_ci_ip",
+      "type": "string",
+      "required": true,
+      "default_where": "call-site",
+      "description": "IP of the Rocket.Chat server; informational only (web UI at port 3000), not consumed by any task"
+    }
+  ]
+}

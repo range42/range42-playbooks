@@ -1,0 +1,26 @@
+---
+# REFERENCE FIXTURE (rename + complex list type).
+bundle: generic/network.configure.ufw_rules
+description: >-
+  Apply a caller-provided list of UFW allow-rules on a target group
+  (role resets rules and sets default-deny incoming).
+installable: false
+composes: []
+params:
+  - name: target_group
+    scope: orchestration
+    type: string
+    required: true
+    default_where: none
+    description: Ansible inventory group to target.
+  - name: UFW_RULES
+    renamed_to: [firewall_rules]
+    scope: per-group
+    type: list
+    items: "{ ip: string (CIDR or 'all'), port: int, protocol: string ('tcp'|'udp') }"
+    required: true
+    default_where: none
+    secret: false
+    description: >-
+      Allow-rules to apply. The role resets rules and sets default-deny incoming,
+      so the list MUST include SSH (port 22) or the group locks itself out.

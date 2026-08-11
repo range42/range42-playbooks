@@ -1,0 +1,22 @@
+---
+bundle: admin/software.install.kong
+description: POC install of Kong API Gateway (community edition) in DB-less mode on a target host.
+
+optional: true
+
+install_flag: INSTALL_KONG
+
+params:
+
+  - name: global_vm_ssh_name
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Inventory hostname of the kong host - the play hosts value (e.g. r42.admin-deployer-api-gateway).
+
+  - name: global_vm_ci_ip
+    type: string
+    required: true
+    default_where: none
+    description: IP of the kong host - informational only, documented at the call-site but not consumed by the POC plays.

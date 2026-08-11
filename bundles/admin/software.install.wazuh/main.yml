@@ -1,0 +1,182 @@
+# ============================================================================
+# bundles/admin/software.install.wazuh/main.yml
+# ============================================================================
+# Wazuh server stack install playbook : firewall, indexer, dashboard,
+# manager + filebeat-oss, passwords-tool. Companion to
+# bundles/admin/software.install.wazuh_agent/ which installs the agent on
+# wazuh client hosts.
+#
+# REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
+#   - global_vm_ssh_name   : inventory hostname for the wazuh server VM
+#                            (e.g. "r42.admin-wazuh")
+#   - global_vm_ci_ip      : IP of the wazuh server (e.g. "192.168.142.100")
+#
+# Vault loading :
+#   The bundle reads the scenario's vault from `$RANGE42_ACTIVE_CONFIG_DIR`,
+#   the env var exported by `range42-context use <codename> <scenario>` that
+#   points to the active workspace root.
+#
+# Example call-site (in scenarios/<scenario>/02_admin_infrastructure/_main.yml) :
+#
+#   - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.wazuh/main.yml"
+#     when: INSTALL_WAZUH | default("YES") | upper == "YES"
+#     vars:
+#       global_vm_ssh_name:    "r42.admin-wazuh"
+#       global_vm_ci_ip:       "192.168.142.100"
+#
+# ============================================================================
+
+
+- name: configure firewall - wazuh server
+  become: true
+  hosts: "{{ global_vm_ssh_name }}"
+  roles:
+    - software.configure.firewalls
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+      - ip: "all"
+        port: 443
+        protocol: "tcp"
+      - ip: "all"
+        port: 1515
+        protocol: "tcp"
+      - ip: "all"
+        port: 1514
+        protocol: "tcp"
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: Install wazuh-indexer
+  hosts: "{{ global_vm_ssh_name }}"
+  become: yes
+  become_user: root
+  roles:
+    - role: software.install.wazuh-indexer
+
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  vars:
+    local_certs_path: "/tmp/certificates/"
+    WAZUH_SERVER_IP: "{{ global_vm_ci_ip }}"
+    single_node: true
+    indexer_network_host: "{{ WAZUH_SERVER_IP }}"
+    indexer_cluster_nodes:
+      - "{{ WAZUH_SERVER_IP }}"
+    indexer_jvm_xms: 4096
+    ansible_shell_allow_world_readable_temp: true
+    instances:
+      node1:
+        name: node-1
+        ip: "{{ WAZUH_SERVER_IP }}"
+        role: indexer
+
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: Wait for wazuh-indexer to be ready
+  hosts: "{{ global_vm_ssh_name }}"
+  become: yes
+  tasks:
+    - name: Wait for wazuh-indexer API on port 9200
+      ansible.builtin.wait_for:
+        port: 9200
+        host: "{{ global_vm_ci_ip }}"
+        delay: 5
+        timeout: 120
+
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: Install wazuh-dashboard
+  hosts: "{{ global_vm_ssh_name }}"
+  become: yes
+  become_user: root
+  roles:
+    - role: software.install.wazuh-dashboard
+
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  vars:
+    local_certs_path: "/tmp/certificates/"
+    WAZUH_SERVER_IP: "{{ global_vm_ci_ip }}"
+    single_node: true
+    indexer_network_host: "{{ WAZUH_SERVER_IP }}"
+    indexer_cluster_nodes:
+      - "{{ WAZUH_SERVER_IP }}"
+    ansible_shell_allow_world_readable_temp: true
+    instances:
+      node1:
+        name: node-1
+        ip: "{{ WAZUH_SERVER_IP }}"
+        role: indexer
+
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: "{{ global_vm_ssh_name }}"
+  become: yes
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    WAZUH_SERVER_IP: "{{ global_vm_ci_ip }}"
+    local_certs_path: "/tmp/certificates/"
+
+  roles:
+    - role: software.install.wazuh-manager
+    - role: software.install.wazuh-filebeat-oss
+      filebeat_node_name: node-1
+      filebeat_output_indexer_hosts:
+        - "{{ WAZUH_SERVER_IP }}:9200"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: Wait for wazuh-manager API before password change
+  hosts: "{{ global_vm_ssh_name }}"
+  become: yes
+  tasks:
+    - name: Wait for wazuh-manager API on port 55000
+      ansible.builtin.wait_for:
+        port: 55000
+        host: 127.0.0.1
+        delay: 10
+        timeout: 120
+
+    - name: Wait for wazuh-manager daemons to be ready
+      ansible.builtin.command: /var/ossec/bin/wazuh-control status
+      register: _wazuh_status
+      failed_when: "'wazuh-modulesd is running' not in _wazuh_status.stdout"
+      until: "'wazuh-modulesd is running' in _wazuh_status.stdout"
+      retries: 12
+      delay: 10
+      changed_when: false
+
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: EXEC wazuh-passwords-tool.sh - if CHANGE_WAZUH_PASSWORD is true
+  hosts: "{{ global_vm_ssh_name }}"
+  become: yes
+  become_user: root
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  vars:
+    CHANGE_WAZUH_PASSWORD: true
+    WAZUH_ANSIBLE_HOSTNAME: "{{ global_vm_ssh_name }}"  # not via tailscale
+    # WAZUH_ANSIBLE_HOSTNAME: "xxx.yyyy.zzzz.edge.wazuh"  # if tailscale
+
+  tasks:
+    - name: Run wazuh-passwords-tool.sh
+      ansible.builtin.shell: >
+        /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh
+        -u admin -p "{{ infrastructure_wazuh_admin_password }}"
+      register: password_output
+      delegate_to: "{{ WAZUH_ANSIBLE_HOSTNAME }}"
+      when: CHANGE_WAZUH_PASSWORD
+      retries: 2
+      delay: 15
+      until: password_output.rc == 0
+      no_log: false

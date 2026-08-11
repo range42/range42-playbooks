@@ -1,0 +1,8 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "generic",
+  "bundle": "generic/systems.checks.ping",
+  "description": "Ansible ping against the targeted hosts/group (reachability check). Takes no caller parameters.",
+  "optional": false,
+  "params": []
+}

@@ -1,0 +1,27 @@
+---
+# Feature flags for rocketchat_lab - optional components that can be
+# toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
+#
+# This file is the single source of truth :
+#   - the deploy TUI (range42-context --tui) reads `features` to render the
+#     checkbox modal before invoking `range42-context deploy`
+#   - the playbooks read the `INSTALL_<NAME>` variables via
+#     `when: INSTALL_<NAME> | default("YES"|"NO") | upper == "YES"` on the
+#     relevant `import_playbook` / `block:` entries
+#
+# Convention :
+#   - `id` is UPPERCASE (matches the variable name : `id: ROCKETCHAT` -> `INSTALL_ROCKETCHAT`)
+#   - `default: true|false` is the checkbox initial state in the TUI
+#   - the playbook `default("YES"|"NO")` fallback should align with this
+#   - `| upper` makes the check case-insensitive : YES / yes / Yes all match
+
+features:
+  - id: ROCKETCHAT
+    label: "Rocket.Chat - team collaboration / chat server"
+    description: "Deploys an admin-rocketchat-standalone VM (vm_id 1185, IP 192.168.142.185) under 02_admin_infrastructure/ running the rocketchat docker-compose stack (mongodb + mongo-init-replica + rocketchat + provisioner) from range42-catalog/03_container_layer/docker/admin/rocketchat/ via the shared bundle bundles/admin/software.install.rocketchat/. Default YES : rocketchat_lab is the Rocket.Chat showcase scenario. The same flag defaults NO in the general scenarios that offer it as an optional add-on."
+    default: true
+
+  - id: TAILSCALE
+    label: "Tailscale VPN client"
+    description: "Per-group install. Off by default."
+    default: false

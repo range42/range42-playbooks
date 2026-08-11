@@ -1,11 +1,14 @@
 {
   "scenario": "debug_scenario_a",
   "version": 1,
-  "description": "Minimal debug scenario — 1 Alpine VM on an isolated subnet (192.168.147.0/24). Used to quickly verify the full deploy pipeline (clone, cloud-init, ssh reachability, proxy-jump) without spinning up a full lab.",
+  "description": "Minimal debug scenario - 1 Alpine VM on an isolated subnet (192.168.147.0/24). Used to quickly verify the full deploy pipeline (clone, cloud-init, ssh reachability, proxy-jump) without spinning up a full lab. dsa-vm-01 hostname (VMID 8001, IP 192.168.147.250) on vmbr147 ; built from alpine-nano template (VMID 9903). Optional admin-wazuh VM (VMID 8050, IP 192.168.142.150, vmbr142, gated by INSTALL_WAZUH, default off) deploys a Wazuh SIEM server + agent on dsa-vm-01. Optional admin-misp VM (VMID 8051, IP 192.168.142.151, vmbr142, gated by INSTALL_MISP, default off) deploys the MISP threat intel docker-compose stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/. Both admin VMs use the medium template (VMID 9232, 2cpu/8gb/64gb, built on first WAZUH/MISP-enabled deploy).",
   "vms": [
-    {"vm_id": 8001, "vm_name": "dsa-vm-01", "ip": "192.168.147.250", "role": "debug", "bridge": "vmbr147"}
+    {"vm_id": 8050, "vm_name": "admin-wazuh", "ip": "192.168.142.150", "role": "admin", "group": "admin",  "bridge": "vmbr142"},
+    {"vm_id": 8051, "vm_name": "admin-misp",  "ip": "192.168.142.151", "role": "admin", "group": "admin",  "bridge": "vmbr142"},
+    {"vm_id": 8001, "vm_name": "dsa-vm-01",   "ip": "192.168.147.250", "role": "debug", "group": "debug",  "bridge": "vmbr147"}
   ],
   "templates": [
-    {"vm_id": 9903, "vm_name": "template-vm-alpine-nano", "spec": "1cpu/512mb/4gb", "ip": "192.168.142.203", "bridge": "vmbr140"}
+    {"vm_id": 9903, "vm_name": "template-vm-alpine-nano",      "spec": "1cpu/512mb/4gb", "ip": "192.168.142.203", "bridge": "vmbr140"},
+    {"vm_id": 9232, "vm_name": "template-vm-medium-02-8g-64g", "spec": "2cpu/8gb/64gb",  "ip": "192.168.140.232", "bridge": "vmbr140"}
   ]
 }

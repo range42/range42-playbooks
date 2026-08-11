@@ -1,0 +1,17 @@
+##
+## admin-rocketchat - Rocket.Chat docker-compose stack on r42.bs6-admin-rocketchat
+##
+## Delegates to the shared bundle (catalog .env seed + Docker baseline +
+## firewall 22/3000 + docker-compose deploy of rocketchat : mongodb +
+## mongo-init-replica + rocketchat + provisioner). Optional admin service.
+##
+## NOTE : the MongoDB replica-set cold-start takes ~90-180s on first deploy.
+##
+## Gated by INSTALL_ROCKETCHAT (default NO).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.rocketchat/main.yml"
+  when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.bs6-admin-rocketchat"
+    global_vm_ci_ip:    "192.168.142.148"

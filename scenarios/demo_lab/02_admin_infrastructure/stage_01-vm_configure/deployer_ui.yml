@@ -1,0 +1,18 @@
+##
+## admin-deployer-ui - range42-deployer-ui (Docker, canonical method)
+##
+## Delegates to the shared bundle which provisions deployer-ui via the
+## repo's canonical Docker path : multi-stage build (Node 24 + vite build
+## -> nginx serve), docker-compose up -d --build, /health probe.
+##
+## Backend connection : CORS-based (POC). The backend (deployer-api-backend)
+## must allow the UI's origin ; the backend URL is configured at runtime via
+## the in-app Settings modal. See the bundle README for upgrade paths
+## (image-based deploys, external reverse proxy, etc.).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.deployer_ui/main.yml"
+  when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.admin-deployer-ui"
+    global_vm_ci_ip:    "192.168.142.103"

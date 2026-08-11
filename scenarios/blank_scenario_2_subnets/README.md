@@ -1,95 +1,96 @@
 # blank_scenario_2_subnets
 
-Minimal network lab — 2 team subnets (2 VMs each) + admin subnet (wazuh + deployer platform). Total: 8 VMs.
+Multi-subnet lab with 4 team VMs on 2 subnets (vmbr143 + vmbr144) plus an
+admin platform (3 always-on deployer VMs + 2 optional admin VMs gated by
+feature flags). Bundle-driven shape (mirror of `kunai_lab` /
+`demo_lab`).
 
-> Admin subnet uses dense IPs `.120-.123` on `192.168.142.0/24`. bs2 / bs4 / bs6 use
-> non-overlapping admin IP ranges (`.120-.123`, `.130-.133`, `.140-.143`), and `demo_lab`
-> admin sits on `.100-.103`, so all four scenarios can be deployed **in parallel** on
+Anchor scenario for `blank_scenario_4_subnets` + `blank_scenario_6_subnets`
+(both mirrors of bs2 with more subnets / more team VMs).
+
+> Admin subnet uses dense IPs `.120-.124` on `192.168.142.0/24`. bs2 / bs4 / bs6 use
+> non-overlapping admin IP ranges (`.120-.124`, `.130-.134`, `.140-.144`), and other
+> scenarios sit on different ranges, so all of them can be deployed **in parallel** on
 > the same Proxmox host without collision.
-
-## How to deploy
-
-On a fresh Linux machine that will become the operator's deployer-cli :
-
-```bash
-sudo apt-get update && sudo apt-get upgrade -y
-sudo apt-get install -y python3-venv git
-
-mkdir -p $HOME/range42 && cd $HOME/range42
-git clone https://github.com/range42/range42.git
-cd range42
-./range42-init.py
-```
-
-Follow the wizard prompts (Proxmox address, jump user, scenario, optional apt proxy).
-Once the deployer-cli is configured, switch to the new context and deploy :
-
-```bash
-range42-context use <codename> blank_scenario_2_subnets
-range42-context deploy
-```
 
 ## Network architecture
 
 ```
-                              ┌───────────────────────────┐
-                              │       Proxmox Host        │
-                              │      (ip_forward=1)       │
-                              └──┬──────────┬─────────┬───┘
-                                 │          │         │
-                           vmbr142     vmbr143     vmbr144
-                           (admin)     (team A)    (team B)
-                                 │          │         │
-    ┌────────────────────────────┘          │         └────────────────────────────┐
-    │                          ┌────────────┘                                      │
-    │                          │                                                   │
-┌───┴──────────────────┐  ┌───┴──────────────────┐  ┌─────────────────────────────┴┐
-│ Admin                │  │ Team A               │  │ Team B                       │
-│ 192.168.142.0/24     │  │ 192.168.143.0/24     │  │ 192.168.144.0/24             │
-│                      │  │                      │  │                              │
-│ wazuh          .120  │  │ team-143-01    .200  │  │ team-144-01           .200   │
-│ api-gateway    .121  │  │ team-143-02    .201  │  │ team-144-02           .201   │
-│ api-backend    .122  │  │                      │  │                              │
-│ deployer-ui    .123  │  │                      │  │                              │
-└──────────────────────┘  └──────────────────────┘  └──────────────────────────────┘
+                              +-----------------------+
+                              |     Proxmox Host      |
+                              +-----------+-----------+
+                                          |
+              +---------------+-----------+-----------+
+              |               |                       |
+           vmbr142          vmbr143                vmbr144
+        (admin band)     (team subnet 1)        (team subnet 2)
+              |               |                       |
+   +----------+-------+   +---+---+               +---+---+
+   |        admin     |   |  team |               |  team |
+   | wazuh   .120 *   |   | 143.200|              | 144.200|
+   | misp    .124 *   |   | 143.201|              | 144.201|
+   | deployer-* .121  |   +-------+               +-------+
+   | deployer-* .122  |
+   | deployer-* .123  |
+   +------------------+
+       * optional (INSTALL_WAZUH / INSTALL_MISP, default NO)
 ```
 
-## Team VMs
+## VM details
 
-| VM | VM ID | IP | Bridge |
-|----|-------|----|--------|
-| bs2-team-143-01 | 2001 | 192.168.143.200 | vmbr143 |
-| bs2-team-143-02 | 2002 | 192.168.143.201 | vmbr143 |
-| bs2-team-144-01 | 2003 | 192.168.144.200 | vmbr144 |
-| bs2-team-144-02 | 2004 | 192.168.144.201 | vmbr144 |
+| VM Name                              | VM ID | IP              | Bridge  | Template                            | Gated by         |
+|--------------------------------------|-------|-----------------|---------|-------------------------------------|------------------|
+| bs2-team-143-01                      | 2001  | 192.168.143.200 | vmbr143 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-team-143-02                      | 2002  | 192.168.143.201 | vmbr143 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-team-144-01                      | 2003  | 192.168.144.200 | vmbr144 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-team-144-02                      | 2004  | 192.168.144.201 | vmbr144 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-admin-deployer-api-gateway       | 2121  | 192.168.142.121 | vmbr142 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-admin-deployer-api-backend       | 2122  | 192.168.142.122 | vmbr142 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-admin-deployer-ui                | 2123  | 192.168.142.123 | vmbr142 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-admin-wazuh                      | 2120  | 192.168.142.120 | vmbr142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_WAZUH`  |
+| bs2-admin-misp                       | 2124  | 192.168.142.124 | vmbr142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_MISP`   |
 
-## Admin VMs
+Source of truth : `manifest/scenario_vms.json`.
 
-| VM | VM ID | IP | Bridge |
-|----|-------|----|--------|
-| bs2-admin-wazuh | 2120 | 192.168.142.120 | vmbr142 |
-| bs2-admin-deployer-api-gateway | 2121 | 192.168.142.121 | vmbr142 |
-| bs2-admin-deployer-api-backend | 2122 | 192.168.142.122 | vmbr142 |
-| bs2-admin-deployer-ui | 2123 | 192.168.142.123 | vmbr142 |
+## Feature flags
 
-Source of truth for VM IDs/IPs/bridges : [`manifest/scenario_vms.json`](manifest/scenario_vms.json).
+See `manifest/feature_flags.yml`. All flags default to `NO`.
 
-## Stages
+| Flag                | Effect                                                          | Default |
+|---------------------|-----------------------------------------------------------------|---------|
+| `INSTALL_WAZUH`     | Deploy admin-wazuh SIEM + wazuh-agent on the 8 non-server VMs   | NO      |
+| `INSTALL_MISP`      | Deploy admin-misp (docker-compose stack)                        | NO      |
+| `INSTALL_TAILSCALE` | Tailscale VPN client on admin tier                              | NO      |
 
-- **stage_00** — VM creation (clone template + cloud-init + start)
-- **stage_01** — Per-VM software install :
-  - team VMs   : basic packages, dotfiles, firewall (SSH only)
-  - admin VMs  : wazuh-indexer/server/dashboard install + deployer api-gateway/api-backend/ui
+## Behavior change vs legacy `blank_scenario_2_subnets`
 
-## Scripts
+The legacy `blank_scenario_2_subnets` created `bs2-admin-wazuh` unconditionally
+and installed the full Wazuh stack on it. The `_bundles` variant gates this
+behind `INSTALL_WAZUH=YES` (default `NO`) for consistency with the rest of the
+bundle-driven scenarios. An operator who wants the OLD behavior must pass
+`-e INSTALL_WAZUH=YES`.
 
-| Script | What it does |
-|--------|-------------|
-| `blank_scenario_2_subnets.setup.sh` | Full deploy (templates + VMs + software) |
-| `blank_scenario_2_subnets.setup_vms_only.sh` | Fast redeploy (VMs only, skip templates) |
-| `blank_scenario_2_subnets.delete_all.sh` | Destroy everything (VMs + templates) + clean SSH known_hosts |
-| `blank_scenario_2_subnets.delete_vms_only.sh` | Destroy VMs only (keep templates) |
-| `blank_scenario_2_subnets.reset.setup.sh` | Delete all + redeploy from scratch |
+## Usage
 
-`range42-context` exposes the same operations plus VM lifecycle (`start`/`stop`/`pause`/`resume`),
-`snapshot`/`revert`, and `delete-everything` (cross-scenario cleanup). See `range42-context --help`.
+```bash
+range42-context use <codename> blank_scenario_2_subnets
+range42-context deploy
+
+# enable Wazuh SIEM :
+./blank_scenario_2_subnets.setup.sh -e INSTALL_WAZUH=YES
+
+# enable both Wazuh + MISP (MISP requires .env populated in the catalog
+# before this command - see admin-misp.yml documentation) :
+./blank_scenario_2_subnets.setup.sh -e INSTALL_WAZUH=YES -e INSTALL_MISP=YES
+```
+
+## Wrapper scripts
+
+| Script                                                          | Action                                                              |
+|-----------------------------------------------------------------|---------------------------------------------------------------------|
+| `blank_scenario_2_subnets.setup.sh`                     | Run main playbook (templates + VMs + optional admin)                |
+| `blank_scenario_2_subnets.setup_vms_only.sh`            | Run main_vms_only.yml (skip template creation)                      |
+| `blank_scenario_2_subnets.reset.setup.sh`               | Delete + redeploy VMs                                               |
+| `blank_scenario_2_subnets.reset.ssh_keys.sh`            | Clear ~/.ssh/known_hosts for every IP in manifest                   |
+| `blank_scenario_2_subnets.delete_vms_only.sh`           | Delete VMs only, keep templates                                     |
+| `blank_scenario_2_subnets.delete_all.sh`                | Delete VMs + templates (WARNING - affects other scenarios)          |

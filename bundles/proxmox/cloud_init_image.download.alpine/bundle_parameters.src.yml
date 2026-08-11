@@ -1,0 +1,8 @@
+---
+bundle: proxmox/cloud_init_image.download.alpine
+
+description: Downloads the Alpine 3.21 nocloud cloud-init image onto the Proxmox local storage
+
+optional: false
+
+params: []

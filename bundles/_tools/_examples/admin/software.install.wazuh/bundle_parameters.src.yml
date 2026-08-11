@@ -1,0 +1,33 @@
+---
+# REFERENCE FIXTURE (multi-role composite + vault-sourced secret + call-site flag).
+bundle: admin/software.install.wazuh
+description: >-
+  Install the Wazuh server stack (indexer, dashboard, manager, filebeat-oss)
+  on the wazuh server host.
+installable: true
+install_flag: INSTALL_WAZUH
+composes: []
+params:
+  - name: global_vm_ssh_name
+    scope: orchestration
+    type: string
+    required: true
+    default_where: none
+    description: Inventory hostname of the wazuh server VM (e.g. r42.admin-wazuh).
+  - name: global_vm_ci_ip
+    renamed_to: [WAZUH_SERVER_IP]
+    scope: per-vm
+    type: string
+    required: true
+    default_where: none
+    description: IP of the wazuh server; used for indexer cluster and filebeat output.
+  - name: infrastructure_wazuh_admin_password
+    scope: per-group
+    type: string
+    required: true
+    secret: true
+    from_vault: true
+    default_where: vault
+    description: >-
+      Wazuh admin password, resolved from the scenario vault. Consumed only inside
+      a task (never in a vars: block or hosts:), so it is invisible to static scans.

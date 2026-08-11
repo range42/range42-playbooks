@@ -4,12 +4,44 @@ all:
       children:
         ####
 
+        r42_admin:
+          hosts:
+            r42.admin-wazuh:
+            r42.admin-misp:
+
+        ####
+
         r42_kunai_lab_trainer_group:
           hosts:
             r42.admin-trainer-kunai:
 
         r42_kunai_lab_students_group:
           hosts:
+            # student_key_index -> selects the per-VM unique student SSH key
+            # (ssh_key_student_user_extra_<N>_pub_key in the vault) for the human `student` user.
+            r42.student-kunai-01:
+              student_key_index: 1
+            r42.student-kunai-02:
+              student_key_index: 2
+            r42.student-kunai-03:
+              student_key_index: 3
+            r42.student-kunai-04:
+              student_key_index: 4
+            r42.student-kunai-05:
+              student_key_index: 5
+
+        ####
+
+        # All potential wazuh-agent clients (every non-server VM in the scenario).
+        # This static group is the POTENTIAL set. At deploy time, the runtime
+        # group r42_kunai_lab_wazuh_clients_active is built by
+        # _build_wazuh_clients_active_group.yml based on INSTALL_<flag> values
+        # (admin-misp is added only when INSTALL_MISP=YES). The wazuh-agent
+        # finalize play targets the runtime active group, not this static set.
+        r42_kunai_lab_wazuh_clients:
+          hosts:
+            r42.admin-misp:
+            r42.admin-trainer-kunai:
             r42.student-kunai-01:
             r42.student-kunai-02:
             r42.student-kunai-03:

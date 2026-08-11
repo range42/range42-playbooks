@@ -1,8 +1,14 @@
 # demo_lab
 
-Default scenario — deploys admin services (wazuh, deployer API/UI) and CTF vulnerable boxes.
+POC clone of demo_lab that imports the wazuh stack from `bundles/wazuh/main.yml`
+instead of the local `02_admin_infrastructure/stage_01/mon_wazuh.yml`. Same VM
+IDs, IPs, and inventory groups as demo_lab - **destroy demo_lab before deploying
+demo_lab to avoid Proxmox collisions on the same hypervisor**.
 
-> **Work in progress** — the deployer UI and backend API are not yet configured on their VMs.
+If this POC works, the next step is to migrate demo_lab itself to use the same
+bundle (and then bs2/bs4/bs6). See `_TODO_bundle_actions.md` at the repo root.
+
+> **Work in progress** - the deployer UI and backend API are not yet configured on their VMs.
 > Docker registry, student infrastructure, and additional services will be added later.
 
 ## Network architecture
@@ -73,3 +79,20 @@ Each infrastructure section follows staged deployment:
 | `demo_lab.delete_vms_only.sh` | Destroy VMs only (keep templates) |
 | `demo_lab.reset.setup.sh` | Delete all + redeploy from scratch |
 | `demo_lab.reset.ssh_keys.sh` | Reset SSH keys only |
+
+## Optional components - feature flags
+
+The optional components shipped with this scenario can be toggled on/off at deploy
+time. The catalog lives in [`manifest/feature_flags.yml`](manifest/feature_flags.yml) ;
+the deploy scripts forward any trailing `-e INSTALL_<NAME>=<YES|NO>` to `ansible-playbook`
+(same convention as the pre-existing `INSTALL_TAILSCALE` variable used elsewhere
+in the scenario).
+
+Example - deploy everything except wazuh, and force tailscale off on all groups :
+
+```bash
+range42-context deploy      -e INSTALL_WAZUH=NO
+range42-context deploy-vms  -e INSTALL_WAZUH=NO -e INSTALL_TAILSCALE=NO
+```
+
+The same flags surface as checkboxes in `range42-context --tui` (deploy / deploy-vms entries).

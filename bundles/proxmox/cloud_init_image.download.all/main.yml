@@ -1,0 +1,21 @@
+# ============================================================================
+# bundles/proxmox/cloud_init_image.download.all/main.yml
+# ============================================================================
+# Downloads ALL base cloud images used to build the VM templates, by composing
+# the 4 per-image download bundles (single source of truth : each image's URL
+# lives once, in its own bundle). This is the default entry-point the scenarios
+# import in their 01_templates-bootstrap stage.
+#
+# Replaces the former loose include templates/_main_download_cloudinit_files.yml
+# (since retired). Behaviour is identical : the same 4 images are fetched onto
+# the Proxmox `local` storage. For finer control, import a single per-image
+# bundle instead of `.all`.
+# ============================================================================
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.ubuntu_lts_minimal/main.yml"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.ubuntu_lts_server/main.yml"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.debian/main.yml"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.alpine/main.yml"

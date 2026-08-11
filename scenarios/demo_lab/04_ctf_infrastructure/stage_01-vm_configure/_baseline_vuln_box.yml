@@ -1,0 +1,31 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### STAGE 01 - baseline vuln_box #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+
+##
+## Baseline for r42_vuln_box_group :
+##   - systems.baseline.docker_host : packages + dotfiles + Docker + docker-compose
+##   - network.baseline.ssh       : firewall opens port 22
+##   - network.configure.tailscale_client         : optional tailscale install (gated by INSTALL_TAILSCALE)
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.docker_host/main.yml"
+  vars:
+    target_group: "r42_vuln_box_group"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
+  vars:
+    target_group: "r42_vuln_box_group"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
+  vars:
+    target_group: "r42_vuln_box_group"
+    INSTALL_TAILSCALE: "NO"
+    tailscale_hostnames:
+      - "vuln-box-00"
+      - "vuln-box-01"
+      - "vuln-box-02"
+      - "vuln-box-03"
+      - "vuln-box-04"

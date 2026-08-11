@@ -1,13 +1,16 @@
 #!/bin/bash
 
 ##
-## misp_lab.delete_vms_only.sh - destroy the misp_lab VM, keep templates
+## misp_lab.delete_vms_only.sh - destroy the misp_lab VMs, keep templates
 ##
 ## VM IDs are read from the scenario manifest :
 ##   manifest/scenario_vms.json
 ##
-## Lifted from catalog_try.delete_vms_only.sh, scoped to the misp_lab manifest
-## (currently lists only admin-misp-standalone, VMID 1180, IP 192.168.142.180).
+## Lists admin-misp-standalone (VMID 1180) + admin-wazuh (VMID 1187, optional).
+##
+## Companions:
+##   - misp_lab.delete_vms_only.sh (this) - VMs only, keep templates
+##   - misp_lab.delete_all.sh             - VMs + templates
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

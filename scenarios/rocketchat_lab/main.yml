@@ -1,0 +1,42 @@
+---
+##
+## rocketchat_lab - main playbook
+##
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
+##
+## Provisions a single Ubuntu LTS VM (admin-rocketchat-standalone) on vmbr142
+## from the project standard medium template (VMID 9232 : 2cpu / 8gb / 64gb) and
+## deploys the rocketchat docker-compose stack on it via the shared bundle
+## bundles/admin/software.install.rocketchat/.
+##
+## Rocket.Chat is modeled as an admin-tier service (uniform 02_admin placement),
+## gated by INSTALL_ROCKETCHAT (default YES per manifest/feature_flags.yml -
+## rocketchat_lab is the Rocket.Chat showcase scenario ; the same wrapper defaults
+## NO in the general scenarios that offer it as an optional add-on).
+##
+## Lab topology :
+##   - admin-rocketchat-standalone (192.168.142.185, VMID 1185, vmbr142)  - Rocket.Chat host
+##
+## Global stage discipline (mirror of demo_lab / misp_lab) :
+##   1. 01_templates-bootstrap                    create the shared template (9232)
+##   2. ALL tiers stage_00 (vm_bootstrap)         create every VM first
+##   3. ALL tiers stage_01 (vm_configure)         configure every VM after
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./01_templates-bootstrap/_main.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml

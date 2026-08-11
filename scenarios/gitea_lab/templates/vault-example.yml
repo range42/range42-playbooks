@@ -1,0 +1,10 @@
+---
+# Example vault file for gitea_lab
+# Copy to your secrets directory and encrypt with ansible-vault
+# ansible-vault encrypt vault.yml
+
+proxmox_api_token_secret: "REPLACE_ME"
+jump_password: "REPLACE_ME"
+default_admin_vm_ci_password: "REPLACE_ME"
+default_admin_vm_ci_ssh_key: "REPLACE_ME"
+deployer_cli_user_ssh_known_hosts: "REPLACE_ME"

@@ -1,0 +1,87 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### kunai_lab - stage_00 - student group #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# 5 VMs : student-kunai-01..05 (1105..1109, 192.168.142.105..109, vmbr142).
+# Cloned from template 9232 (template-vm-medium-02-8g-64g, 2cpu/8gb/64gb).
+#
+# Per-VM provisioning is delegated to the shared vm.bootstrap bundle :
+# bundles/proxmox/vm.bootstrap/main.yml
+# (clone template -> wait Proxmox unlock -> set tag -> set cloudinit -> start -> wait openssh + cloudinit)
+#
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "student-kunai-01"
+    global_vm_ssh_name:    "r42.student-kunai-01"
+    global_vm_id:          1105
+    global_vm_description: "kunai_lab - student VM 01"
+    global_vm_tag_name:    "kunai-lab"
+    global_vm_ci_ip:       "192.168.142.105"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "student-kunai-02"
+    global_vm_ssh_name:    "r42.student-kunai-02"
+    global_vm_id:          1106
+    global_vm_description: "kunai_lab - student VM 02"
+    global_vm_tag_name:    "kunai-lab"
+    global_vm_ci_ip:       "192.168.142.106"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "student-kunai-03"
+    global_vm_ssh_name:    "r42.student-kunai-03"
+    global_vm_id:          1107
+    global_vm_description: "kunai_lab - student VM 03"
+    global_vm_tag_name:    "kunai-lab"
+    global_vm_ci_ip:       "192.168.142.107"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "student-kunai-04"
+    global_vm_ssh_name:    "r42.student-kunai-04"
+    global_vm_id:          1108
+    global_vm_description: "kunai_lab - student VM 04"
+    global_vm_tag_name:    "kunai-lab"
+    global_vm_ci_ip:       "192.168.142.108"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "student-kunai-05"
+    global_vm_ssh_name:    "r42.student-kunai-05"
+    global_vm_id:          1109
+    global_vm_description: "kunai_lab - student VM 05"
+    global_vm_tag_name:    "kunai-lab"
+    global_vm_ci_ip:       "192.168.142.109"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

@@ -1,0 +1,39 @@
+---
+##
+## gitea_lab - main_vms_only playbook
+##
+## Skips the 01_templates-bootstrap template creation stage (template 9232
+## assumed already present from a prior gitea_lab.setup.sh run, or from another
+## scenario that builds the same medium template - blank_scenario_2_subnets,
+## demo_lab, misp_lab, nextcloud_lab, mattermost_lab). Used by
+## `range42-context deploy-vms`.
+##
+## Same global stage discipline + CROSS-TIER FINALIZE as main.yml :
+##   1. ALL tiers stage_00 (vm_bootstrap)
+##   2. ALL tiers stage_01 (vm_configure)
+##   3. CROSS-TIER FINALIZE - student SSH-cycle glue (runs LAST, depends on the
+##      INSTALL_GITEA gitea server being up).
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
+
+- import_playbook: ./03_student_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./03_student_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### CROSS-TIER FINALIZE - student SSH-cycle glue (runs LAST)  #### ####
+#### #### depends on the INSTALL_GITEA gitea server being up        #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./03_student_infrastructure/stage_01-vm_configure/student_gitea_client_01.yml

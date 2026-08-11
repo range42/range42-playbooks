@@ -1,0 +1,38 @@
+##
+## misp_lab - 02_admin_infrastructure - build r42_admin_active
+##
+## Builds the runtime-only r42_admin_active group from the INSTALL_WAZUH flag
+## set at deploy time. Member is added via ansible.builtin.add_host, so the
+## group is in-memory only ; the workspace inventory_default.yml is NOT modified.
+##
+## Used by _baseline_admin.yml as target_group, so the baseline only runs on
+## the admin-wazuh VM that stage_00 actually deployed. With INSTALL_WAZUH=NO,
+## the group is empty -> baseline plays skip silently.
+##
+## Per-VM gating driven by deploy-time flag, without inventory regen between
+## deploys :
+##
+##   INSTALL_WAZUH | r42_admin_active contains
+##   ------------- | ---------------------------
+##   NO            | (empty -> baseline plays skip silently)
+##   YES           | [r42.admin-wazuh]
+##
+## Note : no admin-misp here. MISP IS the workload of this scenario, deployed
+## on admin-misp-standalone via tier 03. The wazuh-agent finalize installs the
+## agent on admin-misp-standalone (the lab VM), not on a separate admin-misp.
+##
+## `hosts: proxmox` (not localhost) so the play matches the wrapper's
+## `-l "all"` filter (the proxmox host is in the `all` group and has
+## ansible_connection: local).
+##
+
+- name: build r42_admin_active dynamic group from INSTALL flags
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: add r42.admin-wazuh to r42_admin_active when INSTALL_WAZUH=YES
+      ansible.builtin.add_host:
+        name: r42.admin-wazuh
+        groups: r42_admin_active
+      when: INSTALL_WAZUH | default("NO") | upper == "YES"
+      changed_when: false

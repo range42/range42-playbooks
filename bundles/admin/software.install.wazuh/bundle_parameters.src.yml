@@ -1,0 +1,28 @@
+---
+bundle: admin/software.install.wazuh
+description: Install the Wazuh server stack (indexer, dashboard, manager, filebeat-oss) on the wazuh server host.
+optional: true
+install_flag: INSTALL_WAZUH
+
+params:
+
+  - name: global_vm_ssh_name
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Inventory host of the wazuh server VM, e.g. r42.admin-wazuh (the play hosts value). Canonical name Phase 2 = TARGET_ANSIBLE_HOSTS.
+
+  - name: global_vm_ci_ip
+    renamed_to: [WAZUH_SERVER_IP]
+    type: string
+    required: true
+    default_where: none
+    description: IP of the wazuh server; used for indexer cluster and filebeat output.
+
+  - name: infrastructure_wazuh_admin_password
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: Wazuh admin password, resolved from the scenario vault at runtime (never stored, never rendered).

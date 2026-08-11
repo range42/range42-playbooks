@@ -1,0 +1,56 @@
+---
+##
+## gitea_lab - main playbook
+##
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global
+## stage interleaving across tiers without rewriting per-tier plays.
+##
+## Two-tier lab :
+##   - 02_admin_infrastructure  : admin-gitea-standalone (VMID 1183, IP .183) -
+##     runs the Gitea docker-compose stack, gated by INSTALL_GITEA (default YES
+##     per manifest/feature_flags.yml - gitea_lab is the Gitea showcase scenario).
+##   - 03_student_infrastructure : student-gitea-client-01 (VMID 1184, IP .184) -
+##     Ubuntu LTS client used for the end-to-end SSH-cycle validation against the
+##     Gitea server.
+##
+## Global stage discipline (mirror of demo_lab / mattermost_lab) :
+##   1. 01_templates-bootstrap                    create the shared template (9232)
+##   2. ALL tiers stage_00 (vm_bootstrap)         create every VM first
+##   3. ALL tiers stage_01 (vm_configure)         configure every VM after
+##   4. CROSS-TIER FINALIZE                        student SSH-cycle glue, run LAST
+##
+## The CROSS-TIER FINALIZE (03_student_infrastructure SSH-cycle glue) is imported
+## LAST, on purpose : it generates an ed25519 key on the student client, registers
+## it with the Gitea server via the admin API, and verifies SSH auth. It therefore
+## DEPENDS on the INSTALL_GITEA Gitea server being up and reachable - which is only
+## true once both tiers' stage_01 has completed.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./01_templates-bootstrap/_main.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
+
+- import_playbook: ./03_student_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./03_student_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### CROSS-TIER FINALIZE - student SSH-cycle glue (runs LAST)  #### ####
+#### #### depends on the INSTALL_GITEA gitea server being up        #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./03_student_infrastructure/stage_01-vm_configure/student_gitea_client_01.yml

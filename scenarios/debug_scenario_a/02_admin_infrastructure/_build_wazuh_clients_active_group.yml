@@ -1,0 +1,42 @@
+---
+##
+## debug_scenario_a - 02_admin_infrastructure - build r42_debug_scenario_a_wazuh_clients_active
+##
+## Structure : runtime-only group built via add_host on localhost based on
+## INSTALL_<flag> values at deploy time. Mirror of _build_admin_active_group.yml
+## (Option A pattern) applied to the wazuh-agent client list.
+##
+## Used by _finalize-baseline-admin_wazuh_client.yml as wazuh_clients_group.
+## Per-host gating without inventory file modification ; the wazuh-agent
+## install only targets VMs that exist at deploy time.
+##
+## Membership map :
+##
+##   client VM            VM creation gate              add_host condition
+##   -------------------- ----------------------------- ----------------------
+##   r42.admin-misp       INSTALL_MISP (default NO)     INSTALL_MISP=YES
+##   r42.dsa-vm-01        (none, lab tier always created) always added
+##
+## The wazuh server itself (r42.admin-wazuh) is EXCLUDED by design (a server
+## does not run its own agent).
+##
+## With INSTALL_MISP=NO -> admin-misp NOT in the active group -> wazuh-agent
+## install on it is silently skipped (no UNREACHABLE).
+##
+
+- name: build r42_debug_scenario_a_wazuh_clients_active dynamic group from INSTALL flags
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: add r42.admin-misp to r42_debug_scenario_a_wazuh_clients_active when INSTALL_MISP=YES
+      ansible.builtin.add_host:
+        name: r42.admin-misp
+        groups: r42_debug_scenario_a_wazuh_clients_active
+      when: INSTALL_MISP | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.dsa-vm-01 to r42_debug_scenario_a_wazuh_clients_active (lab tier, always created)
+      ansible.builtin.add_host:
+        name: r42.dsa-vm-01
+        groups: r42_debug_scenario_a_wazuh_clients_active
+      changed_when: false

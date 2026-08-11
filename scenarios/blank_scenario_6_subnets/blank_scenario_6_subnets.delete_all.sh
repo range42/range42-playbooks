@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##
-## delete all — VMs + ubuntu_noble templates of THIS scenario
+## delete all - VMs + ubuntu_noble templates of THIS scenario
 ##
 ## VM IDs and IPs are read from the scenario manifest:
 ##   manifest/scenario_vms.json
@@ -13,8 +13,8 @@
 ##   scenario relies on them, or run delete_vms_only.sh instead to keep templates.
 ##
 ## Companions:
-##   - blank_scenario_6_subnets.delete_vms_only.sh        — VMs only, keep templates
-##   - blank_scenario_6_subnets.delete_all.sh (this)      — VMs + this scenario's templates
+##   - blank_scenario_6_subnets.delete_vms_only.sh        - VMs only, keep templates
+##   - blank_scenario_6_subnets.delete_all.sh (this)      - VMs + this scenario's templates
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -39,7 +39,7 @@ echo ""
 
 VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
 if [ -z "$VM_LIST_JSON" ]; then
-    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) — aborting" >&2
+    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) - aborting" >&2
     printf "output: %.200s\n" "$VM_LIST_JSON" >&2
     exit 1
 fi
@@ -52,6 +52,6 @@ for ip in "${INFRASTRUCTURE_IP[@]}"; do
 done
 
 echo ""
-echo ":: done — VMs and templates removed"
+echo ":: done - VMs and templates removed"
 echo ":: redeploy from scratch with: range42-context deploy"
 echo ""

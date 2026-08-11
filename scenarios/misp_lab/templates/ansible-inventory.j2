@@ -4,7 +4,25 @@ all:
       children:
         ####
 
+        r42_admin:
+          hosts:
+            r42.admin-wazuh:
+
+        ####
+
         r42_misp_lab_group:
+          hosts:
+            r42.admin-misp-standalone:
+
+        ####
+
+        # All potential wazuh-agent clients (every non-server VM in the scenario).
+        # This static group is the POTENTIAL set. At deploy time, the runtime
+        # group r42_misp_lab_wazuh_clients_active is built by
+        # _build_wazuh_clients_active_group.yml (admin-misp-standalone is the
+        # workload VM, always added). The wazuh-agent finalize play targets
+        # the runtime active group, not this static set.
+        r42_misp_lab_wazuh_clients:
           hosts:
             r42.admin-misp-standalone:
 
