@@ -57,8 +57,8 @@
       "type": "string",
       "required": false,
       "default_where": "bundle-inline",
-      "default": "pve",
-      "description": "Proxmox node the backend targets, paired with BACKEND_API_URL in config.json. Only consumed when BACKEND_API_URL is set."
+      "default": "proxmox_node from the workspace vault, else pve",
+      "description": "Proxmox node the backend targets, paired with BACKEND_API_URL in config.json. Defaults to the workspace vault's proxmox_node so a fresh lab seeds the node it actually deploys to; the literal \"pve\" is only the last-resort fallback. Only consumed when BACKEND_API_URL is set."
     },
     {
       "name": "INSTALL_TAILSCALE",
