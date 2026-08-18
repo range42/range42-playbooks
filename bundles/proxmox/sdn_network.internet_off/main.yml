@@ -1,0 +1,121 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# sdn_network.internet_off - cut the outbound internet of one subnet
+#
+# A COMPOSITE, in three steps, because one is never enough :
+#     1. update_sdn_subnet   snat=off        the DECLARATION changes
+#     2. apply_sdn                              the change reaches the running config
+#     3. reconcile snat rules                   the LIVE iptables rules are brought in line
+#
+# Step 3 is not belt-and-braces. `ifreload -a`, which the apply runs, REPLAYS the subnet's post-up
+# hook, so a snat=1 gains a duplicate rule per apply. And the reverse is worse : snat=0 removes the
+# post-down hook before it ever runs, orphaning the live rule. Neither is visible through the API.
+#
+# This is the direction that ORPHANS a rule if step 3 is skipped : setting snat=0 removes the
+# post-down hook from the configuration BEFORE that hook ever runs, so the live MASQUERADE rule
+# survives its own declaration. The declaration says no NAT and the kernel still NATs.
+#
+# ONE INPUT ONLY : THE SUBNET ID
+# The vnet, the CIDR, the node and the current snat are READ from list_sdn_subnets. That read is also
+# what proves the subnet exists before anything is written - so a wrong id fails with a clear message
+# instead of a bare API 500. Same contract as the tested devkit
+# proxmox__inc.sdn_outgoing_nat.to.jsons.sh, whose sequence this mirrors.
+#
+# THE PUT DOES NOT REPASS THE GATEWAY, ON PURPOSE
+# Proxmox preserves the fields a PUT does not carry. Sending the gateway back would be a second way to
+# get it wrong. Verified on real hardware in SDN plan T-08.
+#
+# Required : BUNDLE_SDN_SUBNET_ID. From the vault : proxmox_node.
+#
+# NOTE FOR THE NEXT EDITOR : internet_on, internet_off and internet_toggle carry the SAME sequence and
+# differ by ONE line, the `_sdn_want` fact below. They were produced from a single template so they
+# could not drift. A change to the sequence must be made in all three.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "sdn_network.internet_off"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: SDN INTERNET OFF - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "subnet id    : {{ BUNDLE_SDN_SUBNET_ID }}"
+          - "mode         : off"
+
+    #### #### ####
+    #
+    # 1. READ. Everything but the id comes from here, and the read doubles as the existence proof.
+    #
+    - name: SDN INTERNET OFF - READ THE LIVE SUBNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_sdn_subnets"
+
+    - name: SDN INTERNET OFF - PICK THE ONE WE WERE ASKED FOR
+      ansible.builtin.set_fact:
+        _sdn_entry: >-
+          {%- set m = (network_list_sdn_subnets | default([]))
+                       | selectattr('subnet', 'equalto', BUNDLE_SDN_SUBNET_ID) | list -%}
+          {{ m[0] if (m | length) > 0 else {} }}
+
+    ## Two refusals rather than one. An absent subnet would make the update fail with a bare API 500,
+    ## and a subnet with no cidr would make step 3 reconcile against nothing - which either does
+    ## nothing or, with a looser match, everything. Neither is a state to write through.
+    - name: SDN INTERNET OFF - REFUSE TO GUESS
+      ansible.builtin.assert:
+        that:
+          - (_sdn_entry | length) > 0
+          - ((_sdn_entry.subnet_cidr | default('')) | length) > 0
+        fail_msg: >-
+          subnet "{{ BUNDLE_SDN_SUBNET_ID }}" was not found on the cluster, or carries no cidr.
+          List the real ids with the sdn_network.list.sdn_subnets bundle, or the devkit
+          proxmox_network.datacenter.list_sdn_subnets.to.jsons.sh | jq -r .subnet
+        success_msg: >-
+          subnet found - vnet={{ _sdn_entry.subnet_vnet }} cidr={{ _sdn_entry.subnet_cidr }}
+          snat_now={{ _sdn_entry.subnet_snat | default(0) }}
+
+    ## THE ONE LINE THAT DIFFERS BETWEEN internet_on / internet_off / internet_toggle.
+    - name: SDN INTERNET OFF - THE TARGET STATE
+      ansible.builtin.set_fact:
+        _sdn_want: "{{ 0 }}"
+
+    #### #### ####
+    #
+    # 2. WRITE the declaration, then make it live. The gateway and the dhcp fields are NOT resent :
+    #    Proxmox keeps what a PUT does not carry.
+    #
+    - name: SDN INTERNET OFF - SET THE DECLARATION
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_update_sdn_subnet"
+        sdn_vnet: "{{ _sdn_entry.subnet_vnet }}"
+        sdn_subnet_id: "{{ BUNDLE_SDN_SUBNET_ID }}"
+        sdn_subnet_snat: "{{ _sdn_want | int }}"
+
+    - name: SDN INTERNET OFF - APPLY
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_apply_sdn"
+
+    #### #### ####
+    #
+    # 3. RECONCILE the live rules. Runs unconditionally - see the header for why skipping it is how a
+    #    rule outlives its declaration.
+    #
+    - name: SDN INTERNET OFF - RECONCILE THE LIVE SNAT RULES
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_extra_snat_rules"
+        sdn_subnet_cidr: "{{ _sdn_entry.subnet_cidr }}"
+        sdn_snat_want: "{{ _sdn_want | int }}"

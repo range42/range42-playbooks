@@ -1,0 +1,39 @@
+---
+bundle: proxmox/sdn_network.delete.all
+description: >-
+  Tear down one zone completely - its subnets, its vnets, the zone itself - then apply and reconcile every
+  removed subnet's live SNAT rules down to zero. Zone-scoped and driven by what is LIVE, not by a
+  declaration.
+optional: false
+
+##
+## Caller-passed inputs carry the BUNDLE_ prefix : the backend will generate call-sites and inject its
+## own variables into a play whose variable space is FLAT, so a generator needs a mechanical rule for
+## which names it owns. proxmox_node is NOT prefixed - it is read from the scenario vault, not passed.
+## Full reasoning in ______TODO_bundle-parameters-declaration_v6.md section 9.
+##
+## ONE parameter only, and that is the safety property : the scope of a destructive action is a single
+## explicit zone. Nothing outside it is read, nothing outside it is touched, and there is no "all zones"
+## mode to reach by mistake.
+##
+
+params:
+
+  - name: BUNDLE_SDN_ZONE
+    renamed_to: [sdn_zone]
+    type: string
+    required: true
+    default_where: none
+    description: >-
+      The zone to wipe. Every vnet whose vnet_zone is this zone is removed, with the subnets those vnets
+      hold, then the zone. Nothing outside the zone is read or touched. There is no wildcard and no
+      all-zones mode - the scope of a teardown is stated, never inferred.
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: >-
+      Proxmox node the API calls go through, resolved from the scenario vault. The reconciliation step is
+      delegated by the role to groups['proxmox_cli'] | first, which must exist in the inventory.

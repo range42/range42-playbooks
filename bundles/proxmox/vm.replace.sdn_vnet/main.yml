@@ -1,0 +1,135 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# vm.replace.sdn_vnet - move one network card of a VM to another bridge
+#
+# DESTRUCTIVE, AND THE VERB SAYS SO. There is no API to edit a card's bridge in place : the card is
+# DELETED and RECREATED. Between the two the VM has one card less, so this is not the bundle to point at
+# a VM you reach THROUGH the card being moved.
+#
+# THE MAC ADDRESS CHANGES. A DHCP reservation, an ipset or a firewall alias keyed on the old MAC will not
+# follow. For the case this was written for - pulling a test VM off the management bridge - a fresh MAC
+# is exactly what you want. For anything else, check first.
+#
+# WHAT IS PRESERVED
+#   the SLOT      the card comes back as the same netN, asked for explicitly. Left to a count-based
+#                 fallback, moving net0 on a VM that also has net1 would recreate net1 ON TOP of the
+#                 existing net1 - a card move destroying a different card. That defect was real, and
+#                 fixed in the devkit under #135.
+#   the MODEL     read from the card being replaced, so the caller does not repeat it.
+#   the FIREWALL  read back and resent. This is the ONE place a two-branch task is justified : the role
+#                 emits the segment on `is defined`, and a bundle cannot leave a vars: key undefined, so
+#                 "preserve it if it was there, omit it if it was not" needs two calls. Mirrors the
+#                 tested devkit, which does the same with an if/else.
+#
+# Subject `vm` and not `sdn_network` : BUNDLE_VM_IFACE_BRIDGE takes a vnet (net142) or a legacy bridge
+# (vmbr0) indifferently. Bringing a card BACK onto vmbr0 is what the SDN chain test does with it.
+#
+# ALREADY ON THE TARGET ? Nothing is destroyed. The move is skipped and reported.
+#
+# Required : BUNDLE_VM_ID, BUNDLE_VM_VMNET_ID, BUNDLE_VM_IFACE_BRIDGE. From the vault : proxmox_node.
+# Optional : BUNDLE_VM_IFACE_MODEL (default : the model of the card being replaced).
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "vm.replace.sdn_vnet"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: VM REPLACE - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "vm id        : {{ BUNDLE_VM_ID }}"
+          - "card         : net{{ BUNDLE_VM_VMNET_ID }}"
+          - "target       : {{ BUNDLE_VM_IFACE_BRIDGE }}"
+
+    ## The fact APPENDS, so it is reset before the read - see vm.list.interfaces. It matters here more
+    ## than anywhere : this bundle is the reason that reset exists.
+    - name: VM REPLACE - RESET THE ACCUMULATING FACT
+      ansible.builtin.set_fact:
+        network_list_interfaces_vm: []
+
+    - name: VM REPLACE - READ THE CARD BEFORE TOUCHING IT
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_interfaces_vm"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    - name: VM REPLACE - PICK THE CARD
+      ansible.builtin.set_fact:
+        _vm_replace_card: >-
+          {%- set m = (network_list_interfaces_vm | default([]))
+                      | selectattr('vm_vmnet_id', 'equalto', (BUNDLE_VM_VMNET_ID | int)) | list -%}
+          {{ m[0] if (m | length) > 0 else {} }}
+
+    ## Refused before anything is destroyed, not after. A missing card and a card with no readable model
+    ## are both states from which the recreate could not put things back.
+    - name: VM REPLACE - REFUSE TO DESTROY WHAT WE CANNOT REBUILD
+      ansible.builtin.assert:
+        that:
+          - (_vm_replace_card | length) > 0
+          - ((BUNDLE_VM_IFACE_MODEL | default(_vm_replace_card.vm_network_type | default(''))) | length) > 0
+        fail_msg: >-
+          vm {{ BUNDLE_VM_ID }} has no card net{{ BUNDLE_VM_VMNET_ID }}, or its model could not be read.
+          NOTHING was changed. Cards it really has :
+          {{ (network_list_interfaces_vm | default([])) | map(attribute='vm_network_device') | list }}
+        success_msg: >-
+          net{{ BUNDLE_VM_VMNET_ID }} is on {{ _vm_replace_card.vm_network_bridge | default('?') }},
+          model {{ _vm_replace_card.vm_network_type | default('?') }},
+          firewall {{ _vm_replace_card.vm_network_firewall | default('unset') }}
+
+    - name: VM REPLACE - ALREADY ON THE TARGET, NOTHING TO DO
+      ansible.builtin.debug:
+        msg: >-
+          net{{ BUNDLE_VM_VMNET_ID }} is already on {{ BUNDLE_VM_IFACE_BRIDGE }} - skipped, no card was
+          destroyed and the MAC is unchanged.
+      when: (_vm_replace_card.vm_network_bridge | default('')) == BUNDLE_VM_IFACE_BRIDGE
+
+    #### #### ####
+    #
+    # DESTROY, then REBUILD. Every task below carries the same guard, so a card already on the target is
+    # left strictly alone.
+    #
+    - name: VM REPLACE - DELETE THE CARD
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_interfaces_vm"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+        vm_vmnet_id: "{{ BUNDLE_VM_VMNET_ID | int }}"
+      when: (_vm_replace_card.vm_network_bridge | default('')) != BUNDLE_VM_IFACE_BRIDGE
+
+    ## Two branches for one reason only : the firewall flag must be RESENT if the card had one and
+    ## OMITTED if it had none. See the header - a single call cannot do both.
+    - name: VM REPLACE - RECREATE IT, FIREWALL FLAG PRESERVED
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_interfaces_vm"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+        vm_vmnet_id: "{{ BUNDLE_VM_VMNET_ID | int }}"
+        iface_bridge: "{{ BUNDLE_VM_IFACE_BRIDGE }}"
+        iface_model: "{{ BUNDLE_VM_IFACE_MODEL | default(_vm_replace_card.vm_network_type) }}"
+        iface_firewall: "{{ _vm_replace_card.vm_network_firewall }}"
+      when:
+        - (_vm_replace_card.vm_network_bridge | default('')) != BUNDLE_VM_IFACE_BRIDGE
+        - _vm_replace_card.vm_network_firewall is defined
+
+    - name: VM REPLACE - RECREATE IT, THE CARD HAD NO FIREWALL FLAG
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_interfaces_vm"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+        vm_vmnet_id: "{{ BUNDLE_VM_VMNET_ID | int }}"
+        iface_bridge: "{{ BUNDLE_VM_IFACE_BRIDGE }}"
+        iface_model: "{{ BUNDLE_VM_IFACE_MODEL | default(_vm_replace_card.vm_network_type) }}"
+      when:
+        - (_vm_replace_card.vm_network_bridge | default('')) != BUNDLE_VM_IFACE_BRIDGE
+        - _vm_replace_card.vm_network_firewall is not defined

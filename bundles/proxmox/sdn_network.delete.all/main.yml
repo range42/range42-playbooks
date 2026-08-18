@@ -1,0 +1,166 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# sdn_network.delete.all - tear down one zone completely : its subnets, its vnets, the zone itself
+#
+# ZONE-SCOPED, AND DRIVEN BY WHAT IS LIVE - not by a declaration. It reads the cluster, then removes what
+# belongs to the named zone. So it works on a state nobody declared, which is exactly when a teardown is
+# needed.
+#
+# THE ORDER IS IMPOSED BY PROXMOX, NOT CHOSEN
+#   subnets -> vnets -> zone
+# A vnet still holding a subnet cannot be removed, nor a zone still holding a vnet. Then one apply, then
+# the live SNAT rules of every removed subnet reconciled down to ZERO.
+#
+# WHAT IT WILL NOT DO FOR YOU : DETACH A VM
+# Proxmox also refuses to delete a vnet that still carries a VM network card, and this bundle does not
+# hunt for those - a VM is not part of a network's declaration. If a card is still attached the vnet
+# delete fails, and the failure names the vnet rather than the card. Detach first with
+# vm.detach.sdn_vnet, or move it with vm.replace.sdn_vnet.
+#
+# WHY THE RECONCILIATION MATTERS MORE HERE THAN ANYWHERE
+# Deleting a subnet removes its post-down hook from the configuration BEFORE that hook ever runs. The live
+# MASQUERADE rule therefore survives the object that declared it - the subnet is gone and the kernel still
+# NATs its network. No API read shows this. `want=0` per removed subnet is what closes it, and it runs
+# AFTER the apply so the post-down has had its chance first.
+#
+# IDEMPOTENT BY LOOKUP : a second run finds nothing to remove, writes nothing, and still reconciles.
+#
+# Required : BUNDLE_SDN_ZONE. From the vault : proxmox_node.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "sdn_network.delete.all"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: SDN DELETE ALL - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "zone to wipe : {{ BUNDLE_SDN_ZONE }}"
+
+    #### #### ####
+    #
+    # 1. READ. Everything removed below comes from these three reads, so nothing is addressed by a value
+    #    this bundle computed.
+    #
+    - name: SDN DELETE ALL - READ THE LIVE ZONES
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_sdn_zones"
+
+    - name: SDN DELETE ALL - READ THE LIVE VNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_sdn_vnets"
+
+    - name: SDN DELETE ALL - READ THE LIVE SUBNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_sdn_subnets"
+
+    #### #### ####
+    #
+    # 2. SCOPE. The vnets of the zone come from `vnet_zone` ; the subnets come from `subnet_vnet` being
+    #    one of those vnets - and NOT from `subnet_zone`, which the role emits with `omit` and which is
+    #    therefore ABSENT whenever the API did not return it. Filtering on a key that may not exist would
+    #    silently scope the teardown to nothing.
+    #
+    - name: SDN DELETE ALL - WHAT BELONGS TO THIS ZONE
+      ansible.builtin.set_fact:
+        _sdnw_vnets: >-
+          {{ (network_list_sdn_vnets | default([]))
+             | selectattr('vnet_zone', 'defined')
+             | selectattr('vnet_zone', 'equalto', BUNDLE_SDN_ZONE) | list }}
+
+    - name: SDN DELETE ALL - AND WHICH SUBNETS THOSE VNETS HOLD
+      ansible.builtin.set_fact:
+        _sdnw_subnets: >-
+          {%- set names = _sdnw_vnets | map(attribute='vnet') | list -%}
+          {{ (network_list_sdn_subnets | default([]))
+             | selectattr('subnet_vnet', 'defined')
+             | selectattr('subnet_vnet', 'in', names) | list }}
+
+        _sdnw_zone: >-
+          {%- set live = network_list_sdn_zones | default([]) | map(attribute='zone') | list -%}
+          {{ [ BUNDLE_SDN_ZONE ] if (BUNDLE_SDN_ZONE in live) else [] }}
+
+    - name: SDN DELETE ALL - WHAT THIS RUN WILL REMOVE
+      ansible.builtin.debug:
+        msg:
+          - "zone    : {{ _sdnw_zone }}"
+          - "vnets   : {{ _sdnw_vnets   | map(attribute='vnet')   | list }}"
+          - "subnets : {{ _sdnw_subnets | map(attribute='subnet') | list }}"
+
+    #### #### ####
+    #
+    # 3. REMOVE, in the order Proxmox imposes. Each id and each vnet name comes from the read - never
+    #    from a derivation.
+    #
+    - name: SDN DELETE ALL - REMOVE THE SUBNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_sdn_subnet"
+        sdn_vnet: "{{ item.subnet_vnet }}"
+        sdn_subnet_id: "{{ item.subnet }}"
+      loop: "{{ _sdnw_subnets }}"
+      loop_control:
+        label: "{{ item.subnet }}"
+
+    - name: SDN DELETE ALL - REMOVE THE VNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_sdn_vnet"
+        sdn_vnet: "{{ item.vnet }}"
+      loop: "{{ _sdnw_vnets }}"
+      loop_control:
+        label: "{{ item.vnet }}"
+
+    - name: SDN DELETE ALL - REMOVE THE ZONE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_sdn_zone"
+        sdn_zone: "{{ BUNDLE_SDN_ZONE }}"
+      loop: "{{ _sdnw_zone }}"
+      loop_control:
+        label: "{{ item }}"
+
+    #### #### ####
+    #
+    # 4. APPLY, once, and only if something was removed. The apply is what plays the post-down hooks.
+    #
+    - name: SDN DELETE ALL - APPLY, ONCE, AND ONLY IF SOMETHING WAS REMOVED
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_apply_sdn"
+      when: >-
+        (_sdnw_zone | length) + (_sdnw_vnets | length) + (_sdnw_subnets | length) > 0
+
+    #### #### ####
+    #
+    # 5. RECONCILE TO ZERO, per removed subnet, AFTER the apply. See the header : a deleted subnet leaves
+    #    its live rule behind, and this is the only thing that removes it. Subnets with no readable cidr
+    #    are skipped rather than reconciled blindly - a missing anchor would match nothing, or everything.
+    #
+    - name: SDN DELETE ALL - RECONCILE EVERY REMOVED SUBNET DOWN TO ZERO
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_extra_snat_rules"
+        sdn_subnet_cidr: "{{ item.subnet_cidr }}"
+        sdn_snat_want: 0
+      loop: "{{ _sdnw_subnets | selectattr('subnet_cidr', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.subnet_cidr }} want=0"

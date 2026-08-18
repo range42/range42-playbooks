@@ -1,0 +1,17 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/sdn_network.list.sdn_subnets",
+  "description": "Read the SDN subnets of the cluster and leave them in the fact `network_list_sdn_subnets`, one dict per subnet. Cluster-level read, no write, no apply.",
+  "optional": false,
+  "params": [
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the read goes through, resolved from the scenario vault. It does not scope the result - the endpoint is cluster-level and returns every subnet of the cluster."
+    }
+  ]
+}

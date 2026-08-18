@@ -1,0 +1,224 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# sdn_network.bootstrap - bring the declared SDN networks up on a Proxmox cluster
+#
+#   read the live state -> create what is missing -> update what has drifted
+#   -> apply ONCE -> reconcile the live SNAT rules
+#
+# THIS IS THE ONE BUNDLE A SCENARIO CALLS. The other sdn_network.* bundles expose a single
+# action each, for the backend-api and the deployer-ui to drive live, and for debugging. A
+# scenario needs one line :
+#
+#   - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.bootstrap/main.yml"
+#
+# Required vars (passed by the call-site) :
+#   BUNDLE_SDN_ZONE    name of the SDN zone that holds every vnet below
+#   BUNDLE_SDN_VNETS   list of { vnet, subnet, gateway, snat }
+#
+# Nothing else. The zone type is pinned to `simple` by the role, and the apply polling keeps
+# the role defaults (60 retries x 2s).
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# WHY THE APPLY IS GUARDED, AND WHY THAT IS NOT COSMETIC
+# `PUT /cluster/sdn` runs `ifreload -a` on the node. That replays /etc/network/interfaces,
+# which still carries the legacy post-up MASQUERADE line of every NAT-enabled vmbr. So each
+# apply adds ONE rule per legacy bridge - measured, not deduced : 936 -> 960 over 2 applies
+# with 12 bridges (SDN plan, section 1.6). An unguarded apply on every run would inflate that
+# count forever, until the legacy sweep lands.
+#
+# Hence : one apply, at the end, only when something was actually written.
+#
+# WHY THE RECONCILIATION IS *NOT* GUARDED
+# It is the only thing that proves the LIVE rules match the declaration, and it is cheap - it
+# reads the nat table and deletes only what is in excess. A subnet declared snat=0 whose rule
+# survived an earlier post-down is invisible to the API and visible only here. Same choice as
+# the devkit composite, for the same reason.
+#
+# WHY EVERY STEP LOOPS OVER A COMPUTED LIST INSTEAD OF CARRYING A `when:`
+# A folded `>-` scalar yields a STRING, and the string "False" is truthy. A `when:` fed by a
+# templated boolean fact is a trap this project has paid for elsewhere. An empty list runs
+# zero iterations, which needs no boolean at all - so the zone, which is one object, is
+# carried as a list of zero or one.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    #### #### ####
+    #
+    # 1. READ the live state. Three calls, each leaving its result in a fact named after the
+    #    action. These three list actions REBUILD their fact from scratch, so calling them
+    #    after another bundle already read is safe - unlike network_list_interfaces_vm, which
+    #    appends.
+    #
+    - name: SDN BOOTSTRAP - READ THE LIVE ZONES
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_sdn_zones"
+
+    - name: SDN BOOTSTRAP - READ THE LIVE VNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_sdn_vnets"
+
+    - name: SDN BOOTSTRAP - READ THE LIVE SUBNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_sdn_subnets"
+
+    #### #### ####
+    #
+    # 2. DIFF. Four lists, and the whole idempotence of this bundle sits here : a declared
+    #    object that is already live in the declared shape appears in none of them.
+    #
+    #    The subnet id is DERIVED, `<zone>-<network>-<mask>`, because that is what Proxmox builds
+    #    and the only key a declared CIDR can be matched against in the live list. But the derivation
+    #    is used for the MATCHING ONLY : the id carried into the update below is `s.subnet`, the one
+    #    the API returned. No write is ever keyed on a value this bundle computed - a derivation is
+    #    fine to recognise an object, not to address it.
+    #
+    #    `subnet_gateway` and `subnet_snat` are ABSENT from a live entry when the API did not
+    #    return them - the role builds those dicts with `omit`, which drops the key rather
+    #    than leaving a placeholder (verified). Hence the `default()` on every read.
+    #
+    - name: SDN BOOTSTRAP - WHAT IS MISSING, AND WHAT HAS DRIFTED
+      ansible.builtin.set_fact:
+
+        _sdn_zones_absent: >-
+          {%- set live = network_list_sdn_zones | default([]) | map(attribute='zone') | list -%}
+          {{ [] if (BUNDLE_SDN_ZONE in live) else [ BUNDLE_SDN_ZONE ] }}
+
+        _sdn_vnets_absent: >-
+          {%- set live = network_list_sdn_vnets | default([]) | map(attribute='vnet') | list -%}
+          {{ BUNDLE_SDN_VNETS | rejectattr('vnet', 'in', live) | list }}
+
+        _sdn_subnets_absent: >-
+          {%- set live = network_list_sdn_subnets | default([]) | map(attribute='subnet') | list -%}
+          {%- set out = [] -%}
+          {%- for v in BUNDLE_SDN_VNETS -%}
+          {%-   set id = BUNDLE_SDN_ZONE ~ '-' ~ (v.subnet | replace('/', '-')) -%}
+          {%-   if id not in live -%}
+          {%-     set _ = out.append(v) -%}
+          {%-   endif -%}
+          {%- endfor -%}
+          {{ out }}
+
+        _sdn_subnets_drifted: >-
+          {%- set out = [] -%}
+          {%- for v in BUNDLE_SDN_VNETS -%}
+          {%-   set id = BUNDLE_SDN_ZONE ~ '-' ~ (v.subnet | replace('/', '-')) -%}
+          {%-   for s in (network_list_sdn_subnets | default([])) -%}
+          {%-     if s.subnet == id -%}
+          {%-       set want_snat = (1 if (v.snat | default(true)) else 0) -%}
+          {%-       set have_snat = (s.subnet_snat | default(0) | int) -%}
+          {%-       if (have_snat != want_snat)
+                       or ((s.subnet_gateway | default('')) != (v.gateway | default(''))) -%}
+          {%-         set _ = out.append(v | combine({'subnet_id': s.subnet})) -%}
+          {%-       endif -%}
+          {%-     endif -%}
+          {%-   endfor -%}
+          {%- endfor -%}
+          {{ out }}
+
+    - name: SDN BOOTSTRAP - WHAT THIS RUN WILL DO
+      ansible.builtin.debug:
+        msg:
+          ## Printed because the node is about to be modified, and to keep proxmox_node visible to
+          ## the annotation checker, which does not scan the role's repo.
+          - "proxmox node      : {{ proxmox_node }}"
+          - "zone to create    : {{ _sdn_zones_absent }}"
+          - "vnets to create   : {{ _sdn_vnets_absent   | map(attribute='vnet') | list }}"
+          - "subnets to create : {{ _sdn_subnets_absent | map(attribute='subnet') | list }}"
+          - "subnets to update : {{ _sdn_subnets_drifted | map(attribute='subnet_id') | list }}"
+
+    #### #### ####
+    #
+    # 3. WRITE. Every object stays PENDING until the apply below - that is the API's model,
+    #    not a shortcut taken here.
+    #
+    - name: SDN BOOTSTRAP - CREATE THE ZONE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_sdn_zone"
+        sdn_zone: "{{ BUNDLE_SDN_ZONE }}"
+      loop: "{{ _sdn_zones_absent }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: SDN BOOTSTRAP - CREATE THE MISSING VNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_sdn_vnet"
+        sdn_zone: "{{ BUNDLE_SDN_ZONE }}"
+        sdn_vnet: "{{ item.vnet }}"
+      loop: "{{ _sdn_vnets_absent }}"
+      loop_control:
+        label: "{{ item.vnet }}"
+
+    - name: SDN BOOTSTRAP - CREATE THE MISSING SUBNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_sdn_subnet"
+        sdn_vnet: "{{ item.vnet }}"
+        sdn_subnet: "{{ item.subnet }}"
+        sdn_subnet_gateway: "{{ item.gateway | default(omit) }}"
+        sdn_subnet_snat: "{{ 1 if (item.snat | default(true)) else 0 }}"
+      loop: "{{ _sdn_subnets_absent }}"
+      loop_control:
+        label: "{{ item.vnet }} {{ item.subnet }}"
+
+    - name: SDN BOOTSTRAP - UPDATE THE DRIFTED SUBNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_update_sdn_subnet"
+        sdn_subnet_id: "{{ item.subnet_id }}"
+        sdn_vnet: "{{ item.vnet }}"
+        sdn_subnet_gateway: "{{ item.gateway | default(omit) }}"
+        sdn_subnet_snat: "{{ 1 if (item.snat | default(true)) else 0 }}"
+      loop: "{{ _sdn_subnets_drifted }}"
+      loop_control:
+        label: "{{ item.subnet_id }}"
+
+    #### #### ####
+    #
+    # 4. APPLY. Once, and only if step 3 wrote something. See the header for the measurement
+    #    that makes this guard load-bearing rather than decorative.
+    #
+    - name: SDN BOOTSTRAP - APPLY, ONCE, AND ONLY IF SOMETHING WAS WRITTEN
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_apply_sdn"
+      when: >-
+        (_sdn_zones_absent | length) + (_sdn_vnets_absent | length)
+        + (_sdn_subnets_absent | length) + (_sdn_subnets_drifted | length) > 0
+
+    #### #### ####
+    #
+    # 5. RECONCILE, always, one pass per declared subnet. `want` follows the declaration :
+    #    a subnet declared snat=1 keeps exactly one rule, a subnet declared snat=0 keeps none.
+    #    This is what catches a rule that outlived its declaration, which no API read shows.
+    #
+    - name: SDN BOOTSTRAP - RECONCILE THE LIVE SNAT RULES
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_extra_snat_rules"
+        sdn_subnet_cidr: "{{ item.subnet }}"
+        sdn_snat_want: "{{ 1 if (item.snat | default(true)) else 0 }}"
+      loop: "{{ BUNDLE_SDN_VNETS }}"
+      loop_control:
+        label: "{{ item.subnet }} want={{ 1 if (item.snat | default(true)) else 0 }}"

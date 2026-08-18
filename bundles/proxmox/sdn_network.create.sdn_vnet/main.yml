@@ -1,0 +1,30 @@
+####
+# sdn_network.create.sdn_vnet - create an SDN vnet in a zone. One raw API call. Contract and usage : see README.md.
+#
+# TWO THINGS NOT TO BREAK HERE : it is NOT idempotent - a second run answers 500 (already defined, or does
+# not exist), so look the object up first or use a composite. And it does NOT apply : what it writes stays
+# PENDING until sdn_network.apply runs.
+#
+# The zone must already exist. The vnet name is what a VM uses as its bridge.
+####
+
+- name: "sdn_network.create.sdn_vnet"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: CREATE SDN_VNET - WHAT THIS RUN WILL DO
+      ansible.builtin.debug:
+        msg: "proxmox node : {{ proxmox_node }}"
+
+    - name: CREATE SDN_VNET - CREATE IT
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_sdn_vnet"
+        sdn_zone: "{{ BUNDLE_SDN_ZONE }}"
+        sdn_vnet: "{{ BUNDLE_SDN_VNET }}"

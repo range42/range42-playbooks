@@ -1,0 +1,27 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/vm.list.interfaces",
+  "description": "Read the network cards of one VM and leave them in the fact network_list_interfaces_vm, one dict per card. Knows nothing about SDN - it reports a legacy vmbr card as readily as a vnet one.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_VM_ID",
+      "renamed_to": [
+        "vm_id"
+      ],
+      "type": "int",
+      "required": true,
+      "default_where": "none",
+      "description": "Proxmox VM id whose network cards are read."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node holding the VM, resolved from the scenario vault. Unlike the SDN endpoints this one IS node-scoped - the VM must live on that node."
+    }
+  ]
+}

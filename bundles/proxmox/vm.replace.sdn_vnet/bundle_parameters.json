@@ -1,0 +1,57 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/vm.replace.sdn_vnet",
+  "description": "Move one network card of a VM to another bridge - a vnet or a legacy vmbr. Destructive : there is no API to edit a bridge in place, so the card is deleted and recreated, and its MAC changes. The slot, the model and the firewall flag are preserved.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_VM_ID",
+      "renamed_to": [
+        "vm_id"
+      ],
+      "type": "int",
+      "required": true,
+      "default_where": "none",
+      "description": "Proxmox VM id whose card is moved."
+    },
+    {
+      "name": "BUNDLE_VM_VMNET_ID",
+      "renamed_to": [
+        "vm_vmnet_id"
+      ],
+      "type": "int",
+      "required": true,
+      "default_where": "none",
+      "description": "The card slot to move, the N of netN. The card comes back as the SAME netN - asked for explicitly, because a count-based fallback would recreate it on top of another card when the ids have holes."
+    },
+    {
+      "name": "BUNDLE_VM_IFACE_BRIDGE",
+      "renamed_to": [
+        "iface_bridge"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Bridge to move the card onto. An SDN vnet (net142) or a legacy Linux bridge (vmbr0) - bringing a card back onto vmbr0 is a first-class use, not a workaround. Already on it, the move is skipped."
+    },
+    {
+      "name": "BUNDLE_VM_IFACE_MODEL",
+      "renamed_to": [
+        "iface_model"
+      ],
+      "type": "string",
+      "required": false,
+      "default_where": "call-site",
+      "description": "NIC model of the recreated card. Left empty, the model of the card being replaced is reused - which is what a move should do. The role uses this value unconditionally, so it always carries a real value, never an omit placeholder."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node holding the VM, resolved from the scenario vault. This endpoint is node-scoped."
+    }
+  ]
+}

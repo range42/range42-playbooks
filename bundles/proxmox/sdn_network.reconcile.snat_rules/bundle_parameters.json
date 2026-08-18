@@ -1,0 +1,37 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/sdn_network.reconcile.snat_rules",
+  "description": "Bring the LIVE iptables SNAT rules of one subnet down to a declared count. Reads the running nat table on the hypervisor and deletes only what is in excess - the one action of the family that looks at the running state rather than the declared one.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_SDN_SUBNET_CIDR",
+      "renamed_to": [
+        "sdn_subnet_cidr"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "The subnet as a CIDR WITH its mask, exactly as iptables renders it - for instance 192.168.199.0/24. The role asserts that shape and refuses anything else, because the value is what anchors the rule match. This is the CIDR, not the Proxmox subnet id."
+    },
+    {
+      "name": "BUNDLE_SDN_SNAT_WANT",
+      "renamed_to": [
+        "sdn_snat_want"
+      ],
+      "type": "int",
+      "required": true,
+      "default_where": "none",
+      "description": "How many live SNAT rules this subnet must end up with - 1 for a subnet declared snat=1, 0 for one declared snat=0. REQUIRED here although the role defaults it to 1, because reconciling to a target the caller never stated is how a rule someone meant to keep gets deleted. A value higher than the live count makes the action a pure counter - nothing is in excess, nothing is deleted, and the output still reports snat_before."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node whose nat table is read and pruned, resolved from the scenario vault. The iptables work itself is delegated by the role to groups['proxmox_cli'] | first, which must exist in the inventory."
+    }
+  ]
+}

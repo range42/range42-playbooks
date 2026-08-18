@@ -1,0 +1,29 @@
+####
+# sdn_network.apply - flush the pending SDN config into the running one. Details : see README.md.
+#
+# THE ONE THING NOT TO BREAK HERE : behind the UPID Proxmox runs `ifreload -a`, which replays the legacy
+# post-up MASQUERADE lines - so EACH APPLY ADDS ONE RULE PER NAT-ENABLED vmbr. Measured : 936 -> 960 over
+# 2 applies with 12 bridges. Never apply in a loop, and never "to be safe".
+#
+# The role's two polling knobs are deliberately NOT exposed : bridging them with `| default(omit)` would
+# BREAK their defaults rather than preserve them (v6 section 11).
+####
+
+- name: "sdn_network.apply"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: SDN APPLY - THE NODE THIS APPLY GOES THROUGH
+      ansible.builtin.debug:
+        msg: "proxmox node : {{ proxmox_node }}"
+
+    - name: SDN APPLY - FLUSH THE PENDING CONFIG, THEN POLL THE UPID
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_apply_sdn"

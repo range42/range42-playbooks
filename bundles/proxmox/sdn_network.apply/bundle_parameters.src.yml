@@ -1,0 +1,29 @@
+---
+bundle: proxmox/sdn_network.apply
+description: >-
+  Flush the pending SDN config into the running one - PUT /cluster/sdn, then poll the UPID to
+  completion. Behind it Proxmox runs ifreload -a on the node.
+optional: false
+
+##
+## NO CALLER-PASSED PARAMETER. The endpoint takes no argument : it applies whatever is pending on the
+## cluster. Scoping an apply is not possible, and that is a property of the API, not of this bundle.
+##
+## The role's two polling knobs (sdn_apply_poll_retries default 60, sdn_apply_poll_delay default 2)
+## are DELIBERATELY not exposed. Bridging them with `| default(omit)` would BREAK the role's defaults
+## instead of preserving them - an include_role var set to default(omit) arrives DEFINED-but-empty, so
+## the role's `| default(60)` never fires. Exposing them properly means duplicating the values in the
+## bundle with default_where: bundle-inline. See ______TODO_bundle-parameters-declaration_v6.md
+## section 11.
+##
+
+params:
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: >-
+      Proxmox node the apply request goes through, resolved from the scenario vault. The apply itself
+      is cluster-wide - the node decides where the request lands, not what it reloads.
