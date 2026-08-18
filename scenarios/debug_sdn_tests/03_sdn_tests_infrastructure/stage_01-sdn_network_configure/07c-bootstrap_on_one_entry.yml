@@ -1,5 +1,5 @@
 ---
-#### 7f - sdn_network.bootstrap, on a ONE-ENTRY list. It must recognise what the RAW bundles built and
+#### sdn_network.bootstrap, on a ONE-ENTRY list. It must recognise what the RAW bundles built and
 ####      write NOTHING. That is its diff-by-lookup, proven against a state a composite did not create.
 ####      Its input is the data model of T-15, but a one-entry list needs no data model to exist.
 
@@ -12,11 +12,11 @@
         gateway: "{{ _p_gw2_new }}"
         snat: true
 
-- name: "debug_sdn_tests - 7f check bootstrap recognised everything"
+- name: "debug_sdn_tests - check bootstrap recognised everything"
   hosts: proxmox
   gather_facts: false
   tasks:
-    - name: CHECK 7f - THE FOUR DIFF LISTS ARE EMPTY
+    - name: CHECK - THE FOUR DIFF LISTS ARE EMPTY
       ansible.builtin.assert:
         that:
           - (_sdn_zones_absent    | length) == 0

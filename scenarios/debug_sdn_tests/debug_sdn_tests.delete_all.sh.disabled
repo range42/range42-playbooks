@@ -19,7 +19,7 @@
 ##
 ## Companions :
 ##   - debug_sdn_tests.delete_vms_only.sh - a documented no-op, this scenario owns no VM
-##   - debug_sdn_tests.reset.setup.sh     - tear the zone down, then run the chain again
+##   - debug_sdn_tests.reset.setup.sh     - delete the zone, then run the chain again
 ##
 
 set -u
@@ -44,7 +44,7 @@ echo ":: manifest declares 0 VM - no VM will be touched"
 echo ""
 
 ZONE="${1:-r42test}"
-echo ":: tearing down the SDN zone : $ZONE"
+echo ":: deleting the SDN zone : $ZONE"
 echo ":: subnets -> vnets -> zone, then apply, then reconcile the live SNAT rules to zero"
 echo ""
 

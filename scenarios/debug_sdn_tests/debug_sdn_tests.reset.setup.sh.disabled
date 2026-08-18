@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##
-## debug_sdn_tests.reset.setup.sh - tear the SDN zone down, then run the chain again
+## debug_sdn_tests.reset.setup.sh - delete the SDN zone, then run the chain again
 ##
 ## The usual reset script deletes the scenario's VMs then redeploys. This scenario owns no VM, so what
 ## it resets is the SDN zone.
@@ -24,7 +24,7 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ZONE="${1:-r42test}"
 
-echo ":: reset - tearing down the SDN zone $ZONE first"
+echo ":: reset - deleting the SDN zone $ZONE first"
 "$SCRIPT_DIR/debug_sdn_tests.delete_all.sh" "$ZONE" || {
     echo "" >&2
     echo "ERROR: the delete failed. The usual cause is a VM card still attached to the test vnet -" >&2

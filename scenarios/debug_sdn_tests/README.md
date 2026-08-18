@@ -174,7 +174,7 @@ refusals go unproven. `vm.attach` and `vm.detach` are not even reached indirectl
 **Section 7 closes that: all 22 are now called directly.** It uses a second network
 (`sdn_test_vnet2`, default `net200` / `192.168.200.0/24`) and a second card slot
 (`sdn_test_vm_netid2`, default `1`), so it cannot disturb what the six asserted. It starts from nothing,
-since section 6 tore the zone down.
+since section 6 deleted the zone.
 
 It also proves three things the bundle READMEs **claim** and that nothing verified:
 

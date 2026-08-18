@@ -1,5 +1,5 @@
 ---
-#### 7g - vm.attach on a SECOND slot. The only two bundles sections 1-6 never reach, even indirectly.
+#### vm.attach on a SECOND slot. The only two bundles sections 1-6 never reach, even indirectly.
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.attach.sdn_vnet/main.yml"
   vars:
@@ -11,7 +11,7 @@
   vars:
     BUNDLE_VM_ID: "{{ _p_vm_id }}"
 
-- name: "debug_sdn_tests - 7g check the second card exists, and the first is untouched"
+- name: "debug_sdn_tests - check the second card exists, and the first is untouched"
   hosts: proxmox
   gather_facts: false
   vars:
@@ -20,7 +20,7 @@
   tasks:
     ## attach is ADDITIVE - that is its whole contract versus replace. So the first card must still be on
     ## the bridge section 5 returned it to.
-    - name: CHECK 7g - TWO CARDS, THE NEW ONE ON THE THROWAWAY VNET
+    - name: CHECK - TWO CARDS, THE NEW ONE ON THE THROWAWAY VNET
       ansible.builtin.assert:
         that:
           - ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',_n2) | list | first).vm_network_bridge)
@@ -52,7 +52,7 @@
       ansible.builtin.pause:
         seconds: "{{ _p_pause }}"
 
-#### 7h - vm.detach that second slot. Also what FREES the vnet for the delete below.
+#### vm.detach that second slot. Also what FREES the vnet for the delete below.
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.detach.sdn_vnet/main.yml"
   vars:
@@ -63,14 +63,14 @@
   vars:
     BUNDLE_VM_ID: "{{ _p_vm_id }}"
 
-- name: "debug_sdn_tests - 7h check the second card is gone"
+- name: "debug_sdn_tests - check the second card is gone"
   hosts: proxmox
   gather_facts: false
   vars:
     _n1: "{{ _p_netid | int }}"
     _n2: "{{ _p_netid2 | int }}"
   tasks:
-    - name: CHECK 7h - THE SECOND CARD IS GONE, THE FIRST STILL THERE
+    - name: CHECK - THE SECOND CARD IS GONE, THE FIRST STILL THERE
       ansible.builtin.assert:
         that:
           - ((network_list_interfaces_vm | default([])) | selectattr('vm_vmnet_id','equalto',_n2) | list | length) == 0
