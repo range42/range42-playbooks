@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##
-## debug_sdn_tests.delete_all.sh - tear down what this scenario OWNS : the SDN zone. No VM.
+## debug_sdn_tests.delete_all.sh - delete what this scenario OWNS : the SDN zone. No VM.
 ##
 ## THIS SCENARIO OWNS NO VM, so unlike every other delete_all.sh this one deletes none. What it owns is
 ## the SDN zone sdn_test_zone (default r42test) with its vnet and subnet, and that is what it removes -

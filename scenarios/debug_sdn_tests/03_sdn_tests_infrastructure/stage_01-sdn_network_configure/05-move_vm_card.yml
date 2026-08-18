@@ -1,0 +1,149 @@
+---
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 5 - MOVE A VM CARD ONTO THE VNET, AND BACK
+####
+#### THE ONLY DESTRUCTIVE SECTION ON THE VM. The card is deleted and recreated by the role, so ITS MAC
+#### CHANGES - twice over the round trip. Never point this scenario at a VM you reach THROUGH that card.
+####
+#### The round trip is not politeness : Proxmox REFUSES to delete a vnet that still carries a VM card,
+#### so only a returned card lets section 6 assert a complete delete.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ _p_vm_id }}"
+
+- name: "debug_sdn_tests - 5 preflight on the VM"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## vm_vmnet_id is the id a delete or a replace ADDRESSES. Its absence from this output was a real
+    ## defect (PXC #124/#125), so asserting it here is what stops it coming back.
+    - name: CHECK 5 - THE CARD EXISTS AND THE LIST CARRIES ITS ID
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | default([]))
+             | selectattr('vm_vmnet_id', 'equalto', (_p_netid | int))
+             | list | length) == 1
+        fail_msg: >-
+          vm {{ _p_vm_id }} has no card net{{ _p_netid }},
+          or the list output lost its vm_vmnet_id. Cards seen :
+          {{ (network_list_interfaces_vm | default([])) | map(attribute='vm_network_device') | list }}
+        success_msg: >-
+          net{{ _p_netid }} is there, on
+          {{ ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',(_p_netid | int))
+             | list | first).vm_network_bridge) }}
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.replace.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ _p_vm_id }}"
+    BUNDLE_VM_VMNET_ID: "{{ _p_netid }}"
+    BUNDLE_VM_IFACE_BRIDGE: "{{ _p_vnet }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ _p_vm_id }}"
+
+- name: "debug_sdn_tests - 5a check the card is on the vnet"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 5a - THE CARD NOW SITS ON THE VNET
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',(_p_netid | int))
+             | list | first).vm_network_bridge) == (_p_vnet)
+        fail_msg: "the card did not move onto {{ _p_vnet }}"
+        success_msg: "PASS - net{{ _p_netid }} sits on {{ _p_vnet }}"
+
+## Replaying the same move must be a no-op, not a second destroy-and-recreate.
+- name: "debug_sdn_tests - PAUSE the VM card is ON THE VNET"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - the VM card is ON THE VNET"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the VM card is ON THE VNET ===="
+          - "VM {{ _p_vm_id }} -> Hardware -> Network Device :"
+          - "   bridge is now {{ _p_vnet }}"
+          - "the MAC has CHANGED - the card was deleted and recreated, it is not the same card"
+          - "pausing {{ _p_pause }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ _p_pause }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.replace.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ _p_vm_id }}"
+    BUNDLE_VM_VMNET_ID: "{{ _p_netid }}"
+    BUNDLE_VM_IFACE_BRIDGE: "{{ _p_vnet }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ _p_vm_id }}"
+
+- name: "debug_sdn_tests - 5b check the replay changed nothing"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 5b - REPLAYING THE MOVE LEFT ONE CARD, STILL ON THE VNET
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | default([]))
+             | selectattr('vm_vmnet_id', 'equalto', (_p_netid | int))
+             | list | length) == 1
+          - ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',(_p_netid | int))
+             | list | first).vm_network_bridge) == (_p_vnet)
+        fail_msg: "replaying the move duplicated or moved the card"
+        success_msg: "PASS - the replay was a no-op"
+
+## THE RETURN LEG. Without it the vnet cannot be deleted, and section 6 could not assert a complete delete.
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.replace.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ _p_vm_id }}"
+    BUNDLE_VM_VMNET_ID: "{{ _p_netid }}"
+    BUNDLE_VM_IFACE_BRIDGE: "{{ _p_bridge }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ _p_vm_id }}"
+
+- name: "debug_sdn_tests - 5c check the card came back"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 5c - THE CARD IS BACK, AND THE VNET CARRIES NONE OF THIS VM
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',(_p_netid | int))
+             | list | first).vm_network_bridge) == (_p_bridge)
+          - ((network_list_interfaces_vm | default([]))
+             | selectattr('vm_network_bridge', 'equalto', (_p_vnet))
+             | list | length) == 0
+        fail_msg: >-
+          the card did not come back to {{ _p_bridge }} - section 6 will now
+          fail on the vnet, and the card must be detached by hand
+        success_msg: "PASS - the card is back on {{ _p_bridge }}, the vnet is free"
+
+- name: "debug_sdn_tests - PAUSE the card is BACK on its original bridge"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - the card is BACK on its original bridge"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the card is BACK on its original bridge ===="
+          - "VM {{ _p_vm_id }} -> Hardware -> Network Device : bridge is {{ _p_bridge }} again"
+          - "its MAC changed a SECOND time - the card was destroyed and recreated again"
+          - "pausing {{ _p_pause }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ _p_pause }}"
+

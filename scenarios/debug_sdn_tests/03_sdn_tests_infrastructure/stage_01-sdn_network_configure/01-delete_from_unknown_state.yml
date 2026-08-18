@@ -1,0 +1,27 @@
+---
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 1 - DELETING FROM AN UNKNOWN STATE MUST SUCCEED
+####
+#### The chain starts with a delete, so the scenario is only replayable if removing what is absent
+#### is a no-op rather than a failure. This is the check that makes every later run possible.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.all/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ _p_zone }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_zones/main.yml"
+
+- name: "debug_sdn_tests - 1 check"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 1 - NOTHING IS LEFT IN THE ZONE LIST
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_zones | default([]))
+             | selectattr('zone', 'equalto', (_p_zone))
+             | list | length) == 0
+        fail_msg: "the zone survived a delete from an unknown state"
+        success_msg: "PASS - a delete from an unknown state left no zone"
+

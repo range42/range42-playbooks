@@ -13,7 +13,7 @@
 ##   ./debug_sdn_tests.setup.sh -e sdn_test_zone=r42other -e sdn_test_subnet=192.168.198.0/24
 ##
 ## ⚠ WARNING ⚠
-##   - the zone sdn_test_zone (default r42test) is TORN DOWN at the start AND at the end of the run
+##   - the zone sdn_test_zone (default r42test) is DELETED at the start AND at the end of the run
 ##   - one network card of sdn_test_vm_id (default 102) is MOVED onto the test vnet and back. The card
 ##     is deleted and recreated, so ITS MAC CHANGES - twice. Never point this at a VM you reach
 ##     THROUGH that card.

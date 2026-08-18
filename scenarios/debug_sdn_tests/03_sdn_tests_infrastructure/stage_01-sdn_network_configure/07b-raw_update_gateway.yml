@@ -1,0 +1,55 @@
+---
+#### 7e - RAW update on the throwaway subnet : the gateway, which the internet_* bundles never touch
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+
+- name: "debug_sdn_tests - 7e resolve the throwaway subnet id"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Read back rather than derived. The derivation would work here, but a write addressed by a computed
+    ## value is exactly what this family avoids - and the chain should not model what the bundles refuse.
+    - name: SECTION 7e - READ THE THROWAWAY SUBNET ID
+      ansible.builtin.set_fact:
+        _t2_subnet_id: >-
+          {%- set m = (network_list_sdn_subnets | default([]))
+                      | selectattr('subnet_cidr', 'defined')
+                      | selectattr('subnet_cidr', 'equalto', (_p_cidr2))
+                      | list -%}
+          {{ (m | first).subnet if (m | length) > 0 else '' }}
+
+    - name: SECTION 7e - REFUSE TO CONTINUE WITHOUT IT
+      ansible.builtin.assert:
+        that: ["(_t2_subnet_id | length) > 0"]
+        fail_msg: "no subnet matching {{ _p_cidr2 }} - 7a did not land"
+        success_msg: "throwaway subnet id = {{ _t2_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.update.sdn_subnet/main.yml"
+  vars:
+    BUNDLE_SDN_VNET: "{{ _p_vnet2 }}"
+    BUNDLE_SDN_SUBNET_ID: "{{ _t2_subnet_id }}"
+    BUNDLE_SDN_SUBNET_GATEWAY: "{{ _p_gw2_new }}"
+    BUNDLE_SDN_SUBNET_SNAT: 1
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.apply/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+
+- name: "debug_sdn_tests - 7e check the gateway changed"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 7e - THE RAW UPDATE MOVED THE GATEWAY, AND LEFT SNAT ALONE
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t2_subnet_id)
+             | list | first).subnet_gateway | default('')) == (_p_gw2_new)
+          - (((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t2_subnet_id)
+             | list | first).subnet_snat | default(0) | int)) == 1
+        fail_msg: >-
+          the gateway did not move, or the update collaterally changed snat. Read back :
+          {{ (network_list_sdn_subnets | selectattr('subnet','equalto',_t2_subnet_id) | list | first) }}
+        success_msg: >-
+          PASS - gateway is now
+          {{ (network_list_sdn_subnets | selectattr('subnet','equalto',_t2_subnet_id) | list | first).subnet_gateway }},
+          and snat is untouched - which is why internet_on/off do not resend the gateway
+

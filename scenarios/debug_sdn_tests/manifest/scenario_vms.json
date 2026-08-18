@@ -15,7 +15,7 @@
     "vnet_default": "net199",
     "subnet_default": "192.168.199.0/24",
     "gateway_default": "192.168.199.1",
-    "note": "the 199 range is deliberately away from the production vmbr14x bands. The zone is torn down at the start AND at the end of every run.",
+    "note": "the 199 range is deliberately away from the production vmbr14x bands. The zone is deleted at the start AND at the end of every run.",
     "throwaway_network": {
       "vnet_default": "net200",
       "subnet_default": "192.168.200.0/24",

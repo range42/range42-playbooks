@@ -1,0 +1,165 @@
+---
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 4 - THE OUTGOING NAT SWITCH, OFF THEN ON THEN TOGGLED TWICE
+####
+#### This is the path that ORPHANS a rule if the reconciliation is skipped : snat=0 removes the
+#### post-down hook BEFORE that hook ever runs. So it is the live COUNT that proves the cut, never the
+#### declaration - which is why every check below reads both.
+####
+#### The subnet id is read back from the cluster rather than derived : a zone name may contain dashes,
+#### and this is exactly the value the internet_* bundles address.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+
+- name: "debug_sdn_tests - 4 resolve the subnet id"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: SECTION 4 - READ THE REAL SUBNET ID BACK
+      ansible.builtin.set_fact:
+        _t_subnet_id: >-
+          {%- set m = (network_list_sdn_subnets | default([]))
+                      | selectattr('subnet_cidr', 'defined')
+                      | selectattr('subnet_cidr', 'equalto', (_p_cidr))
+                      | list -%}
+          {{ (m | first).subnet if (m | length) > 0 else '' }}
+
+    - name: SECTION 4 - REFUSE TO CONTINUE WITHOUT IT
+      ansible.builtin.assert:
+        that: ["(_t_subnet_id | length) > 0"]
+        fail_msg: "no subnet matching {{ _p_cidr }} on the cluster"
+        success_msg: "subnet id = {{ _t_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.internet_off/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_ID: "{{ _t_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 4a check internet OFF"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 4a - DECLARATION SAYS OFF, AND NO LIVE RULE SURVIVES
+      ansible.builtin.assert:
+        that:
+          - (((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t_subnet_id)
+              | list | first).subnet_snat | default(0) | int)) == 0
+          - (network_delete_extra_snat_rules.snat_before | int) == 0
+        fail_msg: >-
+          internet_off left snat={{ (network_list_sdn_subnets | selectattr('subnet','equalto',_t_subnet_id)
+          | list | first).subnet_snat | default('unset') }} and
+          {{ network_delete_extra_snat_rules.snat_before }} live rule(s) - an orphaned rule is exactly
+          what the reconciliation exists to prevent
+        success_msg: "PASS - snat declared off, zero live rule"
+
+- name: "debug_sdn_tests - PAUSE outgoing NAT is OFF"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - outgoing NAT is OFF"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : outgoing NAT is OFF ===="
+          - "Datacenter -> SDN -> VNets -> {{ _p_vnet }} -> subnet : SNAT is now unticked"
+          - "and ZERO live iptables rule - the direction that orphans a rule when nobody reconciles"
+          - "pausing {{ _p_pause }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ _p_pause }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.internet_on/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_ID: "{{ _t_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 4b check internet ON"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 4b - DECLARATION SAYS ON, AND EXACTLY ONE LIVE RULE
+      ansible.builtin.assert:
+        that:
+          - (((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t_subnet_id)
+              | list | first).subnet_snat | default(0) | int)) == 1
+          - (network_delete_extra_snat_rules.snat_before | int) == 1
+        fail_msg: "internet_on left {{ network_delete_extra_snat_rules.snat_before }} live rule(s), expected 1"
+        success_msg: "PASS - snat declared on, exactly one live rule"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.internet_toggle/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_ID: "{{ _t_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 4c check toggle flipped it OFF"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 4c - THE TOGGLE READ 1 AND WROTE 0, AND THE LIVE RULE FOLLOWED
+      ansible.builtin.assert:
+        that:
+          - (((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t_subnet_id)
+              | list | first).subnet_snat | default(0) | int)) == 0
+          - (network_delete_extra_snat_rules.snat_before | int) == 0
+        fail_msg: "the toggle did not flip 1 -> 0, or the live rule did not follow"
+        success_msg: "PASS - toggle flipped it off, and the live rule followed"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.internet_toggle/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_ID: "{{ _t_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 4d check toggle flipped it back ON"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 4d - THE TOGGLE READ 0 AND WROTE 1, AND THE LIVE RULE FOLLOWED
+      ansible.builtin.assert:
+        that:
+          - (((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t_subnet_id)
+              | list | first).subnet_snat | default(0) | int)) == 1
+          - (network_delete_extra_snat_rules.snat_before | int) == 1
+        fail_msg: "the toggle did not flip 0 -> 1, or the live rule did not follow"
+        success_msg: "PASS - toggle flipped it back on, and the live rule followed"
+
+- name: "debug_sdn_tests - PAUSE outgoing NAT is back ON"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - outgoing NAT is back ON"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : outgoing NAT is back ON ===="
+          - "Datacenter -> SDN -> VNets -> {{ _p_vnet }} -> subnet : SNAT is ticked again"
+          - "and exactly ONE live iptables rule - never two, which is what the reconciliation guarantees"
+          - "pausing {{ _p_pause }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ _p_pause }}"
+

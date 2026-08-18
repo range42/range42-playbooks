@@ -1,0 +1,34 @@
+---
+#### 7f - sdn_network.bootstrap, on a ONE-ENTRY list. It must recognise what the RAW bundles built and
+####      write NOTHING. That is its diff-by-lookup, proven against a state a composite did not create.
+####      Its input is the data model of T-15, but a one-entry list needs no data model to exist.
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.bootstrap/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ _p_zone }}"
+    BUNDLE_SDN_VNETS:
+      - vnet: "{{ _p_vnet2 }}"
+        subnet: "{{ _p_cidr2 }}"
+        gateway: "{{ _p_gw2_new }}"
+        snat: true
+
+- name: "debug_sdn_tests - 7f check bootstrap recognised everything"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 7f - THE FOUR DIFF LISTS ARE EMPTY
+      ansible.builtin.assert:
+        that:
+          - (_sdn_zones_absent    | length) == 0
+          - (_sdn_vnets_absent    | length) == 0
+          - (_sdn_subnets_absent  | length) == 0
+          - (_sdn_subnets_drifted | length) == 0
+        fail_msg: >-
+          bootstrap wanted to write something on a state that already matches. zone={{ _sdn_zones_absent }}
+          vnets={{ _sdn_vnets_absent | map(attribute='vnet') | list }}
+          subnets={{ _sdn_subnets_absent | map(attribute='subnet') | list }}
+          drifted={{ _sdn_subnets_drifted | map(attribute='subnet_id') | list }}
+        success_msg: >-
+          PASS - bootstrap recognised the objects the RAW bundles built, wrote nothing, and skipped its
+          apply. Its diff works against a state no composite created.
+

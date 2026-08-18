@@ -1,0 +1,102 @@
+---
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 0 - PREFLIGHT
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "debug_sdn_tests - 0 preflight"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    ## The parameters are declared ONCE, in the scenario's main.yml, section 00. Nothing here carries a
+    ## fallback literal on purpose : a default repeated at 12 to 18 call-sites is how two parts of one
+    ## run end up on DIFFERENT values after a single typo, and the worst pair is silent - the iptables
+    ## wait would poll a subnet nobody wrote, exhaust its retries without failing, and the assert would
+    ## then report on the other one. An absent value is a loud stop instead.
+    - name: PREFLIGHT - EVERY RUN PARAMETER MUST BE DECLARED
+      ansible.builtin.assert:
+        that:
+          - sdn_test_zone is defined
+          - sdn_test_vnet is defined
+          - sdn_test_subnet is defined
+          - sdn_test_gateway is defined
+          - sdn_test_vnet2 is defined
+          - sdn_test_subnet2 is defined
+          - sdn_test_gateway2 is defined
+          - sdn_test_gateway2_new is defined
+          - sdn_test_vm_id is defined
+          - sdn_test_vm_netid is defined
+          - sdn_test_vm_netid2 is defined
+          - sdn_test_vm_bridge is defined
+          - sdn_test_pause is defined
+          - sdn_test_snat_wait_retries is defined
+          - sdn_test_snat_wait_delay is defined
+        fail_msg: >-
+          a run parameter is missing. They are declared in the scenario's main.yml, section 00 - run
+          main.yml rather than this tier on its own, or pass the missing one with -e.
+        success_msg: "the 15 run parameters are declared"
+
+    ## Read once into short names, so the 181 references below cannot each re-derive a value.
+    - name: PREFLIGHT - READ THE RUN PARAMETERS
+      ansible.builtin.set_fact:
+        _p_zone: "{{ sdn_test_zone }}"
+        _p_vnet: "{{ sdn_test_vnet }}"
+        _p_cidr: "{{ sdn_test_subnet }}"
+        _p_gw: "{{ sdn_test_gateway }}"
+        _p_vnet2: "{{ sdn_test_vnet2 }}"
+        _p_cidr2: "{{ sdn_test_subnet2 }}"
+        _p_gw2: "{{ sdn_test_gateway2 }}"
+        _p_gw2_new: "{{ sdn_test_gateway2_new }}"
+        _p_vm_id: "{{ sdn_test_vm_id }}"
+        _p_netid: "{{ sdn_test_vm_netid }}"
+        _p_netid2: "{{ sdn_test_vm_netid2 }}"
+        _p_bridge: "{{ sdn_test_vm_bridge }}"
+        _p_pause: "{{ sdn_test_pause }}"
+        _p_wait_retries: "{{ sdn_test_snat_wait_retries }}"
+        _p_wait_delay: "{{ sdn_test_snat_wait_delay }}"
+
+    ## What the values must satisfy, whatever they were set to : both CIDRs well formed, and the two
+    ## networks and the two card slots distinct - otherwise section 7 would dismantle what sections 1-6
+    ## asserted. The CIDR test is the role's own, so a value refused here is refused there too.
+    - name: PREFLIGHT - THE RESOLVED PARAMETERS MUST BE USABLE
+      ansible.builtin.assert:
+        that:
+          - _p_cidr is match('^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$')
+          - _p_cidr2 is match('^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$')
+          - _p_cidr != _p_cidr2
+          - _p_vnet != _p_vnet2
+          - (_p_netid | int) != (_p_netid2 | int)
+          - (_p_zone | length) > 0
+          - (_p_vm_id | int) > 0
+        fail_msg: >-
+          the two networks and the two card slots must differ, and both CIDRs must carry a mask.
+          Resolved : {{ _p_cidr }} / {{ _p_cidr2 }}, {{ _p_vnet }} / {{ _p_vnet2 }},
+          net{{ _p_netid }} / net{{ _p_netid2 }}, zone {{ _p_zone }}, vm {{ _p_vm_id }}
+        success_msg: "the resolved parameters are coherent"
+
+    ## Printed BEFORE anything is written, and printing all of them : this is where an operator sees
+    ## what the run will really touch, including the values they meant to override and did not.
+    - name: PREFLIGHT - WHAT THIS RUN WILL DRIVE
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node    : {{ proxmox_node }}"
+          - "zone            : {{ _p_zone }}"
+          - "vnet            : {{ _p_vnet }}   subnet {{ _p_cidr }}   gateway {{ _p_gw }}"
+          - "vm              : {{ _p_vm_id }} card net{{ _p_netid }}, returns to {{ _p_bridge }}"
+          - "section 7 vnet  : {{ _p_vnet2 }}   subnet {{ _p_cidr2 }}   gateway {{ _p_gw2 }} -> {{ _p_gw2_new }}"
+          - "section 7 card  : net{{ _p_netid2 }}, attached then detached"
+          - "pause           : {{ _p_pause }}s at each observable state change"
+          - "snat rule wait  : {{ _p_wait_retries }} tries x {{ _p_wait_delay }}s"
+
+    ## The reconciliation step of several bundles is delegated by the role to this group. Asserting it
+    ## here turns a late, confusing failure into an immediate and explicit one.
+    - name: PREFLIGHT - THE proxmox_cli GROUP MUST EXIST
+      ansible.builtin.assert:
+        that:
+          - (groups['proxmox_cli'] | default([]) | length) > 0
+        fail_msg: >-
+          the inventory has no proxmox_cli group. The SNAT reconciliation runs iptables ON THE
+          HYPERVISOR through it - without it the shell would run on the deployer and report zero rules.
+        success_msg: "iptables work will run on {{ groups['proxmox_cli'] | first }}"
+

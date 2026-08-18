@@ -22,7 +22,7 @@ through a composite.
 
 ## Read before running
 
-- it **tears down the test zone** at the start and at the end. Point it at a zone you own.
+- it **deletes the test zone** at the start and at the end. Point it at a zone you own.
 - section 5 **moves a network card** of the VM, twice. The card is deleted and recreated, so **its MAC
   changes**. Never point it at a VM you reach *through* that card.
 - the default range is `192.168.199.0/24`, deliberately away from the production `vmbr14x` bands.
@@ -37,19 +37,37 @@ main.yml                       01 -> stage_00 -> stage_01
 main_vms_only.yml              same, minus 01
 debug_sdn_tests.setup.sh       run the chain - THE ONLY ENABLED ENTRY POINT
 debug_sdn_tests.setup_vms_only.sh.disabled     redundant : identical minus a no-op
-debug_sdn_tests.delete_all.sh.disabled         tore down the SDN zone
+debug_sdn_tests.delete_all.sh.disabled         deleted the SDN zone
 debug_sdn_tests.delete_vms_only.sh.disabled    was a no-op, owns no VM
-debug_sdn_tests.reset.setup.sh.disabled        redundant : setup.sh already starts with a teardown
+debug_sdn_tests.reset.setup.sh.disabled        redundant : setup.sh already starts with a delete
 debug_sdn_tests.reset.ssh_keys.sh.disabled     was a no-op, SSHes into no VM
 manifest/scenario_vms.json     vms[] and templates[] EMPTY, deliberately
 manifest/feature_flags.yml     features: [] - nothing to toggle
 templates/                     ansible-inventory.j2, ansible-vars.yml, ssh-config.j2, vault-example.yml
 01_templates-bootstrap/        documented no-op, builds no template
 03_sdn_tests_infrastructure/
-  _main.yml  _main_stage_00.yml  _main_stage_01.yml
+  _main_stage_00.yml           THE RUN PARAMETERS, one editable block - and a no-op VM notice
+  _main_stage_01.yml           the table of contents : the 11 files below, in order
+  _main.yml                    runs both stages, for driving the tier alone
   stage_00-vm_bootstrap/       empty today - README explains what lands here
-  stage_01-vm_configure/_sdn_chain_tests.yml    the seven sections
+  stage_01-sdn_network_configure/
+    00-preflight.yml                      proxmox_cli group, parameters, coherence
+    01-delete_from_unknown_state.yml      removing what is absent is a no-op
+    02-create_and_apply.yml               zone + vnet + subnet, one live SNAT rule
+    03-create_again_is_noop.yml           the second create writes nothing
+    04-outgoing_nat_switch.yml            off / on / toggle / toggle
+    05-move_vm_card.yml                   the card moves onto the vnet, and back
+    06-delete_leaves_nothing.yml          nothing survives, and it replays
+    07a-raw_create_and_apply.yml          raw create, not live, replay refused, apply, live
+    07b-raw_update_gateway.yml            the raw update, on the gateway
+    07c-bootstrap_on_one_entry.yml        bootstrap recognises what raw built
+    07d-attach_second_card.yml            attach is additive, then the raw deletes
 ```
+
+The stage is named `sdn_network_configure` and not `vm_configure`: nothing here configures a VM. The one
+action that touches VM 102 moves a network card, which is SDN cabling - no SSH into the guest, no
+package, no baseline. The stage stays `01` because the chain configures rather than provisions, and the
+day this scenario creates its own VM that creation belongs to `stage_00`.
 
 Three files are **deliberate no-ops rather than absent files**: `01_templates-bootstrap/_main.yml`,
 `_main_stage_00.yml`, and two of the `.sh`. An `import_playbook` cannot point at nothing, and an absent
@@ -59,12 +77,12 @@ creates no VM. When it gains its own VM, the content lands in those files and no
 ## Only one script is enabled, on purpose
 
 Five of the six are renamed `.disabled` to remove any chance of a wrong move. Two of them were pure
-no-ops anyway, and `reset.setup.sh` was redundant - `setup.sh` already begins with a teardown, which the
+no-ops anyway, and `reset.setup.sh` was redundant - `setup.sh` already begins with a delete, which the
 chain asserts as a property rather than assuming.
 
 **What that costs, and the way out.** `delete_all.sh` was the recovery tool for a run that died mid-way
-with the VM card still on the test vnet. In that state the chain cannot heal itself: section 1 tears the
-zone down, and Proxmox REFUSES to delete a vnet that still carries a card - so every later run fails on
+with the VM card still on the test vnet. In that state the chain cannot heal itself: section 1 deletes the
+zone, and Proxmox REFUSES to delete a vnet that still carries a card - so every later run fails on
 the same vnet. Bring the card back first, then re-run:
 
 ```bash
@@ -75,7 +93,7 @@ ansible-playbook -i "$RANGE42_ANSIBLE_ROLES__INVENTORY_DIR/inventory_default.yml
 ```
 
 The card is the only thing that can wedge this scenario. The SDN objects never can - `sdn_network.delete.all`
-is idempotent by lookup, so a half-built zone is torn down like a whole one.
+is idempotent by lookup, so a half-built zone is deleted like a whole one.
 
 ## The guard in the delete scripts, and why it is not paranoia
 
@@ -141,12 +159,12 @@ last run pointed at.
 | section | what it establishes |
 |---|---|
 | 0 | the `proxmox_cli` group exists - without it the SNAT reconciliation would run on the deployer and report zero |
-| 1 | a teardown from an **unknown** state succeeds; this is what makes every later run possible |
+| 1 | deleting from an **unknown** state succeeds; this is what makes every later run possible |
 | 2 | zone + vnet + subnet are created, applied, and exactly **one** live SNAT rule exists |
 | 3 | a second create writes nothing - the three diff lists come back empty - and the rule count does not climb |
 | 4 | the NAT switch off / on / toggle / toggle, checking the **declaration and the live count** each time |
 | 5 | a VM card moves onto the vnet, the replay is a no-op, and the card comes back |
-| 6 | the teardown leaves nothing, no rule outlives its declaration, and it replays cleanly |
+| 6 | the delete leaves nothing, no rule outlives its declaration, and it replays cleanly |
 | 7 | the **eleven bundles the six above never execute**, on a second throwaway network |
 
 Sections 1 to 6 exercise 11 of the 22 bundles directly; the other 11 have their actions exercised through

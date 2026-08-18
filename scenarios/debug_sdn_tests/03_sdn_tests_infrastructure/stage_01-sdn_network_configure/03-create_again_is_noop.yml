@@ -1,0 +1,40 @@
+---
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 3 - CREATE AGAIN IS A CLEAN NO-OP
+####
+#### Not idempotence in the ansible sense : the writes are skipped by LOOKUP, and the apply is skipped
+#### because nothing was written. What matters is that it neither fails nor duplicates.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.bootstrap.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ _p_zone }}"
+    BUNDLE_SDN_VNET: "{{ _p_vnet }}"
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr }}"
+    BUNDLE_SDN_SUBNET_GATEWAY: "{{ _p_gw }}"
+    BUNDLE_SDN_SUBNET_SNAT: 1
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 3 check"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## The bundle's own diff facts are the evidence : all three empty means it recognised everything as
+    ## already present and wrote nothing.
+    - name: CHECK 3 - THE THREE WRITES WERE SKIPPED, AND STILL ONE LIVE RULE
+      ansible.builtin.assert:
+        that:
+          - (_sdn1_zone_absent   | length) == 0
+          - (_sdn1_vnet_absent   | length) == 0
+          - (_sdn1_subnet_absent | length) == 0
+          - (network_delete_extra_snat_rules.snat_before | int) == 1
+        fail_msg: >-
+          a second create was not a no-op. zone={{ _sdn1_zone_absent | default('?') }}
+          vnet={{ _sdn1_vnet_absent | default('?') }} subnet={{ _sdn1_subnet_absent | default('?') }}
+          live rules={{ network_delete_extra_snat_rules.snat_before | default('?') }}
+        success_msg: "PASS - the three writes were skipped, and the rule count did not climb"
+

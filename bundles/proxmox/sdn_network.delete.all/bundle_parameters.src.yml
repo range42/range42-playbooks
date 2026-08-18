@@ -1,7 +1,7 @@
 ---
 bundle: proxmox/sdn_network.delete.all
 description: >-
-  Tear down one zone completely - its subnets, its vnets, the zone itself - then apply and reconcile every
+  Delete one zone completely - its subnets, its vnets, the zone itself - then apply and reconcile every
   removed subnet's live SNAT rules down to zero. Zone-scoped and driven by what is LIVE, not by a
   declaration.
 optional: false
@@ -27,7 +27,7 @@ params:
     description: >-
       The zone to wipe. Every vnet whose vnet_zone is this zone is removed, with the subnets those vnets
       hold, then the zone. Nothing outside the zone is read or touched. There is no wildcard and no
-      all-zones mode - the scope of a teardown is stated, never inferred.
+      all-zones mode - the scope of a delete is stated, never inferred.
 
   - name: proxmox_node
     type: string

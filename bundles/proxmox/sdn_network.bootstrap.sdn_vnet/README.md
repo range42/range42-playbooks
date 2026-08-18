@@ -78,5 +78,5 @@ addressed by a computed value.
   own name (`AAA: "{{ AAA }}"` is a recursive loop), so the values had to travel by inheritance - and the
   annotation checker, which reads the call-site `vars:` block, then reported them as never passed. Chaining
   at the call-site fills that block, so the contract stays checkable.
-- `sdn_network.delete.all` - the teardown counterpart, zone-scoped.
+- `sdn_network.delete.all` - the delete counterpart, zone-scoped.
 - the devkit equivalent: `proxmox_network.datacenter.create_sdn_network.to.jsons.sh`

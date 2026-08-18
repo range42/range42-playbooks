@@ -105,6 +105,6 @@ against an undefined value.
   Needs no data model, so it works before the SDN vnet declaration lands in the inventory (SDN plan T-15).
 - `sdn_network.internet_on` / `.internet_off` / `.internet_toggle` - the snat axis alone, on an
   existing subnet.
-- `sdn_network.teardown` is **not** a bundle : the counterpart here is `sdn_network.delete.all`.
+- `sdn_network.delete` is **not** a bundle : the counterpart here is `sdn_network.delete.all`.
 - `vm.bootstrap` already sets a VM's card on the right bridge at clone time, via
   `vm_net_virtio_bridge`. No attach bundle is called during a normal deployment.

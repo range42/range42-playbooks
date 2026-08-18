@@ -17,7 +17,7 @@
 - import_playbook: ./03_sdn_tests_infrastructure/_main_stage_00.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### STAGE 01 (sdn_network_configure) - ALL TIERS #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - import_playbook: ./03_sdn_tests_infrastructure/_main_stage_01.yml

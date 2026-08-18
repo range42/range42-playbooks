@@ -31,6 +31,14 @@
 ##   3. ALL tiers stage_01            the SDN chain, which is the whole point
 ##
 
+##
+## WHERE THE RUN PARAMETERS ARE - zone, vnet, subnet, gateway, VM, card slots, pause, SNAT rule wait :
+##   03_sdn_tests_infrastructure/_main_stage_00.yml
+## One editable block, at the top of that file. It sits there rather than here because the three entry
+## points - this file, main_vms_only.yml and the tier's own _main.yml - all pass through stage_00, and
+## none of them passes through the other two. Declared once, reached by every path.
+##
+
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -44,7 +52,7 @@
 - import_playbook: ./03_sdn_tests_infrastructure/_main_stage_00.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### STAGE 01 (sdn_network_configure) - ALL TIERS #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - import_playbook: ./03_sdn_tests_infrastructure/_main_stage_01.yml

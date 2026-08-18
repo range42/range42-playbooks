@@ -2,8 +2,8 @@
 ##
 ## debug_sdn_tests - tier 03 - stage 00 (vm_bootstrap)
 ##
-## NO VM IS CREATED TODAY. This scenario reuses an existing one - the sdn_test_vm_id parameter,
-## default 102 - and moves one of its network cards onto the test vnet and back.
+## NO VM IS CREATED TODAY. This scenario reuses an existing one - the sdn_test_vm_id parameter, declared
+## with the others in the block just below - and moves one of its cards onto the test vnet and back.
 ##
 ## The play below is a deliberate no-op that RESTATES which VM the run will touch, because that VM is
 ## not declared in this scenario's manifest and would otherwise be invisible until section 5 moves its
@@ -13,6 +13,63 @@
 ## stage_00-vm_bootstrap/ and this file imports it, exactly as every other tier does.
 ##
 
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### RUN PARAMETERS - EDIT HERE
+####
+#### THE ONLY PLACE THESE VALUES ARE WRITTEN. Retarget the run by editing below - another zone, another
+#### subnet, another VM, another card slot, another wait - and nothing else in the scenario needs
+#### touching. Every file downstream reads these and none carries a fallback literal, so two sections
+#### can never end up on different values, and a missing one is a loud stop at the preflight.
+####
+#### They live in this file, not in main.yml, because the three entry points - main.yml,
+#### main_vms_only.yml and this tier's _main.yml - ALL pass through stage_00, and none of them passes
+#### through the other two. Declared once here, reached by every path.
+####
+#### Still overridable per run, without editing anything :
+####   ./debug_sdn_tests.setup.sh -e sdn_test_vm_id=104 -e sdn_test_pause=0
+#### Extra vars outrank these, so a -e always wins.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "debug_sdn_tests - 03 stage 00 - run parameters"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: PARAMETERS - THE VALUES THIS RUN WILL USE
+      ansible.builtin.set_fact:
+
+        #### the network the chain builds, drives and deletes. It OWNS this zone : sections 1 and 6
+        #### wipe it whole, so it must be a zone no one else uses.
+        sdn_test_zone: "r42test"
+        sdn_test_vnet: "net199"
+        sdn_test_subnet: "192.168.199.0/24"
+        sdn_test_gateway: "192.168.199.1"
+
+        #### the VM whose card is moved onto the vnet and back. NOT created by this scenario and not in
+        #### its manifest - it must already exist. The card is deleted and recreated, so ITS MAC CHANGES
+        #### twice : never name a VM you reach THROUGH this card.
+        sdn_test_vm_id: 102
+        sdn_test_vm_netid: 0
+        sdn_test_vm_bridge: "vmbr0"
+
+        #### section 7's throwaway network, kept separate so it cannot disturb what sections 1-6 proved.
+        #### Must differ from the values above - the preflight refuses the run otherwise.
+        sdn_test_vnet2: "net200"
+        sdn_test_subnet2: "192.168.200.0/24"
+        sdn_test_gateway2: "192.168.200.1"
+        sdn_test_gateway2_new: "192.168.200.254"
+        sdn_test_vm_netid2: 1
+
+        #### seconds held at each visibly observable state change, so the run can be followed in the
+        #### Proxmox UI. 0 runs it flat out, which is what a CI would do.
+        sdn_test_pause: 15
+
+        #### how long to wait for an apply's SNAT rule to reach the hypervisor's nat table. The apply
+        #### itself already waits on its own task ; this covers the iptables read that follows it.
+        sdn_test_snat_wait_retries: 15
+        sdn_test_snat_wait_delay: 2
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
 - name: "debug_sdn_tests - 03 stage 00 (no VM created)"
   hosts: proxmox
   gather_facts: false
@@ -21,8 +78,8 @@
       ansible.builtin.debug:
         msg:
           - "no VM is created by this scenario - it REUSES an existing one"
-          - "vm id  : {{ sdn_test_vm_id | default(102) }}"
-          - "card   : net{{ sdn_test_vm_netid | default(0) }}"
-          - "moved onto {{ sdn_test_vnet | default('net199') }}, then back to {{ sdn_test_vm_bridge | default('vmbr0') }}"
+          - "vm id  : {{ sdn_test_vm_id }}"
+          - "card   : net{{ sdn_test_vm_netid }}"
+          - "moved onto {{ sdn_test_vnet }}, then back to {{ sdn_test_vm_bridge }}"
           - "WARNING the card is deleted and recreated, so its MAC changes - twice over the round trip"
           - "never point this scenario at a VM you reach THROUGH that card"

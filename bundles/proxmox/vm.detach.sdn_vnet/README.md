@@ -25,7 +25,7 @@ Reading first turns both into one clear refusal that names the cards the VM real
 
 ## This is what frees a vnet
 
-Proxmox **refuses to delete a vnet that still carries a VM card**. A teardown that goes straight to
+Proxmox **refuses to delete a vnet that still carries a VM card**. A delete that goes straight to
 `sdn_network.delete.sdn_vnet` without detaching first fails, and the failure blames the vnet rather than
 the card. Detach first - or move the card elsewhere with `vm.replace.sdn_vnet`.
 

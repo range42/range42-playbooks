@@ -1,0 +1,172 @@
+---
+#### 7g - vm.attach on a SECOND slot. The only two bundles sections 1-6 never reach, even indirectly.
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.attach.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ _p_vm_id }}"
+    BUNDLE_VM_VMNET_ID: "{{ _p_netid2 }}"
+    BUNDLE_VM_IFACE_BRIDGE: "{{ _p_vnet2 }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ _p_vm_id }}"
+
+- name: "debug_sdn_tests - 7g check the second card exists, and the first is untouched"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _n1: "{{ _p_netid | int }}"
+    _n2: "{{ _p_netid2 | int }}"
+  tasks:
+    ## attach is ADDITIVE - that is its whole contract versus replace. So the first card must still be on
+    ## the bridge section 5 returned it to.
+    - name: CHECK 7g - TWO CARDS, THE NEW ONE ON THE THROWAWAY VNET
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',_n2) | list | first).vm_network_bridge)
+            == (_p_vnet2)
+          - ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',_n1) | list | first).vm_network_bridge)
+            == (_p_bridge)
+        fail_msg: >-
+          attach did not add net{{ _n2 }} on {{ _p_vnet2 }}, or it disturbed
+          net{{ _n1 }} - which would break its additive contract. Cards :
+          {{ network_list_interfaces_vm | map(attribute='vm_network_device') | list }}
+        success_msg: >-
+          PASS - net{{ _n2 }} added on {{ _p_vnet2 }}, and net{{ _n1 }} is
+          untouched on {{ _p_bridge }} - attach is additive, as documented
+
+- name: "debug_sdn_tests - PAUSE the VM now has TWO cards"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: "PAUSE - the VM now has TWO cards"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the VM has TWO cards ===="
+          - "VM {{ _p_vm_id }} -> Hardware :"
+          - "   net{{ _p_netid }} on {{ _p_bridge }}"
+          - "   net{{ _p_netid2 }} on {{ _p_vnet2 }}"
+          - "the first card was NOT touched - that is what makes attach different from replace"
+          - "pausing {{ _p_pause }}s - override with -e sdn_test_pause=0"
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ _p_pause }}"
+
+#### 7h - vm.detach that second slot. Also what FREES the vnet for the delete below.
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.detach.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ _p_vm_id }}"
+    BUNDLE_VM_VMNET_ID: "{{ _p_netid2 }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ _p_vm_id }}"
+
+- name: "debug_sdn_tests - 7h check the second card is gone"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _n1: "{{ _p_netid | int }}"
+    _n2: "{{ _p_netid2 | int }}"
+  tasks:
+    - name: CHECK 7h - THE SECOND CARD IS GONE, THE FIRST STILL THERE
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | default([])) | selectattr('vm_vmnet_id','equalto',_n2) | list | length) == 0
+          - ((network_list_interfaces_vm | default([])) | selectattr('vm_vmnet_id','equalto',_n1) | list | length) == 1
+        fail_msg: >-
+          detach left net{{ _n2 }} behind, or removed the wrong card. Cards :
+          {{ network_list_interfaces_vm | map(attribute='vm_network_device') | list }}
+        success_msg: "PASS - net{{ _n2 }} removed, net{{ _n1 }} untouched - the vnet is free for the delete"
+
+#### 7i - the three RAW deletes, in the order Proxmox imposes : subnet, then vnet, then zone.
+####      A vnet still holding a subnet cannot go, nor a zone still holding a vnet - so if the order were
+####      wrong this section would fail on the second delete, not on the first.
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.sdn_subnet/main.yml"
+  vars:
+    BUNDLE_SDN_VNET: "{{ _p_vnet2 }}"
+    BUNDLE_SDN_SUBNET_ID: "{{ _t2_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_SDN_VNET: "{{ _p_vnet2 }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.sdn_zone/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ _p_zone }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.apply/main.yml"
+
+#### 7j - and the live rule, which the deletes cannot remove by themselves. Deleting a subnet takes its
+####      post-down hook away BEFORE that hook ever runs, so its MASQUERADE rule outlives it. want=0.
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr2 }}"
+    BUNDLE_SDN_SNAT_WANT: 0
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_zones/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_vnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr2 }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 7j check the raw deletes left nothing"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _z:  "{{ _p_zone }}"
+    _v2: "{{ _p_vnet2 }}"
+    _c2: "{{ _p_cidr2 }}"
+  tasks:
+    - name: CHECK 7j - ZONE, VNET AND SUBNET GONE, AND NO RULE OUTLIVED THEM
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_zones   | default([])) | selectattr('zone', 'equalto', _z)  | list | length) == 0
+          - ((network_list_sdn_vnets   | default([])) | selectattr('vnet', 'equalto', _v2) | list | length) == 0
+          - ((network_list_sdn_subnets | default([])) | selectattr('subnet_cidr', 'defined')
+             | selectattr('subnet_cidr', 'equalto', _c2) | list | length) == 0
+          - (network_delete_extra_snat_rules.snat_before | int) == 0
+        fail_msg: >-
+          the raw deletes left something behind, or a rule survived. Live rules still matching
+          {{ _c2 }} : {{ network_delete_extra_snat_rules.snat_before }}
+        success_msg: "PASS - the raw deletes left nothing, and no rule outlived its declaration"
+
+- name: "debug_sdn_tests - PAUSE the throwaway network is GONE, removed one call at a time"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: "PAUSE - the throwaway network is GONE"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the throwaway network is GONE ===="
+          - "Datacenter -> SDN : nothing left - not the vnet, not the subnet, not the zone"
+          - "removed one API call at a time, in the order Proxmox imposes, then applied"
+          - "pausing {{ _p_pause }}s - override with -e sdn_test_pause=0"
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ _p_pause }}"
+
+- name: "debug_sdn_tests - all 22 bundles exercised"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: EVERY BUNDLE OF THE FAMILY HAS NOW RUN
+      ansible.builtin.debug:
+        msg:
+          - "sections 1-6 : the chain of the devkit test 07, through the composites"
+          - "section 7    : the 11 bundles that chain never executes - the three raw creates, the raw"
+          - "               update, the three raw deletes, the raw apply, bootstrap on a one-entry list,"
+          - "               and vm.attach / vm.detach, which sections 1-6 never reach even indirectly"
+          - ""
+          - "and three claims the READMEs make, proven rather than asserted :"
+          - "  a raw write stays PENDING until apply"
+          - "  a second raw create is REFUSED - so the composites' lookup is not optional"
+          - "  attach is ADDITIVE - it left the first card alone"
+          - ""
+          - "vm {{ _p_vm_id }} is back to one card on {{ _p_bridge }}"
+          - "NOTE its MAC changed twice - a DHCP reservation or a firewall alias keyed on the old one will not follow"

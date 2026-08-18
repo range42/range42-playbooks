@@ -1,9 +1,9 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
-# sdn_network.delete.all - tear down one zone completely : its subnets, its vnets, the zone itself
+# sdn_network.delete.all - delete one zone completely : its subnets, its vnets, the zone itself
 #
 # ZONE-SCOPED, AND DRIVEN BY WHAT IS LIVE - not by a declaration. It reads the cluster, then removes what
-# belongs to the named zone. So it works on a state nobody declared, which is exactly when a teardown is
+# belongs to the named zone. So it works on a state nobody declared, which is exactly when a delete is
 # needed.
 #
 # THE ORDER IS IMPOSED BY PROXMOX, NOT CHOSEN
@@ -72,7 +72,7 @@
     # 2. SCOPE. The vnets of the zone come from `vnet_zone` ; the subnets come from `subnet_vnet` being
     #    one of those vnets - and NOT from `subnet_zone`, which the role emits with `omit` and which is
     #    therefore ABSENT whenever the API did not return it. Filtering on a key that may not exist would
-    #    silently scope the teardown to nothing.
+    #    silently scope the delete to nothing.
     #
     - name: SDN DELETE ALL - WHAT BELONGS TO THIS ZONE
       ansible.builtin.set_fact:

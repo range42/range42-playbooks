@@ -1,0 +1,184 @@
+---
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 7 - THE ELEVEN BUNDLES THE SIX SECTIONS ABOVE NEVER EXECUTE
+####
+#### Sections 1 to 6 exercise 11 of the 22 bundles directly. The other 11 have their PXC ACTIONS
+#### exercised through the composites, but their own main.yml never runs - so their parameter bridging,
+#### their guards and their refusals are never proven. `vm.attach` and `vm.detach` are not even reached
+#### indirectly.
+####
+#### This section closes that, on a SECOND throwaway vnet (default net200 / 192.168.200.0/24) so it
+#### cannot disturb anything the earlier sections asserted. It starts from nothing : section 6 tore the
+#### zone down.
+####
+#### It also proves two things the READMEs CLAIM and nothing verified :
+####   - a raw create is NOT idempotent - a second one answers 500 "already defined". Asserted through
+####     a block/rescue, so the expected failure is caught rather than fatal.
+####   - what a raw action writes stays PENDING until apply. Asserted by reading BEFORE the apply.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "debug_sdn_tests - 7 preflight"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: SECTION 7 - WHAT THE RAW BUNDLES WILL BUILD
+      ansible.builtin.debug:
+        msg:
+          - "throwaway vnet   : {{ _p_vnet2 }}"
+          - "throwaway subnet : {{ _p_cidr2 }}"
+          - "second card slot : net{{ _p_netid2 }} on vm {{ _p_vm_id }}"
+          - "this section exercises the 11 bundles sections 1-6 never run"
+
+#### 7a - the three RAW creates, in the order Proxmox imposes
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.create.sdn_zone/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ _p_zone }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.create.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ _p_zone }}"
+    BUNDLE_SDN_VNET: "{{ _p_vnet2 }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.create.sdn_subnet/main.yml"
+  vars:
+    BUNDLE_SDN_VNET: "{{ _p_vnet2 }}"
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr2 }}"
+    BUNDLE_SDN_SUBNET_GATEWAY: "{{ _p_gw2 }}"
+    BUNDLE_SDN_SUBNET_SNAT: 1
+
+#### 7b - BEFORE any apply : written in the config, absent from the RUNNING state
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr2 }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 7b check the write has not reached the running state"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _c2: "{{ _p_cidr2 }}"
+  tasks:
+    ## The claim every raw bundle's README makes : what it writes does not go live on its own.
+    ## NOT checked through the API's pending marker : the role reads the config view, where a
+    ## not-yet-applied create is indistinguishable from an applied one. The live SNAT rule is the
+    ## observable difference - the subnet declares snat=1, so a rule exists only once the apply ran.
+    - name: CHECK 7b - THE SUBNET IS IN THE CONFIG, WITH NO LIVE SNAT RULE YET
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_subnets | default([])) | selectattr('subnet_cidr', 'defined')
+             | selectattr('subnet_cidr', 'equalto', _c2) | list | length) == 1
+          - (network_delete_extra_snat_rules.snat_before | int) == 0
+        fail_msg: >-
+          expected the subnet written in the config and NO live SNAT rule for it. Live rules counted :
+          {{ network_delete_extra_snat_rules.snat_before | default('?') }}. A non-zero count means a raw
+          create reaches the running config on its own, contradicting what every raw bundle documents.
+        success_msg: "PASS - in the config, 0 live SNAT rule : nothing went live without an apply"
+
+#### 7c - a second RAW create must FAIL. The README says 500 "already defined" ; nothing proved it.
+
+- name: "debug_sdn_tests - 7c check a raw create is NOT idempotent"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - name: CHECK 7c - REPLAYING A RAW ZONE CREATE
+      block:
+        - name: CHECK 7c - the create that must be refused
+          include_role:
+            name: range42-ansible_roles-proxmox_controller
+          vars:
+            proxmox_vm_action: "network_add_sdn_zone"
+            sdn_zone: "{{ _p_zone }}"
+
+        - name: CHECK 7c - IT DID NOT FAIL, WHICH CONTRADICTS THE DOCUMENTATION
+          ansible.builtin.fail:
+            msg: >-
+              a second raw create SUCCEEDED. Every raw bundle's README states it answers
+              500 "already defined" and tells the caller to look the object up first or use a composite.
+              Either Proxmox changed, or that documentation is now wrong.
+      rescue:
+        - name: CHECK 7c - REFUSED, AS DOCUMENTED
+          ansible.builtin.debug:
+            msg: "PASS - a second raw create is refused, so the composites' lookup is not optional"
+
+#### 7d - RAW apply : what 7b found only in the config must now be live
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.apply/main.yml"
+
+- name: "debug_sdn_tests - 7d wait for the applied rule to reach the nat table"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## The apply ALREADY waited : network_apply_sdn polls the UPID until the task reports stopped, then
+    ## fails on any exitstatus other than OK. But that wait is on the API's task status, while the check
+    ## below reads iptables over SSH - a second channel, with no ordering guarantee between the two. Same
+    ## idiom as vm.bootstrap's post-clone lock wait, and it costs nothing when the rule is already there.
+    ##
+    ## The trailing SPACE in "-s <cidr> " is the role's own matcher and MUST stay : without it
+    ## 192.168.20.0/24 would also match 192.168.200.0/24.
+    ##
+    ## grep -c exits 1 on a count of zero, hence failed_when: false - the retry is driven by the count,
+    ## and exhausting it is not the failure. The assert below is what reports it, readably.
+    - name: SECTION 7d - WAIT FOR THE LIVE SNAT RULE TO APPEAR
+      ansible.builtin.shell: |
+        set -u
+        iptables -t nat -S POSTROUTING | grep -c -- "-s {{ _p_cidr2 }} "
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "/usr/sbin:/sbin:/usr/bin:/bin"
+      register: _t2_snat_wait
+      until: ((_t2_snat_wait.stdout | default('0')) | trim | int) >= 1
+      retries: "{{ _p_wait_retries }}"
+      delay: "{{ _p_wait_delay }}"
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ groups['proxmox_cli'] | first }}"
+
+    - name: SECTION 7d - WHAT THE WAIT SAW
+      ansible.builtin.debug:
+        msg: >-
+          live rules for {{ _p_cidr2 }} after the apply :
+          {{ (_t2_snat_wait.stdout | default('0')) | trim }}
+          (waited {{ _t2_snat_wait.attempts | default(1) }} attempt(s))
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr2 }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 7d check the apply made it live"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## The other half of 7b, and what makes the pair worth running : 0 before, exactly 1 after. More
+    ## than 1 would mean the apply replayed a hook it should not have.
+    - name: CHECK 7d - EXACTLY ONE LIVE SNAT RULE NOW EXISTS
+      ansible.builtin.assert:
+        that:
+          - (network_delete_extra_snat_rules.snat_before | int) == 1
+        fail_msg: >-
+          expected exactly ONE live SNAT rule after the raw apply. Counted :
+          {{ network_delete_extra_snat_rules.snat_before | default('?') }}
+        success_msg: "PASS - 0 live rule before the apply, 1 after : the apply is what goes live"
+
+- name: "debug_sdn_tests - PAUSE the throwaway network is up, built by the RAW bundles"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: "PAUSE - the throwaway network is up, built by the RAW bundles"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the throwaway network is up ===="
+          - "Datacenter -> SDN : vnet {{ _p_vnet2 }} and its subnet, alongside the main one"
+          - "built one API call at a time, then applied once - no composite involved"
+          - "pausing {{ _p_pause }}s - override with -e sdn_test_pause=0"
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ _p_pause }}"
+

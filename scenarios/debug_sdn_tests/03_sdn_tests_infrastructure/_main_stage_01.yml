@@ -1,12 +1,108 @@
 ---
 ##
-## debug_sdn_tests - tier 03 - stage 01 (vm_configure)
+## debug_sdn_tests - tier 03 - stage 01 (sdn_network_configure)
 ##
-## The SDN chain itself : six sections replaying the devkit test 07 through the bundles.
+## THIS FILE IS THE TABLE OF CONTENTS. Each section of the chain is its own file under
+## stage_01-sdn_network_configure/, named after what it establishes, and imported below in order. The
+## section banners live inside those files - the order is here.
 ##
-## It sits under stage_01 rather than stage_00 because it CONFIGURES - it drives network objects and a
-## VM card - and because the day this scenario creates its own VM, that creation belongs to stage_00
-## and must have happened before this runs.
+## WHAT THIS IS
+## A faithful duplication of the devkit chain test, driving the bundles instead of the devkits. Same six
+## sections, same assertions, same order, plus a seventh covering the bundles the six never execute.
+##
+## WHY IT EXISTS
+## Everything about the 22 sdn_network.* / vm.* bundles has been validated STATICALLY - the parameter
+## contracts against their schema, the playbooks against `--syntax-check`, the Jinja against fixtures,
+## and every task against the PXC role's real required vars. None of it had ever touched a Proxmox.
+## This scenario is what closes that gap.
+##
+## It also gives those bundles their FIRST REAL CALL-SITE. Until now they were "true orphans" to
+## check-callsites.py, which reads the call-site `vars:` block : declared but never exercised. Every
+## import below fills that block, so the contracts become verified rather than merely asserted.
+##
+## WHY stage_01 AND NOT stage_00
+## It CONFIGURES - it drives network objects and one VM card - and the day this scenario creates its own
+## VM, that creation belongs to stage_00 and must have happened before this runs.
+##
+## WHAT IT DOES NOT DO YET
+## It REUSES an existing VM rather than creating one, so its manifest declares no VM and no template,
+## and it allocates no vm_id. Creating its own VM is the next step.
+##
+## SAFETY - READ BEFORE RUNNING
+##   - it DELETES the test zone at the start and at the end. Point it at a zone you own.
+##   - 05 MOVES A NETWORK CARD of the VM, twice. The card is deleted and recreated, so ITS MAC CHANGES.
+##     Never point it at a VM you reach THROUGH that card.
+##   - the default range is 192.168.199.0/24, deliberately away from the production vmbr14x bands.
+##
+## WHERE THE PARAMETERS LIVE
+## All 15 of them - zone, vnet, subnet, gateway, VM, card slots, pause, and the SNAT rule wait - are
+## declared in ONE editable block, at the top of _main_stage_00.yml. Retargeting the run means editing
+## there and nowhere else. No file below declares a default or carries a fallback literal, so a missing
+## parameter is a loud stop at the preflight rather than a silent fallback, and two sections can never
+## diverge onto different values. A -e still overrides, per run, without editing anything.
+##
+## The apply needs no knob of its own : network_apply_sdn polls its UPID until the task reports stopped
+## and fails on any exitstatus other than OK. The wait that IS tunable covers the second observation
+## channel, the iptables read over SSH, which the API's task status says nothing about.
+##
+## THE PAUSES ARE THE POINT OF THIS SCENARIO AS A DEBUG TOOL
+## The chain runs faster than a human can follow in the Proxmox UI, so it STOPS at each of the nine
+## moments where the state visibly changes, and prints WHERE to look :
+##
+##   1. the three SDN objects exist and are applied     Datacenter -> SDN
+##   2. outgoing NAT is OFF                             the subnet's SNAT box, unticked
+##   3. outgoing NAT is back ON                         the same box, ticked
+##   4. the VM card is on the vnet                      VM -> Hardware -> Network Device
+##   5. the card is back on its original bridge         the same, and the MAC changed again
+##   6. everything is gone                              Datacenter -> SDN, empty
+##   7. the throwaway network is up                     built by the RAW bundles, one call at a time
+##   8. the VM has TWO cards                            attach is additive - the first was left alone
+##   9. the throwaway network is gone                   removed one call at a time
+##
+## `-e sdn_test_pause=0` runs it flat out - which is what a CI would do. A bigger number holds longer.
+##
+## HOW THE ASSERTIONS SEE THE STATE
+## Each check re-READS through the list bundles rather than trusting the facts left by the write : a
+## bundle's own reads happened BEFORE it wrote. And the live iptables rules are counted by calling
+## reconcile.snat_rules with want=99 - nothing is ever in excess of 99, so nothing is deleted and the
+## action becomes a pure counter reporting snat_before.
 ##
 
-- import_playbook: ./stage_01-vm_configure/_sdn_chain_tests.yml
+#### the run cannot start without the proxmox_cli group, and the parameters must be coherent
+- import_playbook: ./stage_01-sdn_network_configure/00-preflight.yml
+
+#### removing what is absent must be a no-op - this is what makes every later run replayable
+- import_playbook: ./stage_01-sdn_network_configure/01-delete_from_unknown_state.yml
+
+#### zone + vnet + subnet, applied once, exactly one live SNAT rule
+- import_playbook: ./stage_01-sdn_network_configure/02-create_and_apply.yml
+
+#### a second create writes nothing, and the rule count does not climb
+- import_playbook: ./stage_01-sdn_network_configure/03-create_again_is_noop.yml
+
+#### off / on / toggle / toggle, checking the declaration AND the live count each time
+- import_playbook: ./stage_01-sdn_network_configure/04-outgoing_nat_switch.yml
+
+#### the card moves onto the vnet, the replay is a no-op, the card comes back
+- import_playbook: ./stage_01-sdn_network_configure/05-move_vm_card.yml
+
+#### nothing survives, no rule outlives its declaration, and it replays
+- import_playbook: ./stage_01-sdn_network_configure/06-delete_leaves_nothing.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### From here on, the ELEVEN bundles the seven files above never execute, on a THROWAWAY network and a
+#### SECOND card slot so nothing can disturb what they just asserted.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+#### one API call at a time : create, prove it is not live, prove the replay is refused, apply, prove it
+#### is live. One narrative, hence one file.
+- import_playbook: ./stage_01-sdn_network_configure/07a-raw_create_and_apply.yml
+
+#### the raw update, on the gateway - the one field the internet_* bundles never touch
+- import_playbook: ./stage_01-sdn_network_configure/07b-raw_update_gateway.yml
+
+#### bootstrap on a ONE-ENTRY list must recognise what the raw bundles built, and write nothing
+- import_playbook: ./stage_01-sdn_network_configure/07c-bootstrap_on_one_entry.yml
+
+#### attach is additive, detach removes only its own card, and the raw deletes remove the rest
+- import_playbook: ./stage_01-sdn_network_configure/07d-attach_second_card.yml

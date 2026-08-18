@@ -1,9 +1,9 @@
 # sdn_network.delete.all
 
-Tear down one zone completely: its subnets, its vnets, the zone itself.
+Delete one zone completely: its subnets, its vnets, the zone itself.
 
 **Zone-scoped, and driven by what is live** - not by a declaration. It reads the cluster, then removes
-what belongs to the named zone. So it works on a state nobody declared, which is exactly when a teardown
+what belongs to the named zone. So it works on a state nobody declared, which is exactly when a delete
 is needed.
 
 ## Contract
@@ -49,7 +49,7 @@ would match nothing, or everything.
 
 **The subnets are scoped through `subnet_vnet`, not `subnet_zone`.** The role emits `subnet_zone` with
 `omit`, so the key is **absent** whenever the API did not return it - and filtering on a key that may not
-exist would silently scope the teardown to nothing. So: the vnets of the zone come from `vnet_zone`, and
+exist would silently scope the delete to nothing. So: the vnets of the zone come from `vnet_zone`, and
 the subnets come from `subnet_vnet` being one of those vnets.
 
 **Nothing is addressed by a computed value.** Every subnet id and vnet name passed to a delete comes from

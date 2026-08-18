@@ -1,0 +1,68 @@
+---
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 2 - CREATE BUILDS THE THREE OBJECTS AND APPLIES THEM
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.bootstrap.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ _p_zone }}"
+    BUNDLE_SDN_VNET: "{{ _p_vnet }}"
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr }}"
+    BUNDLE_SDN_SUBNET_GATEWAY: "{{ _p_gw }}"
+    BUNDLE_SDN_SUBNET_SNAT: 1
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_zones/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_vnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+
+## want=99 is a pure counter : nothing is ever in excess of 99, so nothing is deleted and the action
+## still reports snat_before. Same trick as the devkit test.
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 2 check"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _z: "{{ _p_zone }}"
+    _v: "{{ _p_vnet }}"
+    _c: "{{ _p_cidr }}"
+  tasks:
+    - name: CHECK 2 - THE THREE OBJECTS ARE THERE, SNAT ON, EXACTLY ONE LIVE RULE
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_zones   | default([])) | selectattr('zone', 'equalto', _z) | list | length) == 1
+          - ((network_list_sdn_vnets   | default([])) | selectattr('vnet', 'equalto', _v) | list | length) == 1
+          - ((network_list_sdn_subnets | default([])) | selectattr('subnet_cidr', 'defined')
+             | selectattr('subnet_cidr', 'equalto', _c) | list | length) == 1
+          - (((network_list_sdn_subnets | selectattr('subnet_cidr', 'defined')
+              | selectattr('subnet_cidr', 'equalto', _c) | list | first).subnet_snat | default(0) | int)) == 1
+          - (network_delete_extra_snat_rules.snat_before | int) == 1
+        fail_msg: >-
+          expected zone+vnet+subnet present, snat declared 1, and exactly ONE live rule. Live rules
+          counted : {{ network_delete_extra_snat_rules.snat_before | default('?') }}
+        success_msg: >-
+          PASS - zone, vnet and subnet are up, snat declared on, and
+          {{ network_delete_extra_snat_rules.snat_before }} live SNAT rule
+
+- name: "debug_sdn_tests - PAUSE the three SDN objects EXIST and are applied"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - the three SDN objects EXIST and are applied"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the three SDN objects EXIST and are applied ===="
+          - "Datacenter -> SDN : zone {{ _p_zone }}"
+          - "                     vnet {{ _p_vnet }}, subnet {{ _p_cidr }}"
+          - "no pending marker : the apply already ran"
+          - "pausing {{ _p_pause }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ _p_pause }}"
+
