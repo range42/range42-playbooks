@@ -1,0 +1,47 @@
+---
+##
+## blank_scenario_2_sdn - main_vms_only playbook
+##
+## Structure : same multi-level pattern as main.yml (skips 01_templates-bootstrap, templates assumed already present).
+##
+## Skips 01_templates-bootstrap (templates 9221 / 9232 assumed already present
+## from a prior blank_scenario_2_sdn.setup.sh run, or from another
+## scenario that builds the same templates). Used by `range42-context deploy-vms`.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 00 - SDN BOOTSTRAP #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+##
+## MUST run first : the VMs below are created directly on these vnets.
+##
+
+- import_playbook: ./00_sdn_bootstrap/_main.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
+
+- import_playbook: ./03_team_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./03_team_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_blank_scenario_2_sdn_wazuh_clients_active  ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml

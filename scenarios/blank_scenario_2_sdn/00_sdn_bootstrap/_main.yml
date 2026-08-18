@@ -1,0 +1,24 @@
+---
+##
+## blank_scenario_2_sdn - 00 SDN BOOTSTRAP
+##
+## RUNS BEFORE EVERYTHING ELSE, and the order is not a preference : net140 is the templating
+## network, the template build runs `apt`, so without a live SNAT rule there the templates come
+## out empty and out of date.
+##
+## CREATES, NEVER DELETES. The bundle looks each object up and writes only what is missing, so a
+## second run is a no-op. A vnet name is GLOBAL TO THE CLUSTER - deleting one here would take away
+## a network other scenarios attach to.
+##
+## Isolation between these subnets is NOT set up : they reach each other, the host routes. Expected
+## state for this scenario, not a defect.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.bootstrap/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "r42zone"
+    BUNDLE_SDN_VNETS:
+      - { vnet: "net140", subnet: "192.168.140.0/24", gateway: "192.168.140.1", snat: true }   # templating, apt
+      - { vnet: "net142", subnet: "192.168.142.0/24", gateway: "192.168.142.1", snat: true }   # admin
+      - { vnet: "net143", subnet: "192.168.143.0/24", gateway: "192.168.143.1", snat: true }   # team
+      - { vnet: "net144", subnet: "192.168.144.0/24", gateway: "192.168.144.1", snat: true }   # team

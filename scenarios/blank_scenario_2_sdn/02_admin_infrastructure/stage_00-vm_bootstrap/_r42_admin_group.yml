@@ -1,0 +1,156 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### blank_scenario_2_sdn - 02_admin_infrastructure - stage_00 - admin group #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Per-VM bootstrap of the admin platform VMs :
+#   - admin-wazuh (gated INSTALL_WAZUH, default NO) : Wazuh SIEM server
+#   - admin-misp  (gated INSTALL_MISP,  default NO) : MISP threat intel stack
+#   - admin-deployer-api-gateway / api-backend / ui (gated INSTALL_DEPLOYER_UI, default NO) : deployer platform
+#
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs2-admin-wazuh"
+    global_vm_ssh_name:    "r42.bs2-admin-wazuh"
+    global_vm_id:          2120
+    global_vm_description: "blank_scenario_2_sdn - Wazuh SIEM server (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.120"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_MISP | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs2-admin-misp"
+    global_vm_ssh_name:    "r42.bs2-admin-misp"
+    global_vm_id:          2124
+    global_vm_description: "blank_scenario_2_sdn - MISP threat intel stack (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.124"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_GITEA | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs2-admin-gitea"
+    global_vm_ssh_name:    "r42.bs2-admin-gitea"
+    global_vm_id:          2125
+    global_vm_description: "blank_scenario_2_sdn - Gitea docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.125"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_MATTERMOST | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs2-admin-mattermost"
+    global_vm_ssh_name:    "r42.bs2-admin-mattermost"
+    global_vm_id:          2126
+    global_vm_description: "blank_scenario_2_sdn - Mattermost docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.126"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs2-admin-nextcloud"
+    global_vm_ssh_name:    "r42.bs2-admin-nextcloud"
+    global_vm_id:          2127
+    global_vm_description: "blank_scenario_2_sdn - Nextcloud docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.127"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs2-admin-rocketchat"
+    global_vm_ssh_name:    "r42.bs2-admin-rocketchat"
+    global_vm_id:          2128
+    global_vm_description: "blank_scenario_2_sdn - Rocket.Chat docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.128"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs2-admin-deployer-api-gateway"
+    global_vm_ssh_name:    "r42.bs2-admin-deployer-api-gateway"
+    global_vm_id:          2121
+    global_vm_description: "blank_scenario_2_sdn - API gateway"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.121"
+    global_template_vm_id: 9221
+    global_template_name:  "template-vm-small-01-4g-32g - id : 9221"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs2-admin-deployer-api-backend"
+    global_vm_ssh_name:    "r42.bs2-admin-deployer-api-backend"
+    global_vm_id:          2122
+    global_vm_description: "blank_scenario_2_sdn - backend API"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.122"
+    global_template_vm_id: 9221
+    global_template_name:  "template-vm-small-01-4g-32g - id : 9221"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "bs2-admin-deployer-ui"
+    global_vm_ssh_name:    "r42.bs2-admin-deployer-ui"
+    global_vm_id:          2123
+    global_vm_description: "blank_scenario_2_sdn - deployer UI"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.123"
+    global_template_vm_id: 9221
+    global_template_name:  "template-vm-small-01-4g-32g - id : 9221"
+    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

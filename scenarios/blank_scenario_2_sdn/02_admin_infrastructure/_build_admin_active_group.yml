@@ -1,0 +1,93 @@
+##
+## blank_scenario_2_sdn - 02_admin_infrastructure - build r42_admin_active
+##
+## Builds the runtime-only r42_admin_active group from INSTALL_<flag> values
+## (incl. the INSTALL_DEPLOYER_UI-gated deployer trio). Members are added via ansible.builtin.add_host,
+## so the group is in-memory only ; the workspace inventory_default.yml is
+## NOT modified.
+##
+## Used by _baseline_admin.yml as target_group, so the baseline only runs on
+## admin VMs that stage_00 actually deployed (per INSTALL flags), incl. the
+## INSTALL_DEPLOYER_UI-gated deployer trio.
+##
+## Membership map :
+##
+##   admin VM                              creation gate                    add_host condition
+##   ------------------------------------- -------------------------------- ----------------------
+##   r42.bs2-admin-wazuh                   INSTALL_WAZUH (default NO)       INSTALL_WAZUH=YES
+##   r42.bs2-admin-misp                    INSTALL_MISP (default NO)        INSTALL_MISP=YES
+##   r42.bs2-admin-deployer-api-gateway    INSTALL_DEPLOYER_UI (default NO)  INSTALL_DEPLOYER_UI=YES
+##   r42.bs2-admin-deployer-api-backend    INSTALL_DEPLOYER_UI (default NO)  INSTALL_DEPLOYER_UI=YES
+##   r42.bs2-admin-deployer-ui             INSTALL_DEPLOYER_UI (default NO)  INSTALL_DEPLOYER_UI=YES
+##
+## `hosts: proxmox` (not localhost) so the play matches the wrapper's
+## `-l "all"` filter (the proxmox host is in the `all` group and has
+## ansible_connection: local).
+##
+
+- name: build r42_admin_active dynamic group from INSTALL flags
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: add r42.bs2-admin-wazuh to r42_admin_active when INSTALL_WAZUH=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-wazuh
+        groups: r42_admin_active
+      when: INSTALL_WAZUH | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-misp to r42_admin_active when INSTALL_MISP=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-misp
+        groups: r42_admin_active
+      when: INSTALL_MISP | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-gitea to r42_admin_active when INSTALL_GITEA=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-gitea
+        groups: r42_admin_active
+      when: INSTALL_GITEA | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-mattermost to r42_admin_active when INSTALL_MATTERMOST=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-mattermost
+        groups: r42_admin_active
+      when: INSTALL_MATTERMOST | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-nextcloud to r42_admin_active when INSTALL_NEXTCLOUD=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-nextcloud
+        groups: r42_admin_active
+      when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-rocketchat to r42_admin_active when INSTALL_ROCKETCHAT=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-rocketchat
+        groups: r42_admin_active
+      when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-deployer-api-gateway to r42_admin_active when INSTALL_DEPLOYER_UI=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-deployer-api-gateway
+        groups: r42_admin_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-deployer-api-backend to r42_admin_active when INSTALL_DEPLOYER_UI=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-deployer-api-backend
+        groups: r42_admin_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.bs2-admin-deployer-ui to r42_admin_active when INSTALL_DEPLOYER_UI=YES
+      ansible.builtin.add_host:
+        name: r42.bs2-admin-deployer-ui
+        groups: r42_admin_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+      changed_when: false
