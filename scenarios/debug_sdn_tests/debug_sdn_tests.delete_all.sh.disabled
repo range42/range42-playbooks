@@ -1,0 +1,60 @@
+#!/bin/bash
+
+##
+## debug_sdn_tests.delete_all.sh - tear down what this scenario OWNS : the SDN zone. No VM.
+##
+## THIS SCENARIO OWNS NO VM, so unlike every other delete_all.sh this one deletes none. What it owns is
+## the SDN zone sdn_test_zone (default r42test) with its vnet and subnet, and that is what it removes -
+## through the bundle, so the removal follows the order Proxmox imposes and reconciles the live SNAT
+## rules afterwards.
+##
+## ⚠ WHY THERE IS A GUARD BELOW, AND WHY IT MATTERS ⚠
+##   The other scenarios' delete scripts build a vm_id filter from the manifest :
+##       ID_REGEX=$(printf '|%s' "${SCENARIO_VM_IDS[@]}" | sed 's/^|//')
+##       ... | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|$)" | proxmox_vm.vm_id.delete.to.jsons.sh
+##   With an EMPTY vms[] array that regex is empty, `($ID_REGEX)` becomes `()`, and the grep matches
+##   EVERY VM ON THE PROXMOX. Copying that pattern here would have turned "this scenario owns no VM"
+##   into "delete everything". So this script asserts the manifest is empty and refuses to build any
+##   vm_id filter at all.
+##
+## Companions :
+##   - debug_sdn_tests.delete_vms_only.sh - a documented no-op, this scenario owns no VM
+##   - debug_sdn_tests.reset.setup.sh     - tear the zone down, then run the chain again
+##
+
+set -u
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
+
+if [[ ! -f "$MANIFEST" ]]; then
+    echo "ERROR: manifest not found: $MANIFEST" >&2
+    exit 1
+fi
+
+#### the guard : this scenario MUST own no VM. If that ever changes, this script must be rewritten
+#### with a real vm_id filter rather than silently doing nothing - or worse, matching everything.
+VM_COUNT=$(jq '.vms | length' "$MANIFEST")
+if [[ "$VM_COUNT" -ne 0 ]]; then
+    echo "ERROR: manifest declares $VM_COUNT VM(s), but this script was written for a scenario that owns none." >&2
+    echo "       Rewrite it with an explicit vm_id filter before using it - do NOT build an empty regex," >&2
+    echo "       which would match every VM on the Proxmox." >&2
+    exit 1
+fi
+echo ":: manifest declares 0 VM - no VM will be touched"
+echo ""
+
+ZONE="${1:-r42test}"
+echo ":: tearing down the SDN zone : $ZONE"
+echo ":: subnets -> vnets -> zone, then apply, then reconcile the live SNAT rules to zero"
+echo ""
+
+ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \
+	-l "all" \
+	"${RANGE42_BUNDLE_DIR:?RANGE42_BUNDLE_DIR is not set - run: range42-context use <codename> <scenario>}/proxmox/sdn_network.delete.all/main.yml" \
+	--vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set - run: range42-context use <codename> <scenario>}" \
+	-e "BUNDLE_SDN_ZONE=$ZONE"
+
+echo ""
+echo ":: done - the zone is gone. Nothing else was touched."
+echo ":: re-run the chain with: ./debug_sdn_tests.setup.sh"
+echo ""

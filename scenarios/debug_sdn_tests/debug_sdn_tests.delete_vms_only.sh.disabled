@@ -1,0 +1,36 @@
+#!/bin/bash
+
+##
+## debug_sdn_tests.delete_vms_only.sh - nothing to delete. This scenario owns NO VM.
+##
+## The script exists because every scenario has one and `range42-context` offers it. Here it is a
+## deliberate no-op that says so, rather than an absent file that would look like an oversight.
+##
+## It still ASSERTS the manifest is empty : the day this scenario creates its own VM, this script must
+## be rewritten with a real vm_id filter. Doing nothing then would be wrong, and copying the usual
+## pattern with an empty array would be worse - an empty ID_REGEX makes the grep match EVERY VM on the
+## Proxmox.
+##
+## To remove what this scenario DOES own - the SDN zone - use debug_sdn_tests.delete_all.sh.
+##
+
+set -u
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
+
+if [[ ! -f "$MANIFEST" ]]; then
+    echo "ERROR: manifest not found: $MANIFEST" >&2
+    exit 1
+fi
+
+VM_COUNT=$(jq '.vms | length' "$MANIFEST")
+if [[ "$VM_COUNT" -ne 0 ]]; then
+    echo "ERROR: manifest now declares $VM_COUNT VM(s). This script is still the no-op version." >&2
+    echo "       Rewrite it with an explicit vm_id filter built from the manifest." >&2
+    exit 1
+fi
+
+echo ":: debug_sdn_tests owns no VM - nothing to delete"
+echo ":: the VM whose card this scenario moves (sdn_test_vm_id, default 102) belongs to someone else"
+echo ":: to remove the SDN zone this scenario does own : ./debug_sdn_tests.delete_all.sh"
+echo ""

@@ -1,0 +1,26 @@
+---
+##
+## debug_sdn_tests - 01_templates-bootstrap
+##
+## NOTHING TO BUILD TODAY, and the file exists on purpose.
+##
+## Every other scenario builds its cloud-init sources and its VM templates here, through
+## proxmox/cloud_init_image.download.all and proxmox/template.build.*. This scenario creates no VM, so
+## it needs no template - it reuses an existing one.
+##
+## The play below is a deliberate no-op rather than an absent file : main.yml imports this path like
+## every other scenario's main.yml does, and an import_playbook cannot point at nothing. Keeping the
+## file means the day this scenario creates its own VM, the templates land here and main.yml does not
+## change.
+##
+
+- name: "debug_sdn_tests - 01 templates bootstrap (no-op)"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: TEMPLATES - NOTHING TO BUILD FOR THIS SCENARIO
+      ansible.builtin.debug:
+        msg:
+          - "this scenario creates no VM, so it builds no template"
+          - "it reuses an existing VM, whose id is the sdn_test_vm_id parameter"
+          - "when it gains its own VM, the cloud_init_image.download.all + template.build.* imports go here"

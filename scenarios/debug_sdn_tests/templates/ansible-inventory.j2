@@ -1,0 +1,42 @@
+all:
+  children:
+    range42_infrastructure:
+      children:
+        ####
+        #
+        # debug_sdn_tests declares NO VM of its own : it reuses an existing one, whose id is the
+        # sdn_test_vm_id run parameter. There is therefore no host group for lab VMs here, and that is
+        # deliberate rather than unfinished - a group with no host would make `-l all` resolve to
+        # nothing and hide the reason.
+        #
+        # When this scenario gains its own VM, its `r42.<vm_name>:` host line goes in a
+        # r42_sdn_tests_group here, and the tier's stage_00 creates it.
+        #
+        ####
+
+        ####
+        #
+        # The two groups the SDN bundles actually need, and BOTH are needed :
+        #
+        #   proxmox      - every sdn_network.* / vm.* bundle runs its API calls here. It is
+        #                  `ansible_connection: local`, so an ansible task on this host runs ON THE
+        #                  DEPLOYER and talks to the API over HTTPS.
+        #
+        #   proxmox_cli  - where the SNAT reconciliation runs iptables. The role delegates to
+        #                  `groups['proxmox_cli'] | first` precisely BECAUSE proxmox is
+        #                  connection: local : an undelegated shell would read the DEPLOYER's nat
+        #                  table and cheerfully report zero rules. Section 0 of the chain asserts
+        #                  this group is not empty for that reason.
+        #
+        ####
+
+        proxmox:
+          hosts:
+            {{ INFRASTRUCTURE_CODENAME }}:
+              ansible_host: {{ INFRASTRUCTURE_PROXMOX_ADDRESS | mandatory }}:8006
+              ansible_connection: local
+              ansible_python_interpreter: /usr/bin/python3
+
+        proxmox_cli:
+          hosts:
+            {{ INFRASTRUCTURE_CODENAME }}-cli:

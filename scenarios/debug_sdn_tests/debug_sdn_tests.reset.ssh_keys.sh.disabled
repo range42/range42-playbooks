@@ -1,0 +1,38 @@
+#!/bin/bash
+
+##
+## debug_sdn_tests.reset.ssh_keys.sh - nothing to clear. This scenario SSHes into no VM.
+##
+## The usual script clears ~/.ssh/known_hosts of every VM in the manifest, for the case where a
+## redeploy reuses the same IPs but cloud-init regenerated the host keys.
+##
+## Here there is nothing to clear, for two reasons rather than one :
+##   - the scenario declares no VM, so the manifest holds no IP
+##   - and it never SSHes into the VM it borrows either. The network card is moved through the PROXMOX
+##     API, not from inside the guest - so no host key is ever presented to us.
+##
+## The file exists because `range42-context` offers it on every scenario, and a deliberate no-op that
+## explains itself is a better signal than an absent file.
+##
+## NOTE - the card's MAC changes when the chain moves it. That can matter to a DHCP reservation or a
+## firewall alias keyed on the old MAC, but it does not affect known_hosts : the host key belongs to
+## the guest OS, not to the card.
+##
+
+set -u
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MANIFEST="$SCRIPT_DIR/manifest/scenario_vms.json"
+
+if [[ -f "$MANIFEST" ]]; then
+    IP_COUNT=$(jq '[.vms[].ip] | length' "$MANIFEST")
+    if [[ "$IP_COUNT" -ne 0 ]]; then
+        echo "ERROR: the manifest now declares $IP_COUNT IP(s). This script is still the no-op version -" >&2
+        echo "       rewrite it to sweep known_hosts by IP and by r42.<vm_name> alias, as the other" >&2
+        echo "       scenarios do (HashKnownHosts hashes the IP, so alias entries survive an IP-only sweep)." >&2
+        exit 1
+    fi
+fi
+
+echo ":: debug_sdn_tests declares no VM and SSHes into none - known_hosts is untouched"
+echo ":: the card it moves is reconfigured through the Proxmox API, never from inside the guest"
+echo ""

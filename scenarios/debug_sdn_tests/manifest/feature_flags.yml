@@ -1,0 +1,23 @@
+---
+# Feature flags for debug_sdn_tests - optional components toggled at deploy time via
+# `-e INSTALL_<NAME>=YES|NO`.
+#
+# This file is the single source of truth :
+#   - the deploy TUI (range42-context --tui) reads `features` to render the checkbox modal
+#   - the playbooks read the `INSTALL_<NAME>` variables via
+#     `when: INSTALL_<NAME> | default("YES"|"NO") | upper == "YES"`
+#
+# THIS SCENARIO HAS NO FEATURE FLAG, and the file exists on purpose : the TUI and
+# `range42-context` expect it on every scenario, and an absent file is not the same signal as an
+# explicitly empty one. `features: []` says "nothing to toggle", which is the truth - the scenario
+# is a test chain that runs whole or not at all.
+#
+# What IS tunable is not a feature but a set of run parameters, passed with -e and documented in
+# README.md and in main.yml :
+#   sdn_test_zone  sdn_test_vnet  sdn_test_subnet  sdn_test_gateway
+#   sdn_test_vm_id  sdn_test_vm_netid  sdn_test_vm_bridge
+#
+# They are NOT feature flags : they do not switch a component on or off, they retarget the whole
+# chain. Declaring them here would make the TUI render checkboxes for values that need a string.
+
+features: []

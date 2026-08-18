@@ -1,0 +1,13 @@
+---
+##
+## debug_sdn_tests - tier 03 - _main
+##
+## Runs both stages of this tier back to back. main.yml does NOT use this file - it imports
+## _main_stage_00 and _main_stage_01 separately, so stages can be interleaved across tiers. This entry
+## point exists for driving the tier alone :
+##
+##   ansible-playbook -i <inventory> ./03_sdn_tests_infrastructure/_main.yml --vault-password-file <f>
+##
+
+- import_playbook: ./_main_stage_00.yml
+- import_playbook: ./_main_stage_01.yml

@@ -1,0 +1,41 @@
+#!/bin/bash
+
+##
+## debug_sdn_tests.reset.setup.sh - tear the SDN zone down, then run the chain again
+##
+## The usual reset script deletes the scenario's VMs then redeploys. This scenario owns no VM, so what
+## it resets is the SDN zone.
+##
+## In practice this is nearly redundant : section 1 of the chain ALREADY starts with a teardown from an
+## unknown state, and that is a property the chain asserts rather than assumes. The script exists for
+## the case where a previous run died mid-way and you want the zone gone before anything else runs -
+## for instance with a VM card still attached to the vnet, which is the one state the chain cannot
+## clean by itself.
+##
+## ⚠ If a card is still on the test vnet, the zone teardown will FAIL on the vnet - Proxmox refuses to
+##   remove a vnet that carries one. Bring the card back first :
+##     ansible-playbook -i "$RANGE42_ANSIBLE_ROLES__INVENTORY_DIR/inventory_default.yml" \
+##       "$RANGE42_BUNDLE_DIR/proxmox/vm.replace.sdn_vnet/main.yml" \
+##       --vault-password-file "$RANGE42_VAULT_PASSWORD_FILE" \
+##       -e BUNDLE_VM_ID=102 -e BUNDLE_VM_VMNET_ID=0 -e BUNDLE_VM_IFACE_BRIDGE=vmbr0
+##
+
+set -u
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ZONE="${1:-r42test}"
+
+echo ":: reset - tearing down the SDN zone $ZONE first"
+"$SCRIPT_DIR/debug_sdn_tests.delete_all.sh" "$ZONE" || {
+    echo "" >&2
+    echo "ERROR: the teardown failed. The usual cause is a VM card still attached to the test vnet -" >&2
+    echo "       Proxmox refuses to delete a vnet that carries one. See the header of this script for" >&2
+    echo "       the one-liner that brings the card back." >&2
+    exit 1
+}
+
+echo ""
+echo ":: running the chain"
+ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \
+	-l "all" \
+	"$SCRIPT_DIR/main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set - run: range42-context use <codename> <scenario>}" \
+	"${@:2}"

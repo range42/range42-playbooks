@@ -1,0 +1,31 @@
+{
+  "scenario": "debug_sdn_tests",
+  "version": 2,
+  "description": "Replays the SDN chain of the devkit test _tests/07.sdn_network_chain_tests.sh through the 22 sdn_network.* / vm.* bundles. Creates NO VM and NO template : it REUSES an existing VM (sdn_test_vm_id, default 102) whose network card it moves onto the test vnet and back, and it creates then destroys the SDN objects of ONE zone (sdn_test_zone, default r42test / net199 / 192.168.199.0/24). It therefore allocates no vm_id and needs no entry in scenarios/_reserved.json. The empty vms[] and templates[] arrays are DELIBERATE, not a stub - see the note below.",
+  "note_empty_arrays": "vms[] and templates[] are empty because this scenario owns no VM. The delete/reset scripts DETECT that and refuse to touch any VM rather than building an empty vm_id filter - an empty ID_REGEX would make their grep match EVERY VM on the Proxmox. When this scenario gains its own VM, its entry lands here first, then in scenarios/_reserved.json.",
+  "reused_vm": {
+    "vm_id_default": 102,
+    "vm_netid_default": 0,
+    "returns_to_bridge_default": "vmbr0",
+    "warning": "the card is deleted and recreated by the role, so its MAC changes - twice over the round trip. Never point this scenario at a VM you reach THROUGH that card. Section 7 additionally attaches and detaches a SECOND card on slot net1 - that one is created and removed, it does not move.",
+    "vm_netid2_default": 1
+  },
+  "sdn_objects": {
+    "zone_default": "r42test",
+    "vnet_default": "net199",
+    "subnet_default": "192.168.199.0/24",
+    "gateway_default": "192.168.199.1",
+    "note": "the 199 range is deliberately away from the production vmbr14x bands. The zone is torn down at the start AND at the end of every run.",
+    "throwaway_network": {
+      "vnet_default": "net200",
+      "subnet_default": "192.168.200.0/24",
+      "gateway_default": "192.168.200.1",
+      "gateway_after_raw_update": "192.168.200.254",
+      "vm_slot_default": 1,
+      "why": "Section 7 exercises the 11 bundles the six main sections never execute - the raw creates, the raw update, the raw deletes, the raw apply, bootstrap on a one-entry list, and vm.attach / vm.detach. It uses a SECOND network and a SECOND card slot so it cannot disturb what the earlier sections asserted.",
+      "note": "Like every SDN subnet here this range exists ONLY inside the hypervisor - a simple zone is host-local - and its internet egress comes from the SNAT rule, not from the physical network knowing it. Section 7 sends no packet at all: every assertion is an API read or an iptables rule count. Before a first run, check the range is free on the node: ip -4 route | grep 192.168.200. ; ip -4 addr | grep 192.168.200."
+    }
+  },
+  "vms": [],
+  "templates": []
+}

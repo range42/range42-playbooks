@@ -1,0 +1,50 @@
+---
+##
+## debug_sdn_tests - main playbook
+##
+## Structure : multi-level _main + _main_stage_NN per tier - the same shape as
+## blank_scenario_2_subnets / demo_lab / kunai_lab, so stages can be interleaved across tiers later
+## without rewriting per-tier plays.
+##
+## WHAT THIS SCENARIO IS
+## The SDN chain of the devkit test `_tests/07.sdn_network_chain_tests.sh`, replayed through the 22
+## sdn_network.* / vm.* BUNDLES. Same six sections, same assertions, same order.
+##
+## WHY IT EXISTS
+## Those bundles were validated STATICALLY - contracts against their schema, playbooks against
+## --syntax-check, Jinja against fixtures, every task against the PXC role's real required vars. None
+## of it had ever touched a Proxmox. This scenario is what closes that gap, and it gives the bundles
+## their first real call-site so check-callsites.py validates them instead of listing them as orphans.
+##
+## TOPOLOGY - IT CREATES NO VM YET
+##   - it REUSES an existing VM (default 102) whose card it moves onto the test vnet and back
+##   - it creates and destroys the SDN objects of ONE zone (default r42test / net199 /
+##     192.168.199.0/24), deliberately away from the production vmbr14x bands
+##   - manifest/scenario_vms.json therefore declares NO vm and NO template : this scenario allocates
+##     no vm_id and needs no entry in scenarios/_reserved.json
+##
+## Creating its own VM is the next step ; the stage_00 skeleton is already in place for it.
+##
+## Global stage discipline (mirror of blank_scenario_2_subnets) :
+##   1. 01_templates-bootstrap        nothing to build today - documented no-op
+##   2. ALL tiers stage_00            nothing to create today - documented no-op
+##   3. ALL tiers stage_01            the SDN chain, which is the whole point
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./01_templates-bootstrap/_main.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./03_sdn_tests_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./03_sdn_tests_infrastructure/_main_stage_01.yml

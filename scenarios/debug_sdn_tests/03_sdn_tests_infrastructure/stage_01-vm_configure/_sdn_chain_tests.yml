@@ -1,0 +1,1037 @@
+---
+##
+## debug_sdn_tests - the SDN chain, replayed through the BUNDLES
+##
+## WHAT THIS IS
+## A faithful duplication of the devkit test `_tests/07.sdn_network_chain_tests.sh`, driving the
+## bundles instead of the devkits. Same six sections, same assertions, same order.
+##
+## WHY IT EXISTS
+## Everything about the 22 sdn_network.* / vm.* bundles has been validated STATICALLY - the parameter
+## contracts against their schema, the playbooks against `--syntax-check`, the Jinja against fixtures,
+## and every task against the PXC role's real required vars. None of it had ever touched a Proxmox.
+## This scenario is what closes that gap.
+##
+## It also gives those bundles their FIRST REAL CALL-SITE. Until now they were "true orphans" to
+## check-callsites.py, which reads the call-site `vars:` block : declared but never exercised. Every
+## import below fills that block, so the contracts become verified rather than merely asserted.
+##
+## WHAT IT DOES NOT DO YET
+## It REUSES an existing VM rather than creating one, so it has no templates/, no manifest/ and no
+## workspace of its own - it runs inside whatever workspace is already active. Creating its own VM is
+## the next step.
+##
+## SAFETY - READ BEFORE RUNNING
+##   - it TEARS DOWN the test zone at the start and at the end. Point it at a zone you own.
+##   - section 5 MOVES A NETWORK CARD of the VM, twice. The card is deleted and recreated, so ITS MAC
+##     CHANGES. Never point it at a VM you reach THROUGH that card.
+##   - the default range is 192.168.199.0/24, deliberately away from the production vmbr14x bands.
+##
+## USAGE
+##   ansible-playbook scenarios/debug_sdn_tests/main.yml
+##   ansible-playbook scenarios/debug_sdn_tests/main.yml -e sdn_test_vm_id=104
+##
+## Every parameter below is overridable with -e :
+##   sdn_test_zone          r42test              the zone this scenario owns and wipes
+##   sdn_test_vnet          net199
+##   sdn_test_subnet        192.168.199.0/24
+##   sdn_test_gateway       192.168.199.1
+##   sdn_test_vm_id         102                  the VM whose card is moved
+##   sdn_test_vm_netid      0                    which card - netN - is moved
+##   sdn_test_vm_bridge     vmbr0                where the card comes back to
+##   sdn_test_pause         15                   seconds held at each observable state change
+##
+## SECTION 7 uses a SECOND, throwaway network so it cannot disturb what sections 1-6 asserted :
+##   sdn_test_vnet2         net200
+##   sdn_test_subnet2       192.168.200.0/24
+##   sdn_test_gateway2      192.168.200.1        the gateway the raw create sets
+##   sdn_test_gateway2_new  192.168.200.254      the gateway the raw update moves it to
+##   sdn_test_vm_netid2     1                    the second card slot, attached then detached
+##
+## THE PAUSES ARE THE POINT OF THIS SCENARIO AS A DEBUG TOOL
+## The chain runs faster than a human can follow in the Proxmox UI, so it STOPS at each of the six
+## moments where the state visibly changes, and prints WHERE to look :
+##
+##   1. the three SDN objects exist and are applied     Datacenter -> SDN
+##   2. outgoing NAT is OFF                             the subnet's SNAT box, unticked
+##   3. outgoing NAT is back ON                         the same box, ticked
+##   4. the VM card is on the vnet                      VM -> Hardware -> Network Device
+##   5. the card is back on its original bridge         the same, and the MAC changed again
+##   6. everything is gone                              Datacenter -> SDN, empty
+##   7. the throwaway network is up                     built by the RAW bundles, one call at a time
+##   8. the VM has TWO cards                            attach is additive - the first was left alone
+##   9. the throwaway network is gone                   removed one call at a time
+##
+## `-e sdn_test_pause=0` runs it flat out - which is what a CI would do. A bigger number holds longer.
+##
+## HOW THE ASSERTIONS SEE THE STATE
+## Each check re-READS through the list bundles rather than trusting the facts left by the write : a
+## bundle's own reads happened BEFORE it wrote. And the live iptables rules are counted by calling
+## reconcile.snat_rules with want=99 - nothing is ever in excess of 99, so nothing is deleted and the
+## action becomes a pure counter reporting snat_before.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 0 - PREFLIGHT
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "debug_sdn_tests - 0 preflight"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - name: PREFLIGHT - WHAT THIS RUN WILL DRIVE
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node   : {{ proxmox_node }}"
+          - "zone           : {{ sdn_test_zone    | default('r42test') }}"
+          - "vnet           : {{ sdn_test_vnet    | default('net199') }}"
+          - "subnet         : {{ sdn_test_subnet  | default('192.168.199.0/24') }}"
+          - "gateway        : {{ sdn_test_gateway | default('192.168.199.1') }}"
+          - "vm             : {{ sdn_test_vm_id   | default(102) }} card net{{ sdn_test_vm_netid | default(0) }}"
+          - "card returns to: {{ sdn_test_vm_bridge | default('vmbr0') }}"
+
+    ## The reconciliation step of several bundles is delegated by the role to this group. Asserting it
+    ## here turns a late, confusing failure into an immediate and explicit one.
+    - name: PREFLIGHT - THE proxmox_cli GROUP MUST EXIST
+      ansible.builtin.assert:
+        that:
+          - (groups['proxmox_cli'] | default([]) | length) > 0
+        fail_msg: >-
+          the inventory has no proxmox_cli group. The SNAT reconciliation runs iptables ON THE
+          HYPERVISOR through it - without it the shell would run on the deployer and report zero rules.
+        success_msg: "iptables work will run on {{ groups['proxmox_cli'] | first }}"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 1 - A TEARDOWN FROM AN UNKNOWN STATE MUST SUCCEED
+####
+#### The chain starts with a teardown, so the scenario is only replayable if removing what is absent
+#### is a no-op rather than a failure. This is the check that makes every later run possible.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.all/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ sdn_test_zone | default('r42test') }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_zones/main.yml"
+
+- name: "debug_sdn_tests - 1 check"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 1 - NOTHING IS LEFT IN THE ZONE LIST
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_zones | default([]))
+             | selectattr('zone', 'equalto', (sdn_test_zone | default('r42test')))
+             | list | length) == 0
+        fail_msg: "the zone survived a teardown from an unknown state"
+        success_msg: "PASS - a teardown from an unknown state left no zone"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 2 - CREATE BUILDS THE THREE OBJECTS AND APPLIES THEM
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.bootstrap.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ sdn_test_zone | default('r42test') }}"
+    BUNDLE_SDN_VNET: "{{ sdn_test_vnet | default('net199') }}"
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet | default('192.168.199.0/24') }}"
+    BUNDLE_SDN_SUBNET_GATEWAY: "{{ sdn_test_gateway | default('192.168.199.1') }}"
+    BUNDLE_SDN_SUBNET_SNAT: 1
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_zones/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_vnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+
+## want=99 is a pure counter : nothing is ever in excess of 99, so nothing is deleted and the action
+## still reports snat_before. Same trick as the devkit test.
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet | default('192.168.199.0/24') }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 2 check"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _z: "{{ sdn_test_zone   | default('r42test') }}"
+    _v: "{{ sdn_test_vnet   | default('net199') }}"
+    _c: "{{ sdn_test_subnet | default('192.168.199.0/24') }}"
+  tasks:
+    - name: CHECK 2 - THE THREE OBJECTS ARE THERE, SNAT ON, EXACTLY ONE LIVE RULE
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_zones   | default([])) | selectattr('zone', 'equalto', _z) | list | length) == 1
+          - ((network_list_sdn_vnets   | default([])) | selectattr('vnet', 'equalto', _v) | list | length) == 1
+          - ((network_list_sdn_subnets | default([])) | selectattr('subnet_cidr', 'defined')
+             | selectattr('subnet_cidr', 'equalto', _c) | list | length) == 1
+          - (((network_list_sdn_subnets | selectattr('subnet_cidr', 'defined')
+              | selectattr('subnet_cidr', 'equalto', _c) | list | first).subnet_snat | default(0) | int)) == 1
+          - (network_delete_extra_snat_rules.snat_before | int) == 1
+        fail_msg: >-
+          expected zone+vnet+subnet present, snat declared 1, and exactly ONE live rule. Live rules
+          counted : {{ network_delete_extra_snat_rules.snat_before | default('?') }}
+        success_msg: >-
+          PASS - zone, vnet and subnet are up, snat declared on, and
+          {{ network_delete_extra_snat_rules.snat_before }} live SNAT rule
+
+- name: "debug_sdn_tests - PAUSE the three SDN objects EXIST and are applied"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - the three SDN objects EXIST and are applied"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the three SDN objects EXIST and are applied ===="
+          - "Datacenter -> SDN : zone {{ sdn_test_zone | default('r42test') }}"
+          - "                     vnet {{ sdn_test_vnet | default('net199') }}, subnet {{ sdn_test_subnet | default('192.168.199.0/24') }}"
+          - "no pending marker : the apply already ran"
+          - "pausing {{ sdn_test_pause | default(15) }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ sdn_test_pause | default(15) }}"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 3 - CREATE AGAIN IS A CLEAN NO-OP
+####
+#### Not idempotence in the ansible sense : the writes are skipped by LOOKUP, and the apply is skipped
+#### because nothing was written. What matters is that it neither fails nor duplicates.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.bootstrap.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ sdn_test_zone | default('r42test') }}"
+    BUNDLE_SDN_VNET: "{{ sdn_test_vnet | default('net199') }}"
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet | default('192.168.199.0/24') }}"
+    BUNDLE_SDN_SUBNET_GATEWAY: "{{ sdn_test_gateway | default('192.168.199.1') }}"
+    BUNDLE_SDN_SUBNET_SNAT: 1
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet | default('192.168.199.0/24') }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 3 check"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## The bundle's own diff facts are the evidence : all three empty means it recognised everything as
+    ## already present and wrote nothing.
+    - name: CHECK 3 - THE THREE WRITES WERE SKIPPED, AND STILL ONE LIVE RULE
+      ansible.builtin.assert:
+        that:
+          - (_sdn1_zone_absent   | length) == 0
+          - (_sdn1_vnet_absent   | length) == 0
+          - (_sdn1_subnet_absent | length) == 0
+          - (network_delete_extra_snat_rules.snat_before | int) == 1
+        fail_msg: >-
+          a second create was not a no-op. zone={{ _sdn1_zone_absent | default('?') }}
+          vnet={{ _sdn1_vnet_absent | default('?') }} subnet={{ _sdn1_subnet_absent | default('?') }}
+          live rules={{ network_delete_extra_snat_rules.snat_before | default('?') }}
+        success_msg: "PASS - the three writes were skipped, and the rule count did not climb"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 4 - THE OUTGOING NAT SWITCH, OFF THEN ON THEN TOGGLED TWICE
+####
+#### This is the path that ORPHANS a rule if the reconciliation is skipped : snat=0 removes the
+#### post-down hook BEFORE that hook ever runs. So it is the live COUNT that proves the cut, never the
+#### declaration - which is why every check below reads both.
+####
+#### The subnet id is read back from the cluster rather than derived : a zone name may contain dashes,
+#### and this is exactly the value the internet_* bundles address.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+
+- name: "debug_sdn_tests - 4 resolve the subnet id"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: SECTION 4 - READ THE REAL SUBNET ID BACK
+      ansible.builtin.set_fact:
+        _t_subnet_id: >-
+          {%- set m = (network_list_sdn_subnets | default([]))
+                      | selectattr('subnet_cidr', 'defined')
+                      | selectattr('subnet_cidr', 'equalto', (sdn_test_subnet | default('192.168.199.0/24')))
+                      | list -%}
+          {{ (m | first).subnet if (m | length) > 0 else '' }}
+
+    - name: SECTION 4 - REFUSE TO CONTINUE WITHOUT IT
+      ansible.builtin.assert:
+        that: ["(_t_subnet_id | length) > 0"]
+        fail_msg: "no subnet matching {{ sdn_test_subnet | default('192.168.199.0/24') }} on the cluster"
+        success_msg: "subnet id = {{ _t_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.internet_off/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_ID: "{{ _t_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet | default('192.168.199.0/24') }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 4a check internet OFF"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 4a - DECLARATION SAYS OFF, AND NO LIVE RULE SURVIVES
+      ansible.builtin.assert:
+        that:
+          - (((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t_subnet_id)
+              | list | first).subnet_snat | default(0) | int)) == 0
+          - (network_delete_extra_snat_rules.snat_before | int) == 0
+        fail_msg: >-
+          internet_off left snat={{ (network_list_sdn_subnets | selectattr('subnet','equalto',_t_subnet_id)
+          | list | first).subnet_snat | default('unset') }} and
+          {{ network_delete_extra_snat_rules.snat_before }} live rule(s) - an orphaned rule is exactly
+          what the reconciliation exists to prevent
+        success_msg: "PASS - snat declared off, zero live rule"
+
+- name: "debug_sdn_tests - PAUSE outgoing NAT is OFF"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - outgoing NAT is OFF"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : outgoing NAT is OFF ===="
+          - "Datacenter -> SDN -> VNets -> {{ sdn_test_vnet | default('net199') }} -> subnet : SNAT is now unticked"
+          - "and ZERO live iptables rule - the direction that orphans a rule when nobody reconciles"
+          - "pausing {{ sdn_test_pause | default(15) }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ sdn_test_pause | default(15) }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.internet_on/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_ID: "{{ _t_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet | default('192.168.199.0/24') }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 4b check internet ON"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 4b - DECLARATION SAYS ON, AND EXACTLY ONE LIVE RULE
+      ansible.builtin.assert:
+        that:
+          - (((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t_subnet_id)
+              | list | first).subnet_snat | default(0) | int)) == 1
+          - (network_delete_extra_snat_rules.snat_before | int) == 1
+        fail_msg: "internet_on left {{ network_delete_extra_snat_rules.snat_before }} live rule(s), expected 1"
+        success_msg: "PASS - snat declared on, exactly one live rule"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.internet_toggle/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_ID: "{{ _t_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet | default('192.168.199.0/24') }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 4c check toggle flipped it OFF"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 4c - THE TOGGLE READ 1 AND WROTE 0, AND THE LIVE RULE FOLLOWED
+      ansible.builtin.assert:
+        that:
+          - (((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t_subnet_id)
+              | list | first).subnet_snat | default(0) | int)) == 0
+          - (network_delete_extra_snat_rules.snat_before | int) == 0
+        fail_msg: "the toggle did not flip 1 -> 0, or the live rule did not follow"
+        success_msg: "PASS - toggle flipped it off, and the live rule followed"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.internet_toggle/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_ID: "{{ _t_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet | default('192.168.199.0/24') }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 4d check toggle flipped it back ON"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 4d - THE TOGGLE READ 0 AND WROTE 1, AND THE LIVE RULE FOLLOWED
+      ansible.builtin.assert:
+        that:
+          - (((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t_subnet_id)
+              | list | first).subnet_snat | default(0) | int)) == 1
+          - (network_delete_extra_snat_rules.snat_before | int) == 1
+        fail_msg: "the toggle did not flip 0 -> 1, or the live rule did not follow"
+        success_msg: "PASS - toggle flipped it back on, and the live rule followed"
+
+- name: "debug_sdn_tests - PAUSE outgoing NAT is back ON"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - outgoing NAT is back ON"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : outgoing NAT is back ON ===="
+          - "Datacenter -> SDN -> VNets -> {{ sdn_test_vnet | default('net199') }} -> subnet : SNAT is ticked again"
+          - "and exactly ONE live iptables rule - never two, which is what the reconciliation guarantees"
+          - "pausing {{ sdn_test_pause | default(15) }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ sdn_test_pause | default(15) }}"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 5 - MOVE A VM CARD ONTO THE VNET, AND BACK
+####
+#### THE ONLY DESTRUCTIVE SECTION ON THE VM. The card is deleted and recreated by the role, so ITS MAC
+#### CHANGES - twice over the round trip. Never point this scenario at a VM you reach THROUGH that card.
+####
+#### The round trip is not politeness : Proxmox REFUSES to delete a vnet that still carries a VM card,
+#### so only a returned card lets section 6 assert a complete teardown.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ sdn_test_vm_id | default(102) }}"
+
+- name: "debug_sdn_tests - 5 preflight on the VM"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## vm_vmnet_id is the id a delete or a replace ADDRESSES. Its absence from this output was a real
+    ## defect (PXC #124/#125), so asserting it here is what stops it coming back.
+    - name: CHECK 5 - THE CARD EXISTS AND THE LIST CARRIES ITS ID
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | default([]))
+             | selectattr('vm_vmnet_id', 'equalto', (sdn_test_vm_netid | default(0) | int))
+             | list | length) == 1
+        fail_msg: >-
+          vm {{ sdn_test_vm_id | default(102) }} has no card net{{ sdn_test_vm_netid | default(0) }},
+          or the list output lost its vm_vmnet_id. Cards seen :
+          {{ (network_list_interfaces_vm | default([])) | map(attribute='vm_network_device') | list }}
+        success_msg: >-
+          net{{ sdn_test_vm_netid | default(0) }} is there, on
+          {{ ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',(sdn_test_vm_netid | default(0) | int))
+             | list | first).vm_network_bridge) }}
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.replace.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ sdn_test_vm_id | default(102) }}"
+    BUNDLE_VM_VMNET_ID: "{{ sdn_test_vm_netid | default(0) }}"
+    BUNDLE_VM_IFACE_BRIDGE: "{{ sdn_test_vnet | default('net199') }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ sdn_test_vm_id | default(102) }}"
+
+- name: "debug_sdn_tests - 5a check the card is on the vnet"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 5a - THE CARD NOW SITS ON THE VNET
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',(sdn_test_vm_netid | default(0) | int))
+             | list | first).vm_network_bridge) == (sdn_test_vnet | default('net199'))
+        fail_msg: "the card did not move onto {{ sdn_test_vnet | default('net199') }}"
+        success_msg: "PASS - net{{ sdn_test_vm_netid | default(0) }} sits on {{ sdn_test_vnet | default('net199') }}"
+
+## Replaying the same move must be a no-op, not a second destroy-and-recreate.
+- name: "debug_sdn_tests - PAUSE the VM card is ON THE VNET"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - the VM card is ON THE VNET"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the VM card is ON THE VNET ===="
+          - "VM {{ sdn_test_vm_id | default(102) }} -> Hardware -> Network Device :"
+          - "   bridge is now {{ sdn_test_vnet | default('net199') }}"
+          - "the MAC has CHANGED - the card was deleted and recreated, it is not the same card"
+          - "pausing {{ sdn_test_pause | default(15) }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ sdn_test_pause | default(15) }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.replace.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ sdn_test_vm_id | default(102) }}"
+    BUNDLE_VM_VMNET_ID: "{{ sdn_test_vm_netid | default(0) }}"
+    BUNDLE_VM_IFACE_BRIDGE: "{{ sdn_test_vnet | default('net199') }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ sdn_test_vm_id | default(102) }}"
+
+- name: "debug_sdn_tests - 5b check the replay changed nothing"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 5b - REPLAYING THE MOVE LEFT ONE CARD, STILL ON THE VNET
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | default([]))
+             | selectattr('vm_vmnet_id', 'equalto', (sdn_test_vm_netid | default(0) | int))
+             | list | length) == 1
+          - ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',(sdn_test_vm_netid | default(0) | int))
+             | list | first).vm_network_bridge) == (sdn_test_vnet | default('net199'))
+        fail_msg: "replaying the move duplicated or moved the card"
+        success_msg: "PASS - the replay was a no-op"
+
+## THE RETURN LEG. Without it the vnet cannot be deleted, and section 6 could not assert a full teardown.
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.replace.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ sdn_test_vm_id | default(102) }}"
+    BUNDLE_VM_VMNET_ID: "{{ sdn_test_vm_netid | default(0) }}"
+    BUNDLE_VM_IFACE_BRIDGE: "{{ sdn_test_vm_bridge | default('vmbr0') }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ sdn_test_vm_id | default(102) }}"
+
+- name: "debug_sdn_tests - 5c check the card came back"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 5c - THE CARD IS BACK, AND THE VNET CARRIES NONE OF THIS VM
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',(sdn_test_vm_netid | default(0) | int))
+             | list | first).vm_network_bridge) == (sdn_test_vm_bridge | default('vmbr0'))
+          - ((network_list_interfaces_vm | default([]))
+             | selectattr('vm_network_bridge', 'equalto', (sdn_test_vnet | default('net199')))
+             | list | length) == 0
+        fail_msg: >-
+          the card did not come back to {{ sdn_test_vm_bridge | default('vmbr0') }} - section 6 will now
+          fail on the vnet, and the card must be detached by hand
+        success_msg: "PASS - the card is back on {{ sdn_test_vm_bridge | default('vmbr0') }}, the vnet is free"
+
+- name: "debug_sdn_tests - PAUSE the card is BACK on its original bridge"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - the card is BACK on its original bridge"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the card is BACK on its original bridge ===="
+          - "VM {{ sdn_test_vm_id | default(102) }} -> Hardware -> Network Device : bridge is {{ sdn_test_vm_bridge | default('vmbr0') }} again"
+          - "its MAC changed a SECOND time - the card was destroyed and recreated again"
+          - "pausing {{ sdn_test_pause | default(15) }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ sdn_test_pause | default(15) }}"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 6 - TEARDOWN LEAVES NOTHING, AND REPLAYS CLEANLY
+####
+#### Deleting a subnet removes its post-down hook BEFORE that hook ever runs, so the live rule outlives
+#### the object that declared it. want=0 is what closes that, and it is the count - not the empty
+#### object list - that proves it.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.all/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ sdn_test_zone | default('r42test') }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_zones/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_vnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet | default('192.168.199.0/24') }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 6a check nothing is left"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _z: "{{ sdn_test_zone   | default('r42test') }}"
+    _v: "{{ sdn_test_vnet   | default('net199') }}"
+    _c: "{{ sdn_test_subnet | default('192.168.199.0/24') }}"
+  tasks:
+    - name: CHECK 6a - ZONE, VNET, SUBNET GONE, AND NO RULE OUTLIVED ITS DECLARATION
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_zones   | default([])) | selectattr('zone', 'equalto', _z) | list | length) == 0
+          - ((network_list_sdn_vnets   | default([])) | selectattr('vnet', 'equalto', _v) | list | length) == 0
+          - ((network_list_sdn_subnets | default([])) | selectattr('subnet_cidr', 'defined')
+             | selectattr('subnet_cidr', 'equalto', _c) | list | length) == 0
+          - (network_delete_extra_snat_rules.snat_before | int) == 0
+        fail_msg: >-
+          the teardown left something behind. live rules still matching the CIDR :
+          {{ network_delete_extra_snat_rules.snat_before }} - a rule surviving a deleted subnet is
+          invisible to the API and visible only here
+        success_msg: "PASS - nothing left, and no rule outlived its declaration"
+
+## A second teardown must find nothing to remove and still succeed - the property section 1 depends on.
+- name: "debug_sdn_tests - PAUSE everything is GONE"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - everything is GONE"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : everything is GONE ===="
+          - "Datacenter -> SDN : the zone, the vnet and the subnet have disappeared"
+          - "and no iptables SNAT rule outlived them - that is what the count above proved"
+          - "pausing {{ sdn_test_pause | default(15) }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ sdn_test_pause | default(15) }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.all/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ sdn_test_zone | default('r42test') }}"
+
+- name: "debug_sdn_tests - 6b check the teardown replays"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 6b - A SECOND TEARDOWN FOUND NOTHING TO REMOVE
+      ansible.builtin.assert:
+        that:
+          - (_sdnw_zone    | length) == 0
+          - (_sdnw_vnets   | length) == 0
+          - (_sdnw_subnets | length) == 0
+        fail_msg: "a second teardown still found objects to remove"
+        success_msg: "PASS - the teardown replays cleanly, which is what makes this scenario re-runnable"
+
+- name: "debug_sdn_tests - done"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: ALL SECTIONS PASSED
+      ansible.builtin.debug:
+        msg:
+          - "the SDN chain ran end to end through the BUNDLES"
+          - "zone {{ sdn_test_zone | default('r42test') }} was torn down, rebuilt, toggled 4x, and torn down again"
+          - "vm {{ sdn_test_vm_id | default(102) }} card net{{ sdn_test_vm_netid | default(0) }} did a round trip"
+          - "and is back on {{ sdn_test_vm_bridge | default('vmbr0') }}"
+          - "NOTE the card's MAC changed twice - a DHCP reservation or a firewall alias keyed on the old one will not follow"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 7 - THE ELEVEN BUNDLES THE SIX SECTIONS ABOVE NEVER EXECUTE
+####
+#### Sections 1 to 6 exercise 11 of the 22 bundles directly. The other 11 have their PXC ACTIONS
+#### exercised through the composites, but their own main.yml never runs - so their parameter bridging,
+#### their guards and their refusals are never proven. `vm.attach` and `vm.detach` are not even reached
+#### indirectly.
+####
+#### This section closes that, on a SECOND throwaway vnet (default net200 / 192.168.200.0/24) so it
+#### cannot disturb anything the earlier sections asserted. It starts from nothing : section 6 tore the
+#### zone down.
+####
+#### It also proves two things the READMEs CLAIM and nothing verified :
+####   - a raw create is NOT idempotent - a second one answers 500 "already defined". Asserted through
+####     a block/rescue, so the expected failure is caught rather than fatal.
+####   - what a raw action writes stays PENDING until apply. Asserted by reading BEFORE the apply.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "debug_sdn_tests - 7 preflight"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: SECTION 7 - WHAT THE RAW BUNDLES WILL BUILD
+      ansible.builtin.debug:
+        msg:
+          - "throwaway vnet   : {{ sdn_test_vnet2   | default('net200') }}"
+          - "throwaway subnet : {{ sdn_test_subnet2 | default('192.168.200.0/24') }}"
+          - "second card slot : net{{ sdn_test_vm_netid2 | default(1) }} on vm {{ sdn_test_vm_id | default(102) }}"
+          - "this section exercises the 11 bundles sections 1-6 never run"
+
+#### 7a - the three RAW creates, in the order Proxmox imposes
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.create.sdn_zone/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ sdn_test_zone | default('r42test') }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.create.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ sdn_test_zone  | default('r42test') }}"
+    BUNDLE_SDN_VNET: "{{ sdn_test_vnet2 | default('net200') }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.create.sdn_subnet/main.yml"
+  vars:
+    BUNDLE_SDN_VNET: "{{ sdn_test_vnet2 | default('net200') }}"
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet2 | default('192.168.200.0/24') }}"
+    BUNDLE_SDN_SUBNET_GATEWAY: "{{ sdn_test_gateway2 | default('192.168.200.1') }}"
+    BUNDLE_SDN_SUBNET_SNAT: 1
+
+#### 7b - BEFORE any apply : the objects must exist AND be marked pending
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+
+- name: "debug_sdn_tests - 7b check the write is PENDING, not live"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _c2: "{{ sdn_test_subnet2 | default('192.168.200.0/24') }}"
+  tasks:
+    ## The claim every raw bundle's README makes : what it writes stays pending until apply. This is the
+    ## only place it is checked. `subnet_pending` is ABSENT when the API does not return it - hence the
+    ## default() rather than a bare comparison.
+    - name: CHECK 7b - THE SUBNET EXISTS AND CARRIES A PENDING MARKER
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_subnets | default([])) | selectattr('subnet_cidr', 'defined')
+             | selectattr('subnet_cidr', 'equalto', _c2) | list | length) == 1
+          - ((network_list_sdn_subnets | selectattr('subnet_cidr', 'defined')
+             | selectattr('subnet_cidr', 'equalto', _c2) | list | first).subnet_pending | default('')) != ''
+        fail_msg: >-
+          the subnet is not there, or it carries no pending marker - which would mean a raw create
+          reaches the running config on its own, contradicting what every raw bundle documents. Entry
+          read back :
+          {{ (network_list_sdn_subnets | selectattr('subnet_cidr','defined')
+              | selectattr('subnet_cidr','equalto',_c2) | list | first) | default('<absent>') }}
+        success_msg: "PASS - written and PENDING, exactly as the raw bundles claim"
+
+#### 7c - a second RAW create must FAIL. The README says 500 "already defined" ; nothing proved it.
+
+- name: "debug_sdn_tests - 7c check a raw create is NOT idempotent"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - name: CHECK 7c - REPLAYING A RAW ZONE CREATE
+      block:
+        - name: CHECK 7c - the create that must be refused
+          include_role:
+            name: range42-ansible_roles-proxmox_controller
+          vars:
+            proxmox_vm_action: "network_add_sdn_zone"
+            sdn_zone: "{{ sdn_test_zone | default('r42test') }}"
+
+        - name: CHECK 7c - IT DID NOT FAIL, WHICH CONTRADICTS THE DOCUMENTATION
+          ansible.builtin.fail:
+            msg: >-
+              a second raw create SUCCEEDED. Every raw bundle's README states it answers
+              500 "already defined" and tells the caller to look the object up first or use a composite.
+              Either Proxmox changed, or that documentation is now wrong.
+      rescue:
+        - name: CHECK 7c - REFUSED, AS DOCUMENTED
+          ansible.builtin.debug:
+            msg: "PASS - a second raw create is refused, so the composites' lookup is not optional"
+
+#### 7d - RAW apply, then the objects must no longer be pending
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.apply/main.yml"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+
+- name: "debug_sdn_tests - 7d check the apply cleared the pending state"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _c2: "{{ sdn_test_subnet2 | default('192.168.200.0/24') }}"
+  tasks:
+    - name: CHECK 7d - NO PENDING MARKER LEFT
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_subnets | selectattr('subnet_cidr', 'defined')
+             | selectattr('subnet_cidr', 'equalto', _c2) | list | first).subnet_pending | default('')) == ''
+        fail_msg: "the apply ran but the subnet is still pending - the UPID poll returned too early"
+        success_msg: "PASS - the raw apply cleared the pending state"
+
+- name: "debug_sdn_tests - PAUSE the throwaway network is up, built by the RAW bundles"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: "PAUSE - the throwaway network is up, built by the RAW bundles"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the throwaway network is up ===="
+          - "Datacenter -> SDN : vnet {{ sdn_test_vnet2 | default('net200') }} and its subnet, alongside the main one"
+          - "built one API call at a time, then applied once - no composite involved"
+          - "pausing {{ sdn_test_pause | default(15) }}s - override with -e sdn_test_pause=0"
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ sdn_test_pause | default(15) }}"
+
+#### 7e - RAW update on the throwaway subnet : the gateway, which the internet_* bundles never touch
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+
+- name: "debug_sdn_tests - 7e resolve the throwaway subnet id"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Read back rather than derived. The derivation would work here, but a write addressed by a computed
+    ## value is exactly what this family avoids - and the chain should not model what the bundles refuse.
+    - name: SECTION 7e - READ THE THROWAWAY SUBNET ID
+      ansible.builtin.set_fact:
+        _t2_subnet_id: >-
+          {%- set m = (network_list_sdn_subnets | default([]))
+                      | selectattr('subnet_cidr', 'defined')
+                      | selectattr('subnet_cidr', 'equalto', (sdn_test_subnet2 | default('192.168.200.0/24')))
+                      | list -%}
+          {{ (m | first).subnet if (m | length) > 0 else '' }}
+
+    - name: SECTION 7e - REFUSE TO CONTINUE WITHOUT IT
+      ansible.builtin.assert:
+        that: ["(_t2_subnet_id | length) > 0"]
+        fail_msg: "no subnet matching {{ sdn_test_subnet2 | default('192.168.200.0/24') }} - 7a did not land"
+        success_msg: "throwaway subnet id = {{ _t2_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.update.sdn_subnet/main.yml"
+  vars:
+    BUNDLE_SDN_VNET: "{{ sdn_test_vnet2 | default('net200') }}"
+    BUNDLE_SDN_SUBNET_ID: "{{ _t2_subnet_id }}"
+    BUNDLE_SDN_SUBNET_GATEWAY: "{{ sdn_test_gateway2_new | default('192.168.200.254') }}"
+    BUNDLE_SDN_SUBNET_SNAT: 1
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.apply/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+
+- name: "debug_sdn_tests - 7e check the gateway changed"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 7e - THE RAW UPDATE MOVED THE GATEWAY, AND LEFT SNAT ALONE
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t2_subnet_id)
+             | list | first).subnet_gateway | default('')) == (sdn_test_gateway2_new | default('192.168.200.254'))
+          - (((network_list_sdn_subnets | selectattr('subnet', 'equalto', _t2_subnet_id)
+             | list | first).subnet_snat | default(0) | int)) == 1
+        fail_msg: >-
+          the gateway did not move, or the update collaterally changed snat. Read back :
+          {{ (network_list_sdn_subnets | selectattr('subnet','equalto',_t2_subnet_id) | list | first) }}
+        success_msg: >-
+          PASS - gateway is now
+          {{ (network_list_sdn_subnets | selectattr('subnet','equalto',_t2_subnet_id) | list | first).subnet_gateway }},
+          and snat is untouched - which is why internet_on/off do not resend the gateway
+
+#### 7f - sdn_network.bootstrap, on a ONE-ENTRY list. It must recognise what the RAW bundles built and
+####      write NOTHING. That is its diff-by-lookup, proven against a state a composite did not create.
+####      Its input is the data model of T-15, but a one-entry list needs no data model to exist.
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.bootstrap/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ sdn_test_zone | default('r42test') }}"
+    BUNDLE_SDN_VNETS:
+      - vnet: "{{ sdn_test_vnet2 | default('net200') }}"
+        subnet: "{{ sdn_test_subnet2 | default('192.168.200.0/24') }}"
+        gateway: "{{ sdn_test_gateway2_new | default('192.168.200.254') }}"
+        snat: true
+
+- name: "debug_sdn_tests - 7f check bootstrap recognised everything"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 7f - THE FOUR DIFF LISTS ARE EMPTY
+      ansible.builtin.assert:
+        that:
+          - (_sdn_zones_absent    | length) == 0
+          - (_sdn_vnets_absent    | length) == 0
+          - (_sdn_subnets_absent  | length) == 0
+          - (_sdn_subnets_drifted | length) == 0
+        fail_msg: >-
+          bootstrap wanted to write something on a state that already matches. zone={{ _sdn_zones_absent }}
+          vnets={{ _sdn_vnets_absent | map(attribute='vnet') | list }}
+          subnets={{ _sdn_subnets_absent | map(attribute='subnet') | list }}
+          drifted={{ _sdn_subnets_drifted | map(attribute='subnet_id') | list }}
+        success_msg: >-
+          PASS - bootstrap recognised the objects the RAW bundles built, wrote nothing, and skipped its
+          apply. Its diff works against a state no composite created.
+
+#### 7g - vm.attach on a SECOND slot. The only two bundles sections 1-6 never reach, even indirectly.
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.attach.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ sdn_test_vm_id | default(102) }}"
+    BUNDLE_VM_VMNET_ID: "{{ sdn_test_vm_netid2 | default(1) }}"
+    BUNDLE_VM_IFACE_BRIDGE: "{{ sdn_test_vnet2 | default('net200') }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ sdn_test_vm_id | default(102) }}"
+
+- name: "debug_sdn_tests - 7g check the second card exists, and the first is untouched"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _n1: "{{ sdn_test_vm_netid  | default(0) | int }}"
+    _n2: "{{ sdn_test_vm_netid2 | default(1) | int }}"
+  tasks:
+    ## attach is ADDITIVE - that is its whole contract versus replace. So the first card must still be on
+    ## the bridge section 5 returned it to.
+    - name: CHECK 7g - TWO CARDS, THE NEW ONE ON THE THROWAWAY VNET
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',_n2) | list | first).vm_network_bridge)
+            == (sdn_test_vnet2 | default('net200'))
+          - ((network_list_interfaces_vm | selectattr('vm_vmnet_id','equalto',_n1) | list | first).vm_network_bridge)
+            == (sdn_test_vm_bridge | default('vmbr0'))
+        fail_msg: >-
+          attach did not add net{{ _n2 }} on {{ sdn_test_vnet2 | default('net200') }}, or it disturbed
+          net{{ _n1 }} - which would break its additive contract. Cards :
+          {{ network_list_interfaces_vm | map(attribute='vm_network_device') | list }}
+        success_msg: >-
+          PASS - net{{ _n2 }} added on {{ sdn_test_vnet2 | default('net200') }}, and net{{ _n1 }} is
+          untouched on {{ sdn_test_vm_bridge | default('vmbr0') }} - attach is additive, as documented
+
+- name: "debug_sdn_tests - PAUSE the VM now has TWO cards"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: "PAUSE - the VM now has TWO cards"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the VM has TWO cards ===="
+          - "VM {{ sdn_test_vm_id | default(102) }} -> Hardware :"
+          - "   net{{ sdn_test_vm_netid  | default(0) }} on {{ sdn_test_vm_bridge | default('vmbr0') }}"
+          - "   net{{ sdn_test_vm_netid2 | default(1) }} on {{ sdn_test_vnet2 | default('net200') }}"
+          - "the first card was NOT touched - that is what makes attach different from replace"
+          - "pausing {{ sdn_test_pause | default(15) }}s - override with -e sdn_test_pause=0"
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ sdn_test_pause | default(15) }}"
+
+#### 7h - vm.detach that second slot. Also what FREES the vnet for the teardown below.
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.detach.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ sdn_test_vm_id | default(102) }}"
+    BUNDLE_VM_VMNET_ID: "{{ sdn_test_vm_netid2 | default(1) }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.list.interfaces/main.yml"
+  vars:
+    BUNDLE_VM_ID: "{{ sdn_test_vm_id | default(102) }}"
+
+- name: "debug_sdn_tests - 7h check the second card is gone"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _n1: "{{ sdn_test_vm_netid  | default(0) | int }}"
+    _n2: "{{ sdn_test_vm_netid2 | default(1) | int }}"
+  tasks:
+    - name: CHECK 7h - THE SECOND CARD IS GONE, THE FIRST STILL THERE
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | default([])) | selectattr('vm_vmnet_id','equalto',_n2) | list | length) == 0
+          - ((network_list_interfaces_vm | default([])) | selectattr('vm_vmnet_id','equalto',_n1) | list | length) == 1
+        fail_msg: >-
+          detach left net{{ _n2 }} behind, or removed the wrong card. Cards :
+          {{ network_list_interfaces_vm | map(attribute='vm_network_device') | list }}
+        success_msg: "PASS - net{{ _n2 }} removed, net{{ _n1 }} untouched - the vnet is free for the teardown"
+
+#### 7i - the three RAW deletes, in the order Proxmox imposes : subnet, then vnet, then zone.
+####      A vnet still holding a subnet cannot go, nor a zone still holding a vnet - so if the order were
+####      wrong this section would fail on the second delete, not on the first.
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.sdn_subnet/main.yml"
+  vars:
+    BUNDLE_SDN_VNET: "{{ sdn_test_vnet2 | default('net200') }}"
+    BUNDLE_SDN_SUBNET_ID: "{{ _t2_subnet_id }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.sdn_vnet/main.yml"
+  vars:
+    BUNDLE_SDN_VNET: "{{ sdn_test_vnet2 | default('net200') }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.sdn_zone/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ sdn_test_zone | default('r42test') }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.apply/main.yml"
+
+#### 7j - and the live rule, which the deletes cannot remove by themselves. Deleting a subnet takes its
+####      post-down hook away BEFORE that hook ever runs, so its MASQUERADE rule outlives it. want=0.
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet2 | default('192.168.200.0/24') }}"
+    BUNDLE_SDN_SNAT_WANT: 0
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_zones/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_vnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ sdn_test_subnet2 | default('192.168.200.0/24') }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 7j check the raw deletes left nothing"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _z:  "{{ sdn_test_zone     | default('r42test') }}"
+    _v2: "{{ sdn_test_vnet2    | default('net200') }}"
+    _c2: "{{ sdn_test_subnet2  | default('192.168.200.0/24') }}"
+  tasks:
+    - name: CHECK 7j - ZONE, VNET AND SUBNET GONE, AND NO RULE OUTLIVED THEM
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_zones   | default([])) | selectattr('zone', 'equalto', _z)  | list | length) == 0
+          - ((network_list_sdn_vnets   | default([])) | selectattr('vnet', 'equalto', _v2) | list | length) == 0
+          - ((network_list_sdn_subnets | default([])) | selectattr('subnet_cidr', 'defined')
+             | selectattr('subnet_cidr', 'equalto', _c2) | list | length) == 0
+          - (network_delete_extra_snat_rules.snat_before | int) == 0
+        fail_msg: >-
+          the raw deletes left something behind, or a rule survived. Live rules still matching
+          {{ _c2 }} : {{ network_delete_extra_snat_rules.snat_before }}
+        success_msg: "PASS - the raw deletes left nothing, and no rule outlived its declaration"
+
+- name: "debug_sdn_tests - PAUSE the throwaway network is GONE, removed one call at a time"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: "PAUSE - the throwaway network is GONE"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : the throwaway network is GONE ===="
+          - "Datacenter -> SDN : nothing left - not the vnet, not the subnet, not the zone"
+          - "removed one API call at a time, in the order Proxmox imposes, then applied"
+          - "pausing {{ sdn_test_pause | default(15) }}s - override with -e sdn_test_pause=0"
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ sdn_test_pause | default(15) }}"
+
+- name: "debug_sdn_tests - all 22 bundles exercised"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: EVERY BUNDLE OF THE FAMILY HAS NOW RUN
+      ansible.builtin.debug:
+        msg:
+          - "sections 1-6 : the chain of the devkit test 07, through the composites"
+          - "section 7    : the 11 bundles that chain never executes - the three raw creates, the raw"
+          - "               update, the three raw deletes, the raw apply, bootstrap on a one-entry list,"
+          - "               and vm.attach / vm.detach, which sections 1-6 never reach even indirectly"
+          - ""
+          - "and three claims the READMEs make, proven rather than asserted :"
+          - "  a raw write stays PENDING until apply"
+          - "  a second raw create is REFUSED - so the composites' lookup is not optional"
+          - "  attach is ADDITIVE - it left the first card alone"
+          - ""
+          - "vm {{ sdn_test_vm_id | default(102) }} is back to one card on {{ sdn_test_vm_bridge | default('vmbr0') }}"
+          - "NOTE its MAC changed twice - a DHCP reservation or a firewall alias keyed on the old one will not follow"

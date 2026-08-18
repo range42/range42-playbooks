@@ -1,0 +1,12 @@
+---
+##
+## debug_sdn_tests - tier 03 - stage 01 (vm_configure)
+##
+## The SDN chain itself : six sections replaying the devkit test 07 through the bundles.
+##
+## It sits under stage_01 rather than stage_00 because it CONFIGURES - it drives network objects and a
+## VM card - and because the day this scenario creates its own VM, that creation belongs to stage_00
+## and must have happened before this runs.
+##
+
+- import_playbook: ./stage_01-vm_configure/_sdn_chain_tests.yml

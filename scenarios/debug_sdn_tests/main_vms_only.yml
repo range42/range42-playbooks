@@ -1,0 +1,23 @@
+---
+##
+## debug_sdn_tests - main_vms_only playbook
+##
+## Structure : same multi-level pattern as main.yml, minus 01_templates-bootstrap.
+##
+## For this scenario the two are equivalent today : it builds no template and creates no VM, so
+## skipping 01 skips a documented no-op. The file exists so `range42-context deploy-vms` has the same
+## entry point here as on every other scenario, and so it keeps working unchanged the day this
+## scenario creates its own VM.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./03_sdn_tests_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./03_sdn_tests_infrastructure/_main_stage_01.yml

@@ -1,0 +1,28 @@
+---
+##
+## debug_sdn_tests - tier 03 - stage 00 (vm_bootstrap)
+##
+## NO VM IS CREATED TODAY. This scenario reuses an existing one - the sdn_test_vm_id parameter,
+## default 102 - and moves one of its network cards onto the test vnet and back.
+##
+## The play below is a deliberate no-op that RESTATES which VM the run will touch, because that VM is
+## not declared in this scenario's manifest and would otherwise be invisible until section 5 moves its
+## card. It also states the consequence plainly : the card is deleted and recreated, so its MAC changes.
+##
+## When this scenario gains its own VM, the per-VM vm.bootstrap import goes in
+## stage_00-vm_bootstrap/ and this file imports it, exactly as every other tier does.
+##
+
+- name: "debug_sdn_tests - 03 stage 00 (no VM created)"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: STAGE 00 - WHICH VM THIS RUN WILL TOUCH, AND HOW
+      ansible.builtin.debug:
+        msg:
+          - "no VM is created by this scenario - it REUSES an existing one"
+          - "vm id  : {{ sdn_test_vm_id | default(102) }}"
+          - "card   : net{{ sdn_test_vm_netid | default(0) }}"
+          - "moved onto {{ sdn_test_vnet | default('net199') }}, then back to {{ sdn_test_vm_bridge | default('vmbr0') }}"
+          - "WARNING the card is deleted and recreated, so its MAC changes - twice over the round trip"
+          - "never point this scenario at a VM you reach THROUGH that card"
