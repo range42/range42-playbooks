@@ -1,12 +1,10 @@
 # blank_scenario_2_sdn
 
-> **This README is inherited from `blank_scenario_2_subnets` and is NOT up to date.**
-> It still describes the `vmbrXXX` topology. Content will be updated once the scenario runs.
->
-> **At this commit the VMs still attach to `vmbrXXX`, not to the vnets.** The SDN networks are
-> created by `00_sdn_bootstrap/`, but the call sites have not been switched over yet.
+> **This README is inherited from `blank_scenario_2_subnets` and is NOT fully up to date.**
+> The bridge names have been switched to vnets, the rest of the prose has not been reviewed.
+> Content will be updated once the scenario runs.
 
-Multi-subnet lab with 4 team VMs on 2 subnets (vmbr143 + vmbr144) plus an
+Multi-subnet lab with 4 team VMs on 2 subnets (net143 + net144) plus an
 admin platform (3 always-on deployer VMs + 2 optional admin VMs gated by
 feature flags). Bundle-driven shape (mirror of `kunai_lab` /
 `demo_lab`).
@@ -28,7 +26,7 @@ Anchor scenario for `blank_scenario_4_subnets` + `blank_scenario_6_subnets`
                                           |
               +---------------+-----------+-----------+
               |               |                       |
-           vmbr142          vmbr143                vmbr144
+           net142          net143                net144
         (admin band)     (team subnet 1)        (team subnet 2)
               |               |                       |
    +----------+-------+   +---+---+               +---+---+
@@ -46,15 +44,15 @@ Anchor scenario for `blank_scenario_4_subnets` + `blank_scenario_6_subnets`
 
 | VM Name                              | VM ID | IP              | Bridge  | Template                            | Gated by         |
 |--------------------------------------|-------|-----------------|---------|-------------------------------------|------------------|
-| bs2-team-143-01                      | 2001  | 192.168.143.200 | vmbr143 | template-vm-small-01-4g-32g (9221)  | always created   |
-| bs2-team-143-02                      | 2002  | 192.168.143.201 | vmbr143 | template-vm-small-01-4g-32g (9221)  | always created   |
-| bs2-team-144-01                      | 2003  | 192.168.144.200 | vmbr144 | template-vm-small-01-4g-32g (9221)  | always created   |
-| bs2-team-144-02                      | 2004  | 192.168.144.201 | vmbr144 | template-vm-small-01-4g-32g (9221)  | always created   |
-| bs2-admin-deployer-api-gateway       | 2121  | 192.168.142.121 | vmbr142 | template-vm-small-01-4g-32g (9221)  | always created   |
-| bs2-admin-deployer-api-backend       | 2122  | 192.168.142.122 | vmbr142 | template-vm-small-01-4g-32g (9221)  | always created   |
-| bs2-admin-deployer-ui                | 2123  | 192.168.142.123 | vmbr142 | template-vm-small-01-4g-32g (9221)  | always created   |
-| bs2-admin-wazuh                      | 2120  | 192.168.142.120 | vmbr142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_WAZUH`  |
-| bs2-admin-misp                       | 2124  | 192.168.142.124 | vmbr142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_MISP`   |
+| bs2-team-143-01                      | 2001  | 192.168.143.200 | net143 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-team-143-02                      | 2002  | 192.168.143.201 | net143 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-team-144-01                      | 2003  | 192.168.144.200 | net144 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-team-144-02                      | 2004  | 192.168.144.201 | net144 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-admin-deployer-api-gateway       | 2121  | 192.168.142.121 | net142 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-admin-deployer-api-backend       | 2122  | 192.168.142.122 | net142 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-admin-deployer-ui                | 2123  | 192.168.142.123 | net142 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-admin-wazuh                      | 2120  | 192.168.142.120 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_WAZUH`  |
+| bs2-admin-misp                       | 2124  | 192.168.142.124 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_MISP`   |
 
 Source of truth : `manifest/scenario_vms.json`.
 

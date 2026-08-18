@@ -19,3 +19,7 @@
     manifest_path:       "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/scenarios/blank_scenario_2_sdn/manifest/scenario_vms.json"
     template_bundle_dir: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.ubuntu_noble"
     templates_whitelist: ["small-01", "medium-02"]
+    #### the templating network is an SDN vnet here, not vmbr140. The bundle defaults to vmbr140,
+    #### so this line is what actually puts the build on SDN - without it the templates are built
+    #### on the legacy bridge and the scenario is only half migrated.
+    template_net_bridge: "net140"
