@@ -10,20 +10,39 @@
 ## second run is a no-op. A vnet name is GLOBAL TO THE CLUSTER - deleting one here would take away
 ## a network other scenarios attach to.
 ##
+## The vnet list is declared ONCE below and passed to both bundles, so they cannot drift apart.
+##
 ## Isolation between these subnets is NOT set up : they reach each other, the host routes. Expected
 ## state for this scenario, not a defect.
 ##
 
+- name: "blank_scenario_2_sdn - 00 declare the networks, once"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## A fact rather than a literal repeated at each import : the two bundles below must read the
+    ## SAME list, or one could create a vnet the other does not free.
+    - name: SDN BOOTSTRAP - THE NETWORKS THIS SCENARIO RUNS ON
+      ansible.builtin.set_fact:
+        _sdn_vnets:
+          - { vnet: "net140", subnet: "192.168.140.0/24", gateway: "192.168.140.1", snat: true }   # templating, apt
+          - { vnet: "net142", subnet: "192.168.142.0/24", gateway: "192.168.142.1", snat: true }   # admin
+          - { vnet: "net143", subnet: "192.168.143.0/24", gateway: "192.168.143.1", snat: true }   # team
+          - { vnet: "net144", subnet: "192.168.144.0/24", gateway: "192.168.144.1", snat: true }   # team
+
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.bootstrap/main.yml"
   vars:
     BUNDLE_SDN_ZONE: "r42zone"
-    BUNDLE_SDN_VNETS:
-      - { vnet: "net140", subnet: "192.168.140.0/24", gateway: "192.168.140.1", snat: true }   # templating, apt
-      - { vnet: "net142", subnet: "192.168.142.0/24", gateway: "192.168.142.1", snat: true }   # admin
-      - { vnet: "net143", subnet: "192.168.143.0/24", gateway: "192.168.143.1", snat: true }   # team
-      - { vnet: "net144", subnet: "192.168.144.0/24", gateway: "192.168.144.1", snat: true }   # team
+    BUNDLE_SDN_VNETS: "{{ _sdn_vnets }}"
 
-#### AFTER the bootstrap, never before : the apply above runs `ifreload -a`, which would restore
-#### the very addresses this frees. Workaround, not a fix - see the file's header.
+#### AFTER the bootstrap, never before : the apply above runs `ifreload -a`, which would restore the
+#### very addresses this frees. Runtime only - the durable counterpart is
+#### legacy_bridge.cleaning.shadowed_subnet, which edits /etc/network/interfaces and is NOT called
+#### from a scenario : a deployment should not rewrite the hypervisor's network config as a side
+#### effect. Run it deliberately, once per host, when the legacy bridges are to go for good.
+####
+#### On a clean host this is a silent no-op.
 
-- import_playbook: ./_workaround-legacy_bridge_address_conflict.yml
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/legacy_bridge.workaround.shadowed_subnet/main.yml"
+  vars:
+    BUNDLE_SDN_VNETS: "{{ _sdn_vnets }}"
