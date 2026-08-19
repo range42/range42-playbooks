@@ -1,0 +1,34 @@
+---
+bundle: proxmox/legacy_bridge.workaround.shadowed_subnet
+
+description: Frees a vnet's subnet from the legacy vmbr bridge that shadows it - RUNTIME only, undone by ifreload
+
+optional: false
+
+params:
+  - name: BUNDLE_SDN_VNETS
+    type: list
+    required: true
+    default_where: none
+    items: "{ vnet: string, subnet: string (CIDR), gateway: string (optional), snat: bool (optional) }"
+    description: >-
+      The declared networks, in the SAME shape as sdn_network.bootstrap takes - a caller declares its
+      vnets once and passes the same list to both. The legacy bridge and the address to free are
+      DERIVED from each entry (netNNN -> vmbrNNN, and the declared gateway or the subnet's .1), never
+      passed separately, which would let the two lists drift apart.
+
+  - name: BUNDLE_LEGACY_SKIP
+    type: bool
+    required: false
+    default_where: bundle-inline
+    default: false
+    description: >-
+      Skip the whole bundle. For a host whose legacy bridges are gone for good, where this has nothing
+      left to do and its detection pass is pure noise.
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: Proxmox node the addresses are read and edited on, resolved from the scenario vault

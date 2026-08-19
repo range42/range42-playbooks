@@ -1,0 +1,49 @@
+---
+bundle: proxmox/legacy_bridge.cleaning.shadowed_subnet
+
+description: Removes from /etc/network/interfaces the legacy vmbr lines that shadow a vnet's subnet - DURABLE
+
+optional: false
+
+params:
+  - name: BUNDLE_SDN_VNETS
+    type: list
+    required: true
+    default_where: none
+    items: "{ vnet: string, subnet: string (CIDR), gateway: string (optional), snat: bool (optional) }"
+    description: >-
+      The declared networks, in the SAME shape as sdn_network.bootstrap takes. The legacy bridge and
+      the address to remove are DERIVED from each entry (netNNN -> vmbrNNN, and the declared gateway
+      or the subnet's .1), never passed separately.
+
+  - name: BUNDLE_LEGACY_BUNDLE_DIR
+    type: string
+    required: true
+    default_where: none
+    description: >-
+      Absolute path to this bundle's own directory, used to find disarm_legacy_bridge.sh and drop it
+      on the hypervisor. Same shape as template_bundle_dir on the template build bundle.
+
+  - name: BUNDLE_LEGACY_ASSUME_YES
+    type: bool
+    required: false
+    default_where: bundle-inline
+    default: false
+    description: >-
+      Skip the confirmation prompt. The prompt only appears when the detection pass found something to
+      remove, so a clean host never blocks on it - this flag is for a non-interactive run that has
+      already been reviewed.
+
+  - name: BUNDLE_LEGACY_SKIP
+    type: bool
+    required: false
+    default_where: bundle-inline
+    default: false
+    description: Skip the whole bundle, leaving /etc/network/interfaces untouched
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: Proxmox node whose /etc/network/interfaces is edited, resolved from the scenario vault

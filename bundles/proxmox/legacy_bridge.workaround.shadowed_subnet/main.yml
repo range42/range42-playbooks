@@ -1,0 +1,197 @@
+####
+# legacy_bridge.workaround.shadowed_subnet - free a vnet's subnet from the legacy bridge that
+# shadows it. RUNTIME ONLY. Details : see README.md.
+#
+# THE ONE THING NOT TO BREAK HERE : this is `ip addr del`, nothing else. It writes nothing to disk,
+# so `ifreload -a` - which every SDN apply runs - puts the address back. Placed BEFORE an apply it
+# is undone in the same second. Its durable counterpart is legacy_bridge.cleaning.shadowed_subnet.
+#
+# Takes the SAME BUNDLE_SDN_VNETS as sdn_network.bootstrap, so a caller declares its networks once.
+# The legacy bridge and the address are DERIVED from each entry - netNNN -> vmbrNNN, and the .1 of
+# the declared subnet - never passed separately, which would let the two lists drift.
+####
+
+- name: "legacy_bridge.workaround.shadowed_subnet"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: LEGACY WORKAROUND - WHAT THIS RUN WILL LOOK AT
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "vnets        : {{ BUNDLE_SDN_VNETS | map(attribute='vnet') | join(' ') }}"
+          - "runtime only : ifreload -a puts these addresses back"
+
+    - name: LEGACY WORKAROUND - SKIPPED ON DEMAND
+      ansible.builtin.debug:
+        msg: "BUNDLE_LEGACY_SKIP is true - the legacy bridges keep their addresses"
+      when: BUNDLE_LEGACY_SKIP | default(false) | bool
+
+    #### the derivation, once, so every task below reads the same thing
+    - name: LEGACY WORKAROUND - DERIVE THE BRIDGE AND ADDRESS OF EACH DECLARED VNET
+      ansible.builtin.set_fact:
+        _lw_pairs: >-
+          {%- set out = [] -%}
+          {%- for v in BUNDLE_SDN_VNETS -%}
+          {%-   set n = v.vnet | regex_replace('^net', '') -%}
+          {%-   set _ = out.append({
+                  'vnet':   v.vnet,
+                  'legacy': 'vmbr' ~ n,
+                  'cidr':   (v.gateway | default('192.168.' ~ n ~ '.1')) ~ '/'
+                            ~ (v.subnet | regex_replace('^.*/', ''))
+                }) -%}
+          {%- endfor -%}
+          {{ out }}
+      when: not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+
+    - name: LEGACY WORKAROUND - THE HYPERVISOR MUST BE REACHABLE OVER SSH
+      ansible.builtin.assert:
+        that:
+          - (groups['proxmox_cli'] | default([]) | length) > 0
+        fail_msg: >-
+          this edits addresses ON THE HYPERVISOR through the proxmox_cli group. Without it the
+          commands would run on the deployer, report success, and change nothing there.
+        success_msg: "will run on {{ groups['proxmox_cli'] | first }}"
+      when: not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+
+    #### #### ####
+    #
+    # 1. DETECT. A bridge may be absent, or already free : on a CLEAN host that is the normal answer
+    #    and not a failure. Nothing is reported to the operator unless there is something to do.
+    #
+    - name: LEGACY WORKAROUND - WHICH DECLARED SUBNETS ARE SHADOWED
+      ansible.builtin.shell: |
+        set -u
+        for p in {{ _lw_pairs | map(attribute='legacy') | zip(_lw_pairs | map(attribute='cidr')) | map('join', '=') | join(' ') }} ; do
+          b="${p%%=*}" ; a="${p#*=}"
+          ip link show "$b" >/dev/null 2>&1 || continue
+          ip -4 -o addr show dev "$b" | grep -q " $a " && printf '%s %s\n' "$b" "$a"
+        done
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "/usr/sbin:/sbin:/usr/bin:/bin"
+      register: _lw_shadowed
+      changed_when: false
+      delegate_to: "{{ groups['proxmox_cli'] | first }}"
+      when: not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+
+    - name: LEGACY WORKAROUND - NOTHING IS SHADOWED, THIS HOST IS CLEAN
+      ansible.builtin.debug:
+        msg: "no legacy bridge carries a declared vnet's address - nothing to do"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lw_shadowed.stdout | default('') | trim | length) == 0
+
+    - name: LEGACY WORKAROUND - WHAT IS SHADOWED
+      ansible.builtin.debug:
+        var: _lw_shadowed.stdout_lines
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lw_shadowed.stdout | default('') | trim | length) > 0
+
+    #### #### ####
+    #
+    # 2. THE GUARD THAT MATTERS. A RUNNING VM on one of these bridges loses its gateway the moment
+    #    the address goes. If that VM is the deployer, this play dies with it and the operator loses
+    #    access mid-run. Refuse, and name exactly what is attached.
+    #
+    - name: LEGACY WORKAROUND - IS A LIVE VM ATTACHED TO A BRIDGE WE WOULD STRIP
+      ansible.builtin.shell: |
+        set -u
+        hits=""
+        for b in {{ _lw_pairs | map(attribute='legacy') | join(' ') }} ; do
+          ip -4 -o addr show dev "$b" 2>/dev/null | grep -q . || continue
+          for tap in $(ip -br link show master "$b" 2>/dev/null | awk '{print $1}') ; do
+            case "$tap" in tap*) hits="${hits} ${b}:${tap}" ;; esac
+          done
+        done
+        printf '%s\n' "${hits# }"
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "/usr/sbin:/sbin:/usr/bin:/bin"
+      register: _lw_attached
+      changed_when: false
+      delegate_to: "{{ groups['proxmox_cli'] | first }}"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lw_shadowed.stdout | default('') | trim | length) > 0
+
+    - name: LEGACY WORKAROUND - REFUSE RATHER THAN CUT A LIVE VM OFF
+      ansible.builtin.assert:
+        that:
+          - (_lw_attached.stdout | trim | length) == 0
+        fail_msg: >-
+          these bridges still carry a running VM's interface : {{ _lw_attached.stdout | trim }}.
+          Taking their address away would cut that VM off - and if it is the deployer, this play
+          with it. Move or stop those VMs first, or pass -e BUNDLE_LEGACY_SKIP=true.
+        success_msg: "no running VM is attached to the bridges to strip"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lw_shadowed.stdout | default('') | trim | length) > 0
+
+    #### #### ####
+    #
+    # 3. FREE IT, one bridge at a time, and only where the address is really there.
+    #
+    - name: LEGACY WORKAROUND - FREE THE SUBNET FROM THE LEGACY BRIDGE
+      ansible.builtin.shell: |
+        set -u
+        b='{{ item.legacy }}'
+        a='{{ item.cidr }}'
+        ip link show "$b" >/dev/null 2>&1 || { echo "absent:$b" ; exit 0 ; }
+        ip -4 -o addr show dev "$b" | grep -q " $a " || { echo "already-free:$b" ; exit 0 ; }
+        ip addr del "$a" dev "$b" || { echo "refused:$b" ; exit 1 ; }
+        echo "freed:$b"
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "/usr/sbin:/sbin:/usr/bin:/bin"
+      register: _lw_done
+      changed_when: "'freed:' in _lw_done.stdout"
+      delegate_to: "{{ groups['proxmox_cli'] | first }}"
+      loop: "{{ _lw_pairs }}"
+      loop_control:
+        label: "{{ item.legacy }} {{ item.cidr }}"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lw_shadowed.stdout | default('') | trim | length) > 0
+
+    #### #### ####
+    #
+    # 4. PROVE IT. Each declared subnet must now leave through its vnet and not through the bridge
+    #    that was shadowing it. This is the check the whole bundle exists for.
+    #
+    - name: LEGACY WORKAROUND - WHICH DEVICE EACH SUBNET NOW LEAVES THROUGH
+      ansible.builtin.shell: |
+        set -u
+        for v in {{ BUNDLE_SDN_VNETS | map(attribute='subnet') | join(' ') }} ; do
+          probe="$(echo "$v" | cut -d/ -f1 | sed 's/\.0$/.2/')"
+          dev=$(ip route get "$probe" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}')
+          printf '%s -> %s\n' "$v" "${dev:-NONE}"
+        done
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "/usr/sbin:/sbin:/usr/bin:/bin"
+      register: _lw_routes
+      changed_when: false
+      delegate_to: "{{ groups['proxmox_cli'] | first }}"
+      when: not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+
+    - name: LEGACY WORKAROUND - EVERY DECLARED SUBNET LEAVES THROUGH ITS VNET
+      ansible.builtin.assert:
+        that:
+          - (_lw_routes.stdout_lines | select('search', 'vmbr') | list | length) == 0
+          - (_lw_routes.stdout_lines | select('search', 'NONE') | list | length) == 0
+        fail_msg: >-
+          a subnet still leaves through a legacy bridge, or through nothing at all :
+          {{ _lw_routes.stdout_lines }}
+        success_msg: "{{ _lw_routes.stdout_lines }}"
+      when: not (BUNDLE_LEGACY_SKIP | default(false) | bool)

@@ -1,0 +1,192 @@
+####
+# legacy_bridge.cleaning.shadowed_subnet - remove, from disk, the legacy bridge lines that shadow a
+# vnet's subnet. DURABLE, unlike its workaround counterpart. Details : see README.md.
+#
+# THE ONE THING NOT TO BREAK HERE : the confirmation must stay conditioned on the DETECTION. On a
+# clean host nothing is detected, nothing is asked, nothing is printed - so a scenario deploy is
+# never interrupted by this bundle. Ask first and every clean deployment blocks on a prompt.
+#
+# The removal itself is `disarm_legacy_bridge.sh`, shipped here and dropped on the hypervisor, NOT
+# an inline awk : under Ansible an awk crosses Jinja + YAML + shell + awk, four levels of escaping,
+# and one quoting mistake edits the wrong line of the hypervisor's network config.
+#
+# Takes the SAME BUNDLE_SDN_VNETS as sdn_network.bootstrap, so a caller declares its networks once.
+####
+
+- name: "legacy_bridge.cleaning.shadowed_subnet"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    _lc_script_src: "{{ BUNDLE_LEGACY_BUNDLE_DIR }}/disarm_legacy_bridge.sh"
+    _lc_script_dst: "/tmp/range42-disarm_legacy_bridge.sh"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: LEGACY CLEANING - WHAT THIS RUN WILL LOOK AT
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "vnets        : {{ BUNDLE_SDN_VNETS | map(attribute='vnet') | join(' ') }}"
+          - "DURABLE      : this edits /etc/network/interfaces on the hypervisor"
+
+    - name: LEGACY CLEANING - SKIPPED ON DEMAND
+      ansible.builtin.debug:
+        msg: "BUNDLE_LEGACY_SKIP is true - /etc/network/interfaces is left alone"
+      when: BUNDLE_LEGACY_SKIP | default(false) | bool
+
+    - name: LEGACY CLEANING - THE HYPERVISOR MUST BE REACHABLE OVER SSH
+      ansible.builtin.assert:
+        that:
+          - (groups['proxmox_cli'] | default([]) | length) > 0
+        fail_msg: >-
+          this edits /etc/network/interfaces ON THE HYPERVISOR through the proxmox_cli group.
+          Without it the script would run on the deployer and edit the wrong host's network config.
+        success_msg: "will run on {{ groups['proxmox_cli'] | first }}"
+      when: not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+
+    #### the derivation, identical to the workaround bundle : netNNN -> vmbrNNN, and the declared .1
+    - name: LEGACY CLEANING - DERIVE THE BRIDGE AND ADDRESS OF EACH DECLARED VNET
+      ansible.builtin.set_fact:
+        _lc_pairs: >-
+          {%- set out = [] -%}
+          {%- for v in BUNDLE_SDN_VNETS -%}
+          {%-   set n = v.vnet | regex_replace('^net', '') -%}
+          {%-   set _ = out.append({
+                  'vnet':   v.vnet,
+                  'legacy': 'vmbr' ~ n,
+                  'cidr':   (v.gateway | default('192.168.' ~ n ~ '.1')) ~ '/'
+                            ~ (v.subnet | regex_replace('^.*/', ''))
+                }) -%}
+          {%- endfor -%}
+          {{ out }}
+      when: not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+
+    #### #### ####
+    #
+    # 1. SHIP THE SCRIPT. Same pattern as template.build.ubuntu_noble's snippet : dropped on the
+    #    hypervisor, used, removed. It never stays behind.
+    #
+    - name: LEGACY CLEANING - DROP THE DISARM SCRIPT ON THE HYPERVISOR
+      ansible.builtin.copy:
+        src: "{{ _lc_script_src }}"
+        dest: "{{ _lc_script_dst }}"
+        mode: "0700"
+      delegate_to: "{{ groups['proxmox_cli'] | first }}"
+      when: not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+
+    #### #### ####
+    #
+    # 2. DETECT, by running the script in --dry-run. It prints `nothing-to-do:` when there is nothing
+    #    to remove, which is the normal answer on a clean host.
+    #
+    - name: LEGACY CLEANING - WHAT WOULD BE REMOVED, PER BRIDGE
+      ansible.builtin.command:
+        cmd: "{{ _lc_script_dst }} {{ item.legacy }} {{ item.cidr }} --dry-run"
+      register: _lc_probe
+      changed_when: false
+      failed_when: _lc_probe.rc not in [0]
+      delegate_to: "{{ groups['proxmox_cli'] | first }}"
+      loop: "{{ _lc_pairs }}"
+      loop_control:
+        label: "{{ item.legacy }} {{ item.cidr }}"
+      when: not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+
+    - name: LEGACY CLEANING - WHICH BRIDGES ACTUALLY NEED DISARMING
+      ansible.builtin.set_fact:
+        _lc_todo: >-
+          {{ (_lc_probe.results | default([]))
+             | rejectattr('skipped', 'defined')
+             | rejectattr('stdout', 'search', 'nothing-to-do:')
+             | map(attribute='item') | list }}
+      when: not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+
+    - name: LEGACY CLEANING - NOTHING TO DISARM, THIS HOST IS CLEAN
+      ansible.builtin.debug:
+        msg: "no legacy bridge holds a declared subnet's address or NAT rule - nothing to do"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lc_todo | default([]) | length) == 0
+
+    #### #### ####
+    #
+    # 3. ASK, and ONLY here. Reached only when step 2 found something, so a clean host never sees a
+    #    prompt. The script's own --yes guard refuses when there is no terminal, so the question has
+    #    to be asked HERE, on the deployer's console where the operator is.
+    #
+    - name: LEGACY CLEANING - SHOW WHAT WILL BE REMOVED, THEN ASK
+      ansible.builtin.debug:
+        msg: "{{ (_lc_probe.results | rejectattr('skipped', 'defined') | rejectattr('stdout', 'search', 'nothing-to-do:') | map(attribute='stdout_lines') | list) }}"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lc_todo | default([]) | length) > 0
+
+    - name: LEGACY CLEANING - CONFIRM BEFORE EDITING THE HYPERVISOR NETWORK CONFIG
+      ansible.builtin.pause:
+        prompt: >-
+          The lines above will be removed from /etc/network/interfaces on
+          {{ groups['proxmox_cli'] | first }}, on {{ _lc_todo | length }} bridge(s). A timestamped
+          backup is taken first and its path printed. Type y to proceed, anything else to abort
+      register: _lc_answer
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lc_todo | default([]) | length) > 0
+        - not (BUNDLE_LEGACY_ASSUME_YES | default(false) | bool)
+
+    - name: LEGACY CLEANING - ABORTED ON YOUR ANSWER
+      ansible.builtin.fail:
+        msg: "aborted - nothing was written to /etc/network/interfaces"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lc_todo | default([]) | length) > 0
+        - not (BUNDLE_LEGACY_ASSUME_YES | default(false) | bool)
+        - (_lc_answer.user_input | default('') | lower) not in ['y', 'yes']
+
+    #### #### ####
+    #
+    # 4. DISARM. `--yes` because the question has just been asked above - the script's guard exists
+    #    for the case where a human runs it by hand, not for this path.
+    #
+    - name: LEGACY CLEANING - DISARM THE BRIDGE ON DISK
+      ansible.builtin.command:
+        cmd: "{{ _lc_script_dst }} {{ item.legacy }} {{ item.cidr }} --yes"
+      register: _lc_done
+      changed_when: "'disarmed:' in _lc_done.stdout"
+      delegate_to: "{{ groups['proxmox_cli'] | first }}"
+      loop: "{{ _lc_todo | default([]) }}"
+      loop_control:
+        label: "{{ item.legacy }} {{ item.cidr }}"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lc_todo | default([]) | length) > 0
+
+    - name: LEGACY CLEANING - WHAT WAS REMOVED, AND WHERE THE BACKUPS ARE
+      ansible.builtin.debug:
+        msg: "{{ (_lc_done.results | default([])) | rejectattr('skipped', 'defined') | map(attribute='stdout_lines') | list }}"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lc_todo | default([]) | length) > 0
+
+    #### #### ####
+    #
+    # 5. THE SCRIPT NEVER STAYS BEHIND. Removed whether or not anything was disarmed.
+    #
+    - name: LEGACY CLEANING - REMOVE THE DISARM SCRIPT FROM THE HYPERVISOR
+      ansible.builtin.file:
+        path: "{{ _lc_script_dst }}"
+        state: absent
+      delegate_to: "{{ groups['proxmox_cli'] | first }}"
+      when: not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+
+    #### the live address and rules are NOT this bundle's job : the declaration still holds them.
+    #### Run sdn_network.bootstrap (or the workaround bundle) after this to reconcile the live state.
+    - name: LEGACY CLEANING - WHAT REMAINS TO BE DONE
+      ansible.builtin.debug:
+        msg:
+          - "the disk is clean : no ifreload can restore those lines"
+          - "the LIVE address and rules were not touched - reconcile them with sdn_network.bootstrap"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lc_todo | default([]) | length) > 0
