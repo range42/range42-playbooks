@@ -22,3 +22,8 @@
       - { vnet: "net142", subnet: "192.168.142.0/24", gateway: "192.168.142.1", snat: true }   # admin
       - { vnet: "net143", subnet: "192.168.143.0/24", gateway: "192.168.143.1", snat: true }   # team
       - { vnet: "net144", subnet: "192.168.144.0/24", gateway: "192.168.144.1", snat: true }   # team
+
+#### AFTER the bootstrap, never before : the apply above runs `ifreload -a`, which would restore
+#### the very addresses this frees. Workaround, not a fix - see the file's header.
+
+- import_playbook: ./_workaround-legacy_bridge_address_conflict.yml
