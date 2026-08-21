@@ -41,6 +41,18 @@ Source of truth : `manifest/scenario_vms.json`.
 
 Project convention : last 3 digits of VMID match the IP last octet (1180 -> .180, 1187 -> .187).
 
+## Narrative world
+
+`manifest/world.json` binds the two catalog-provisioned MISP training events to the neutral
+Nacre world from MISP's Synthetic Exercise World Format. It records stable MISP UUIDs for
+each storyline's country, victim company, and threat actor, plus the exact upstream cluster
+commit and SHA-256 used by `range42-catalog`.
+
+This manifest is narrative metadata only. It is deliberately separate from
+`scenario_vms.json` and does not affect inventory, VMIDs, networking, feature flags, or the
+Ansible deployment path. Consumers should resolve entities by UUID and treat `value` as a
+display snapshot.
+
 ## Feature flags
 
 See `manifest/feature_flags.yml`. All flags default to `NO`.
@@ -84,6 +96,7 @@ misp_lab/
   manifest/
     scenario_vms.json                 source of truth for VMID / IP / bridge
     feature_flags.yml                 INSTALL_WAZUH (default NO) + INSTALL_TAILSCALE
+    world.json                        Nacre + storyline entity UUID bindings (narrative only)
   README.md
   6 wrapper scripts (see table above)
   01_templates-bootstrap/             Ubuntu noble cloud-init image + template 9232
