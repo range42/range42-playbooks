@@ -77,7 +77,11 @@ stanza_of() {
 }
 
 STANZA="$(stanza_of)"
-HAS_ADDR=$(printf '%s\n' "$STANZA" | grep -cF -- " ${ADDR}" || true)
+## ANCHORED ON THE address KEYWORD, not a plain search for the cidr. The cidr also appears inside
+## the NAT lines as `-s <cidr>`, so a fixed-string search counted them a second time : 3 instead of
+## 1 on a real stanza, and the line arithmetic below then refused a correct rewrite. This matches
+## exactly what the awk removal matches - first field `address`, second field the cidr.
+HAS_ADDR=$(printf '%s\n' "$STANZA" | grep -cE "^[[:space:]]*address[[:space:]]+${ADDR//./\\.}([[:space:]]|$)" || true)
 HAS_NAT=$(printf '%s\n' "$STANZA"  | grep -cE 'MASQUERADE|-j[[:space:]]+SNAT' || true)
 
 if [ "$HAS_ADDR" -eq 0 ] && [ "$HAS_NAT" -eq 0 ]; then
@@ -172,7 +176,11 @@ fi
 #
 # 5. BACK UP, THEN MOVE. The backup path is printed so a rollback is a `cp`, not a reconstruction.
 #
-BACKUP="${INTERFACES}.range42-$(date -u +%Y%m%dT%H%M%SZ).bak"
+## THE BRIDGE NAME IS IN THERE, and it is not decoration. The caller runs this once per bridge,
+## and four runs land inside the same second : with a timestamp alone they all share one filename
+## and overwrite each other - measured, 4 bridges produced 2 backups. The earliest still held the
+## pristine file, so rollback worked, but the count lied about what had been kept.
+BACKUP="${INTERFACES}.range42-$(date -u +%Y%m%dT%H%M%SZ)-${BRIDGE}.bak"
 cp -p "$INTERFACES" "$BACKUP" || { echo "ERROR: backup failed, nothing written" >&2 ; exit 1 ; }
 chmod --reference="$INTERFACES" "$TMP" 2>/dev/null || true
 mv "$TMP" "$INTERFACES" || { echo "ERROR: move failed - restore with: cp $BACKUP $INTERFACES" >&2 ; exit 1 ; }

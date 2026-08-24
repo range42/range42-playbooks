@@ -112,7 +112,73 @@
 
     #### #### ####
     #
-    # 3. ASK, and ONLY here. Reached only when step 2 found something, so a clean host never sees a
+    # 3. REFUSE IF A VM IS STILL ATTACHED. Not a question - a refusal. Removing the address from
+    #    disk cuts nothing today, the live address stays, so the VM keeps working. It loses its
+    #    gateway at the NEXT ifreload, hours later and with nothing to connect it to this run.
+    #    That is not a decision to take at a prompt. Same guard, same wording as the workaround
+    #    bundle, which refuses for the immediate version of the same reason.
+    #
+    - name: LEGACY CLEANING - IS A LIVE VM ATTACHED TO A BRIDGE WE WOULD DISARM
+      ansible.builtin.shell: |
+        set -u
+        ## one readable line per attachment. `tap2001i1` means VM 2001 on its slot net1, which is
+        ## what an operator needs to act on - the tap name alone tells them nothing.
+        for b in {{ _lc_todo | map(attribute='legacy') | join(' ') }} ; do
+          for tap in $(ip -br link show master "$b" 2>/dev/null | awk '{print $1}') ; do
+            case "$tap" in
+              tap*) vmid=${tap#tap} ; vmid=${vmid%%i*} ; slot=${tap##*i}
+                    printf '%s carries VM %s on its slot net%s\n' "$b" "$vmid" "$slot" ;;
+            esac
+          done
+        done
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "/usr/sbin:/sbin:/usr/bin:/bin"
+      register: _lc_attached
+      changed_when: false
+      delegate_to: "{{ groups['proxmox_cli'] | first }}"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lc_todo | default([]) | length) > 0
+
+    ## READ BEFORE THE ASSERT, not inside it : an assert failure is rendered as a wall of json
+    ## where the operator has to hunt for the sentence. This block is normal output, so it is the
+    ## first thing on screen.
+    - name: LEGACY CLEANING - THIS RUN CANNOT CONTINUE, AND HERE IS WHY
+      ansible.builtin.debug:
+        msg:
+          - "STOPPING - a running VM is still attached to a bridge this run would disarm."
+          - ""
+          - "{{ _lc_attached.stdout_lines }}"
+          - ""
+          - "Nothing has been written, and nothing will be while that stays true."
+          - "Why it is refused and not merely warned : removing the address from the disk changes"
+          - "nothing today, the live address stays. That VM loses its gateway at the NEXT ifreload,"
+          - "hours later, with nothing tying the outage back to this run."
+          - ""
+          - "To move forward, pick one :"
+          - "  - stop those VMs, or move their card to the SDN network with the same subnet"
+          - "  - or, if you know those VMs are going away, re-run with -e BUNDLE_LEGACY_SKIP=true"
+          - "    which skips this bundle entirely, it does NOT force the removal"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lc_todo | default([]) | length) > 0
+        - (_lc_attached.stdout | default('') | trim | length) > 0
+
+    - name: LEGACY CLEANING - REFUSE RATHER THAN CUT A LIVE VM OFF LATER
+      ansible.builtin.assert:
+        that:
+          - (_lc_attached.stdout | default('') | trim | length) == 0
+        fail_msg: "a running VM is attached to a bridge to disarm - see the reason printed just above"
+        success_msg: "no running VM is attached to the bridges to disarm"
+      when:
+        - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
+        - (_lc_todo | default([]) | length) > 0
+
+    #### #### ####
+    #
+    # 4. ASK, and ONLY here. Reached only when step 2 found something, so a clean host never sees a
     #    prompt. The script's own --yes guard refuses when there is no terminal, so the question has
     #    to be asked HERE, on the deployer's console where the operator is.
     #
@@ -125,10 +191,33 @@
 
     - name: LEGACY CLEANING - CONFIRM BEFORE EDITING THE HYPERVISOR NETWORK CONFIG
       ansible.builtin.pause:
-        prompt: >-
-          The lines above will be removed from /etc/network/interfaces on
-          {{ groups['proxmox_cli'] | first }}, on {{ _lc_todo | length }} bridge(s). A timestamped
-          backup is taken first and its path printed. Type y to proceed, anything else to abort
+        prompt: |-
+
+          ============================================================
+           MOVE TO SDN - migration step, run once per scenario.
+           This is not routine maintenance.
+          ============================================================
+
+           WHAT WILL BE WRITTEN
+             the lines shown above are removed from /etc/network/interfaces
+             on {{ groups['proxmox_cli'] | first }}, across {{ _lc_todo | length }} bridge(s),
+             so that no ifreload can bring them back.
+             A timestamped backup is taken first, and its path is printed.
+
+           WHAT CHANGES NOW
+             nothing. The live addresses and rules stay exactly as they are.
+
+           WHAT CHANGES FOR GOOD
+             the pre-SDN hooks are gone from the disk.
+
+           WHAT IS LEFT TO DO AFTERWARDS
+             reconcile the live rules - range42-context networks-internet-on
+
+          ------------------------------------------------------------
+           Type  y  and press Enter to proceed.
+           Anything else aborts, and nothing is written.
+          ------------------------------------------------------------
+
       register: _lc_answer
       when:
         - not (BUNDLE_LEGACY_SKIP | default(false) | bool)
