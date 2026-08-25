@@ -104,14 +104,35 @@
     - name: LEGACY WORKAROUND - IS A LIVE VM ATTACHED TO A BRIDGE WE WOULD STRIP
       ansible.builtin.shell: |
         set -u
-        hits=""
-        for b in {{ _lw_pairs | map(attribute='legacy') | join(' ') }} ; do
-          ip -4 -o addr show dev "$b" 2>/dev/null | grep -q . || continue
-          for tap in $(ip -br link show master "$b" 2>/dev/null | awk '{print $1}') ; do
-            case "$tap" in tap*) hits="${hits} ${b}:${tap}" ;; esac
-          done
+        ## THE GUEST CONFIG IS THE SOURCE OF TRUTH, not the interface names on the bridge. With the
+        ## per-NIC firewall on - the range42 default - what touches the bridge is fwpr<id>p<n> and
+        ## the tap sits one level down on fwbr<id>i<n>, so matching `tap*` misses exactly the VMs
+        ## range42 creates. Measured on px-testing.
+        ## Only bridges that still CARRY the address matter : one without it has nothing to free.
+        BRIDGES=""
+        for p in {{ _lw_pairs | map(attribute='legacy') | zip(_lw_pairs | map(attribute='cidr')) | map('join', '=') | join(' ') }} ; do
+          b="${p%%=*}" ; a="${p#*=}"
+          ip -4 -o addr show dev "$b" 2>/dev/null | grep -q " $a " && BRIDGES="${BRIDGES} ${b}"
         done
-        printf '%s\n' "${hits# }"
+
+        emit() {   # $1 = kind, $2 = id ; a guest config on stdin
+          while IFS= read -r line ; do
+            case "$line" in net[0-9]*:*) : ;; *) continue ;; esac
+            case "$line" in *bridge=*) : ;; *) continue ;; esac
+            slot=${line%%:*}
+            br=${line#*bridge=} ; br=${br%%,*}
+            case " $BRIDGES " in
+              *" $br "*) printf '%s carries %s %s on its slot %s\n' "$br" "$1" "$2" "$slot" ;;
+            esac
+          done
+        }
+
+        for v in $(qm list 2>/dev/null | awk 'NR>1 && $3=="running" {print $1}') ; do
+          qm config "$v" 2>/dev/null | emit VM "$v"
+        done
+        for c in $(pct list 2>/dev/null | awk 'NR>1 && $2=="running" {print $1}') ; do
+          pct config "$c" 2>/dev/null | emit CT "$c"
+        done
       args:
         executable: /bin/bash
       environment:
