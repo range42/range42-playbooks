@@ -92,7 +92,9 @@ ip route get <the_vm_ip>      # must answer `dev netXXX`, not `dev vmbrXXX`
 
 **So the switch to SDN is atomic per hypervisor.** Before deploying this scenario, the VMs of every bridge-based scenario using these ranges must be deleted and their `vmbrNNN` bridges freed. There is no gradual coexistence and no partial rollback.
 
-While the bridge-creating tooling is still in place, `00_sdn_bootstrap/` ships a workaround that removes the duplicate address from the conflicting bridges - the address only, nothing written to disk, so `ifreload -a` puts it back. It refuses to run if a live VM is still attached to one of those bridges, rather than cutting that VM off mid-deployment. Disable it with `-e sdn_free_legacy_subnets=false` once the bridges are gone for good.
+While the bridge-creating tooling is still in place, `00_sdn_bootstrap/` imports the `proxmox/legacy_bridge.workaround.shadowed_subnet` bundle, which removes the duplicate address from the conflicting bridges - the address only, nothing written to disk, so `ifreload -a` puts it back. It refuses to run if a live VM is still attached to one of those bridges, rather than cutting that VM off mid-deployment. Skip it with `-e BUNDLE_LEGACY_SKIP=true` once the bridges are gone for good.
+
+To clear those lines from the disk for good, so no `ifreload` can restore them, run `range42-context networks-legacy-clean` once - a migration step, not routine maintenance.
 
 ## Subnet isolation
 
@@ -124,6 +126,8 @@ range42-context deploy
 | `blank_scenario_2_sdn.reset.ssh_keys.sh`            | Clear ~/.ssh/known_hosts for every IP in manifest                   |
 | `blank_scenario_2_sdn.delete_vms_only.sh`           | Delete VMs only, keep templates                                     |
 | `blank_scenario_2_sdn.delete_all.sh`                | Delete VMs + templates (WARNING - affects other scenarios)          |
+| `blank_scenario_2_sdn.setup_networks.sh`            | Create the SDN zone, vnets and subnets declared in `00_sdn_bootstrap/_main.yml` (`--dry-run` compares without writing) |
+| `blank_scenario_2_sdn.delete_networks.sh`           | Remove those subnets and vnets - the shared zone is kept            |
 
 ## Verified on SDN
 
