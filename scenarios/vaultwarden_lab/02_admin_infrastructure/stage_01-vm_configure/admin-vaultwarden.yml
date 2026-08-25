@@ -1,0 +1,31 @@
+##
+## admin-vaultwarden - self-hosted Vaultwarden credential store on
+## r42.admin-vaultwarden-standalone
+##
+## Delegates to the shared bundle which provides the full pipeline (Docker
+## baseline + firewall 22/8080 + secret .env rendered from the vault + opt-in
+## self-signed TLS + docker compose up of the vaultwarden element from
+## range42-catalog).
+##
+## Gated by INSTALL_VAULTWARDEN (default YES per vaultwarden_lab
+## feature_flags.yml - this is the Vaultwarden showcase scenario ; general
+## scenarios that wire this wrapper default NO).
+##
+## TLS is ON here : the web vault needs a secure context to log in, and recent
+## bw CLIs refuse plain-HTTP servers. The bundle generates the cert on the VM
+## and fetches it to <workspace>/secrets/vaultwarden-cert.pem for client trust.
+##
+## Requires vault_vw_admin_token in the workspace vault (argon2 hash from the
+## catalog element's `make hash`) - the container refuses to start without it.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.vaultwarden/main.yml"
+  when: INSTALL_VAULTWARDEN | default("YES") | upper == "YES"
+  vars:
+    global_vm_ssh_name:      "r42.admin-vaultwarden-standalone"
+    global_vm_ci_ip:         "192.168.142.189"
+    OPERATOR_USER:           "alice"
+    vaultwarden_domain:      "https://192.168.142.189:8080"
+    vaultwarden_tls:         true
+    vaultwarden_http_port:   8080
+    vaultwarden_admin_token: "{{ vault_vw_admin_token }}"

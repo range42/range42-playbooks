@@ -1,0 +1,108 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "admin",
+  "bundle": "admin/credentials.sync.vaultwarden",
+  "description": "Mapping-driven credential sync between the scenario Ansible vault and a self-hosted Vaultwarden server, run from the control node via the catalog role credentials.vaultwarden",
+  "optional": true,
+  "install_flag": "INSTALL_VAULTWARDEN_SYNC",
+  "params": [
+    {
+      "name": "vw_sync_host",
+      "target": true,
+      "type": "string",
+      "required": false,
+      "default": "localhost",
+      "default_where": "bundle-inline",
+      "description": "Play target; the sync runs the Bitwarden CLI on the control node, so this stays localhost in normal use"
+    },
+    {
+      "name": "vaultwarden_url",
+      "type": "string",
+      "required": true,
+      "default_where": "call-site",
+      "description": "Vaultwarden server URL as seen from the control node; override it when reaching the server through a tunnel"
+    },
+    {
+      "name": "vaultwarden_client_id",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "vault_key": "vault_vw_client_id",
+      "default_where": "none",
+      "description": "Personal API-key client_id of the Vaultwarden service account, resolved from the scenario vault. Consumed only inside a no_log task, so it is invisible to static scans"
+    },
+    {
+      "name": "vaultwarden_client_secret",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "vault_key": "vault_vw_client_secret",
+      "default_where": "none",
+      "description": "Personal API-key client_secret of the Vaultwarden service account, resolved from the scenario vault. Consumed only inside a no_log task, so it is invisible to static scans"
+    },
+    {
+      "name": "vaultwarden_master_password",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "vault_key": "vault_vw_master_password",
+      "default_where": "none",
+      "description": "Master password used to unlock the service account vault, resolved from the scenario vault. Consumed only inside a no_log task, so it is invisible to static scans"
+    },
+    {
+      "name": "vaultwarden_sync_map",
+      "type": "list",
+      "items": "dict",
+      "required": true,
+      "default_where": "call-site",
+      "description": "The get/set entries that drive the sync; each entry is vault_var + vw_item + vw_field + direction (set pushes an Ansible var into Vaultwarden, get pulls a field back into a fact of that name)"
+    },
+    {
+      "name": "vaultwarden_ca_cert",
+      "type": "string",
+      "required": false,
+      "default_where": "call-site",
+      "description": "Path on the control node to a certificate PEM the bw CLI should trust (NODE_EXTRA_CA_CERTS); required when the server uses the install bundle's self-signed TLS, which fetches it to the workspace secrets dir"
+    },
+    {
+      "name": "vaultwarden_organization_id",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "default_where": "role-defaults",
+      "description": "Organization id to scope items to; empty means personal-vault items. Vaultwarden also requires a collection id for org items"
+    },
+    {
+      "name": "vaultwarden_collection_id",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "default_where": "role-defaults",
+      "description": "Collection id used when creating or reading organization items; required by Vaultwarden whenever vaultwarden_organization_id is set"
+    },
+    {
+      "name": "vaultwarden_debug",
+      "type": "bool",
+      "required": false,
+      "default": false,
+      "default_where": "role-defaults",
+      "bool_style": "yaml",
+      "description": "Disables no_log on the engine call so its stdout/stderr is visible; pulled secret values may then appear in the Ansible output, so leave it off in normal runs"
+    },
+    {
+      "name": "vaultwarden_get_results_var",
+      "type": "string",
+      "required": false,
+      "default": "vaultwarden_get_results",
+      "default_where": "role-defaults",
+      "description": "Name of the dict fact collecting every get result, in addition to each value being exposed as a fact named after its vault_var"
+    },
+    {
+      "name": "vw_vault_file",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "description": "Override for the autoloaded workspace vault path; defaults to the secrets dir next to the inventory exported by range42-context"
+    }
+  ]
+}

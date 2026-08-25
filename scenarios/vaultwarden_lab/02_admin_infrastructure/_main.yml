@@ -1,0 +1,18 @@
+---
+##
+## 02 - admin infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the admin platform VM :
+##   - admin-vaultwarden-standalone (VMID 1189, IP 192.168.142.189) : self-hosted
+##     Vaultwarden credential store (gated by INSTALL_VAULTWARDEN, default YES per
+##     manifest/feature_flags.yml - this is the Vaultwarden showcase scenario).
+##     The opt-in credential get/set round-trip (INSTALL_VAULTWARDEN_SYNC,
+##     default NO) runs from the same tier, after the server is up.
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

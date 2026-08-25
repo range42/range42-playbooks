@@ -1,0 +1,48 @@
+---
+##
+## vaultwarden_lab - main playbook
+##
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
+##
+## Provisions a single Ubuntu LTS VM (admin-vaultwarden-standalone) on vmbr142
+## from the project standard medium template (VMID 9232 : 2cpu / 8gb / 64gb) and
+## deploys the self-hosted Vaultwarden credential store on it via the shared
+## bundle bundles/admin/software.install.vaultwarden/ (served over self-signed
+## HTTPS on 8080).
+##
+## Vaultwarden is modeled as an admin-tier service (uniform 02_admin placement),
+## gated by INSTALL_VAULTWARDEN (default YES per manifest/feature_flags.yml -
+## vaultwarden_lab is the Vaultwarden showcase scenario ; the same wrapper
+## defaults NO in the general scenarios that offer it as an optional add-on).
+##
+## The credential get/set round-trip that proves the distribution flow is a
+## SEPARATE opt-in flag (INSTALL_VAULTWARDEN_SYNC, default NO) : it runs the
+## Bitwarden CLI on the control node and needs a one-time Vaultwarden account
+## bootstrap first. See the README.
+##
+## Lab topology :
+##   - admin-vaultwarden-standalone (192.168.142.189, VMID 1189, vmbr142)  - Vaultwarden host
+##
+## Global stage discipline (mirror of demo_lab / misp_lab) :
+##   1. 01_templates-bootstrap                    create the shared template (9232)
+##   2. ALL tiers stage_00 (vm_bootstrap)         create every VM first
+##   3. ALL tiers stage_01 (vm_configure)         configure every VM after
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./01_templates-bootstrap/_main.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml

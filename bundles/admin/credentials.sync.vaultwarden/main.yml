@@ -1,0 +1,73 @@
+# ============================================================================
+# bundles/admin/credentials.sync.vaultwarden/main.yml
+# ============================================================================
+# Credential SYNC wiring: drives the range42-catalog credentials.vaultwarden
+# role to push/pull credentials between the scenario's Ansible vault and a
+# self-hosted Vaultwarden server (spun up by the companion bundle
+# admin/software.install.vaultwarden/).
+#
+# Import this AT THE RIGHT POINT in the scenario's flow - typically AFTER
+# service provisioning has created the users / API keys you want to store
+# (same idea as running provisioning after MISP is up). It is a thin wrapper:
+# all behaviour is driven by the caller's vaultwarden_sync_map.
+#
+# The role runs the Bitwarden CLI on the CONTROL NODE (the deployer), so this
+# play targets localhost and needs no reachable inventory host - but the
+# control node must be able to reach vaultwarden_url, and needs `bw` + `jq`
+# installed. The role fails loudly if either is missing.
+#
+# REQUIRED vars (secret values from the VAULT) :
+#   - vaultwarden_url               e.g. "https://192.168.142.189:8080"
+#   - vaultwarden_client_id         personal API-key client_id        (VAULT)
+#   - vaultwarden_client_secret     personal API-key client_secret    (VAULT)
+#   - vaultwarden_master_password   account master password           (VAULT)
+#   - vaultwarden_sync_map          list of get/set entries
+#
+# OPTIONAL vars :
+#   - vaultwarden_organization_id / vaultwarden_collection_id  (org scoping)
+#   - vaultwarden_ca_cert   path ON THE CONTROL NODE to a CA/cert PEM the bw
+#                           CLI should trust - required when the server uses
+#                           the install bundle's self-signed TLS, which fetches
+#                           it to <workspace>/secrets/vaultwarden-cert.pem
+#   - vw_sync_host          play target (default localhost)
+#   - vw_vault_file         override the autoloaded workspace vault path
+#
+# ONE-TIME PREREQUISITE : the Vaultwarden service account and its personal API
+# key must exist before the first sync. See the scenario README / the catalog
+# element README for the bootstrap steps - the install bundle deliberately does
+# not automate account creation.
+#
+# Example call-site :
+#
+#   - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/credentials.sync.vaultwarden/main.yml"
+#     when: INSTALL_VAULTWARDEN_SYNC | default("NO") | upper == "YES"
+#     vars:
+#       vaultwarden_url:             "https://192.168.142.189:8080"
+#       vaultwarden_client_id:       "{{ vault_vw_client_id }}"
+#       vaultwarden_client_secret:   "{{ vault_vw_client_secret }}"
+#       vaultwarden_master_password: "{{ vault_vw_master_password }}"
+#       vaultwarden_sync_map:
+#         - vault_var: misp_writer_api_key
+#           vw_item:   "range42-<codename>-misp"
+#           vw_field:  writer_api_key
+#           direction: set
+#
+# ============================================================================
+
+
+- name: vaultwarden - sync credentials between the vault and Vaultwarden (get/set)
+  hosts: "{{ vw_sync_host | default('localhost') }}"
+  gather_facts: false
+
+  # Same vault autoload as the install bundle - this play runs on localhost, so
+  # inventory_dir is not reliable here ; the exported env var is.
+  vars_files:
+    - "{{ vw_vault_file | default(lookup('env', 'RANGE42_ANSIBLE_ROLES__INVENTORY_DIR') ~ '/../secrets/default_vault.yml') }}"
+
+  # The role shells out to the Node-based bw CLI ; NODE_EXTRA_CA_CERTS is how
+  # Node trusts an extra (self-signed) cert. Empty when unset - Node ignores it.
+  environment:
+    NODE_EXTRA_CA_CERTS: "{{ vaultwarden_ca_cert | default('') }}"
+
+  roles:
+    - role: credentials.vaultwarden

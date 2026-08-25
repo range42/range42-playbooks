@@ -1,0 +1,32 @@
+---
+# Feature flags for vaultwarden_lab - optional components that can be
+# toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
+#
+# This file is the single source of truth :
+#   - the deploy TUI (range42-context --tui) reads `features` to render the
+#     checkbox modal before invoking `range42-context deploy`
+#   - the playbooks read the `INSTALL_<NAME>` variables via
+#     `when: INSTALL_<NAME> | default("YES"|"NO") | upper == "YES"` on the
+#     relevant `import_playbook` / `block:` entries
+#
+# Convention :
+#   - `id` is UPPERCASE (matches the variable name : `id: VAULTWARDEN` -> `INSTALL_VAULTWARDEN`)
+#   - `default: true|false` is the checkbox initial state in the TUI
+#   - the playbook `default("YES"|"NO")` fallback should align with this
+#   - `| upper` makes the check case-insensitive : YES / yes / Yes all match
+
+features:
+  - id: VAULTWARDEN
+    label: "Vaultwarden - self-hosted credential store (Bitwarden-compatible)"
+    description: "Deploys an admin-vaultwarden-standalone VM (vm_id 1189, IP 192.168.142.189) under 02_admin_infrastructure/ running the vaultwarden docker-compose element from range42-catalog/03_container_layer/docker/admin/vaultwarden/ via the shared bundle bundles/admin/software.install.vaultwarden/, served over self-signed HTTPS on 8080. Default YES : vaultwarden_lab is the Vaultwarden showcase scenario. The same flag defaults NO in the general scenarios that offer it as an optional add-on. Requires vault_vw_admin_token in the workspace vault."
+    default: true
+
+  - id: VAULTWARDEN_SYNC
+    label: "Vaultwarden credential sync - get/set round-trip (PoC)"
+    description: "Runs the credential sync bundle bundles/admin/credentials.sync.vaultwarden/ from the control node : pushes vw_demo_secret into Vaultwarden and pulls it straight back. Default NO - it needs bw + jq on the deployer, the one-time Vaultwarden account bootstrap (service account + personal API key, see the scenario README), and the vault_vw_client_id / vault_vw_client_secret / vault_vw_master_password secrets in the vault. Run it standalone with ./vaultwarden_lab.poc.sh once those are in place."
+    default: false
+
+  - id: TAILSCALE
+    label: "Tailscale VPN client"
+    description: "Per-group install. Off by default."
+    default: false

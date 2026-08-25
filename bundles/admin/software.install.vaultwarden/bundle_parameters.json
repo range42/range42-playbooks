@@ -1,0 +1,125 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "admin",
+  "bundle": "admin/software.install.vaultwarden",
+  "description": "Self-hosted Vaultwarden credential store (single docker-compose service) installed on a dedicated VM from the catalog element, with the secret .env rendered from the scenario vault and opt-in self-signed TLS",
+  "optional": true,
+  "install_flag": "INSTALL_VAULTWARDEN",
+  "params": [
+    {
+      "name": "global_vm_ssh_name",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "call-site",
+      "description": "Inventory hostname of the Vaultwarden VM; used as the hosts target of the Docker install, firewall and deploy plays"
+    },
+    {
+      "name": "global_vm_ci_ip",
+      "type": "string",
+      "required": true,
+      "default_where": "call-site",
+      "description": "IP of the Vaultwarden server; passed at the call-site as documentation of the service endpoint and not otherwise consumed by the plays"
+    },
+    {
+      "name": "OPERATOR_USER",
+      "type": "string",
+      "required": true,
+      "default_where": "call-site",
+      "description": "Unix user owning the deploy directory on the VM and the rendered .env; also the default parent of vw_remote_project_dir"
+    },
+    {
+      "name": "vaultwarden_domain",
+      "type": "string",
+      "required": true,
+      "default_where": "call-site",
+      "description": "Public URL clients use to reach the server, written to the VM .env as VW_DOMAIN and used as the default source of the TLS certificate SAN"
+    },
+    {
+      "name": "vaultwarden_admin_token",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "vault_key": "vault_vw_admin_token",
+      "default_where": "none",
+      "description": "Argon2 admin-token hash resolved from the scenario vault and rendered into the VM .env; the container refuses to start without it. Consumed only inside a no_log task, so it is invisible to static scans"
+    },
+    {
+      "name": "vaultwarden_http_port",
+      "type": "int",
+      "required": false,
+      "default": 8080,
+      "default_where": "bundle-inline",
+      "description": "Service port; also the port the firewall play opens on the VM alongside 22"
+    },
+    {
+      "name": "vaultwarden_tls",
+      "type": "bool",
+      "required": false,
+      "default": false,
+      "default_where": "bundle-inline",
+      "bool_style": "yaml",
+      "description": "Generate a self-signed certificate on the target and serve HTTPS on the same port; the certificate is fetched back to the control node so the sync bundle's bw CLI can trust it"
+    },
+    {
+      "name": "vaultwarden_tls_ip",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "description": "SAN IP of the generated certificate; defaults to the host part of vaultwarden_domain (127.0.0.1 and localhost are always added so tunneled operators validate)"
+    },
+    {
+      "name": "vaultwarden_ca_fetch_path",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "description": "Path on the control node where cert.pem is fetched; defaults to the workspace secrets dir (vaultwarden-cert.pem)"
+    },
+    {
+      "name": "vaultwarden_signups_allowed",
+      "type": "string",
+      "required": false,
+      "default": "false",
+      "allowed": [
+        "true",
+        "false"
+      ],
+      "default_where": "bundle-inline",
+      "description": "Self-registration on the server (VW_SIGNUPS_ALLOWED); meant to be on only briefly during the one-time account bootstrap, and the play warns when it is left enabled"
+    },
+    {
+      "name": "vaultwarden_invitations_allowed",
+      "type": "string",
+      "required": false,
+      "default": "true",
+      "allowed": [
+        "true",
+        "false"
+      ],
+      "default_where": "bundle-inline",
+      "description": "Whether existing users may invite others (VW_INVITATIONS_ALLOWED)"
+    },
+    {
+      "name": "vaultwarden_org_creation_users",
+      "type": "string",
+      "required": false,
+      "default": "all",
+      "default_where": "bundle-inline",
+      "description": "Who may create organizations (VW_ORG_CREATION_USERS); \"all\", \"none\", or a comma-separated user list"
+    },
+    {
+      "name": "vw_remote_project_dir",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "description": "Deploy directory on the VM; defaults to /home/<OPERATOR_USER>/vaultwarden"
+    },
+    {
+      "name": "vw_vault_file",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "description": "Override for the autoloaded workspace vault path; defaults to the secrets dir next to the inventory exported by range42-context"
+    }
+  ]
+}

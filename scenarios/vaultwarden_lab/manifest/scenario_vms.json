@@ -1,0 +1,11 @@
+{
+  "scenario": "vaultwarden_lab",
+  "version": 1,
+  "description": "Single-VM scenario delivering a self-hosted Vaultwarden credential store (one docker-compose service, Bitwarden-API-compatible) on admin-vaultwarden-standalone (VMID 1189, IP 192.168.142.189, vmbr142) via the shared bundle bundles/admin/software.install.vaultwarden/, against the catalog element range42-catalog/03_container_layer/docker/admin/vaultwarden/. Vaultwarden is modeled as an admin-tier service gated by INSTALL_VAULTWARDEN (default YES - vaultwarden_lab is the Vaultwarden showcase scenario). The credential get/set round-trip driven from the control node by bundles/admin/credentials.sync.vaultwarden/ is a separate opt-in flag (INSTALL_VAULTWARDEN_SYNC, default NO). Template VMID 9232 (template-vm-medium-02-8g-64g, 2cpu/8gb/64gb) is built by this scenario's 01_templates-bootstrap/ (idempotent : skipped if already present from another scenario such as blank_scenario_2_subnets, demo_lab, misp_lab, or nextcloud_lab).",
+  "vms": [
+    {"vm_id": 1189, "vm_name": "admin-vaultwarden-standalone", "ip": "192.168.142.189", "role": "admin", "group": "admin", "bridge": "vmbr142"}
+  ],
+  "templates": [
+    {"vm_id": 9232, "vm_name": "template-vm-medium-02-8g-64g", "spec": "2cpu/8gb/64gb", "ip": "192.168.140.232", "bridge": "vmbr140"}
+  ]
+}

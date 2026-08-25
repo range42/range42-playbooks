@@ -1,0 +1,46 @@
+##
+## admin-vaultwarden-sync - credential get/set round-trip (OPT-IN)
+##
+## Demonstrates the credential distribution flow end to end on this lab : push
+## a demo secret from the workspace vault into Vaultwarden, then pull it
+## straight back into the fact `vw_demo_pulled`.
+##
+## Gated by INSTALL_VAULTWARDEN_SYNC (default NO). It stays off by default
+## because it needs more than a deploy :
+##   - `bw` (Bitwarden CLI) and `jq` on the CONTROL NODE (the deployer) ;
+##   - a ONE-TIME Vaultwarden account bootstrap (register the service account,
+##     create its personal API key) - Vaultwarden has no unattended path for
+##     this ; see the scenario README ;
+##   - vault_vw_client_id / vault_vw_client_secret / vault_vw_master_password
+##     and vw_demo_secret in the workspace vault.
+##
+## Run it on its own once those are in place :
+##   ./vaultwarden_lab.poc.sh
+##
+## Jump-only routing ? Tunnel and override the URL - the cert's SAN includes
+## 127.0.0.1 for exactly this :
+##   ./vaultwarden_lab.poc.sh -e vaultwarden_url=https://127.0.0.1:18080
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/credentials.sync.vaultwarden/main.yml"
+  when: INSTALL_VAULTWARDEN_SYNC | default("NO") | upper == "YES"
+  vars:
+    vaultwarden_url:             "https://192.168.142.189:8080"
+    # trust the self-signed cert the install bundle fetched to the workspace
+    vaultwarden_ca_cert:         "{{ lookup('env', 'RANGE42_ANSIBLE_ROLES__INVENTORY_DIR') ~ '/../secrets/vaultwarden-cert.pem' }}"
+    vaultwarden_client_id:       "{{ vault_vw_client_id }}"
+    vaultwarden_client_secret:   "{{ vault_vw_client_secret }}"
+    vaultwarden_master_password: "{{ vault_vw_master_password }}"
+    vaultwarden_organization_id: "{{ vault_vw_org_id | default('') }}"
+    vaultwarden_collection_id:   "{{ vault_vw_collection_id | default('') }}"
+    vaultwarden_sync_map:
+      # push a demo secret from the vault into Vaultwarden ...
+      - vault_var: vw_demo_secret
+        vw_item:   "range42-{{ lookup('env', 'RANGE42_INFRASTRUCTURE_CODENAME_LAB_NAMES') | default('vaultwarden_lab', true) }}-poc"
+        vw_field:  demo_secret
+        direction: set
+      # ... then pull it straight back into the fact `vw_demo_pulled`.
+      - vault_var: vw_demo_pulled
+        vw_item:   "range42-{{ lookup('env', 'RANGE42_INFRASTRUCTURE_CODENAME_LAB_NAMES') | default('vaultwarden_lab', true) }}-poc"
+        vw_field:  demo_secret
+        direction: get

@@ -1,0 +1,232 @@
+# ============================================================================
+# bundles/admin/software.install.vaultwarden/main.yml
+# ============================================================================
+# Vaultwarden docker-compose stack install playbook. Deploys the vaultwarden
+# catalog element (single self-hosted Bitwarden-API-compatible server) on a
+# dedicated VM via Docker compose. The catalog element source is
+# range42-catalog/03_container_layer/docker/admin/vaultwarden/ and is rsynced
+# to the VM at /home/alice/vaultwarden/.
+#
+# REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
+#   - global_vm_ssh_name       : inventory hostname for the Vaultwarden VM
+#                                (e.g. "r42.admin-vaultwarden-standalone")
+#   - global_vm_ci_ip          : IP of the Vaultwarden server (e.g. "192.168.142.189")
+#   - vaultwarden_domain       : public URL clients use (e.g. "https://192.168.142.189:8080")
+#   - vaultwarden_admin_token  : argon2 admin-token hash              (VAULT)
+#   - OPERATOR_USER            : unix user owning the deploy dir (e.g. "alice")
+#
+# OPTIONAL vars :
+#   - vaultwarden_http_port    : service port (default 8080)
+#   - vaultwarden_tls          : serve HTTPS with a self-signed cert generated
+#                                on the target, same port (default false)
+#   - vaultwarden_tls_ip       : SAN IP for that cert (default: host part of
+#                                vaultwarden_domain ; 127.0.0.1 + localhost are
+#                                always added so tunneled operators validate)
+#   - vaultwarden_ca_fetch_path: where cert.pem lands on the control node
+#                                (default <workspace>/secrets/vaultwarden-cert.pem)
+#   - vaultwarden_signups_allowed / _invitations_allowed / _org_creation_users
+#   - vw_remote_project_dir    : deploy dir (default /home/<OPERATOR_USER>/vaultwarden)
+#   - vw_vault_file            : override the autoloaded workspace vault path
+#
+# Secret .env handling (differs from the other admin stacks on purpose) :
+#   Vaultwarden refuses to start without VW_ADMIN_TOKEN, and that token must
+#   never live in git - so this bundle RENDERS .env on the VM from vault-supplied
+#   vars instead of seeding the catalog's .env.example. The catalog ships only
+#   .env.example (`.env` is gitignored) and the rsync never overwrites the
+#   rendered file.
+#
+# Service port :
+#   This bundle opens vaultwarden_http_port (default 8080) on the VM itself.
+#   The scenario baseline only opens 22 ; a reusable software bundle owns its
+#   own service port so INSTALL_VAULTWARDEN works in any scenario without the
+#   scenario needing to know the port.
+#
+# Example call-site (in scenarios/<scenario>/.../admin-vaultwarden.yml) :
+#
+#   - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.vaultwarden/main.yml"
+#     when: INSTALL_VAULTWARDEN | default("NO") | upper == "YES"
+#     vars:
+#       global_vm_ssh_name:      "r42.admin-vaultwarden-standalone"
+#       OPERATOR_USER:           "alice"
+#       global_vm_ci_ip:         "192.168.142.189"
+#       vaultwarden_domain:      "https://192.168.142.189:8080"
+#       vaultwarden_tls:         true
+#       vaultwarden_admin_token: "{{ vault_vw_admin_token }}"
+#
+# ============================================================================
+
+
+- name: vaultwarden - install Docker + docker-compose on the Vaultwarden VM
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  gather_facts: true
+  roles:
+    - software.install.warmup.basic_packages
+  vars:
+    INSTALL_PACKAGES_BASICS:               "YES"
+    INSTALL_PACKAGES_DOCKER:               "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE:       "YES"
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME:  "YES"
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: vaultwarden - open firewall ports (22 SSH + the Vaultwarden service port)
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  gather_facts: false
+  roles:
+    - software.configure.firewalls
+  vars:
+    firewall_rules:
+      - { ip: "all", port: 22, protocol: "tcp" }
+      - { ip: "all", port: "{{ vaultwarden_http_port | default(8080) }}", protocol: "tcp" }
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: vaultwarden - render the secret .env and deploy the stack from catalog
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  gather_facts: false
+
+  # The vault_vw_* secrets live in the workspace vault, which sits next to the
+  # inventory dir exported by `range42-context use`. Callers can override the
+  # location with vw_vault_file.
+  vars_files:
+    - "{{ vw_vault_file | default(lookup('env', 'RANGE42_ANSIBLE_ROLES__INVENTORY_DIR') ~ '/../secrets/default_vault.yml') }}"
+
+  vars:
+    _vw_remote_dir: "{{ vw_remote_project_dir | default('/home/' + OPERATOR_USER + '/vaultwarden') }}"
+    _vw_tls: "{{ vaultwarden_tls | default(false) | bool }}"
+    _vw_tls_ip: "{{ vaultwarden_tls_ip | default(vaultwarden_domain | urlsplit('hostname')) }}"
+    _vw_ca_fetch: "{{ vaultwarden_ca_fetch_path
+                      | default(lookup('env', 'RANGE42_ANSIBLE_ROLES__INVENTORY_DIR') ~ '/../secrets/vaultwarden-cert.pem') }}"
+
+    ## docker-compose role contract - mirrors the other admin stacks. The
+    ## rendered .env is preserved: CLEAN_UP_DEPLOY_DIR=NO, and the catalog ships
+    ## only .env.example, so the rsync never overwrites it.
+    LABEL_PROJECT_TYPE:  "admin"
+    LABEL_PROJET_NAME:   "vaultwarden"          # matches container_name in compose.yml
+    LOCAL__PROJECT_DIR:  "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/vaultwarden"
+    REMOTE_PROJECT_DIR:  "{{ _vw_remote_dir }}"
+    CLEAN_UP_DEPLOY_DIR: "NO"
+    SEND_POC_DIR:        "NO"
+
+  pre_tasks:
+
+    - name: "vaultwarden - ensure deploy dir exists"
+      ansible.builtin.file:
+        path: "{{ _vw_remote_dir }}"
+        state: directory
+        owner: "{{ OPERATOR_USER }}"
+        group: "{{ OPERATOR_USER }}"
+        mode: "0700"
+
+    - name: "vaultwarden - render .env from the vault (admin token etc.)"
+      ansible.builtin.copy:
+        dest: "{{ _vw_remote_dir }}/.env"
+        owner: "{{ OPERATOR_USER }}"
+        group: "{{ OPERATOR_USER }}"
+        mode: "0600"
+        content: |
+          # Rendered by bundles/admin/software.install.vaultwarden/main.yml - do not edit by hand.
+          VW_DOMAIN={{ vaultwarden_domain }}
+          # Single-quoted: the argon2 admin-token hash contains '$' segments that
+          # docker-compose would otherwise treat as variable interpolation and
+          # silently mangle. Matches the catalog .env.example convention.
+          VW_ADMIN_TOKEN='{{ vaultwarden_admin_token }}'
+          VW_SIGNUPS_ALLOWED={{ vaultwarden_signups_allowed | default('false') }}
+          VW_INVITATIONS_ALLOWED={{ vaultwarden_invitations_allowed | default('true') }}
+          VW_ORG_CREATION_USERS={{ vaultwarden_org_creation_users | default('all') }}
+          VW_HTTP_PORT={{ vaultwarden_http_port | default('8080') }}
+      no_log: true
+
+    #### opt-in TLS: self-signed cert + compose override (Rocket serves HTTPS
+    #### on the same port). Files stay ROOT-owned on purpose - the hardened
+    #### container drops ALL capabilities, so in-container root cannot read a
+    #### key owned by the operator user.
+
+    - name: "vaultwarden - TLS - ensure ssl dir exists (root-owned)"
+      ansible.builtin.file:
+        path: "{{ _vw_remote_dir }}/ssl"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      when: _vw_tls
+
+    - name: "vaultwarden - TLS - generate self-signed cert (SAN: {{ _vw_tls_ip }}, 127.0.0.1, localhost)"
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - req
+          - -x509
+          - -newkey
+          - rsa:2048
+          - -sha256
+          - -days
+          - "3650"
+          - -nodes
+          - -keyout
+          - "{{ _vw_remote_dir }}/ssl/key.pem"
+          - -out
+          - "{{ _vw_remote_dir }}/ssl/cert.pem"
+          - -subj
+          - "/CN=range42-vaultwarden"
+          - -addext
+          - "subjectAltName=IP:{{ _vw_tls_ip }},IP:127.0.0.1,DNS:localhost"
+        creates: "{{ _vw_remote_dir }}/ssl/cert.pem"
+      when: _vw_tls
+
+    - name: "vaultwarden - TLS - enforce key/cert permissions"
+      ansible.builtin.file:
+        path: "{{ _vw_remote_dir }}/ssl/{{ item.name }}"
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop:
+        - { name: "key.pem", mode: "0600" }
+        - { name: "cert.pem", mode: "0644" }
+      when: _vw_tls
+
+    - name: "vaultwarden - TLS - install compose.override.yml (auto-loaded by compose)"
+      ansible.builtin.copy:
+        dest: "{{ _vw_remote_dir }}/compose.override.yml"
+        owner: "{{ OPERATOR_USER }}"
+        group: "{{ OPERATOR_USER }}"
+        mode: "0644"
+        content: |
+          # Rendered by bundles/admin/software.install.vaultwarden/main.yml - do not edit by hand.
+          # Single-quoted: unquoted {...} would be parsed by YAML as a mapping.
+          services:
+            vaultwarden:
+              environment:
+                ROCKET_TLS: '{certs="/ssl/cert.pem",key="/ssl/key.pem"}'
+              volumes:
+                - ./ssl:/ssl:ro
+      when: _vw_tls
+
+    - name: "vaultwarden - TLS - fetch cert.pem to the control node (for bw / curl trust)"
+      ansible.builtin.fetch:
+        src: "{{ _vw_remote_dir }}/ssl/cert.pem"
+        dest: "{{ _vw_ca_fetch }}"
+        flat: true
+      when: _vw_tls
+
+    - name: "vaultwarden - TLS - remove override when TLS is disabled"
+      ansible.builtin.file:
+        path: "{{ _vw_remote_dir }}/compose.override.yml"
+        state: absent
+      when: not _vw_tls
+
+    - name: "vaultwarden - WARN if self-registration is left enabled"
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: VW_SIGNUPS_ALLOWED is true for this Vaultwarden deploy. This
+          is only meant to be on briefly during the one-time account bootstrap.
+          Anyone who can reach {{ vaultwarden_domain }} can self-register (and,
+          with ORG_CREATION_USERS=all, create organizations). Set
+          vaultwarden_signups_allowed=false and re-run once bootstrap is done.
+      when: vaultwarden_signups_allowed | default('false') | bool
+
+  roles:
+    - software.configure.docker-compose
