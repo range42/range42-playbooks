@@ -70,8 +70,15 @@
         for p in {{ _lw_pairs | map(attribute='legacy') | zip(_lw_pairs | map(attribute='cidr')) | map('join', '=') | join(' ') }} ; do
           b="${p%%=*}" ; a="${p#*=}"
           ip link show "$b" >/dev/null 2>&1 || continue
-          ip -4 -o addr show dev "$b" | grep -q " $a " && printf '%s %s\n' "$b" "$a"
+          ## `if`, not `&&` : a loop exits with the status of its LAST command, so a bridge
+          ## without the address as the last item made the whole task fail while the detection
+          ## had worked. Measured at deploy on 2026-08-25 : stdout held the hit, rc was 1.
+          if ip -4 -o addr show dev "$b" 2>/dev/null | grep -q " $a " ; then
+            printf '%s %s\n' "$b" "$a"
+          fi
         done
+        ## finding nothing is a valid answer, not a failure
+        exit 0
       args:
         executable: /bin/bash
       environment:
@@ -112,7 +119,9 @@
         BRIDGES=""
         for p in {{ _lw_pairs | map(attribute='legacy') | zip(_lw_pairs | map(attribute='cidr')) | map('join', '=') | join(' ') }} ; do
           b="${p%%=*}" ; a="${p#*=}"
-          ip -4 -o addr show dev "$b" 2>/dev/null | grep -q " $a " && BRIDGES="${BRIDGES} ${b}"
+          if ip -4 -o addr show dev "$b" 2>/dev/null | grep -q " $a " ; then
+            BRIDGES="${BRIDGES} ${b}"
+          fi
         done
 
         emit() {   # $1 = kind, $2 = id ; a guest config on stdin
@@ -133,6 +142,7 @@
         for c in $(pct list 2>/dev/null | awk 'NR>1 && $2=="running" {print $1}') ; do
           pct config "$c" 2>/dev/null | emit CT "$c"
         done
+        exit 0
       args:
         executable: /bin/bash
       environment:
