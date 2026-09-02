@@ -2,8 +2,9 @@
 bundle: proxmox/vm.replace.sdn_vnet
 description: >-
   Move one network card of a VM to another bridge - a vnet or a legacy vmbr. Destructive : there is no
-  API to edit a bridge in place, so the card is deleted and recreated, and its MAC changes. The slot, the
-  model and the firewall flag are preserved.
+  API to edit a bridge in place, so the card is deleted and recreated. The slot, the model, the firewall
+  flag and the MAC are preserved, and a card whose MAC cannot be read is refused before anything is
+  destroyed.
 optional: false
 
 ##
@@ -14,6 +15,11 @@ optional: false
 ##
 ## iface_firewall is NOT a parameter : it is READ from the card being replaced and resent, which is the
 ## point of a replace. The caller cannot set it here - use vm.attach.sdn_vnet for a fresh card.
+##
+## iface_macaddr is NOT a parameter either, for the same reason and with more at stake. It is read from
+## the card and resent, so the guest keeps the MAC its netplan matches on. It is deliberately NOT
+## offered as a caller input : a fresh MAC used to be this bundle's behaviour and it cost two guests,
+## so asking for one now means calling delete then add yourself.
 ##
 
 params:

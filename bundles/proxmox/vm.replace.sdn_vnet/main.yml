@@ -6,10 +6,6 @@
 # DELETED and RECREATED. Between the two the VM has one card less, so this is not the bundle to point at
 # a VM you reach THROUGH the card being moved.
 #
-# THE MAC ADDRESS CHANGES. A DHCP reservation, an ipset or a firewall alias keyed on the old MAC will not
-# follow. For the case this was written for - pulling a test VM off the management bridge - a fresh MAC
-# is exactly what you want. For anything else, check first.
-#
 # WHAT IS PRESERVED
 #   the SLOT      the card comes back as the same netN, asked for explicitly. Left to a count-based
 #                 fallback, moving net0 on a VM that also has net1 would recreate net1 ON TOP of the
@@ -20,6 +16,21 @@
 #                 emits the segment on `is defined`, and a bundle cannot leave a vars: key undefined, so
 #                 "preserve it if it was there, omit it if it was not" needs two calls. Mirrors the
 #                 tested devkit, which does the same with an if/else.
+#   the MAC       read back and resent. It used to change, and this header used to call that wanted -
+#                 *a fresh MAC is exactly what you want*. It was not a choice, it was a limitation
+#                 rationalised : the MAC could not be passed from the devkit layer at all. It cost two
+#                 guests, MEASURED : cloud-init writes a netplan carrying `match: macaddress:`, so a new
+#                 MAC makes `netplan apply` answer `Cannot find unique matching interface` and the guest
+#                 loses its network. Nothing on the Proxmox side shows it - the api reports a healthy
+#                 card and only the guest knows it is cut. A DHCP reservation, an ipset or a firewall
+#                 alias keyed on the MAC breaks the same way.
+#
+# WANT A FRESH MAC ? This bundle no longer gives you one, deliberately : preserving is the safe default
+# and the dangerous case should be asked for out loud, not inherited. Call the two underlying actions
+# yourself, `network_delete_interfaces_vm` then `network_add_interfaces_vm` without `iface_macaddr`.
+#
+# A CARD WHOSE MAC CANNOT BE READ IS REFUSED, before anything is destroyed. It is the same sentence the
+# model already makes : a card we cannot rebuild identically is a card we do not take apart.
 #
 # Subject `vm` and not `sdn_network` : BUNDLE_VM_IFACE_BRIDGE takes a vnet (net142) or a legacy bridge
 # (vmbr0) indifferently. Bringing a card BACK onto vmbr0 is what the SDN chain test does with it.
@@ -75,13 +86,18 @@
         that:
           - (_vm_replace_card | length) > 0
           - ((BUNDLE_VM_IFACE_MODEL | default(_vm_replace_card.vm_network_type | default(''))) | length) > 0
+          - ((_vm_replace_card.vm_network_mac | default('')) | length) > 0
         fail_msg: >-
-          vm {{ BUNDLE_VM_ID }} has no card net{{ BUNDLE_VM_VMNET_ID }}, or its model could not be read.
-          NOTHING was changed. Cards it really has :
-          {{ (network_list_interfaces_vm | default([])) | map(attribute='vm_network_device') | list }}
+          vm {{ BUNDLE_VM_ID }} has no card net{{ BUNDLE_VM_VMNET_ID }}, or its model or its MAC could
+          not be read. NOTHING was changed. Cards it really has :
+          {{ (network_list_interfaces_vm | default([])) | map(attribute='vm_network_device') | list }}.
+          The MAC is read positionally from the first segment of the card, which the api normalises to
+          `<model>=<MAC>` - an unreadable one means the card is not shaped as expected, and recreating it
+          would hand the guest a different MAC.
         success_msg: >-
           net{{ BUNDLE_VM_VMNET_ID }} is on {{ _vm_replace_card.vm_network_bridge | default('?') }},
           model {{ _vm_replace_card.vm_network_type | default('?') }},
+          mac {{ _vm_replace_card.vm_network_mac | default('?') }},
           firewall {{ _vm_replace_card.vm_network_firewall | default('unset') }}
 
     - name: VM REPLACE - ALREADY ON THE TARGET, NOTHING TO DO
@@ -116,6 +132,7 @@
         vm_vmnet_id: "{{ BUNDLE_VM_VMNET_ID | int }}"
         iface_bridge: "{{ BUNDLE_VM_IFACE_BRIDGE }}"
         iface_model: "{{ BUNDLE_VM_IFACE_MODEL | default(_vm_replace_card.vm_network_type) }}"
+        iface_macaddr: "{{ _vm_replace_card.vm_network_mac }}"
         iface_firewall: "{{ _vm_replace_card.vm_network_firewall }}"
       when:
         - (_vm_replace_card.vm_network_bridge | default('')) != BUNDLE_VM_IFACE_BRIDGE
@@ -130,6 +147,7 @@
         vm_vmnet_id: "{{ BUNDLE_VM_VMNET_ID | int }}"
         iface_bridge: "{{ BUNDLE_VM_IFACE_BRIDGE }}"
         iface_model: "{{ BUNDLE_VM_IFACE_MODEL | default(_vm_replace_card.vm_network_type) }}"
+        iface_macaddr: "{{ _vm_replace_card.vm_network_mac }}"
       when:
         - (_vm_replace_card.vm_network_bridge | default('')) != BUNDLE_VM_IFACE_BRIDGE
         - _vm_replace_card.vm_network_firewall is not defined

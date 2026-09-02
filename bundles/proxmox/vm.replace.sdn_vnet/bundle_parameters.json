@@ -2,7 +2,7 @@
   "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
   "tier": "proxmox",
   "bundle": "proxmox/vm.replace.sdn_vnet",
-  "description": "Move one network card of a VM to another bridge - a vnet or a legacy vmbr. Destructive : there is no API to edit a bridge in place, so the card is deleted and recreated, and its MAC changes. The slot, the model and the firewall flag are preserved.",
+  "description": "Move one network card of a VM to another bridge - a vnet or a legacy vmbr. Destructive : there is no API to edit a bridge in place, so the card is deleted and recreated. The slot, the model, the firewall flag and the MAC are preserved, and a card whose MAC cannot be read is refused before anything is destroyed.",
   "optional": false,
   "params": [
     {
