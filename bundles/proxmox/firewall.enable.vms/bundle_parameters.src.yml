@@ -1,0 +1,30 @@
+---
+bundle: proxmox/firewall.enable.vms
+description: >-
+  Arm every guest of the ACTIVE scenario, card flags included, in the same order as the single-guest
+  bundle : all the ssh accepts, then all the card flags, then all the switches. The list comes from the
+  scenario manifest, templates excluded, and an empty scenario stops the run rather than reporting a
+  success over nothing. The cards are read back and counted ; the switches are covered by the guard each
+  arming carries, a failed iteration stopping the whole run.
+optional: false
+
+##
+## Caller-passed inputs carry the BUNDLE_ prefix : the backend generates call-sites and injects its own
+## variables into a play whose variable space is FLAT, so a generator needs a mechanical rule for which
+## names it owns. proxmox_node is NOT prefixed - it is read from the scenario vault, not passed.
+##
+## THE CARD FLAG IS SET BY THIS BUNDLE, AND THAT IS DELIBERATE. Filtering a guest needs three switches
+## and the card flag is one of them, so a bundle that set only the guest switch would report a success
+## and filter nothing. An administrator who wants a card WITHOUT the flag - a spoofable card for a MITM
+## exercise - calls proxmox_firewall.vm_id.disable_firewall_iface directly. That is the only way to ask
+## for it, and it costs that card its filtering : one flag, two features, they do not split.
+##
+
+params:
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: Proxmox node the guest runs on, resolved from the scenario vault. These endpoints are node-scoped.

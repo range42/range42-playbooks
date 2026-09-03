@@ -1,0 +1,220 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# firewall.disable.vms - stop filtering every guest of the ACTIVE scenario, and leave the way back in
+#
+# Same sequence as firewall.disable.vm, applied to every guest the active scenario declares. Read that
+# bundle's header for the reasoning ; this one only adds the sweep and its limits.
+#
+# THE SCOPE IS THE ACTIVE SCENARIO, AND NEVER ANOTHER. Decision of the maintainer : other workspaces are
+# not to be touched. The list comes from the scenario's own manifest, reached through the workspace :
+#
+#     $RANGE42_ACTIVE_CONFIG_DIR/scenario/manifest/scenario_vms.json
+#
+# THE MANIFEST SHAPE IS MEASURED, ON ALL NINETEEN SCENARIOS : `vms` is a list in all 19, `vm_id` is
+# present in 134 entries out of 134 and always an integer. Only `group` is partial, so nothing relies
+# on it. The templates sit in their own list and are excluded - a template never boots.
+#
+# AN EMPTY SCENARIO IS A CASE, NOT AN ACCIDENT. `debug_sdn_tests` declares zero guests. This bundle says
+# so and stops, rather than reporting a success over nothing.
+#
+# EITHER STEP ALONE ALREADY STOPS THE FILTERING, since all three conditions must hold for a single packet
+# to be filtered. So this sweep is safe in any order - which is why disarming is the easy direction.
+#
+# THE SSH ACCEPTS ARE POSTED, NOT DELETED, AND EVEN HERE. One idempotent call per guest, and it
+# guarantees that none of them can be armed later without a way in. Deleting them would build the
+# dangerous asymmetry : a scenario full of disarmed guests whose next arming would be refused at best.
+#
+# TURNING THE CARD FLAGS OFF HANDS MAC SPOOFING BACK, on every card of every guest of the scenario. The
+# same flag carries PVE's MAC anti-spoof and the two cannot be separated - one flag, two features. On a
+# sweep that is a whole scenario becoming spoofable at once, which is either what you want for a MITM
+# exercise, or something to know before running this.
+#
+# >>> WHY THE SWITCHES ARE NOT RE-READ AT THE END <<<
+# The card read accumulates, so reading the cards of N guests gives all of them. The option read does
+# NOT - it overwrites its fact, so a loop over N guests would keep only the last, and a verdict built on
+# it would be a green that cannot fail. What covers the switches is each disarming call and a failed
+# iteration stopping the whole run. The cards, which can be read back collectively, ARE re-read.
+#
+# NOT IN SCOPE : the datacenter and the node. Their switches keep whatever they had, and turning the
+# datacenter off would stop filtering for every guest of every scenario at once - that is
+# firewall.disable.datacenter_and_nodes.
+#
+# Required : nothing. From the vault : proxmox_node. From the environment : RANGE42_ACTIVE_CONFIG_DIR.
+#
+- name: "firewall.disable.vms"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: FIREWALL DISABLE VMS - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "scope        : every guest of the active scenario, templates excluded"
+          - "kept         : the ssh accepts are posted, not deleted"
+          - "given back   : MAC spoofing becomes possible again on every card touched"
+          - "manifest     : {{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/scenario/manifest/scenario_vms.json"
+
+    #### #### ####
+    #
+    # 1. THE LIST. Read from the scenario's own manifest, not guessed and not passed in.
+    #
+    - name: FIREWALL DISABLE VMS - READ THE SCENARIO MANIFEST
+      ansible.builtin.set_fact:
+        _fwdvs_manifest: >-
+          {{ lookup('file', lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR')
+                            ~ '/scenario/manifest/scenario_vms.json') | from_json }}
+
+    - name: FIREWALL DISABLE VMS - THE GUESTS IT DECLARES
+      ansible.builtin.set_fact:
+        _fwdvs_ids: "{{ (_fwdvs_manifest.vms | default([])) | map(attribute='vm_id') | list }}"
+        _fwdvs_names: "{{ (_fwdvs_manifest.vms | default([])) | map(attribute='vm_name') | list }}"
+        _fwdvs_scenario: "{{ _fwdvs_manifest.scenario | default('unnamed') }}"
+        _fwdvs_templates: "{{ (_fwdvs_manifest.templates | default([])) | length }}"
+
+    - name: FIREWALL DISABLE VMS - WHAT THE MANIFEST SAYS
+      ansible.builtin.debug:
+        msg:
+          - "scenario  : {{ _fwdvs_scenario }}"
+          - "guests    : {{ _fwdvs_ids | length }} - {{ _fwdvs_names | join(', ') }}"
+          - "templates : {{ _fwdvs_templates }}, excluded on purpose - a template never boots"
+
+    ## An empty scenario is reported and the run stops there. Reporting a success over nothing is how
+    ## an operator ends up believing a sweep covered guests it never saw.
+    - name: FIREWALL DISABLE VMS - THIS SCENARIO DECLARES NO GUEST
+      ansible.builtin.meta: end_play
+      when: (_fwdvs_ids | length) == 0
+
+    #### #### ####
+    #
+    # 2. THE SWITCHES OFF, first. Each one alone already stops that guest being filtered.
+    #
+    - name: FIREWALL DISABLE VMS - DISARM EVERY GUEST
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_disable"
+        vm_id: "{{ item }}"
+      loop: "{{ _fwdvs_ids }}"
+      loop_control:
+        label: "vm {{ item }}"
+
+    #### #### ####
+    #
+    # 3. THE CARDS. Read them all first - this fact accumulates, so one loop gives every card of every
+    #    guest, each entry carrying its own vm_id - then unflag them.
+    #
+    ## Not optional : the fact APPENDS. See vm.list.interfaces, which is the reason that reset exists.
+    - name: FIREWALL DISABLE VMS - RESET THE ACCUMULATING FACT
+      ansible.builtin.set_fact:
+        network_list_interfaces_vm: []
+
+    - name: FIREWALL DISABLE VMS - READ EVERY CARD OF EVERY GUEST
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_interfaces_vm"
+        vm_id: "{{ item }}"
+      loop: "{{ _fwdvs_ids }}"
+      loop_control:
+        label: "vm {{ item }}"
+
+    - name: FIREWALL DISABLE VMS - KEEP THE CARDS AS THEY WERE
+      ansible.builtin.set_fact:
+        _fwdvs_cards: "{{ network_list_interfaces_vm | default([]) }}"
+
+    - name: FIREWALL DISABLE VMS - HOW MANY CARDS WERE FOUND
+      ansible.builtin.debug:
+        msg: >-
+          {{ _fwdvs_cards | length }} card(s) across {{ _fwdvs_ids | length }} guest(s) :
+          {{ _fwdvs_cards | map(attribute='vm_id') | list | zip(_fwdvs_cards | map(attribute='vm_network_device') | list)
+             | map('join', '/') | list | join(', ') }}
+
+    ## A guest with no card at all would silently contribute nothing to the sweep. Named here so that
+    ## the count above is never read as complete when it is not.
+    - name: FIREWALL DISABLE VMS - GUESTS THAT HAVE NO CARD
+      ansible.builtin.debug:
+        msg: >-
+          these guests declare no network card, so nothing was unflagged on them :
+          {{ _fwdvs_ids | difference(_fwdvs_cards | map(attribute='vm_id') | map('int') | list) }}
+      when: (_fwdvs_ids | difference(_fwdvs_cards | map(attribute='vm_id') | map('int') | list) | length) > 0
+
+    - name: FIREWALL DISABLE VMS - UNFLAG EVERY CARD
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_iface_disable"
+        vm_id: "{{ item.vm_id }}"
+        vm_vmnet_id: "{{ item.vm_vmnet_id }}"
+      loop: "{{ _fwdvs_cards }}"
+      loop_control:
+        label: "vm {{ item.vm_id }} {{ item.vm_network_device }}"
+
+    #### #### ####
+    #
+    # 4. THE SSH ACCEPTS, POSTED AND NOT DELETED. See the header : this is what keeps any later arming
+    #    safe, and each call is idempotent.
+    #
+    - name: FIREWALL DISABLE VMS - LEAVE THE WAY BACK IN ON EVERY GUEST
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_enable_default_ssh_rules"
+        vm_id: "{{ item }}"
+      loop: "{{ _fwdvs_ids }}"
+      loop_control:
+        label: "vm {{ item }}"
+
+    #### #### ####
+    #
+    # 5. THE VERDICT ON THE CARDS, which is the half that can be read collectively.
+    #
+    - name: FIREWALL DISABLE VMS - RESET THE ACCUMULATING FACT, AGAIN
+      ansible.builtin.set_fact:
+        network_list_interfaces_vm: []
+
+    - name: FIREWALL DISABLE VMS - READ EVERY CARD BACK
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_interfaces_vm"
+        vm_id: "{{ item }}"
+      loop: "{{ _fwdvs_ids }}"
+      loop_control:
+        label: "vm {{ item }}"
+
+    - name: FIREWALL DISABLE VMS - WHICH CARDS ARE UNFLAGGED NOW
+      ansible.builtin.set_fact:
+        _fwdvs_unflagged: >-
+          {{ (network_list_interfaces_vm | default([]))
+             | rejectattr('vm_network_firewall', 'equalto', '1')
+             | list }}
+
+    - name: FIREWALL DISABLE VMS - WHAT THE SWEEP DID
+      ansible.builtin.debug:
+        msg:
+          - "scenario     : {{ _fwdvs_scenario }}"
+          - "guests disarmed : {{ _fwdvs_ids | length }}"
+          - "cards unflagged: {{ _fwdvs_unflagged | length }} of {{ _fwdvs_cards | length }} found"
+          - "the ssh accepts are still in every guest chain, on purpose : they make the next arming safe"
+          - "MAC spoofing is possible again on every card above - one flag carries both, they do not split"
+
+    - name: FIREWALL DISABLE VMS - FAIL IF A CARD STILL CARRIES THE FLAG
+      ansible.builtin.assert:
+        that:
+          - (_fwdvs_unflagged | length) == (_fwdvs_cards | length)
+        fail_msg: >-
+          {{ _fwdvs_unflagged | length }} card(s) are unflagged out of {{ _fwdvs_cards | length }} found.
+          The cards that still carry it are :
+          {{ (_fwdvs_cards | map(attribute='vm_network_device') | list)
+             | difference(_fwdvs_unflagged | map(attribute='vm_network_device') | list) }}.
+          Each card action refuses rather than report a false success, so read its output above : it says
+          whether the write was rejected, or whether a setting or the MAC moved. A card that still carries
+          its flag also still blocks MAC spoofing, which may or may not be what was wanted.
+        success_msg: >-
+          {{ _fwdvs_scenario }} : {{ _fwdvs_ids | length }} guest(s) disarmed,
+          {{ _fwdvs_unflagged | length }} card(s) unflagged, ssh accepts kept in place

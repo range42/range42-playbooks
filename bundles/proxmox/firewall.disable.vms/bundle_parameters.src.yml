@@ -1,0 +1,29 @@
+---
+bundle: proxmox/firewall.disable.vms
+description: >-
+  Stop filtering every guest of the ACTIVE scenario : all the switches off, then all the card flags
+  off, and the ssh accepts POSTED rather than deleted so any later arming stays safe. The list comes from
+  the scenario manifest, templates excluded. This hands MAC spoofing back on every card of the scenario at
+  once, which is either what a MITM exercise wants or something to know before running it.
+optional: false
+
+##
+## Caller-passed inputs carry the BUNDLE_ prefix : the backend generates call-sites and injects its own
+## variables into a play whose variable space is FLAT, so a generator needs a mechanical rule for which
+## names it owns. proxmox_node is NOT prefixed - it is read from the scenario vault, not passed.
+##
+## THE CARD FLAG IS SET BY THIS BUNDLE, AND THAT IS DELIBERATE. Filtering a guest needs three switches
+## and the card flag is one of them, so a bundle that set only the guest switch would report a success
+## and filter nothing. An administrator who wants a card WITHOUT the flag - a spoofable card for a MITM
+## exercise - calls proxmox_firewall.vm_id.disable_firewall_iface directly. That is the only way to ask
+## for it, and it costs that card its filtering : one flag, two features, they do not split.
+##
+
+params:
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: Proxmox node the guest runs on, resolved from the scenario vault. These endpoints are node-scoped.

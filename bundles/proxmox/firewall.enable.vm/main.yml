@@ -1,0 +1,251 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# firewall.enable.vm - arm one guest's firewall, card flag included, without cutting it off
+#
+# WHY THIS BUNDLE EXISTS. A guest is filtered only when THREE switches are all set : the datacenter one,
+# the guest one, and the per-card flag. Any one of them off and not a single packet is filtered, whatever
+# the other two say - measured. An operator who set only the guest switch would get a success and no
+# filtering, and would have no way to tell why. This bundle sets all three that are its business, in the
+# order that cannot lock anyone out.
+#
+# THE ORDER, AND IT IS NOT A PREFERENCE
+#   1. the ssh accept on the guest's own chain
+#   2. the firewall flag on its card, or on all its cards
+#   3. the guest switch
+#
+# Accept first, always : the guest switch REFUSES to arm a guest whose ssh is not accepted, active and
+# above any deny that covers it. So arming before posting is refused by design, not by luck.
+#
+# The card flag before the switch : neither filters anything on its own, so the order between them is
+# free - but doing the flag first means the last step is the one that turns filtering on, and a failure
+# before it leaves a guest that is not filtered rather than one that is half armed.
+#
+# THE SSH ACCEPT IS POSTED EVERY TIME, EVEN IF IT LOOKS REDUNDANT. The action reads the chain before
+# writing, so a second run posts nothing - idempotent, measured. It costs one call and it removes the
+# only way this bundle could make a guest unreachable.
+#
+# ONLY 22 IS OPENED, AND THAT IS A BOUNDED ASSUMPTION : range42 deploys Linux guests today, and ssh is
+# their only administration path. A guest whose admin path is RDP or WinRM would be cut SILENTLY. The two
+# other families are prepared below as comments so that adding them is an uncommenting, not a rediscovery.
+#
+#     22          active     ssh, the only administration path today
+#     3389        commented  RDP, for a future Windows guest
+#     5985/5986   commented  WinRM, http and https
+#
+# WHICH CARDS. By default ALL the cards of the guest, because a guest reachable through a second card
+# that stayed unflagged is a guest that is not isolated. Pass BUNDLE_VM_VMNET_ID to target exactly one.
+#
+# THE CARD FLAG ALSO SWITCHES PVE'S MAC ANTI-SPOOF ON, and the two cannot be separated - one flag, two
+# features. So this bundle hardens the card twice over. An administrator who WANTS a spoofable card, for
+# a MITM exercise, calls proxmox_firewall.vm_id.disable_firewall_iface directly : that is the only way to
+# ask for it, and it costs that card its filtering.
+#
+# THE VERDICT IS READ FROM THE SWITCH, never from a return code : an action can apply its change and
+# still fail afterwards. That happened, and it cost ten readings during the measurement campaign.
+#
+# NOT IN SCOPE : the datacenter and the node. Their switches are firewall.enable.datacenter_and_nodes,
+# and NOTHING here filters until the datacenter one is on. If it is off, this bundle warns and the guest
+# waits, armed but inert - and the moment the datacenter is armed, every guest chain comes alive at once.
+#
+# Required : BUNDLE_VM_ID. From the vault : proxmox_node.
+# Optional : BUNDLE_VM_VMNET_ID (default : every card of the guest).
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "firewall.enable.vm"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: FIREWALL ENABLE VM - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "vm id        : {{ BUNDLE_VM_ID }}"
+          - "cards        : {{ ('net' ~ BUNDLE_VM_VMNET_ID) if (BUNDLE_VM_VMNET_ID is defined) else 'every card of the guest' }}"
+          - "order        : ssh accept, then the card flag, then the guest switch"
+
+    #### #### ####
+    #
+    # 1. WHICH CARDS. Read before deciding, so the report says what was found rather than what was hoped.
+    #
+    ## Not optional : this fact APPENDS. Without the reset a second read in the same run returns every
+    ## card twice. See vm.list.interfaces, which is the reason that reset exists.
+    - name: FIREWALL ENABLE VM - RESET THE ACCUMULATING FACT
+      ansible.builtin.set_fact:
+        network_list_interfaces_vm: []
+
+    - name: FIREWALL ENABLE VM - READ THE CARDS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_interfaces_vm"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    - name: FIREWALL ENABLE VM - PICK THE CARDS TO FLAG
+      ansible.builtin.set_fact:
+        _fwev_cards: >-
+          {%- set all = (network_list_interfaces_vm | default([])) -%}
+          {{ (all | selectattr('vm_vmnet_id', 'equalto', (BUNDLE_VM_VMNET_ID | int)) | list)
+             if (BUNDLE_VM_VMNET_ID is defined) else all }}
+
+    ## Refused before anything is written. A guest with no card cannot be isolated, and a named card
+    ## that is not there is a typo we must not answer with a green run.
+    - name: FIREWALL ENABLE VM - REFUSE TO ARM A GUEST WITH NO CARD TO FLAG
+      ansible.builtin.assert:
+        that:
+          - ((_fwev_cards | default([])) | length) > 0
+        fail_msg: >-
+          vm {{ BUNDLE_VM_ID }} has no card to flag. NOTHING was changed.
+          {{ ('Card net' ~ BUNDLE_VM_VMNET_ID ~ ' was asked for and does not exist.')
+             if (BUNDLE_VM_VMNET_ID is defined) else 'The guest has no network card at all.' }}
+          Cards it really has :
+          {{ (network_list_interfaces_vm | default([])) | map(attribute='vm_network_device') | list }}.
+        success_msg: >-
+          {{ (_fwev_cards | map(attribute='vm_network_device') | list) | join(', ') }}
+          will carry the firewall flag
+
+    #### #### ####
+    #
+    # 2. THE SSH ACCEPT, BEFORE ANY SWITCH MOVES.
+    #
+    #    The action reads the chain first, so this is idempotent. It posts ONE rule, an accept : it used
+    #    to post a blanket deny as well, which could land above its own accept and cut the guest - that
+    #    was measured and removed. PVE ends every guest chain with an unconditional deny anyway.
+    #
+    - name: FIREWALL ENABLE VM - GUARANTEE SSH ON THE GUEST
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_enable_default_ssh_rules"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    ####
+    ## THE OTHER ADMINISTRATION PORTS, PREPARED AND NOT ACTIVE.
+    ##
+    ## Uncomment the block that matches the guest, and only that one. Each posts one accept through the
+    ## generic writer, which reads the chain first, so they are idempotent too.
+    ##
+    # - name: FIREWALL ENABLE VM - GUARANTEE RDP ON THE GUEST
+    #   include_role:
+    #     name: range42-ansible_roles-proxmox_controller
+    #   vars:
+    #     proxmox_vm_action: "firewall_vm_apply_iptables_rule"
+    #     vm_id: "{{ BUNDLE_VM_ID }}"
+    #     vm_fw_type: "in"
+    #     vm_fw_action: "ACCEPT"
+    #     vm_fw_proto: "tcp"
+    #     vm_fw_dport: "3389"
+    #     vm_fw_enable: 1
+    #     vm_fw_comment: "range42 default rdp access"
+    #
+    # - name: FIREWALL ENABLE VM - GUARANTEE WINRM ON THE GUEST
+    #   include_role:
+    #     name: range42-ansible_roles-proxmox_controller
+    #   vars:
+    #     proxmox_vm_action: "firewall_vm_apply_iptables_rule"
+    #     vm_id: "{{ BUNDLE_VM_ID }}"
+    #     vm_fw_type: "in"
+    #     vm_fw_action: "ACCEPT"
+    #     vm_fw_proto: "tcp"
+    #     vm_fw_dport: "5985,5986"
+    #     vm_fw_enable: 1
+    #     vm_fw_comment: "range42 default winrm access"
+    ####
+
+    #### #### ####
+    #
+    # 3. THE CARD FLAG, one call per card. The action edits the net<N> string it read, so the MAC, the
+    #    VLAN tag, the MTU and every other setting survive - and it refuses to report a success if any
+    #    of them moved.
+    #
+    - name: FIREWALL ENABLE VM - FLAG THE CARDS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_iface_enable"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+        vm_vmnet_id: "{{ item.vm_vmnet_id }}"
+      loop: "{{ _fwev_cards }}"
+      loop_control:
+        label: "{{ item.vm_network_device }}"
+
+    #### #### ####
+    #
+    # 4. THE GUEST SWITCH, last. This one carries the guard that refuses a guest with no reachable ssh,
+    #    and it warns when the datacenter switch is off - an arming that cannot filter yet.
+    #
+    - name: FIREWALL ENABLE VM - ARM THE GUEST
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_enable"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    #### #### ####
+    #
+    # 5. THE VERDICT, READ FROM THE SWITCH AND FROM THE CARDS.
+    #
+    - name: FIREWALL ENABLE VM - READ THE GUEST SWITCH BACK
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_list_options"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    - name: FIREWALL ENABLE VM - RESET THE ACCUMULATING FACT, AGAIN
+      ansible.builtin.set_fact:
+        network_list_interfaces_vm: []
+        _fwev_switch: "{{ firewall_vm_list_options.vm_fw_opt_enable | default('unread') }}"
+
+    - name: FIREWALL ENABLE VM - READ THE CARDS BACK
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_interfaces_vm"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    - name: FIREWALL ENABLE VM - WHICH CARDS CARRY THE FLAG NOW
+      ansible.builtin.set_fact:
+        _fwev_flagged: >-
+          {%- set want = (_fwev_cards | map(attribute='vm_vmnet_id') | list) -%}
+          {{ (network_list_interfaces_vm | default([]))
+             | selectattr('vm_vmnet_id', 'in', want)
+             | selectattr('vm_network_firewall', 'defined')
+             | selectattr('vm_network_firewall', 'equalto', '1')
+             | map(attribute='vm_network_device') | list }}
+
+    - name: FIREWALL ENABLE VM - WHAT THE THREE LEVELS SAY NOW
+      ansible.builtin.debug:
+        msg:
+          - "guest switch : {{ _fwev_switch }}"
+          - "cards flagged: {{ _fwev_flagged | join(', ') if (_fwev_flagged | length) > 0 else 'NONE' }}"
+          - "asked for    : {{ _fwev_cards | map(attribute='vm_network_device') | list | join(', ') }}"
+          - "the datacenter switch is the third condition and this bundle does not touch it. If it is off,
+             nothing is filtered yet and the arming above said so."
+
+    ## Both halves are asserted, and separately : a guest switch on with an unflagged card filters
+    ## nothing, and a flagged card with the switch off filters nothing either. Reporting one without
+    ## the other is how an operator ends up believing a guest is isolated when it is not.
+    - name: FIREWALL ENABLE VM - FAIL IF THE GUEST IS NOT ACTUALLY SET UP TO FILTER
+      ansible.builtin.assert:
+        that:
+          - (_fwev_switch | string) == '1'
+          - (_fwev_flagged | length) == ((_fwev_cards | default([])) | length)
+        fail_msg: >-
+          vm {{ BUNDLE_VM_ID }} is NOT set up to filter.
+          guest switch : {{ _fwev_switch }} (wanted 1).
+          cards carrying the flag : {{ _fwev_flagged | length }} of {{ (_fwev_cards | default([])) | length }}.
+          {{ 'The guest switch stayed off, which means its guard refused - the message above names the port
+              that has no accepted path. Nothing was left half done, a refusal happens before the switch
+              moves.' if (_fwev_switch | string) != '1' else '' }}
+          {{ 'A card did not take the flag. Its own action refuses rather than report a false success, so
+              read its output above : it says whether the write was rejected, or whether a setting or the
+              MAC moved.' if (_fwev_flagged | length) != ((_fwev_cards | default([])) | length) else '' }}
+        success_msg: >-
+          vm {{ BUNDLE_VM_ID }} : switch on, {{ _fwev_flagged | length }} card(s) flagged, ssh accepted.
+          It filters as soon as the datacenter switch is on

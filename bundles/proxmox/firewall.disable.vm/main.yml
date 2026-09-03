@@ -1,0 +1,202 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# firewall.disable.vm - stop filtering one guest, and leave the way back in
+#
+# THE ORDER IS THE MIRROR OF THE ARMING, AND THE FIRST STEP ALREADY DOES THE JOB
+#   1. the guest switch off  - the guest stops being filtered at once
+#   2. the firewall flag off on its card, or on all its cards
+#
+# Either one alone is enough to stop the filtering, since all three conditions must hold for a single
+# packet to be filtered. So this bundle is safe in any order - which is why disarming is the easy
+# direction and arming is not. The switch goes first anyway, because it is the one an operator reads.
+#
+# THE SSH ACCEPT IS POSTED, NOT DELETED, AND EVEN ON A DISABLE.
+# It costs one idempotent call - the action reads the chain before writing - and it guarantees that this
+# guest can never be armed later without a way in, by this bundle or by anyone else. Deleting it would
+# build the dangerous asymmetry : a disarmed guest whose next arming would be refused at best, and would
+# cut it at worst. If you want it gone, delete it explicitly.
+#
+# TURNING THE CARD FLAG OFF HANDS MAC SPOOFING BACK, and that is not a detail to discover later.
+# The same flag carries PVE's MAC anti-spoof, and the two cannot be separated - one flag, two features.
+# Measured : with the flag set a guest becomes unreachable the moment it changes its MAC ; without it, it
+# stays reachable ON THE FAKE ADDRESS. So this bundle gives the guest back the ability to lie about its
+# MAC. In a cyber range that is sometimes exactly what is wanted, for a MITM or ARP-spoofing exercise.
+# What cannot be had is both : a card is either filtered or free to spoof, never both.
+#
+# WHICH CARDS. By default ALL the cards of the guest, mirroring the arming. Pass BUNDLE_VM_VMNET_ID to
+# target exactly one - which is how you leave a guest filtered on one card and spoofable on another.
+#
+# THE FLAG IS SET TO ZERO, NOT REMOVED. Both produce the same observable effect, but they come from
+# opposite intentions, and nobody can tell an isolation that was DECLINED from one that was LOST.
+#
+# NOT IN SCOPE : the datacenter and the node. Their switches keep whatever they had, and turning the
+# datacenter off would stop filtering for EVERY guest at once - that is firewall.disable.datacenter_and_nodes.
+#
+# Required : BUNDLE_VM_ID. From the vault : proxmox_node.
+# Optional : BUNDLE_VM_VMNET_ID (default : every card of the guest).
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "firewall.disable.vm"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: FIREWALL DISABLE VM - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "vm id        : {{ BUNDLE_VM_ID }}"
+          - "cards        : {{ ('net' ~ BUNDLE_VM_VMNET_ID) if (BUNDLE_VM_VMNET_ID is defined) else 'every card of the guest' }}"
+          - "kept         : the ssh accept is posted, not deleted"
+          - "given back   : MAC spoofing becomes possible again on the cards touched"
+
+    #### #### ####
+    #
+    # 1. WHICH CARDS.
+    #
+    ## Not optional : this fact APPENDS. See vm.list.interfaces, which is the reason that reset exists.
+    - name: FIREWALL DISABLE VM - RESET THE ACCUMULATING FACT
+      ansible.builtin.set_fact:
+        network_list_interfaces_vm: []
+
+    - name: FIREWALL DISABLE VM - READ THE CARDS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_interfaces_vm"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    - name: FIREWALL DISABLE VM - PICK THE CARDS TO UNFLAG
+      ansible.builtin.set_fact:
+        _fwdv_cards: >-
+          {%- set all = (network_list_interfaces_vm | default([])) -%}
+          {{ (all | selectattr('vm_vmnet_id', 'equalto', (BUNDLE_VM_VMNET_ID | int)) | list)
+             if (BUNDLE_VM_VMNET_ID is defined) else all }}
+
+    ## A named card that is not there is a typo, and answering it with a green run would let an operator
+    ## believe a guest was disarmed when nothing was touched. A guest with no card at all is reported
+    ## and not treated as an error : there is simply nothing to unflag, and the switch still goes off.
+    - name: FIREWALL DISABLE VM - REFUSE A CARD THAT WAS NAMED AND IS NOT THERE
+      ansible.builtin.assert:
+        that:
+          - ((_fwdv_cards | default([])) | length) > 0
+        fail_msg: >-
+          card net{{ BUNDLE_VM_VMNET_ID }} was asked for and vm {{ BUNDLE_VM_ID }} does not have it.
+          NOTHING was changed. Cards it really has :
+          {{ (network_list_interfaces_vm | default([])) | map(attribute='vm_network_device') | list }}.
+        success_msg: >-
+          net{{ BUNDLE_VM_VMNET_ID }} found
+      when: BUNDLE_VM_VMNET_ID is defined
+
+    - name: FIREWALL DISABLE VM - THE GUEST HAS NO CARD AT ALL
+      ansible.builtin.debug:
+        msg: >-
+          vm {{ BUNDLE_VM_ID }} has no network card - there is nothing to unflag. Its switch is still
+          turned off below, so the guest ends up in the state this bundle promises.
+      when:
+        - BUNDLE_VM_VMNET_ID is not defined
+        - ((_fwdv_cards | default([])) | length) == 0
+
+    #### #### ####
+    #
+    # 2. THE GUEST SWITCH OFF, first. This alone stops the filtering.
+    #
+    - name: FIREWALL DISABLE VM - DISARM THE GUEST
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_disable"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    #### #### ####
+    #
+    # 3. THE CARD FLAG OFF, one call per card. The action edits the net<N> string it read, so the MAC and
+    #    every other setting survive - and it refuses to report a success if any of them moved.
+    #
+    - name: FIREWALL DISABLE VM - UNFLAG THE CARDS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_iface_disable"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+        vm_vmnet_id: "{{ item.vm_vmnet_id }}"
+      loop: "{{ _fwdv_cards }}"
+      loop_control:
+        label: "{{ item.vm_network_device }}"
+
+    #### #### ####
+    #
+    # 4. THE SSH ACCEPT, POSTED AND NOT DELETED. See the header : this is what keeps any later arming
+    #    safe, and it is idempotent so it costs nothing on a guest that already has it.
+    #
+    - name: FIREWALL DISABLE VM - LEAVE THE WAY BACK IN
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_enable_default_ssh_rules"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    #### #### ####
+    #
+    # 5. THE VERDICT, READ FROM THE SWITCH AND FROM THE CARDS.
+    #
+    - name: FIREWALL DISABLE VM - READ THE GUEST SWITCH BACK
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_list_options"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    - name: FIREWALL DISABLE VM - RESET THE ACCUMULATING FACT, AGAIN
+      ansible.builtin.set_fact:
+        network_list_interfaces_vm: []
+        _fwdv_switch: "{{ firewall_vm_list_options.vm_fw_opt_enable | default('unread') }}"
+
+    - name: FIREWALL DISABLE VM - READ THE CARDS BACK
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_interfaces_vm"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    ## A card counts as unflagged when its flag reads 0. A card whose key vanished would also filter
+    ## nothing, but this bundle writes an explicit zero, so an absent key here means something else
+    ## happened and the count will say so.
+    - name: FIREWALL DISABLE VM - WHICH CARDS ARE UNFLAGGED NOW
+      ansible.builtin.set_fact:
+        _fwdv_unflagged: >-
+          {%- set want = (_fwdv_cards | map(attribute='vm_vmnet_id') | list) -%}
+          {{ (network_list_interfaces_vm | default([]))
+             | selectattr('vm_vmnet_id', 'in', want)
+             | rejectattr('vm_network_firewall', 'equalto', '1')
+             | map(attribute='vm_network_device') | list }}
+
+    - name: FIREWALL DISABLE VM - WHAT THE TWO LEVELS SAY NOW
+      ansible.builtin.debug:
+        msg:
+          - "guest switch   : {{ _fwdv_switch }}"
+          - "cards unflagged: {{ _fwdv_unflagged | join(', ') if (_fwdv_unflagged | length) > 0 else 'NONE' }}"
+          - "asked for      : {{ _fwdv_cards | map(attribute='vm_network_device') | list | join(', ') }}"
+          - "the ssh accept is still in the guest chain, on purpose : it makes the next arming safe"
+          - "MAC spoofing is possible again on the cards above - one flag carries both, they do not split"
+
+    - name: FIREWALL DISABLE VM - FAIL IF THE GUEST IS STILL SET UP TO FILTER
+      ansible.builtin.assert:
+        that:
+          - (_fwdv_switch | string) == '0'
+          - (_fwdv_unflagged | length) == ((_fwdv_cards | default([])) | length)
+        fail_msg: >-
+          vm {{ BUNDLE_VM_ID }} is NOT fully disarmed.
+          guest switch : {{ _fwdv_switch }} (wanted 0).
+          cards unflagged : {{ _fwdv_unflagged | length }} of {{ (_fwdv_cards | default([])) | length }}.
+          The switch is the one that matters : while it reads 1 and a card still carries its flag, the
+          guest is filtered as soon as the datacenter switch is on. Read the output above for the step
+          that did not go through, then run this again - it is idempotent.
+        success_msg: >-
+          vm {{ BUNDLE_VM_ID }} : switch off, {{ _fwdv_unflagged | length }} card(s) unflagged,
+          ssh accept kept in place

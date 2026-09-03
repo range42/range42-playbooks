@@ -1,0 +1,37 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/firewall.disable.vm",
+  "description": "Stop filtering one guest : the guest switch off, then the firewall flag off on its card or on all of them. Either alone is enough, all three conditions being needed to filter. The ssh accept is POSTED, not deleted, so any later arming stays safe. Turning the flag off hands MAC spoofing back on the cards touched - one flag carries both. Reads the switch and the cards back and fails if either half did not take.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_VM_ID",
+      "renamed_to": [
+        "vm_id"
+      ],
+      "type": "int",
+      "required": true,
+      "default_where": "none",
+      "description": "Proxmox VM id whose firewall is turned off."
+    },
+    {
+      "name": "BUNDLE_VM_VMNET_ID",
+      "renamed_to": [
+        "vm_vmnet_id"
+      ],
+      "type": "int",
+      "required": false,
+      "default_where": "call-site",
+      "description": "Which card to touch, the N of netN. Left empty, EVERY card of the guest is touched - a guest reachable through a second card that stayed unflagged is a guest that is not isolated. Name one to leave the others alone, which is how a guest ends up filtered on one card and spoofable on another. A named card that does not exist is refused before anything is written."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the guest runs on, resolved from the scenario vault. These endpoints are node-scoped."
+    }
+  ]
+}
