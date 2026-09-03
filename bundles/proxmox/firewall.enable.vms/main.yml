@@ -90,6 +90,75 @@
 
     #### #### ####
     #
+    # 1 BIS. CE QUI EST REELLEMENT DEPLOYE. Le manifeste est un CATALOGUE de ce que le
+    #        scenario peut deployer, pas un inventaire de ce qui tourne : plusieurs invites
+    #        sont deployables A LA DEMANDE et l operateur choisit de ne pas les installer.
+    #        Un scenario partiellement deploye est donc le cas NORMAL.
+    #
+    #        Sans ce filtre, la premiere iteration visant un invite absent fait echouer son
+    #        appel d API et ARRETE TOUT LE RUN, laissant les suivants non traites - et le
+    #        balayage inverse s arreterait au meme endroit, donc sans chemin de nettoyage.
+    #
+    #        Les absents sont SAUTES ET NOMMES. Sautes en silence, un invite absent par
+    #        erreur serait indiscernable d un invite absent par choix.
+    #
+    ## Non optionnel : le fait de vm_list ACCUMULE, comme celui des cartes.
+    - name: FIREWALL ENABLE VMS - RESET THE VM LIST FACT
+      ansible.builtin.set_fact:
+        vm_list: []
+
+    - name: FIREWALL ENABLE VMS - READ WHAT IS ACTUALLY DEPLOYED ON THE NODE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "vm_list"
+
+    ## Les templates sont ecartes ici aussi : l endpoint qemu les rend comme des VM, et un
+    ## template ne demarre jamais. Le manifeste les tient deja dans une liste separee, mais
+    ## un identifiant declare comme invite et devenu template ne doit pas etre arme.
+    - name: FIREWALL ENABLE VMS - THE IDS THAT REALLY EXIST
+      ansible.builtin.set_fact:
+        _fwevs_deployed: >-
+          {{ (vm_list | default([]))
+             | rejectattr('vm_template', 'in', [1, '1', true])
+             | map(attribute='vm_id') | map('int') | list }}
+
+    - name: FIREWALL ENABLE VMS - KEEP ONLY THE DECLARED GUESTS THAT EXIST
+      ansible.builtin.set_fact:
+        _fwevs_absents: "{{ (_fwevs_ids | map('int') | list) | difference(_fwevs_deployed) }}"
+        _fwevs_ids: "{{ (_fwevs_ids | map('int') | list) | intersect(_fwevs_deployed) }}"
+
+    - name: FIREWALL ENABLE VMS - WHICH DECLARED GUESTS ARE NOT DEPLOYED
+      ansible.builtin.debug:
+        msg: >-
+          these guests are declared by the scenario and not deployed on this node, so they
+          are skipped : {{ _fwevs_absents }}. Deployable on demand, so this is expected -
+          but read the list : an id missing by mistake looks exactly like one missing by choice.
+      when: (_fwevs_absents | length) > 0
+
+    - name: FIREWALL ENABLE VMS - WHAT WILL ACTUALLY BE SWEPT
+      ansible.builtin.debug:
+        msg:
+          - "declared by the scenario : {{ _fwevs_names | length }}"
+          - "deployed and swept       : {{ _fwevs_ids | length }} - {{ _fwevs_ids | join(', ') }}"
+          - "declared and absent      : {{ _fwevs_absents | length }}"
+
+    ## Un scenario dont AUCUN invite declare n est deploye s arrete ici. Rapporter un succes
+    ## sur zero invite est la faute que la garde du manifeste vide ferme deja.
+    - name: FIREWALL ENABLE VMS - NONE OF THE DECLARED GUESTS IS DEPLOYED
+      ansible.builtin.debug:
+        msg: >-
+          {{ _fwevs_names | length }} guest(s) declared, NONE deployed on this node. Nothing
+          to sweep, so the run stops here rather than reporting a success over nothing.
+      when: (_fwevs_ids | length) == 0
+
+    - name: FIREWALL ENABLE VMS - STOP, NOTHING IS DEPLOYED
+      ansible.builtin.meta: end_play
+      when: (_fwevs_ids | length) == 0
+
+
+    #### #### ####
+    #
     # 2. THE SSH ACCEPTS, all of them, before any switch moves. Each call reads the chain first, so this
     #    is idempotent per guest.
     #
