@@ -1,0 +1,132 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# firewall.disable.datacenter_and_nodes - turn the host firewall off, and leave the way back in
+#
+# THE ORDER IS THE MIRROR OF THE ARMING, AND THE FIRST STEP IS THE ONE THAT MATTERS
+#   1. the DATACENTER switch off - everything stops filtering at once, at every level
+#   2. the NODE switch off
+#
+# The datacenter switch is the master : with it off, nothing is installed anywhere - not the host chain,
+# not a single guest chain - whatever the other switches say. Measured. So the first task already does the
+# whole job and the second only tidies up. This is why disarming is the safe direction and arming is not.
+#
+# THE MANAGEMENT ACCEPTS ARE NOT DELETED, AND THAT IS DELIBERATE.
+# Leaving them costs nothing - a rule in a chain that is not installed has no effect - and it keeps any
+# later arming safe. Deleting them would build the dangerous asymmetry : a disarmed host whose next
+# arming, by this bundle or by anyone else, would have no accepted path and would be refused at best.
+# If you want them gone, delete them explicitly ; do not make it a side effect of switching off.
+#
+# WHAT THIS DOES NOT DO : it does not disarm the guests. A guest keeps its own switch and its card flag,
+# and those stop filtering only because the datacenter is off. Turn the datacenter back on and every
+# guest chain comes alive again, all at once - which is exactly the trap the guest bundles exist for.
+#
+# THE VERDICT IS READ FROM THE SWITCHES, never from a return code.
+#
+# Required : nothing. From the vault : proxmox_node.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "firewall.disable.datacenter_and_nodes"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: FIREWALL DISABLE HOST - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "order        : the datacenter switch first, then the node switch"
+          - "kept         : the management accepts on 8006 and 22 are NOT deleted"
+
+    #### #### ####
+    #
+    # 1. WHERE WE START.
+    #
+    - name: FIREWALL DISABLE HOST - READ THE DATACENTER SWITCH BEFORE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_dc_list_options"
+
+    - name: FIREWALL DISABLE HOST - KEEP THE DATACENTER SWITCH AS IT WAS
+      ansible.builtin.set_fact:
+        _fwdh_dc_before: "{{ firewall_dc_list_options.dc_fw_opt_enable | default('unread') }}"
+
+    - name: FIREWALL DISABLE HOST - READ THE NODE SWITCH BEFORE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_node_list_options"
+
+    - name: FIREWALL DISABLE HOST - KEEP THE NODE SWITCH AS IT WAS
+      ansible.builtin.set_fact:
+        _fwdh_node_before: "{{ firewall_node_list_options.node_fw_opt_enable | default('unread') }}"
+
+    #### #### ####
+    #
+    # 2. THE DATACENTER FIRST. This one task already stops all filtering, everywhere.
+    #
+    - name: FIREWALL DISABLE HOST - DISARM THE DATACENTER
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_dc_disable"
+
+    - name: FIREWALL DISABLE HOST - DISARM THE NODE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_node_disable"
+
+    #### #### ####
+    #
+    # 3. THE VERDICT, READ FROM THE SWITCHES.
+    #
+    - name: FIREWALL DISABLE HOST - READ THE DATACENTER SWITCH AFTER
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_dc_list_options"
+
+    - name: FIREWALL DISABLE HOST - KEEP THE DATACENTER SWITCH AS IT IS NOW
+      ansible.builtin.set_fact:
+        _fwdh_dc_after: "{{ firewall_dc_list_options.dc_fw_opt_enable | default('unread') }}"
+
+    - name: FIREWALL DISABLE HOST - READ THE NODE SWITCH AFTER
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_node_list_options"
+
+    - name: FIREWALL DISABLE HOST - KEEP THE NODE SWITCH AS IT IS NOW
+      ansible.builtin.set_fact:
+        _fwdh_node_after: "{{ firewall_node_list_options.node_fw_opt_enable | default('unread') }}"
+
+    - name: FIREWALL DISABLE HOST - WHAT THE SWITCHES SAY NOW
+      ansible.builtin.debug:
+        msg:
+          - "datacenter : {{ _fwdh_dc_before }} -> {{ _fwdh_dc_after }}"
+          - "node       : {{ _fwdh_node_before }} -> {{ _fwdh_node_after }}"
+          - "{{ 'nothing filters anywhere, at any level' if (_fwdh_dc_after | string == '0')
+               else 'the DATACENTER is still on - filtering continues, read the output above' }}"
+          - "the management accepts on 8006 and 22 are still in both chains, on purpose : a chain that is
+             not installed has no effect, and keeping them makes the next arming safe"
+
+    ## The datacenter is the only load-bearing assertion : with it off nothing filters, whatever the node
+    ## switch says. The node is asserted too because leaving it on after a disable is an inconsistent
+    ## state that would surprise the next reader, not because it filters anything by itself.
+    - name: FIREWALL DISABLE HOST - FAIL IF A SWITCH DID NOT GO OFF
+      ansible.builtin.assert:
+        that:
+          - (_fwdh_dc_after | string) == '0'
+          - (_fwdh_node_after | string) == '0'
+        fail_msg: >-
+          the host firewall is NOT fully disarmed. datacenter {{ _fwdh_dc_after }}, node {{ _fwdh_node_after }}.
+          The datacenter one is the one that matters : while it reads 1, filtering continues at every level.
+          Read the output above for the step that did not go through, then run this again - it is idempotent.
+        success_msg: >-
+          datacenter and node both off, management accepts kept in place

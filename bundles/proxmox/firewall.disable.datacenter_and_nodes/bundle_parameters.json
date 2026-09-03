@@ -1,0 +1,17 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/firewall.disable.datacenter_and_nodes",
+  "description": "Turn the host firewall off - the datacenter switch first, then the node. The datacenter switch is the master : with it off nothing is installed anywhere, so the first step already does the whole job. The management accepts on 8006 and 22 are deliberately NOT deleted, which keeps any later arming safe. Reads both switches back and fails if either stayed on. Does NOT disarm the guests.",
+  "optional": false,
+  "params": [
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node whose firewall is turned off, resolved from the scenario vault. Both endpoints are node-scoped or cluster-scoped through it."
+    }
+  ]
+}

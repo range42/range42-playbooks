@@ -1,0 +1,31 @@
+---
+bundle: proxmox/firewall.enable.datacenter_and_nodes
+description: >-
+  Arm the host firewall - the datacenter switch and the node switch - after guaranteeing management access
+  on 8006 and 22 at both levels. Accepts first, then the datacenter, then the node : an accept can never
+  cut anything, and both guards refuse to arm a level whose management ports are not reachable. Reads both
+  switches back and fails if either stayed off. Does NOT filter any guest.
+optional: false
+
+##
+## NO CALLER-PASSED PARAMETER, AND THAT IS THE POINT OF THIS BUNDLE.
+##
+## Everything it needs has a sane default in the role : 8006 and 22 for the ports, positions 0 and 1 at
+## the top of the chain. Exposing them would hand the operator the three knobs this bundle exists to hide.
+##
+## mgmt_source is DELIBERATELY not exposed. The management accepts are posted without a source restriction,
+## which is an assumed trade-off : a rule that is too wide is narrowed later by anyone who can read a
+## chain, a lockout costs console access to every node. Narrowing needs the administrator's own topology -
+## where the deployer sits, which gateways the guest networks use - which this bundle cannot infer.
+##
+## proxmox_node is NOT prefixed : it is read from the scenario vault, not passed at the call-site.
+##
+
+params:
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: Proxmox node whose firewall is armed, resolved from the scenario vault. Both endpoints are node-scoped or cluster-scoped through it.

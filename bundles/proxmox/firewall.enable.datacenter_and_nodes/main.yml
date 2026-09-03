@@ -1,0 +1,172 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# firewall.enable.datacenter_and_nodes - arm the host firewall without locking the operator out
+#
+# WHY THIS BUNDLE EXISTS. Arming the Proxmox firewall by hand means knowing that nothing filters until
+# the datacenter switch is on, that the host chain is ONE chain where node rules are evaluated BEFORE
+# datacenter rules, and that an accept sitting below a deny accepts nothing. Getting the order wrong
+# costs a physical or console visit to the node. That knowledge lives here instead of in the operator.
+#
+# THE ORDER, AND IT IS NOT A PREFERENCE
+#   1. the two management accepts, at the DATACENTER and at the NODE
+#   2. the DATACENTER switch
+#   3. the NODE switch
+#
+# Accepts first, always : posting an accept can never cut anything, and both guards refuse to arm a level
+# whose management ports are not reachable. Arming before posting would simply be refused - by design.
+#
+# The datacenter goes on BEFORE the node, which reads backwards until you see why : from a clean state no
+# guest is armed, so arming the datacenter filters no guest yet - only the host chain comes alive, and its
+# accepts are already in place. Doing it the other way round works too, both guards being level-aware, but
+# this order keeps every later step incremental and observable.
+#
+# WHAT IS PROTECTED : 8006/tcp, the web interface AND the api this very role talks to, and 22/tcp for ssh.
+# Both at the top of the chain, positions passed explicitly by the actions themselves. Losing 8006 loses
+# the tool that would repair it - measured : the api being on that port, an arming that drops it leaves no
+# way back in except ssh on the node.
+#
+# THE SOURCE IS DELIBERATELY NOT RESTRICTED, and this bundle does not offer to restrict it. A rule that is
+# too wide is narrowed later by anyone who can read a chain ; a lockout costs console access to every node.
+# Narrowing needs the administrator's own topology, which this bundle cannot infer.
+#
+# THE VERDICT IS READ FROM THE SWITCH, never from a return code. The last task reads both switches back,
+# because an action can apply its change and still fail afterwards - that happened, and it cost ten
+# readings during the measurement campaign.
+#
+# NOT IN SCOPE : the guests. Their switch and their card flag are three other bundles. Arming the host
+# firewall does not filter a single guest by itself.
+#
+# Required : nothing. From the vault : proxmox_node.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "firewall.enable.datacenter_and_nodes"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: FIREWALL ENABLE HOST - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "order        : accepts first, then the datacenter switch, then the node switch"
+          - "protected    : 8006 the web interface and api, 22 ssh"
+
+    #### #### ####
+    #
+    # 1. WHERE WE START. Read before writing, so the report says what changed rather than what was asked.
+    #
+    - name: FIREWALL ENABLE HOST - READ THE TWO SWITCHES BEFORE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_dc_list_options"
+
+    - name: FIREWALL ENABLE HOST - KEEP THE DATACENTER SWITCH AS IT WAS
+      ansible.builtin.set_fact:
+        _fweh_dc_before: "{{ firewall_dc_list_options.dc_fw_opt_enable | default('unread') }}"
+
+    - name: FIREWALL ENABLE HOST - READ THE NODE SWITCH BEFORE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_node_list_options"
+
+    - name: FIREWALL ENABLE HOST - KEEP THE NODE SWITCH AS IT WAS
+      ansible.builtin.set_fact:
+        _fweh_node_before: "{{ firewall_node_list_options.node_fw_opt_enable | default('unread') }}"
+
+    #### #### ####
+    #
+    # 2. THE ACCEPTS, BOTH LEVELS, BEFORE ANY SWITCH MOVES.
+    #
+    #    Both actions read the chain before writing, so a second run posts nothing - idempotent, measured.
+    #    They also refuse to report success unless the two accepts land ABOVE any deny that covers their
+    #    port, which is what makes this step a guard rather than a hopeful POST.
+    #
+    - name: FIREWALL ENABLE HOST - GUARANTEE MANAGEMENT ACCESS AT THE DATACENTER
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_dc_enable_management_access"
+
+    - name: FIREWALL ENABLE HOST - GUARANTEE MANAGEMENT ACCESS AT THE NODE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_node_enable_management_access"
+
+    #### #### ####
+    #
+    # 3. THE SWITCHES. Datacenter first - see the header.
+    #
+    #    Each of these carries its own guard and will REFUSE rather than lock anyone out : the datacenter
+    #    one also walks the armed nodes of the cluster and refuses if one of them shadows a management
+    #    accept, node rules being evaluated first in the single host chain.
+    #
+    - name: FIREWALL ENABLE HOST - ARM THE DATACENTER
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_dc_enable"
+
+    - name: FIREWALL ENABLE HOST - ARM THE NODE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_node_enable"
+
+    #### #### ####
+    #
+    # 4. THE VERDICT, READ FROM THE SWITCHES.
+    #
+    - name: FIREWALL ENABLE HOST - READ THE TWO SWITCHES AFTER
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_dc_list_options"
+
+    - name: FIREWALL ENABLE HOST - KEEP THE DATACENTER SWITCH AS IT IS NOW
+      ansible.builtin.set_fact:
+        _fweh_dc_after: "{{ firewall_dc_list_options.dc_fw_opt_enable | default('unread') }}"
+
+    - name: FIREWALL ENABLE HOST - READ THE NODE SWITCH AFTER
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_node_list_options"
+
+    - name: FIREWALL ENABLE HOST - KEEP THE NODE SWITCH AS IT IS NOW
+      ansible.builtin.set_fact:
+        _fweh_node_after: "{{ firewall_node_list_options.node_fw_opt_enable | default('unread') }}"
+
+    ## The switch is the verdict. `unread` is reported as itself rather than folded into 0 : not knowing
+    ## and knowing it is off are different answers, and only one of them means the arming failed.
+    - name: FIREWALL ENABLE HOST - WHAT THE SWITCHES SAY NOW
+      ansible.builtin.debug:
+        msg:
+          - "datacenter : {{ _fweh_dc_before }} -> {{ _fweh_dc_after }}"
+          - "node       : {{ _fweh_node_before }} -> {{ _fweh_node_after }}"
+          - "{{ 'both armed' if (_fweh_dc_after | string == '1' and _fweh_node_after | string == '1')
+               else 'NOT both armed - read the refusal above, a guard stopped rather than lock you out' }}"
+          - "the host firewall is on. NO guest is filtered by this alone : a guest needs its own switch
+             and its card flag, which are the four firewall.*.vm bundles"
+
+    ## Refuses AFTER reporting, so the reading above is always printed. A guard that refused is not a
+    ## failure of this bundle - it is the guard doing its job - but the run must not exit green either.
+    - name: FIREWALL ENABLE HOST - FAIL IF A SWITCH DID NOT COME ON
+      ansible.builtin.assert:
+        that:
+          - (_fweh_dc_after | string) == '1'
+          - (_fweh_node_after | string) == '1'
+        fail_msg: >-
+          the host firewall is NOT fully armed. datacenter {{ _fweh_dc_after }}, node {{ _fweh_node_after }}.
+          A switch that stayed at 0 means a guard refused, and the refusal message above says which port has
+          no accepted path. Nothing was left half done : a refusal happens BEFORE the switch moves.
+          Fix what the message names, then run this again - it is idempotent.
+        success_msg: >-
+          datacenter and node both armed, management access guaranteed on 8006 and 22
