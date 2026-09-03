@@ -124,10 +124,17 @@
       vars:
         proxmox_vm_action: "firewall_vm_iface_disable"
         vm_id: "{{ BUNDLE_VM_ID }}"
-        vm_vmnet_id: "{{ item.vm_vmnet_id }}"
+        vm_vmnet_id: "{{ _fwdv_it.vm_vmnet_id }}"
       loop: "{{ _fwdv_cards }}"
+      ## loop_var EXPLICITE, et ce n est pas du style. Ansible evalue `vars` PARESSEUSEMENT :
+      ## si l action appelee boucle a son tour sur `item`, elle rebinde la variable et ce que
+      ## le bundle croyait passer se resout sur l element INTERNE. Mesure le 2026-09-03 : le
+      ## `vm_id` d un invite devenait le dictionnaire d une cle reseau, et le balayage a echoue
+      ## en annoncant que quatre invites n avaient aucune carte. Ansible le disait deja :
+      ## "The loop variable 'item' is already in use".
       loop_control:
-        label: "{{ item.vm_network_device }}"
+        loop_var: _fwdv_it
+        label: "{{ _fwdv_it.vm_network_device }}"
 
     #### #### ####
     #
