@@ -1,0 +1,14 @@
+---
+bundle: generic/os_firewall.baseline.deployer_ui
+
+description: Firewall baseline opening SSH (22) and the range42-deployer-ui Vite/Node port (3000) on the target group.
+
+optional: false
+
+params:
+  - name: target_group
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Ansible host group this firewall policy is applied to (used in the play hosts line).

@@ -1,0 +1,17 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "generic",
+  "bundle": "generic/os_firewall.baseline.ssh_http",
+  "description": "Open the standard web-facing firewall profile (ports 22, 80, 443 tcp) on a target group.",
+  "optional": false,
+  "params": [
+    {
+      "name": "target_group",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Ansible group or host(s) this bundle runs against (the play hosts value). Canonical name Phase 2 = TARGET_ANSIBLE_HOSTS."
+    }
+  ]
+}
