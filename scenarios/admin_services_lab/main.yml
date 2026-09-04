@@ -62,7 +62,7 @@
         port: 3223
         protocol: "tcp"
       - ip: "all"
-        port: 8080
+        port: 8443
         protocol: "tcp"
 
 - import_playbook: ./02_admin_services_lab_infrastructure/stage_02/_r42_admin_services_lab_stacks.yml

@@ -27,7 +27,8 @@
 #   upstream README "edit .env before deploying" step).
 #
 # Service port :
-#   This bundle opens 8080 (Nextcloud HTTP, the catalog HTTP_PORT default) on
+#   This bundle opens 8443 (Nextcloud HTTPS via nginx, the catalog compose
+#   HTTP_PORT default) on
 #   the VM itself (Play 3). The scenario baseline only opens 22 ; a reusable
 #   software bundle owns its own service port so INSTALL_NEXTCLOUD works in any
 #   scenario without the scenario needing to know the port.
@@ -75,7 +76,7 @@
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- name: nextcloud - open firewall ports (22 SSH + 8080 HTTP)
+- name: nextcloud - open firewall ports (22 SSH + 8443 HTTPS)
   hosts: "{{ global_vm_ssh_name }}"
   become: true
   gather_facts: false
@@ -84,7 +85,7 @@
   vars:
     firewall_rules:
       - { ip: "all", port: 22,   protocol: "tcp" }
-      - { ip: "all", port: 8080, protocol: "tcp" }
+      - { ip: "all", port: 8443, protocol: "tcp" }
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 

@@ -19,4 +19,4 @@ params:
     type: string
     required: true
     default_where: call-site
-    description: IP of the Rocket.Chat server; informational only (web UI at port 3000), not consumed by any task
+    description: IP of the Rocket.Chat server; informational only (web UI at port 3500), not consumed by any task

@@ -12,7 +12,7 @@ Rocket.Chat is modeled as an **admin-tier service** gated by `INSTALL_ROCKETCHAT
 - One Ubuntu LTS VM on vmbr142
 - Docker engine + Docker Compose plugin
 - zsh + vim dotfiles, basic utilities, NTP
-- UFW firewall : ports 22 (SSH) + 3000 (Rocket.Chat HTTP) - 3000 opened by the bundle
+- UFW firewall : ports 22 (SSH) + 3500 (Rocket.Chat HTTPS) - 3500 opened by the bundle
 - Rocket.Chat docker-compose stack (mongodb + mongo-init-replica + rocketchat + provisioner) deployed + bootstrapped (users + access tokens via the provisioner sidecar)
 
 **Optional (off by default) :**
@@ -65,7 +65,7 @@ To deploy the VM without Rocket.Chat (bare Docker host) : `-e INSTALL_ROCKETCHAT
 |---|---|
 | `01_templates-bootstrap/_main.yml` | Build template 9232 (`medium-02`) via the shared templates bundle. Idempotent. |
 | `02_admin_infrastructure/_main_stage_00.yml` | VM bootstrap (clone 9232 + cloud-init + start + wait-for-SSH) via the core vm.bootstrap bundle, gated INSTALL_ROCKETCHAT. |
-| `02_admin_infrastructure/_main_stage_01.yml` | Build `r42_admin_active` + baseline (Docker, dotfiles, firewall 22) + `admin-rocketchat.yml` thin wrapper -> the rocketchat bundle (firewall 3000 + docker compose up). |
+| `02_admin_infrastructure/_main_stage_01.yml` | Build `r42_admin_active` + baseline (Docker, dotfiles, firewall 22) + `admin-rocketchat.yml` thin wrapper -> the rocketchat bundle (firewall 3500 + docker compose up). |
 | `02_admin_infrastructure/stage_01-vm_configure/admin_rocketchat_standalone.devkit/` | install / snapshot / revert helpers for the VM. |
 
 ## Entry points
@@ -92,7 +92,7 @@ initialised, tokens already provisioned).
 
 ## Accessing Rocket.Chat
 
-Web UI : `http://192.168.142.185:3000`. Default admin credentials : `rc-admin` / `Admin1234!` (change via the catalog `.env` before deploy). The provisioner sidecar seeds the users declared in the catalog `provisioning/users.yml` and writes personal access tokens :
+Web UI : `https://192.168.142.185:3500`. Default admin credentials : `rc-admin` / `Admin1234!` (change via the catalog `.env` before deploy). The provisioner sidecar seeds the users declared in the catalog `provisioning/users.yml` and writes personal access tokens :
 
 ```
 ssh r42.admin-rocketchat-standalone

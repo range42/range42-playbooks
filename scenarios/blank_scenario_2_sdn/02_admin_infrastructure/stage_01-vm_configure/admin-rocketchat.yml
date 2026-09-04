@@ -2,7 +2,7 @@
 ## admin-rocketchat - Rocket.Chat docker-compose stack on r42.bs2-admin-rocketchat
 ##
 ## Delegates to the shared bundle (catalog .env seed + Docker baseline +
-## firewall 22/3000 + docker-compose deploy of rocketchat : mongodb +
+## firewall 22/3500 + docker-compose deploy of rocketchat : mongodb +
 ## mongo-init-replica + rocketchat + provisioner). blank_scenario_2_sdn
 ## offers Rocket.Chat as an optional admin service (the rocketchat_lab vitrine
 ## is the showcase).

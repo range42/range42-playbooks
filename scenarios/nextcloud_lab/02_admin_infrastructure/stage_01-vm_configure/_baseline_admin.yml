@@ -2,7 +2,7 @@
 ## Baseline for r42_admin_active runtime group (nextcloud_lab) :
 ##   - systems.baseline.default    : packages + dotfiles
 ##   - network.baseline.ssh       : firewall opens port 22 (the nextcloud
-##                                   service port 8080 is opened by the
+##                                   service port 8443 is opened by the
 ##                                   software.install.nextcloud bundle itself)
 ##   - network.configure.tailscale_client         : optional tailscale install (gated INSTALL_TAILSCALE,
 ##                                   default NO)

@@ -12,7 +12,7 @@ Nextcloud is modeled as an **admin-tier service** gated by `INSTALL_NEXTCLOUD`. 
 - One Ubuntu LTS VM on vmbr142
 - Docker engine + Docker Compose plugin
 - zsh + vim dotfiles, basic utilities, NTP
-- UFW firewall : ports 22 (SSH) + 8080 (Nextcloud HTTP) - 8080 opened by the bundle
+- UFW firewall : ports 22 (SSH) + 8443 (Nextcloud HTTPS) - 8443 opened by the bundle
 - Nextcloud docker-compose stack (postgres + redis + nextcloud + provisioner) deployed + bootstrapped (users + app passwords via the provisioner sidecar)
 
 **Optional (off by default) :**
@@ -68,7 +68,7 @@ reachable :
 The shipped `.env.example` sets `NC_DOMAIN=localhost 192.168.142.250`, which does
 **NOT** include this VM's IP (`192.168.142.181`). Nextcloud's `trusted_domains`
 check rejects access through any host not listed in `NC_DOMAIN`, so browsing to
-`http://192.168.142.181:8080` would fail. Add this VM's IP to `NC_DOMAIN` first :
+`https://192.168.142.181:8443` would fail. Add this VM's IP to `NC_DOMAIN` first :
 
 ```
 cd $RANGE42_INVENTORY/03_container_layer/docker/admin/nextcloud/
@@ -86,7 +86,7 @@ The bundle does NOT auto-fix this for you - it is an operator decision (see the 
 |---|---|
 | `01_templates-bootstrap/_main.yml` | Build template 9232 (`medium-02`) via the shared templates bundle. Idempotent. |
 | `02_admin_infrastructure/_main_stage_00.yml` | VM bootstrap (clone 9232 + cloud-init + start + wait-for-SSH) via the core vm.bootstrap bundle, gated INSTALL_NEXTCLOUD. |
-| `02_admin_infrastructure/_main_stage_01.yml` | Build `r42_admin_active` + baseline (Docker, dotfiles, firewall 22) + `admin-nextcloud.yml` thin wrapper -> the nextcloud bundle (firewall 8080 + docker compose up). |
+| `02_admin_infrastructure/_main_stage_01.yml` | Build `r42_admin_active` + baseline (Docker, dotfiles, firewall 22) + `admin-nextcloud.yml` thin wrapper -> the nextcloud bundle (firewall 8443 + docker compose up). |
 | `02_admin_infrastructure/stage_01-vm_configure/admin_nextcloud_standalone.devkit/` | install / snapshot / revert helpers for the VM. |
 
 ## Entry points
@@ -104,13 +104,13 @@ All scripts require `RANGE42_ANSIBLE_ROLES__INVENTORY_DIR` and `RANGE42_VAULT_PA
 
 ## Accessing Nextcloud
 
-Web UI : `http://192.168.142.181:8080` (only if `NC_DOMAIN` includes `192.168.142.181` - see the gotcha above). The provisioner sidecar seeds the users declared in the catalog `provisioning/users.yml` and writes app passwords :
+Web UI : `https://192.168.142.181:8443` (only if `NC_DOMAIN` includes `192.168.142.181` - see the gotcha above). The provisioner sidecar seeds the users declared in the catalog `provisioning/users.yml` and writes app passwords :
 
 ```
 ssh r42.admin-nextcloud-standalone
 sudo docker exec nextcloud-provisioner cat /tokens/tokens.txt
 ```
 
-WebDAV : `http://192.168.142.181:8080/remote.php/dav/files/<USERNAME>/`
+WebDAV : `https://192.168.142.181:8443/remote.php/dav/files/<USERNAME>/`
 
 Customize credentials before deploy by populating the catalog `.env` (see the bundle README).

@@ -48,6 +48,11 @@
       - ip: "all"
         port: 1514
         protocol: "tcp"
+      ## the agents call the manager api on 55000 (api_port in the agent bundle) ;
+      ## without it, enrollment from another segment is silently blocked.
+      - ip: "all"
+        port: 55000
+        protocol: "tcp"
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
