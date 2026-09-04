@@ -1,0 +1,78 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# firewall.baseline.ssh_all_vms - the ssh accept declared on EVERY deployed guest of the scenario
+#
+# The arming family already protects ssh at arming time and refuses to arm without it, so this
+# bundle adds no safety. What it adds is READINESS : the 22 accept exists on every guest chain
+# BEFORE any arming decision, teams and always-on VMs included - the guests whose wrappers
+# declare no service. Inert until armed.
+#
+# Scope : the active scenario's manifest INTERSECTED with what the node really runs - the sweep
+# rule. Declared-not-deployed guests are skipped AND NAMED : the guest firewall api refuses a
+# vmid that does not run, measured. Must therefore run AFTER the vm bootstrap stages.
+#
+# Idempotent per guest by the declare action : a rerun posts nothing and says already present.
+#
+# Required : nothing. From the vault : proxmox_node.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "firewall.baseline.ssh_all_vms"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    - name: FIREWALL SSH ALL VMS - READ THE SCENARIO MANIFEST
+      ansible.builtin.set_fact:
+        _fwbsa_manifest: >-
+          {{ lookup('file', lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR')
+                            ~ '/scenario/manifest/scenario_vms.json') | from_json }}
+
+    ## Not optional : this fact APPENDS. See vm.list.interfaces.
+    - name: FIREWALL SSH ALL VMS - RESET THE ACCUMULATING FACT
+      ansible.builtin.set_fact:
+        vm_list: []
+
+    - name: FIREWALL SSH ALL VMS - WHAT THE NODE REALLY RUNS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "vm_list"
+
+    - name: FIREWALL SSH ALL VMS - DEPLOYED GUESTS OF THIS SCENARIO, ABSENTEES NAMED
+      ansible.builtin.set_fact:
+        _fwbsa_ids: >-
+          {{ ((_fwbsa_manifest.vms | default([])) | map(attribute='vm_id') | map('int') | list)
+             | intersect((vm_list | default([]))
+                         | rejectattr('vm_template', 'in', [1, '1', true])
+                         | map(attribute='vm_id') | map('int') | list) }}
+        _fwbsa_absents: >-
+          {{ ((_fwbsa_manifest.vms | default([])) | map(attribute='vm_id') | map('int') | list)
+             | difference((vm_list | default([])) | map(attribute='vm_id') | map('int') | list) }}
+
+    - name: FIREWALL SSH ALL VMS - THE SCOPE, SAID OUT LOUD
+      ansible.builtin.debug:
+        msg:
+          - "declared  : {{ (_fwbsa_manifest.vms | default([])) | length }}"
+          - "deployed and declared : {{ _fwbsa_ids | length }} - {{ _fwbsa_ids | join(', ') }}"
+          - "declared, not deployed, skipped : {{ _fwbsa_absents | join(', ') if _fwbsa_absents else 'none' }}"
+
+    - name: FIREWALL SSH ALL VMS - NOTHING DEPLOYED YET, NOTHING TO DECLARE
+      ansible.builtin.meta: end_play
+      when: (_fwbsa_ids | length) == 0
+
+    ## loop_var is EXPLICIT: an item passed down to an action that loops itself gets rebound - measured.
+    - name: FIREWALL SSH ALL VMS - DECLARE 22 ON EACH, IDEMPOTENTLY
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_declare_iptables_port"
+        vm_id: "{{ _fwbsa_it }}"
+        vm_fw_dport: "22"
+        vm_fw_comment: "range42 baseline ssh, scenario-wide"
+      loop: "{{ _fwbsa_ids }}"
+      loop_control:
+        loop_var: _fwbsa_it

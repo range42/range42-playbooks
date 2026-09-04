@@ -14,3 +14,18 @@
   vars:
     global_vm_ssh_name: "r42.bs2-admin-wazuh"
     global_vm_ci_ip:    "192.168.142.120"
+
+## The HYPERVISOR-side declaration of the same ports, on the tap - out of reach of a local
+## root. Idempotent, and inert until the guest is ARMED (firewall.enable.*).
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.wazuh/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    BUNDLE_VM_ID: 2120
+
+## The agents' access to their manager: inbound on the SERVER, 1514 + 55000, restricted to
+## the scenario vmnets - agents live on 142/143/144, nowhere else.
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.wazuh_server_agents_access/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    BUNDLE_VM_ID: 2120
+    BUNDLE_FW_SOURCE: "192.168.142.0/24,192.168.143.0/24,192.168.144.0/24"

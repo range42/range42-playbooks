@@ -37,6 +37,11 @@
 ## MUST run first : net140 is the templating network and the template build does apt.
 ##
 
+## The firewall wiring lives in ./_firewall/, one file per MOMENT - see its README. Whether
+## to arm, at the start or the end, is a decision not taken yet: the end_scenario anchor waits.
+- import_playbook: ./_firewall/pre_scenario-01.report_status.yml
+- import_playbook: ./_firewall/pre_scenario-02.management_access.yml
+
 - import_playbook: ./00_sdn_bootstrap/_main.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -52,6 +57,9 @@
 - import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
 - import_playbook: ./03_team_infrastructure/_main_stage_00.yml
+
+## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
+- import_playbook: ./_firewall/post_vm_bootstrap-01.vm_ssh_baseline.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####

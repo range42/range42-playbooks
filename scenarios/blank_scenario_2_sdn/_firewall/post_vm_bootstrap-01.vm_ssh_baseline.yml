@@ -1,0 +1,6 @@
+##
+## The hypervisor-side ssh accept declared on EVERY deployed VM of the scenario - teams and
+## always-on VMs included, the ones no service wrapper covers. Readiness, not safety: the
+## arming protects itself. Must run AFTER the stage_00s - the api refuses a VM that does not exist.
+##
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.ssh_all_vms/main.yml"

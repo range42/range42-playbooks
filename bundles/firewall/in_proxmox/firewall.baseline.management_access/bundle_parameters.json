@@ -1,0 +1,17 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.sh",
+  "tier": "firewall",
+  "bundle": "firewall/in_proxmox/firewall.baseline.management_access",
+  "description": "Post the ssh (22) and api (8006) accepts on the datacenter chain and on the node chain - rules only, never a switch, so this bundle cannot arm anything. Each accept is posted only when none already grants the port above the first covering deny, so replays never stack duplicates. Meant to run very early in a scenario : the operator's own path is protected before any arming decision.",
+  "optional": false,
+  "params": [
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node whose chain receives the node-level accepts, resolved from the scenario vault."
+    }
+  ]
+}

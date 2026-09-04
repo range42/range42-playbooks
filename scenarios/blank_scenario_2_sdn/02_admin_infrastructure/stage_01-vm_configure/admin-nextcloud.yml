@@ -18,3 +18,10 @@
   vars:
     global_vm_ssh_name: "r42.bs2-admin-nextcloud"
     global_vm_ci_ip:    "192.168.142.127"
+
+## The HYPERVISOR-side declaration of the same ports, on the tap - out of reach of a local
+## root. Idempotent, and inert until the guest is ARMED (firewall.enable.*).
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.nextcloud/main.yml"
+  when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
+  vars:
+    BUNDLE_VM_ID: 2127

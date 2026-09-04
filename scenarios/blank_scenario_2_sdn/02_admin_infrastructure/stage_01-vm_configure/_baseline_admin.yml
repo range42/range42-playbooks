@@ -1,7 +1,7 @@
 ##
 ## Baseline for r42_admin_active runtime group (blank_scenario_2_sdn) :
 ##   - systems.baseline.default    : packages + dotfiles
-##   - network.baseline.ssh       : firewall opens port 22 (wazuh / misp service
+##   - firewall/in_vm/os_firewall.baseline.ssh : in-VM firewall opens port 22 (wazuh / misp service
 ##                                   ports opened by their respective bundles)
 ##   - network.configure.tailscale_client         : optional tailscale install (gated INSTALL_TAILSCALE,
 ##                                   default NO)
@@ -17,7 +17,9 @@
   vars:
     target_group: "r42_admin_active"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
+## PILOT of the firewall migration: the strict mirror of network.baseline.ssh, under its
+## real name - this is the firewall INSIDE the VM, not the Proxmox one. Same body, verified.
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_vm/os_firewall.baseline.ssh/main.yml"
   vars:
     target_group: "r42_admin_active"
 
