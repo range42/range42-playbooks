@@ -1,0 +1,17 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.sh",
+  "tier": "firewall",
+  "bundle": "firewall/in_vm/os_firewall.baseline.ssh",
+  "description": "Network baseline policy that opens 22/tcp on the target group (SSH-only minimum for any managed VM)",
+  "optional": false,
+  "params": [
+    {
+      "name": "target_group",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Inventory group the SSH firewall policy is applied to (e.g. r42_admin, r42_student_box_group, r42_vuln_box_group)"
+    }
+  ]
+}

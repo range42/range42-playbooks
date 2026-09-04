@@ -1,0 +1,47 @@
+---
+bundle: firewall/in_proxmox/firewall.disable.vm
+description: >-
+  Stop filtering one guest : the guest switch off, then the firewall flag off on its card or on all
+  of them. Either alone is enough, all three conditions being needed to filter. The ssh accept is POSTED,
+  not deleted, so any later arming stays safe. Turning the flag off hands MAC spoofing back on the cards
+  touched - one flag carries both. Reads the switch and the cards back and fails if either half did not take.
+optional: false
+
+##
+## Caller-passed inputs carry the BUNDLE_ prefix : the backend generates call-sites and injects its own
+## variables into a play whose variable space is FLAT, so a generator needs a mechanical rule for which
+## names it owns. proxmox_node is NOT prefixed - it is read from the scenario vault, not passed.
+##
+## THE CARD FLAG IS SET BY THIS BUNDLE, AND THAT IS DELIBERATE. Filtering a guest needs three switches
+## and the card flag is one of them, so a bundle that set only the guest switch would report a success
+## and filter nothing. An administrator who wants a card WITHOUT the flag - a spoofable card for a MITM
+## exercise - calls proxmox_firewall.vm_id.disable_firewall_iface directly. That is the only way to ask
+## for it, and it costs that card its filtering : one flag, two features, they do not split.
+##
+
+params:
+
+  - name: BUNDLE_VM_ID
+    renamed_to: [vm_id]
+    type: int
+    required: true
+    default_where: none
+    description: Proxmox VM id whose firewall is turned off.
+
+  - name: BUNDLE_VM_VMNET_ID
+    renamed_to: [vm_vmnet_id]
+    type: int
+    required: false
+    default_where: call-site
+    description: >-
+      Which card to touch, the N of netN. Left empty, EVERY card of the guest is touched - a guest
+      reachable through a second card that stayed unflagged is a guest that is not isolated. Name one
+      to leave the others alone, which is how a guest ends up filtered on one card and spoofable on
+      another. A named card that does not exist is refused before anything is written.
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: Proxmox node the guest runs on, resolved from the scenario vault. These endpoints are node-scoped.
