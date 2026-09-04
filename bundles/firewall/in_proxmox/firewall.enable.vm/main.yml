@@ -171,11 +171,11 @@
         vm_id: "{{ BUNDLE_VM_ID }}"
         vm_vmnet_id: "{{ _fwev_it.vm_vmnet_id }}"
       loop: "{{ _fwev_cards }}"
-      ## loop_var EXPLICITE, et ce n est pas du style. Ansible evalue `vars` PARESSEUSEMENT :
-      ## si l action appelee boucle a son tour sur `item`, elle rebinde la variable et ce que
-      ## le bundle croyait passer se resout sur l element INTERNE. Mesure le 2026-09-03 : le
-      ## `vm_id` d un invite devenait le dictionnaire d une cle reseau, et le balayage a echoue
-      ## en annoncant que quatre invites n avaient aucune carte. Ansible le disait deja :
+      ## loop_var is EXPLICIT, and it is not style. Ansible evaluates `vars` LAZILY:
+      ## if the called action loops on `item` in turn, it rebinds the variable and what the
+      ## bundle believed it was passing resolves against the INNER element. Measured 2026-09-03:
+      ## a guest's `vm_id` became the dictionary of a network key, and the sweep failed while
+      ## claiming four guests had no card at all. Ansible had said it from the start:
       ## "The loop variable 'item' is already in use".
       loop_control:
         loop_var: _fwev_it

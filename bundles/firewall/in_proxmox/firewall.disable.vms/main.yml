@@ -91,19 +91,19 @@
 
     #### #### ####
     #
-    # 1 BIS. CE QUI EST REELLEMENT DEPLOYE. Le manifeste est un CATALOGUE de ce que le
-    #        scenario peut deployer, pas un inventaire de ce qui tourne : plusieurs invites
-    #        sont deployables A LA DEMANDE et l operateur choisit de ne pas les installer.
-    #        Un scenario partiellement deploye est donc le cas NORMAL.
+    # 1 BIS. WHAT REALLY RUNS. The manifest is a CATALOGUE of what the scenario CAN deploy,
+    #        not an inventory of what runs : several guests are deployable ON DEMAND and the
+    #        operator chooses not to install some. A partially deployed scenario is the
+    #        NORMAL case.
     #
-    #        Sans ce filtre, la premiere iteration visant un invite absent fait echouer son
-    #        appel d API et ARRETE TOUT LE RUN, laissant les suivants non traites - et le
-    #        balayage inverse s arreterait au meme endroit, donc sans chemin de nettoyage.
+    #        Without this filter, the first iteration aiming at an absent guest fails its
+    #        api call and STOPS THE WHOLE RUN, leaving the following ones untouched - and
+    #        the reverse sweep would stop at the same place, so no cleanup path either.
     #
-    #        Les absents sont SAUTES ET NOMMES. Sautes en silence, un invite absent par
-    #        erreur serait indiscernable d un invite absent par choix.
+    #        Absentees are SKIPPED AND NAMED. Skipped silently, a guest missing by mistake
+    #        would be indistinguishable from one missing by choice.
     #
-    ## Non optionnel : le fait de vm_list ACCUMULE, comme celui des cartes.
+    ## Not optional : the vm_list fact ACCUMULATES, like the cards one.
     - name: FIREWALL DISABLE VMS - RESET THE VM LIST FACT
       ansible.builtin.set_fact:
         vm_list: []
@@ -114,9 +114,9 @@
       vars:
         proxmox_vm_action: "vm_list"
 
-    ## Les templates sont ecartes ici aussi : l endpoint qemu les rend comme des VM, et un
-    ## template ne demarre jamais. Le manifeste les tient deja dans une liste separee, mais
-    ## un identifiant declare comme invite et devenu template ne doit pas etre arme.
+    ## Templates are dropped here as well : the qemu endpoint returns them as VMs, and a
+    ## template never boots. The manifest already keeps them in a separate list, but an id
+    ## declared as a guest and later turned template must not be armed.
     - name: FIREWALL DISABLE VMS - THE IDS THAT REALLY EXIST
       ansible.builtin.set_fact:
         _fwdvs_deployed: >-
@@ -144,8 +144,8 @@
           - "deployed and swept       : {{ _fwdvs_ids | length }} - {{ _fwdvs_ids | join(', ') }}"
           - "declared and absent      : {{ _fwdvs_absents | length }}"
 
-    ## Un scenario dont AUCUN invite declare n est deploye s arrete ici. Rapporter un succes
-    ## sur zero invite est la faute que la garde du manifeste vide ferme deja.
+    ## A scenario with NO declared guest deployed stops here. Reporting a success over zero
+    ## guests is the same fault the empty-manifest guard already closes.
     - name: FIREWALL DISABLE VMS - NONE OF THE DECLARED GUESTS IS DEPLOYED
       ansible.builtin.debug:
         msg: >-
@@ -169,11 +169,11 @@
         proxmox_vm_action: "firewall_vm_disable"
         vm_id: "{{ _fwdvs_it }}"
       loop: "{{ _fwdvs_ids }}"
-      ## loop_var EXPLICITE, et ce n est pas du style. Ansible evalue `vars` PARESSEUSEMENT :
-      ## si l action appelee boucle a son tour sur `item`, elle rebinde la variable et ce que
-      ## le bundle croyait passer se resout sur l element INTERNE. Mesure le 2026-09-03 : le
-      ## `vm_id` d un invite devenait le dictionnaire d une cle reseau, et le balayage a echoue
-      ## en annoncant que quatre invites n avaient aucune carte. Ansible le disait deja :
+      ## loop_var is EXPLICIT, and it is not style. Ansible evaluates `vars` LAZILY:
+      ## if the called action loops on `item` in turn, it rebinds the variable and what the
+      ## bundle believed it was passing resolves against the INNER element. Measured 2026-09-03:
+      ## a guest's `vm_id` became the dictionary of a network key, and the sweep failed while
+      ## claiming four guests had no card at all. Ansible had said it from the start:
       ## "The loop variable 'item' is already in use".
       loop_control:
         loop_var: _fwdvs_it
@@ -196,11 +196,11 @@
         proxmox_vm_action: "network_list_interfaces_vm"
         vm_id: "{{ _fwdvs_it }}"
       loop: "{{ _fwdvs_ids }}"
-      ## loop_var EXPLICITE, et ce n est pas du style. Ansible evalue `vars` PARESSEUSEMENT :
-      ## si l action appelee boucle a son tour sur `item`, elle rebinde la variable et ce que
-      ## le bundle croyait passer se resout sur l element INTERNE. Mesure le 2026-09-03 : le
-      ## `vm_id` d un invite devenait le dictionnaire d une cle reseau, et le balayage a echoue
-      ## en annoncant que quatre invites n avaient aucune carte. Ansible le disait deja :
+      ## loop_var is EXPLICIT, and it is not style. Ansible evaluates `vars` LAZILY:
+      ## if the called action loops on `item` in turn, it rebinds the variable and what the
+      ## bundle believed it was passing resolves against the INNER element. Measured 2026-09-03:
+      ## a guest's `vm_id` became the dictionary of a network key, and the sweep failed while
+      ## claiming four guests had no card at all. Ansible had said it from the start:
       ## "The loop variable 'item' is already in use".
       loop_control:
         loop_var: _fwdvs_it
@@ -234,11 +234,11 @@
         vm_id: "{{ _fwdvs_it.vm_id }}"
         vm_vmnet_id: "{{ _fwdvs_it.vm_vmnet_id }}"
       loop: "{{ _fwdvs_cards }}"
-      ## loop_var EXPLICITE, et ce n est pas du style. Ansible evalue `vars` PARESSEUSEMENT :
-      ## si l action appelee boucle a son tour sur `item`, elle rebinde la variable et ce que
-      ## le bundle croyait passer se resout sur l element INTERNE. Mesure le 2026-09-03 : le
-      ## `vm_id` d un invite devenait le dictionnaire d une cle reseau, et le balayage a echoue
-      ## en annoncant que quatre invites n avaient aucune carte. Ansible le disait deja :
+      ## loop_var is EXPLICIT, and it is not style. Ansible evaluates `vars` LAZILY:
+      ## if the called action loops on `item` in turn, it rebinds the variable and what the
+      ## bundle believed it was passing resolves against the INNER element. Measured 2026-09-03:
+      ## a guest's `vm_id` became the dictionary of a network key, and the sweep failed while
+      ## claiming four guests had no card at all. Ansible had said it from the start:
       ## "The loop variable 'item' is already in use".
       loop_control:
         loop_var: _fwdvs_it
@@ -256,11 +256,11 @@
         proxmox_vm_action: "firewall_vm_enable_default_ssh_rules"
         vm_id: "{{ _fwdvs_it }}"
       loop: "{{ _fwdvs_ids }}"
-      ## loop_var EXPLICITE, et ce n est pas du style. Ansible evalue `vars` PARESSEUSEMENT :
-      ## si l action appelee boucle a son tour sur `item`, elle rebinde la variable et ce que
-      ## le bundle croyait passer se resout sur l element INTERNE. Mesure le 2026-09-03 : le
-      ## `vm_id` d un invite devenait le dictionnaire d une cle reseau, et le balayage a echoue
-      ## en annoncant que quatre invites n avaient aucune carte. Ansible le disait deja :
+      ## loop_var is EXPLICIT, and it is not style. Ansible evaluates `vars` LAZILY:
+      ## if the called action loops on `item` in turn, it rebinds the variable and what the
+      ## bundle believed it was passing resolves against the INNER element. Measured 2026-09-03:
+      ## a guest's `vm_id` became the dictionary of a network key, and the sweep failed while
+      ## claiming four guests had no card at all. Ansible had said it from the start:
       ## "The loop variable 'item' is already in use".
       loop_control:
         loop_var: _fwdvs_it
@@ -281,11 +281,11 @@
         proxmox_vm_action: "network_list_interfaces_vm"
         vm_id: "{{ _fwdvs_it }}"
       loop: "{{ _fwdvs_ids }}"
-      ## loop_var EXPLICITE, et ce n est pas du style. Ansible evalue `vars` PARESSEUSEMENT :
-      ## si l action appelee boucle a son tour sur `item`, elle rebinde la variable et ce que
-      ## le bundle croyait passer se resout sur l element INTERNE. Mesure le 2026-09-03 : le
-      ## `vm_id` d un invite devenait le dictionnaire d une cle reseau, et le balayage a echoue
-      ## en annoncant que quatre invites n avaient aucune carte. Ansible le disait deja :
+      ## loop_var is EXPLICIT, and it is not style. Ansible evaluates `vars` LAZILY:
+      ## if the called action loops on `item` in turn, it rebinds the variable and what the
+      ## bundle believed it was passing resolves against the INNER element. Measured 2026-09-03:
+      ## a guest's `vm_id` became the dictionary of a network key, and the sweep failed while
+      ## claiming four guests had no card at all. Ansible had said it from the start:
       ## "The loop variable 'item' is already in use".
       loop_control:
         loop_var: _fwdvs_it

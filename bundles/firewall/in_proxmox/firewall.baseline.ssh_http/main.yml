@@ -38,8 +38,8 @@
           - "vm id        : {{ BUNDLE_VM_ID }}"
           - "ports        : 22, 80, 443 (tcp, inbound accepts)"
 
-    ## loop_var EXPLICITE : un item passe a une action qui boucle serait rebinde - mesure, c est la
-    ## collision qui a casse les balayages. Meme regle que les quatre bundles d armement.
+    ## loop_var is EXPLICIT: an item passed down to an action that loops itself gets rebound -
+    ## measured, the collision that broke the sweeps. Same rule as the four arming bundles.
     - name: FIREWALL BASELINE SSH HTTP - DECLARE EACH PORT, IDEMPOTENTLY
       include_role:
         name: range42-ansible_roles-proxmox_controller

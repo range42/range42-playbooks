@@ -38,7 +38,7 @@
           - "ports        : 1514, 55000 (tcp, inbound accepts)"
           - "from         : {{ BUNDLE_FW_SOURCE }}"
 
-    ## loop_var EXPLICITE : un item passe a une action qui boucle serait rebinde - mesure.
+    ## loop_var is EXPLICIT: an item passed down to an action that loops itself gets rebound - measured.
     - name: FIREWALL BASELINE WAZUH AGENTS ACCESS - DECLARE EACH PORT, SOURCE-RESTRICTED
       include_role:
         name: range42-ansible_roles-proxmox_controller
