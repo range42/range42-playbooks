@@ -37,10 +37,10 @@
 ## MUST run first : net140 is the templating network and the template build does apt.
 ##
 
-## The firewall wiring lives in ./_firewall/, one file per MOMENT - see its README. Whether
-## to arm, at the start or the end, is a decision not taken yet: the end_scenario anchor waits.
-- import_playbook: ./_firewall/pre_scenario-01.report_status.yml
-- import_playbook: ./_firewall/pre_scenario-02.management_access.yml
+## The firewall wiring lives in ./_firewall/, one file per MOMENT - see its README. Arming
+## happens at end_scenario, opt-in: FIREWALL_ARM_VMS=YES (default NO, decision of 2026-09-04).
+- import_playbook: ./_firewall/stage_00-pre_scenario.report_status.yml
+- import_playbook: ./_firewall/stage_01-pre_scenario.management_access.yml
 
 - import_playbook: ./00_sdn_bootstrap/_main.yml
 
@@ -59,7 +59,7 @@
 - import_playbook: ./03_team_infrastructure/_main_stage_00.yml
 
 ## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
-- import_playbook: ./_firewall/post_vm_bootstrap-01.vm_ssh_baseline.yml
+- import_playbook: ./_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
@@ -85,3 +85,10 @@
 #
 
 - import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### END SCENARIO  #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+## LAST, so no configure step above gets filtered mid-deploy. Inert unless FIREWALL_ARM_VMS=YES.
+- import_playbook: ./_firewall/stage_03-end_scenario.arm_deployed_vms.yml
