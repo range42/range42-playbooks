@@ -1,0 +1,53 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# firewall.baseline.wazuh_server_agents_access - let the agents of the scenario reach their manager
+#
+# THE RULE LIVES ON THE SERVER, INBOUND, AND THAT IS A DESIGN DECISION. The agents talk OUTBOUND to the
+# manager on 1514 (events) and 55000 (api, enrollment) - measured in the agent install bundle - and a
+# guest's outbound passes by default (policy_out is ACCEPT). So the agents need nothing ; the SERVER
+# needs two inbound accepts, SOURCE-RESTRICTED to the scenario's vmnets, because agents live on other
+# segments than their manager.
+#
+# BUNDLE_FW_SOURCE is REQUIRED and carries that restriction : a cidr (192.168.143.0/24), a comma list
+# of cidrs, or a datacenter firewall ALIAS name once the alias bundles exist - the api accepts all
+# three. There is NO default : defaulting to everyone would silently turn a restriction into an open
+# door, and defaulting to nothing would block every agent with a green run.
+#
+# The declare action counts a source-restricted accept as granting ONLY the same restriction, so this
+# bundle is idempotent per (port, source) : replaying adds nothing, changing the source adds a new
+# accept without touching the old one - removing the old one is an operator decision, never ours.
+# This bundle never deletes, never denies, never touches a switch.
+#
+# Required : BUNDLE_VM_ID (the wazuh SERVER), BUNDLE_FW_SOURCE. From the vault : proxmox_node.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "firewall.baseline.wazuh_server_agents_access"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    - name: FIREWALL BASELINE WAZUH AGENTS ACCESS - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "wazuh server : vm {{ BUNDLE_VM_ID }}"
+          - "ports        : 1514, 55000 (tcp, inbound accepts)"
+          - "from         : {{ BUNDLE_FW_SOURCE }}"
+
+    ## loop_var EXPLICITE : un item passe a une action qui boucle serait rebinde - mesure.
+    - name: FIREWALL BASELINE WAZUH AGENTS ACCESS - DECLARE EACH PORT, SOURCE-RESTRICTED
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_declare_iptables_port"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+        vm_fw_dport: "{{ _fwbl_it }}"
+        vm_fw_source: "{{ BUNDLE_FW_SOURCE }}"
+        vm_fw_comment: "range42 wazuh agents to manager"
+      loop: [ "1514", "55000" ]
+      loop_control:
+        loop_var: _fwbl_it

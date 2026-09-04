@@ -1,0 +1,53 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# firewall.baseline.ssh_http - declare this profile's open ports on one guest, at the hypervisor
+#
+# mirror of firewall/in_vm/os_firewall.baseline.ssh_http.
+#
+# This is the PROXMOX side of the policy : it posts ACCEPT rules on the guest's own chain via the api,
+# filtering happens on the tap, out of reach from inside the guest. The in-VM side (ufw or firewalld)
+# is a different layer with the same rules - both exist because a root user inside the VM can flush
+# the in-VM one, never this one.
+#
+# IDEMPOTENT BY THE ACTION, NOT BY LUCK : firewall_vm_declare_iptables_port reads the chain and posts
+# only when no active accept already grants the port above the first covering deny, then reads back
+# and REFUSES to report a chain that grants nothing. Replaying a scenario adds nothing - reruns after
+# a bug or a partial deploy are the normal case, and blind posting would duplicate on every one.
+#
+# DECLARING DOES NOT ARM : nothing filters until the datacenter switch, the guest switch and the card
+# flag are all on (firewall.enable.*). Declare first, arm after - an armed guest without its ports
+# declared is reachable on 22 and nothing else. This bundle never deletes, never denies, never touches
+# a switch : its only possible write is an ACCEPT.
+#
+# Required : BUNDLE_VM_ID. From the vault : proxmox_node.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "firewall.baseline.ssh_http"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    - name: FIREWALL BASELINE SSH HTTP - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "vm id        : {{ BUNDLE_VM_ID }}"
+          - "ports        : 22, 80, 443 (tcp, inbound accepts)"
+
+    ## loop_var EXPLICITE : un item passe a une action qui boucle serait rebinde - mesure, c est la
+    ## collision qui a casse les balayages. Meme regle que les quatre bundles d armement.
+    - name: FIREWALL BASELINE SSH HTTP - DECLARE EACH PORT, IDEMPOTENTLY
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_declare_iptables_port"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+        vm_fw_dport: "{{ _fwbl_it }}"
+        vm_fw_comment: "range42 baseline ssh_http"
+      loop: [ "22", "80", "443" ]
+      loop_control:
+        loop_var: _fwbl_it
