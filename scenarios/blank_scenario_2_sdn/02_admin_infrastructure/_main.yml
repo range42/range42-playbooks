@@ -10,9 +10,9 @@
 ##     (gated by INSTALL_WAZUH, default NO per manifest/feature_flags.yml).
 ##   - admin-misp  (VMID 2124, IP 192.168.142.124) : MISP threat intel stack
 ##     (gated by INSTALL_MISP, default NO).
-##   - admin-deployer-api-gateway (VMID 2121, IP 192.168.142.121) : always created
-##   - admin-deployer-api-backend (VMID 2122, IP 192.168.142.122) : always created
-##   - admin-deployer-ui          (VMID 2123, IP 192.168.142.123) : always created
+##   - admin-deployer-api-gateway (VMID 2121, IP 192.168.142.121) : gated INSTALL_DEPLOYER_UI
+##   - admin-deployer-api-backend (VMID 2122, IP 192.168.142.122) : gated INSTALL_DEPLOYER_UI
+##   - admin-deployer-ui          (VMID 2123, IP 192.168.142.123) : gated INSTALL_DEPLOYER_UI
 ##
 
 - import_playbook: ./_main_stage_00.yml

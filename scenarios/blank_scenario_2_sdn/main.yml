@@ -5,7 +5,7 @@
 ## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
 ##
 ## Provisions 4 team lab VMs on 2 subnets (net143 + net144) plus an admin
-## platform (3 always-on deployer VMs + 2 optional admin VMs).
+## platform of 9 optional admin VMs, every one gated by its INSTALL_<flag>.
 ##
 ## Lab topology :
 ##   - bs2-team-143-01 (192.168.143.200, VMID 2001, net143)
@@ -14,11 +14,15 @@
 ##   - bs2-team-144-02 (192.168.144.201, VMID 2004, net144)
 ##
 ## Admin tier (192.168.142.0/24 admin band) :
-##   - bs2-admin-deployer-api-gateway (192.168.142.121, VMID 2121, always created)
-##   - bs2-admin-deployer-api-backend (192.168.142.122, VMID 2122, always created)
-##   - bs2-admin-deployer-ui          (192.168.142.123, VMID 2123, always created)
+##   - bs2-admin-deployer-api-gateway (192.168.142.121, VMID 2121, gated INSTALL_DEPLOYER_UI)
+##   - bs2-admin-deployer-api-backend (192.168.142.122, VMID 2122, gated INSTALL_DEPLOYER_UI)
+##   - bs2-admin-deployer-ui          (192.168.142.123, VMID 2123, gated INSTALL_DEPLOYER_UI)
 ##   - bs2-admin-wazuh                (192.168.142.120, VMID 2120, gated INSTALL_WAZUH)
 ##   - bs2-admin-misp                 (192.168.142.124, VMID 2124, gated INSTALL_MISP)
+##   - bs2-admin-gitea                (192.168.142.125, VMID 2125, gated INSTALL_GITEA)
+##   - bs2-admin-mattermost           (192.168.142.126, VMID 2126, gated INSTALL_MATTERMOST)
+##   - bs2-admin-nextcloud            (192.168.142.127, VMID 2127, gated INSTALL_NEXTCLOUD)
+##   - bs2-admin-rocketchat           (192.168.142.128, VMID 2128, gated INSTALL_ROCKETCHAT)
 ##
 ## Global stage discipline (mirror of demo_lab / kunai_lab) :
 ##   1. 01_templates-bootstrap                                create the shared templates
@@ -79,8 +83,10 @@
 #### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
-# wazuh-agent install on the runtime active group (3 deployer-* + 4 team VMs
-# + admin-misp if INSTALL_MISP=YES). Runs LAST so the wazuh server is
+# wazuh-agent install on the runtime active group : the 4 team VMs always, plus
+# every flag-gated admin VM actually deployed (deployer trio, misp, gitea,
+# mattermost, nextcloud, rocketchat - the wazuh server itself excluded). Runs
+# LAST so the wazuh server is
 # reachable AND all client VMs are created + baselined. Gated by INSTALL_WAZUH.
 #
 

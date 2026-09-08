@@ -1,6 +1,6 @@
 # blank_scenario_2_sdn
 
-Multi-subnet lab with 4 team VMs on 2 subnets (net143 + net144) plus an admin platform (3 always-on deployer VMs + 2 optional admin VMs gated by feature flags). Bundle-driven shape (mirror of `kunai_lab` / `demo_lab`).
+Multi-subnet lab with 4 team VMs on 2 subnets (net143 + net144) plus an admin platform of 9 admin VMs, every one gated by its feature flag. Bundle-driven shape (mirror of `kunai_lab` / `demo_lab`).
 
 **The SDN variant of `blank_scenario_2_subnets`**: same 13 VMs, same vm_ids, same IPs, same VM names. The two differ by their network layer and nothing else - `vmbrXXX` bridges there, Proxmox SDN vnets here. That is what makes them comparable.
 
@@ -41,11 +41,15 @@ Multi-subnet lab with 4 team VMs on 2 subnets (net143 + net144) plus an admin pl
 | bs2-team-143-02                      | 2002  | 192.168.143.201 | net143 | template-vm-small-01-4g-32g (9221)  | always created   |
 | bs2-team-144-01                      | 2003  | 192.168.144.200 | net144 | template-vm-small-01-4g-32g (9221)  | always created   |
 | bs2-team-144-02                      | 2004  | 192.168.144.201 | net144 | template-vm-small-01-4g-32g (9221)  | always created   |
-| bs2-admin-deployer-api-gateway       | 2121  | 192.168.142.121 | net142 | template-vm-small-01-4g-32g (9221)  | always created   |
-| bs2-admin-deployer-api-backend       | 2122  | 192.168.142.122 | net142 | template-vm-small-01-4g-32g (9221)  | always created   |
-| bs2-admin-deployer-ui                | 2123  | 192.168.142.123 | net142 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-admin-deployer-api-gateway       | 2121  | 192.168.142.121 | net142 | template-vm-small-01-4g-32g (9221)  | `INSTALL_DEPLOYER_UI` |
+| bs2-admin-deployer-api-backend       | 2122  | 192.168.142.122 | net142 | template-vm-small-01-4g-32g (9221)  | `INSTALL_DEPLOYER_UI` |
+| bs2-admin-deployer-ui                | 2123  | 192.168.142.123 | net142 | template-vm-small-01-4g-32g (9221)  | `INSTALL_DEPLOYER_UI` |
 | bs2-admin-wazuh                      | 2120  | 192.168.142.120 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_WAZUH`  |
 | bs2-admin-misp                       | 2124  | 192.168.142.124 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_MISP`   |
+| bs2-admin-gitea                      | 2125  | 192.168.142.125 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_GITEA`  |
+| bs2-admin-mattermost                 | 2126  | 192.168.142.126 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_MATTERMOST` |
+| bs2-admin-nextcloud                  | 2127  | 192.168.142.127 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_NEXTCLOUD` |
+| bs2-admin-rocketchat                 | 2128  | 192.168.142.128 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_ROCKETCHAT` |
 
 Source of truth : `manifest/scenario_vms.json`.
 
@@ -55,9 +59,14 @@ See `manifest/feature_flags.yml`. All flags default to `NO`.
 
 | Flag                | Effect                                                          | Default |
 |---------------------|-----------------------------------------------------------------|---------|
-| `INSTALL_WAZUH`     | Deploy admin-wazuh SIEM + wazuh-agent on the 8 non-server VMs   | NO      |
-| `INSTALL_MISP`      | Deploy admin-misp (docker-compose stack)                        | NO      |
-| `INSTALL_TAILSCALE` | Tailscale VPN client on admin tier                              | NO      |
+| `INSTALL_WAZUH`      | Deploy admin-wazuh SIEM + wazuh-agent on every deployed client VM (12 potential) | NO |
+| `INSTALL_MISP`       | Deploy admin-misp (docker-compose stack)                       | NO      |
+| `INSTALL_DEPLOYER_UI`| Deploy the deployer trio (api-gateway, api-backend, ui)        | NO      |
+| `INSTALL_GITEA`      | Deploy admin-gitea (docker-compose stack)                      | NO      |
+| `INSTALL_MATTERMOST` | Deploy admin-mattermost (docker-compose stack)                 | NO      |
+| `INSTALL_NEXTCLOUD`  | Deploy admin-nextcloud (docker-compose stack)                  | NO      |
+| `INSTALL_ROCKETCHAT` | Deploy admin-rocketchat (docker-compose stack)                 | NO      |
+| `INSTALL_TAILSCALE`  | Tailscale VPN client on admin tier                             | NO      |
 
 ## How the SDN networks are created
 

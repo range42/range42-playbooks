@@ -38,7 +38,7 @@ declaration may be right while the live rules are not.
 
 ## Worth knowing
 
-**This is the only bundle of the 23 whose OUTCOME depends on the state it reads : the target is computed from the current snat, absent being read as 0. A caller that knows what it wants should use internet_on or internet_off instead - a toggle is for a human at a keyboard, not for a generated call whose result must be predictable.**
+**This is the only bundle of the family whose OUTCOME depends on the state it reads : the target is computed from the current snat, absent being read as 0. A caller that knows what it wants should use internet_on or internet_off instead - a toggle is for a human at a keyboard, not for a generated call whose result must be predictable.**
 
 **The PUT does not resend the gateway.** Proxmox preserves the fields a PUT does not carry, so
 resending them would only add a second way to get them wrong. Verified on real hardware in SDN plan

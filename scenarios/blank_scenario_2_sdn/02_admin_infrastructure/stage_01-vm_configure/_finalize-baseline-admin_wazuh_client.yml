@@ -2,7 +2,8 @@
 ## _finalize-baseline-admin_wazuh_client - cross-tier post-setup action
 ##
 ## Installs the wazuh agent on the blank_scenario_2_sdn wazuh clients
-## group (3 deployer-* + 4 team VMs + admin-misp [if INSTALL_MISP=YES]).
+## group : the 4 team VMs always, plus every flag-gated admin VM deployed
+## (deployer trio, misp, gitea, mattermost, nextcloud, rocketchat).
 ##
 ## Ordering constraints (TWO independent deps - both must be satisfied) :
 ##   1. AFTER admin-wazuh.yml (tier 02 stage_01) : the wazuh server must

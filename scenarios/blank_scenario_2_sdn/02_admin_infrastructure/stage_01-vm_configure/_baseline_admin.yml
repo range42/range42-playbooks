@@ -7,10 +7,9 @@
 ##                                   default NO)
 ##
 ## Targets r42_admin_active (built by ../_build_admin_active_group.yml from the
-## INSTALL_<flag> values at deploy time + always-on admin VMs). Each baseline
-## play only runs on admin VMs that stage_00 actually created. The 3 always-on
-## deployer VMs always get the baseline ; the optional admin-wazuh / admin-misp
-## get it only when their flag is YES.
+## INSTALL_<flag> values at deploy time). Each baseline play only runs on admin
+## VMs that stage_00 actually created - every admin VM is flag-gated, deployer
+## trio included (INSTALL_DEPLOYER_UI).
 ##
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.default/main.yml"
@@ -33,3 +32,7 @@
       - "bs2-admin-deployer-api-gateway"
       - "bs2-admin-deployer-api-backend"
       - "bs2-admin-deployer-ui"
+      - "bs2-admin-gitea"
+      - "bs2-admin-mattermost"
+      - "bs2-admin-nextcloud"
+      - "bs2-admin-rocketchat"

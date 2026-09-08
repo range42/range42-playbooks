@@ -1,7 +1,7 @@
 {
   "scenario": "blank_scenario_2_sdn",
   "version": 2,
-  "description": "Minimal lab with 2 team subnets (192.168.143.0/24, 192.168.144.0/24) and one admin subnet (192.168.142.0/24). Deploys 4 team VMs + 3 always-on admin VMs (deployer platform: api-gateway, api-backend, ui) plus 2 optional admin VMs (admin-wazuh gated by INSTALL_WAZUH, admin-misp gated by INSTALL_MISP, both default off). vm_id range: 2xxx (team 2001-2099, admin 2100-2199). Admin IPs are dense .120-.124 - aligned with the project rule `vm_id last 3 digits = IP last octet`.",
+  "description": "Minimal lab with 2 team subnets (192.168.143.0/24, 192.168.144.0/24) and one admin subnet (192.168.142.0/24). Deploys 4 team VMs + 9 optional admin VMs, EVERY admin VM gated by its INSTALL_<flag> (deployer trio by INSTALL_DEPLOYER_UI ; wazuh, misp, gitea, mattermost, nextcloud, rocketchat by their own flag ; all default off). vm_id range: 2xxx (team 2001-2099, admin 2100-2199). Admin IPs span .120-.128 - aligned with the project rule `vm_id last 3 digits = IP last octet`.",
   "vms": [
     {"vm_id": 2001, "vm_name": "bs2-team-143-01",                   "ip": "192.168.143.200", "role": "team",  "group": "team",  "bridge": "net143"},
     {"vm_id": 2002, "vm_name": "bs2-team-143-02",                   "ip": "192.168.143.201", "role": "team",  "group": "team",  "bridge": "net143"},

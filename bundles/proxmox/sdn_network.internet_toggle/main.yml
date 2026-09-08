@@ -11,7 +11,7 @@
 # hook, so a snat=1 gains a duplicate rule per apply. And the reverse is worse : snat=0 removes the
 # post-down hook before it ever runs, orphaning the live rule. Neither is visible through the API.
 #
-# This is the only bundle of the 23 whose OUTCOME depends on the state it reads : the target is
+# This is the only bundle of the family whose OUTCOME depends on the state it reads : the target is
 # computed from the current snat, absent being read as 0. A caller that knows what it wants should
 # use internet_on or internet_off instead - a toggle is for a human at a keyboard, not for a
 # generated call whose result must be predictable.

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##
-## blank_scenario_2_sdn.setup.sh - run the main playbook (templates + 4 team VMs + 3 always-on admin VMs [+ optional admin tier])
+## blank_scenario_2_sdn.setup.sh - run the main playbook (templates + 4 team VMs [+ the flag-gated admin tier])
 ##
 ## Same shape as kunai_lab.setup.sh (bundle-driven scenario wrappers).
 ## Requires RANGE42_ANSIBLE_ROLES__INVENTORY_DIR and RANGE42_VAULT_PASSWORD_FILE
