@@ -30,9 +30,13 @@
           - { vnet: "net143", subnet: "192.168.143.0/24", gateway: "192.168.143.1", snat: true }   # team
           - { vnet: "net144", subnet: "192.168.144.0/24", gateway: "192.168.144.1", snat: true }   # team
 
+## The zone is the infrastructure's, not the scenario's : the init declares it in the range42
+## inventory (range42_sdn_zone, section NETWORK MODE) and the vault carries it to this workspace,
+## which the bundle loads before reading it. The default covers a workspace whose vault predates
+## that key - it is the value every infrastructure has used so far.
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.bootstrap/main.yml"
   vars:
-    BUNDLE_SDN_ZONE: "r42zone"
+    BUNDLE_SDN_ZONE: "{{ range42_sdn_zone | default('r42zone') }}"
     BUNDLE_SDN_VNETS: "{{ _sdn_vnets }}"
 
 #### AFTER the bootstrap, never before : the apply above runs `ifreload -a`, which would restore the
