@@ -7,13 +7,15 @@ playbook re-implemented the same five-step pattern :
 
 1. `vm_clone` from the source template
 2. wait for the proxmox unlock to clear (post-clone)
-3. `vm_set_tag` (admin / student / ctf)
-4. `cloudinit_set_variables` (user / password / ssh key / IP / netmask / dns / gateway / bridge)
-5. `vm_start`
+3. verify the exact `range42-deployment:<id>` description marker when `r42_deployment_id` is supplied, before any tag/configuration mutation
+4. `vm_set_tag` (admin / student / ctf)
+5. `cloudinit_set_variables` (user / password / ssh key / IP / netmask / dns / gateway / bridge)
+6. optional CPU/RAM, secondary NIC configuration and cloned VM disk growth
+7. `vm_start`
 
 Then a second play on the VM's ssh alias :
 
-6. `ansible.utils` with `wait/openssh_server/is_reachable.yml` + `wait/cloudinit/is_boot_finished.yml`
+8. `ansible.utils` with `wait/openssh_server/is_reachable.yml` + `wait/cloudinit/is_boot_finished.yml`
 
 ## Call-site example
 
@@ -53,6 +55,8 @@ Then a second play on the VM's ssh alias :
 | `global_template_name` | unset (used only in task names for readability) |
 | `global_vm_ci_dns_ips` | `1.1.1.1` |
 | `global_vm_ci_netmask` | `24` |
+| `global_vm_extra_config` | `{}`; permits `cores`, `memory`, `net1`–`net31`, `ipconfig1`–`ipconfig31` |
+| `global_vm_disk` | `{}`; e.g. `{disk: scsi0, size_gb: 40}` |
 
 All caller-input vars use the `global_*` prefix convention. The bundle internally
 maps them to the un-prefixed names the `range42-ansible_roles-proxmox_controller`
@@ -76,3 +80,16 @@ The bundle resolves :
 - Itself (call-site) via `RANGE42_GITDIR__ROOT_DIR`
 
 No `playbook_dir` quirks, no relative `../../` traversal.
+
+
+## Configuration and ownership guarantees
+
+New UI scenarios pass `r42_deployment_id` and the corresponding description into the clone API call. After the clone unlocks, this bundle reads the VM configuration and requires an exact ownership-marker line before tagging, cloud-init or startup. An unrelated VM that appears at the requested VMID and causes the controller's idempotent clone to skip is therefore rejected.
+
+Optional CPU, memory and secondary NIC updates use the current Proxmox configuration digest. Primary `net0`/`ipconfig0` remain controlled by the existing cloud-init arguments. Additional NIC changes regenerate cloud-init before startup. `global_vm_extra_config` accepts no other Proxmox configuration keys.
+
+Disk growth reads a fresh digest after configuration updates, uses the Proxmox VM `/resize` API, and waits for its task to complete before startup. It rejects shrinking, CD-ROM/cloud-init/ISO paths, template volumes, missing sizes and disks belonging to other VMIDs. The volume must use Proxmox's standard `vm-<vmid>-disk-<n>` naming. An already-correct disk size does not issue another resize. This path never runs `qemu-img` or changes the downloaded cloud image. Filesystem growth inside the guest remains the responsibility of cloud-init or guest orchestration.
+
+New API calls verify certificates and accept `RANGE42_PROXMOX_CA_FILE` as a PEM CA bundle. Existing inventories can set `proxmox_api_validate_certs` explicitly. `capabilities.json` advertises `extra_nics`, `resources` and `disk_resize` so the backend can reject extended manifests against an older installed bundle.
+
+The integration tests run the actual bundle and controller role against a local HTTPS Proxmox simulator. They check ownership refusal before mutation, NIC/CPU/memory updates, digest-protected disk growth, cloud-init ordering, and rejection of shrinking/ISO/template-source disks. Run with a Python environment providing pytest, cryptography and ansible-playbook, setting `RANGE42_CONTROLLER_TEST_ROOT` to the controller checkout.
