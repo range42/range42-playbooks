@@ -5,11 +5,18 @@
 # A COMPOSITE, in three steps, because one is never enough :
 #     1. update_sdn_subnet   snat=off        the DECLARATION changes
 #     2. apply_sdn                              the change reaches the running config
-#     3. reconcile snat rules                   the LIVE iptables rules are brought in line
+#     3. reconcile snat rules                   the LIVE iptables rules are brought in line,
+#                                                ON EVERY DECLARED SUBNET of the host
 #
-# Step 3 is not belt-and-braces. `ifreload -a`, which the apply runs, REPLAYS the subnet's post-up
-# hook, so a snat=1 gains a duplicate rule per apply. And the reverse is worse : snat=0 removes the
-# post-down hook before it ever runs, orphaning the live rule. Neither is visible through the API.
+# Step 3 is not belt-and-braces. `ifreload -a`, which the apply runs, REPLAYS the post-up hook of
+# EVERY active subnet, so each one gains a duplicate rule per apply - not only ours. And the reverse
+# is worse : snat=0 removes the post-down hook before it ever runs, orphaning the live rule. Neither
+# is visible through the API.
+#
+# HENCE THE SCOPE OF STEP 3 : every declared subnet of the host, each against ITS OWN declaration,
+# and the one we were asked for against the target state. Reconciling only the asked-for subnet is
+# what grows another one to 152 rules (measured 2026-08-25). The primitive only ever DELETES, so a
+# subnet meant to be open cannot be cut : the surplus goes, the rule itself stays.
 #
 # This is the direction that ORPHANS a rule if step 3 is skipped : setting snat=0 removes the
 # post-down hook from the configuration BEFORE that hook ever runs, so the live MASQUERADE rule
@@ -109,13 +116,45 @@
 
     #### #### ####
     #
-    # 3. RECONCILE the live rules. Runs unconditionally - see the header for why skipping it is how a
-    #    rule outlives its declaration.
+    # 3. RECONCILE the live rules, on EVERY DECLARED SUBNET and not only the one we were asked for.
+    #    Runs unconditionally - see the header for why skipping it is how a rule outlives its
+    #    declaration, and why the scope has to be the whole host.
     #
+    ## The subnets come from the read of step 1, so nothing is guessed and nothing is read twice.
+    ## A subnet with no cidr is skipped : there is nothing to match a live rule against.
+    - name: SDN INTERNET OFF - THE SUBNETS TO RECONCILE
+      ansible.builtin.set_fact:
+        _sdn_recon: >-
+          {{ (network_list_sdn_subnets | default([]))
+             | selectattr('subnet_cidr', 'defined')
+             | rejectattr('subnet_cidr', 'equalto', '')
+             | list }}
+
+    - name: SDN INTERNET OFF - WHAT WILL BE RECONCILED
+      ansible.builtin.debug:
+        msg:
+          - "subnets declared on this host : {{ _sdn_recon | length }}"
+          - "asked for                     : {{ BUNDLE_SDN_SUBNET_ID }} -> want {{ _sdn_want | int }}"
+          - "the others keep their own declaration : {{ _sdn_recon
+                | rejectattr('subnet', 'equalto', BUNDLE_SDN_SUBNET_ID)
+                | map(attribute='subnet_cidr') | list | join(', ') }}"
+          - "only surplus rules are deleted, none is ever created : a subnet meant to be open stays open"
+
     - name: SDN INTERNET OFF - RECONCILE THE LIVE SNAT RULES
       include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
         proxmox_vm_action: "network_delete_extra_snat_rules"
-        sdn_subnet_cidr: "{{ _sdn_entry.subnet_cidr }}"
-        sdn_snat_want: "{{ _sdn_want | int }}"
+        sdn_subnet_cidr: "{{ _sdn_it.subnet_cidr }}"
+        ## the subnet we were asked for takes the target state ; every other one takes ITS OWN
+        ## declaration, so the apply's surplus is dropped and nothing else moves
+        sdn_snat_want: >-
+          {{ (_sdn_want | int)
+             if (_sdn_it.subnet == BUNDLE_SDN_SUBNET_ID)
+             else ((_sdn_it.subnet_snat | default(0)) | int) }}
+      loop: "{{ _sdn_recon }}"
+      ## loop_var is EXPLICIT, and it is not style : the called action loops on `item` in turn, and
+      ## a rebound `item` would resolve these vars against the INNER element (measured 2026-09-03).
+      loop_control:
+        loop_var: _sdn_it
+        label: "{{ _sdn_it.subnet }} ({{ _sdn_it.subnet_cidr }})"
