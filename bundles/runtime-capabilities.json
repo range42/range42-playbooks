@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "operations": ["vm_firewall", "scenario_firewall", "sdn_snat"],
+  "snat_reconciles_all_declared_subnets": true
+}

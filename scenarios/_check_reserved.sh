@@ -41,6 +41,10 @@ fi
 
 fail=0
 
+# v3 preserves the management ip/bridge and adds nics[]. Legacy rows still
+# contribute one address; ID-only template references contribute none.
+addresses='def addresses: . as $vm | (.nics // [{bridge: .bridge, ip: .ip}])[] | select(.bridge != null and .ip != null) | . as $nic | $vm + {bridge: $nic.bridge, ip: $nic.ip, nic: ($nic.index // 0)};'
+
 # 1. file exists + non-empty
 if [ ! -s "$OUT" ]; then
     printf '%sFAIL:%s %s missing or empty\n' "$RED" "$RESET" "$OUT"
@@ -76,14 +80,14 @@ if [ -n "$dup_vmid" ]; then
 fi
 
 # 4. (bridge, IP) collisions on NON-template entries (VMs)
-dup_brip=$(jq -r 'select(.role != "template") | "\(.bridge) \(.ip)"' "$OUT" | sort | uniq -d)
+dup_brip=$(jq -r "$addresses"'select(.role != "template") | addresses | "\(.bridge) \(.ip)"' "$OUT" | sort | uniq -d)
 if [ -n "$dup_brip" ]; then
     printf '%sFAIL:%s (bridge, IP) collision(s) between VMs:\n\n' "$RED" "$RESET"
     while read -r brip; do
         bridge="${brip%% *}"
         ip="${brip##* }"
         printf '  %s %s%s%s:\n' "$bridge" "$RED" "$ip" "$RESET"
-        jq -c --arg b "$bridge" --arg i "$ip" 'select(.role != "template" and .bridge == $b and .ip == $i)' "$OUT" | sed 's/^/    /'
+        jq -c --arg b "$bridge" --arg i "$ip" "$addresses"'addresses | select(.role != "template" and .bridge == $b and .ip == $i)' "$OUT" | sed 's/^/    /'
     done <<< "$dup_brip"
     printf '\n'
     fail=1
@@ -93,7 +97,8 @@ fi
 inconsistent_templates=$(jq -s '
     [.[] | select(.role == "template")]
     | group_by(.vm_id)
-    | map(select(([.[] | "\(.vm_name)|\(.spec // "")|\(.ip)|\(.bridge)"] | unique | length) > 1))
+    | map(select(. as $rows | any(["vm_name", "spec", "ip", "bridge"][];
+        . as $field | [$rows[] | .[$field] // empty] | unique | length > 1)))
     | .[]
     | .[0].vm_id
 ' "$OUT")
@@ -123,8 +128,8 @@ if [ -n "$cross_vmid" ]; then
 fi
 
 # 7. CROSS : (bridge, IP) collision between a template and a VM
-template_brips=$(jq -r 'select(.role == "template") | "\(.bridge) \(.ip)"' "$OUT" | sort -u)
-vm_brips=$(jq -r 'select(.role != "template") | "\(.bridge) \(.ip)"' "$OUT" | sort -u)
+template_brips=$(jq -r "$addresses"'select(.role == "template") | addresses | "\(.bridge) \(.ip)"' "$OUT" | sort -u)
+vm_brips=$(jq -r "$addresses"'select(.role != "template") | addresses | "\(.bridge) \(.ip)"' "$OUT" | sort -u)
 cross_brip=$(comm -12 <(echo "$template_brips") <(echo "$vm_brips"))
 if [ -n "$cross_brip" ]; then
     printf '%sFAIL:%s (bridge, IP) collision(s) between a template and a VM (cross-role):\n\n' "$RED" "$RESET"
@@ -133,7 +138,7 @@ if [ -n "$cross_brip" ]; then
         bridge="${brip%% *}"
         ip="${brip##* }"
         printf '  %s %s%s%s:\n' "$bridge" "$RED" "$ip" "$RESET"
-        jq -c --arg b "$bridge" --arg i "$ip" 'select(.bridge == $b and .ip == $i)' "$OUT" | sort -u | sed 's/^/    /'
+        jq -c --arg b "$bridge" --arg i "$ip" "$addresses"'addresses | select(.bridge == $b and .ip == $i)' "$OUT" | sort -u | sed 's/^/    /'
     done <<< "$cross_brip"
     printf '\n'
     fail=1
@@ -142,7 +147,7 @@ fi
 # 8. (bridge, IP) collision between DISTINCT templates (after dedup by vm_id)
 # Check 5 ensures consistency within same vm_id; this check ensures
 # two different vm_ids don't share the same (bridge, IP).
-deduped_tpl=$(jq -r 'select(.role == "template") | "\(.vm_id)|\(.bridge)|\(.ip)"' "$OUT" | sort -u)
+deduped_tpl=$(jq -r "$addresses"'select(.role == "template") | addresses | "\(.vm_id)|\(.bridge)|\(.ip)"' "$OUT" | sort -u)
 dup_tpl_brip=$(echo "$deduped_tpl" | awk -F'|' '{print $2 "|" $3}' | sort | uniq -d)
 if [ -n "$dup_tpl_brip" ]; then
     printf '%sFAIL:%s (bridge, IP) collision(s) between distinct templates:\n\n' "$RED" "$RESET"
@@ -151,7 +156,7 @@ if [ -n "$dup_tpl_brip" ]; then
         bridge="${brip%%|*}"
         ip="${brip##*|}"
         printf '  %s %s%s%s:\n' "$bridge" "$RED" "$ip" "$RESET"
-        jq -c --arg b "$bridge" --arg i "$ip" 'select(.role == "template" and .bridge == $b and .ip == $i)' "$OUT" \
+        jq -c --arg b "$bridge" --arg i "$ip" "$addresses"'addresses | select(.role == "template" and .bridge == $b and .ip == $i)' "$OUT" \
           | jq -s 'unique_by(.vm_id) | .[]' -c | sed 's/^/    /'
     done <<< "$dup_tpl_brip"
     printf '\n'
