@@ -13,10 +13,14 @@
 # is worse : snat=0 removes the post-down hook before it ever runs, orphaning the live rule. Neither
 # is visible through the API.
 #
-# HENCE THE SCOPE OF STEP 3 : every declared subnet of the host, each against ITS OWN declaration,
-# and the one we were asked for against the target state. Reconciling only the asked-for subnet is
-# what grows another one to 152 rules (measured 2026-08-25). The primitive only ever DELETES, so a
-# subnet meant to be open cannot be cut : the surplus goes, the rule itself stays.
+# HENCE THE SCOPE OF STEP 3, and it is deliberately asymmetric. The subnet we were asked for is
+# brought to the TARGET STATE. Every other subnet of the host is cleaned of the SURPLUS THIS APPLY
+# JUST CREATED and nothing more : its last rule is kept whatever its declaration says. So this
+# gesture changes the outgoing nat of ONE subnet, the one it was aimed at, and leaves every other
+# scope exactly as it found it. Reconciling nothing but the target is what grows a neighbour to 152
+# rules (measured 2026-08-25) ; reconciling neighbours against their declaration would close a
+# subnet on behalf of a scenario that did not ask for it. A neighbour declared closed that still
+# carries a live rule is NAMED in the output and left alone.
 #
 # This is the only bundle of the family whose OUTCOME depends on the state it reads : the target is
 # computed from the current snat, absent being read as 0. A caller that knows what it wants should
@@ -109,6 +113,44 @@
         sdn_subnet_id: "{{ BUNDLE_SDN_SUBNET_ID }}"
         sdn_subnet_snat: "{{ _sdn_want | int }}"
 
+    ## THE LIVE COUNTS, READ BEFORE THE APPLY. The apply is an ifreload : it replays the post-up hook
+    ## of EVERY active subnet, so it appends one rule to each of them. Knowing what each subnet
+    ## carried BEFORE is what lets this gesture put them back exactly as it found them.
+    - name: SDN INTERNET TOGGLE - THE LIVE RULES BEFORE THE APPLY
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_snat_rules"
+
+    ## one record per (source, out iface, target), so a source appearing twice carries rules of
+    ## two different shapes - a legacy MASQUERADE beside an SDN SNAT, or something added by hand
+    - name: SDN INTERNET TOGGLE - THE SOURCE NETWORKS THAT CARRY A LIVE RULE
+      ansible.builtin.set_fact:
+        _sdn_srcs: >-
+          {{ (network_list_snat_rules | default([])) | map(attribute='snat_source') | unique | list }}
+        _sdn_before: {}
+        _sdn_mixed: []
+
+    ## Plain accumulation, on purpose : one pass per source network, summing its records. A source
+    ## with more than one record carries rules of two different SHAPES, and the deletion primitive
+    ## matches by source network only - so it could remove the wrong one. Those are listed apart.
+    - name: SDN INTERNET TOGGLE - THE COUNT OF EACH, AND THE ONES OF MIXED SHAPE
+      ansible.builtin.set_fact:
+        _sdn_before: >-
+          {{ _sdn_before | combine({ _sdn_src_it:
+               ( (network_list_snat_rules | default([]))
+                 | selectattr('snat_source', 'equalto', _sdn_src_it)
+                 | map(attribute='snat_count') | sum ) }) }}
+        _sdn_mixed: >-
+          {{ _sdn_mixed + ( [ _sdn_src_it ]
+               if ( ( (network_list_snat_rules | default([]))
+                      | selectattr('snat_source', 'equalto', _sdn_src_it) | list | length ) > 1 )
+               else [] ) }}
+      loop: "{{ _sdn_srcs }}"
+      loop_control:
+        loop_var: _sdn_src_it
+        label: "{{ _sdn_src_it }}"
+
     - name: SDN INTERNET TOGGLE - APPLY
       include_role:
         name: range42-ansible_roles-proxmox_controller
@@ -131,15 +173,49 @@
              | rejectattr('subnet_cidr', 'equalto', '')
              | list }}
 
+    - name: SDN INTERNET TOGGLE - THE ONES DECLARED CLOSED OUTSIDE THIS SCOPE
+      ansible.builtin.set_fact:
+        _sdn_closed_others: >-
+          {{ _sdn_recon
+             | rejectattr('subnet', 'equalto', BUNDLE_SDN_SUBNET_ID)
+             | selectattr('subnet_snat', 'defined')
+             | rejectattr('subnet_snat', 'truthy')
+             | map(attribute='subnet_cidr') | list }}
+
     - name: SDN INTERNET TOGGLE - WHAT WILL BE RECONCILED
       ansible.builtin.debug:
         msg:
-          - "subnets declared on this host : {{ _sdn_recon | length }}"
-          - "asked for                     : {{ BUNDLE_SDN_SUBNET_ID }} -> want {{ _sdn_want | int }}"
-          - "the others keep their own declaration : {{ _sdn_recon
+          - "asked for : {{ BUNDLE_SDN_SUBNET_ID }} -> want {{ _sdn_want | int }}   (the only subnet whose state changes)"
+          - "the apply above replays the post-up hook of EVERY active subnet, so it just added one rule"
+          - "to each of them. Those {{ (_sdn_recon | length) - 1 }} subnets are cleaned of that SURPLUS ONLY : their last rule"
+          - "is kept whatever their declaration says, so no other scope changes behaviour."
+          - "cleaned of surplus : {{ _sdn_recon
                 | rejectattr('subnet', 'equalto', BUNDLE_SDN_SUBNET_ID)
                 | map(attribute='subnet_cidr') | list | join(', ') }}"
-          - "only surplus rules are deleted, none is ever created : a subnet meant to be open stays open"
+
+    ## Named, not touched. A subnet declared closed that still carries a live rule is a gap between
+    ## the declaration and the wire, born of a post-down hook removed before it ever ran. Closing it
+    ## belongs to a gesture aimed AT IT : this one would be reaching outside its scope.
+    ## Named, not touched. The deletion primitive matches by SOURCE NETWORK, so on a subnet whose
+    ## live rules have two different shapes it could remove the wrong one. Left alone, and said.
+    - name: SDN INTERNET TOGGLE - MIXED SHAPES, LEFT UNTOUCHED
+      ansible.builtin.debug:
+        msg:
+          - "these source networks carry live rules of MORE THAN ONE shape :"
+          - "  {{ _sdn_mixed | join(', ') }}"
+          - "a legacy MASQUERADE beside an SDN SNAT, or a rule added by hand. This gesture does not"
+          - "touch them : it deletes by source network, so it could remove the wrong rule. Read them"
+          - "with proxmox_network.datacenter.list_snat_rules.to.jsons.sh"
+      when: (_sdn_mixed | length) > 0 and (BUNDLE_SDN_SUBNET_ID not in (_sdn_mixed | default([])))
+
+    - name: SDN INTERNET TOGGLE - DECLARED CLOSED, OUT OF THIS SCOPE
+      ansible.builtin.debug:
+        msg:
+          - "these subnets are declared closed and are not the target of this gesture :"
+          - "  {{ _sdn_closed_others | join(', ') }}"
+          - "if one of them still carries a live rule, this gesture does NOT remove it - that would"
+          - "change a scope it was not asked about. Aim a gesture at that subnet to close it for real."
+      when: (_sdn_closed_others | length) > 0
 
     - name: SDN INTERNET TOGGLE - RECONCILE THE LIVE SNAT RULES
       include_role:
@@ -147,12 +223,20 @@
       vars:
         proxmox_vm_action: "network_delete_extra_snat_rules"
         sdn_subnet_cidr: "{{ _sdn_it.subnet_cidr }}"
-        ## the subnet we were asked for takes the target state ; every other one takes ITS OWN
-        ## declaration, so the apply's surplus is dropped and nothing else moves
+        ## The subnet we were asked for takes the TARGET STATE. Every other one is put back to the
+        ## COUNT IT CARRIED BEFORE this gesture, which is the only number that leaves it exactly as
+        ## it was found : the primitive only deletes, so it removes the one rule our own apply just
+        ## appended, and nothing else. Not its declaration - that would close a subnet on behalf of
+        ## a scenario that did not ask for it, measured on this bench the 2026-09-10 : a gesture on
+        ## net143 took net150 from three rules down to one.
         sdn_snat_want: >-
           {{ (_sdn_want | int)
              if (_sdn_it.subnet == BUNDLE_SDN_SUBNET_ID)
-             else ((_sdn_it.subnet_snat | default(0)) | int) }}
+             else (_sdn_before[_sdn_it.subnet_cidr] | default(0) | int) }}
+      ## a source of mixed shapes is LEFT ALONE : the primitive deletes by source network, so on such
+      ## a subnet it could remove the wrong rule. The target is always reconciled, mixed or not - it
+      ## is what this gesture was aimed at.
+      when: (_sdn_it.subnet == BUNDLE_SDN_SUBNET_ID) or (_sdn_it.subnet_cidr not in _sdn_mixed)
       loop: "{{ _sdn_recon }}"
       ## loop_var is EXPLICIT, and it is not style : the called action loops on `item` in turn, and
       ## a rebound `item` would resolve these vars against the INNER element (measured 2026-09-03).
