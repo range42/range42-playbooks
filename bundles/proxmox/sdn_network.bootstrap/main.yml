@@ -197,6 +197,44 @@
     # 4. APPLY. Once, and only if step 3 wrote something. See the header for the measurement
     #    that makes this guard load-bearing rather than decorative.
     #
+    ## THE LIVE COUNTS, READ BEFORE THE APPLY. This bundle owns the subnets IT DECLARES and brings
+    ## them to their declaration in step 5. It does not own the others - and yet the apply below is
+    ## an ifreload, which appends one rule to every active subnet of the host. Measured 2026-09-10 :
+    ## called by a scenario, whose declaration holds four networks out of the twelve on the host,
+    ## the seven it does not declare climbed from seven live rules to eight. Step 5 bis puts them
+    ## back to what they carried here, and touches nothing else.
+    - name: SDN BOOTSTRAP - THE LIVE RULES BEFORE THE APPLY
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_snat_rules"
+
+    - name: SDN BOOTSTRAP - THE COUNTS, AND THE SOURCES OF MIXED SHAPE
+      ansible.builtin.set_fact:
+        _sdnb_srcs: >-
+          {{ (network_list_snat_rules | default([])) | map(attribute='snat_source') | unique | list }}
+        _sdnb_mine: >-
+          {{ BUNDLE_SDN_VNETS | map(attribute='subnet') | list }}
+        _sdnb_before: {}
+        _sdnb_mixed: []
+
+    - name: SDN BOOTSTRAP - ONE PASS PER SOURCE NETWORK
+      ansible.builtin.set_fact:
+        _sdnb_before: >-
+          {{ _sdnb_before | combine({ _sdnb_src_it:
+               ( (network_list_snat_rules | default([]))
+                 | selectattr('snat_source', 'equalto', _sdnb_src_it)
+                 | map(attribute='snat_count') | sum ) }) }}
+        _sdnb_mixed: >-
+          {{ _sdnb_mixed + ( [ _sdnb_src_it ]
+               if ( ( (network_list_snat_rules | default([]))
+                      | selectattr('snat_source', 'equalto', _sdnb_src_it) | list | length ) > 1 )
+               else [] ) }}
+      loop: "{{ _sdnb_srcs }}"
+      loop_control:
+        loop_var: _sdnb_src_it
+        label: "{{ _sdnb_src_it }}"
+
     - name: SDN BOOTSTRAP - APPLY, ONCE, AND ONLY IF SOMETHING WAS WRITTEN
       include_role:
         name: range42-ansible_roles-proxmox_controller
@@ -222,3 +260,33 @@
       loop: "{{ BUNDLE_SDN_VNETS }}"
       loop_control:
         label: "{{ item.subnet }} want={{ 1 if (item.snat | default(true)) else 0 }}"
+
+    #### #### ####
+    #
+    # 5 BIS. PUT BACK WHAT THIS BUNDLE DOES NOT DECLARE. Every source network outside its own
+    #    declaration goes back to the count read before the apply : that removes the rule the apply
+    #    appended and nothing else. Their declaration is none of this bundle's business - reaching
+    #    for it would close a network no scenario here asked about. A source network whose live
+    #    rules have more than one shape is left alone and named : the primitive matches by source
+    #    network, so on that one it could remove the wrong rule.
+    #
+    - name: SDN BOOTSTRAP - WHAT IT PUTS BACK, AND WHAT IT LEAVES ALONE
+      ansible.builtin.debug:
+        msg:
+          - "declared here : {{ _sdnb_mine | join(', ') }}"
+          - "put back to their own count : {{ _sdnb_srcs | difference(_sdnb_mine) | difference(_sdnb_mixed) | join(', ') | default('none', true) }}"
+          - "left alone, more than one shape : {{ _sdnb_mixed | join(', ') | default('none', true) }}"
+
+    - name: SDN BOOTSTRAP - PUT THE UNDECLARED SOURCE NETWORKS BACK
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_extra_snat_rules"
+        sdn_subnet_cidr: "{{ _sdnb_back_it }}"
+        sdn_snat_want: "{{ _sdnb_before[_sdnb_back_it] | int }}"
+      loop: "{{ _sdnb_srcs | difference(_sdnb_mine) | difference(_sdnb_mixed) }}"
+      ## loop_var is EXPLICIT : the called action loops on `item` in turn, and a rebound `item`
+      ## would resolve these vars against the INNER element (measured 2026-09-03).
+      loop_control:
+        loop_var: _sdnb_back_it
+        label: "{{ _sdnb_back_it }} back to {{ _sdnb_before[_sdnb_back_it] | default(0) }}"
