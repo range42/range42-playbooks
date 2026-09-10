@@ -1,9 +1,17 @@
 ####
 # sdn_network.apply - flush the pending SDN config into the running one. Details : see README.md.
 #
-# THE ONE THING NOT TO BREAK HERE : behind the UPID Proxmox runs `ifreload -a`, which replays the legacy
-# post-up MASQUERADE lines - so EACH APPLY ADDS ONE RULE PER NAT-ENABLED vmbr. Measured : 936 -> 960 over
-# 2 applies with 12 bridges. Never apply in a loop, and never "to be safe".
+# THE ONE THING NOT TO BREAK HERE : behind the UPID Proxmox runs `ifreload -a`, which replays every
+# post-up hook - so EACH APPLY ADDS ONE RULE PER NAT-ENABLED subnet AND per legacy vmbr. Measured :
+# 936 -> 960 over 2 applies with 12 bridges, and again 2026-09-10, 38 -> 49 -> 60 on an SDN host.
+# Never apply in a loop, and never "to be safe".
+#
+# WHICH IS WHY THIS BUNDLE PUTS THEM BACK. An apply was asked for nothing in particular, so it must
+# change nothing : the live count of every source network is read BEFORE, and after the apply each
+# one is brought back to that count. The primitive only ever deletes, so this removes exactly the
+# rule the apply appended and never touches a declaration. A source network whose live rules have
+# more than one shape is left alone and named : the primitive matches by source network, so on that
+# one it could remove the wrong rule.
 #
 # The role's two polling knobs are deliberately NOT exposed : bridging them with `| default(omit)` would
 # BREAK their defaults rather than preserve them (v6 section 11).
@@ -22,8 +30,63 @@
       ansible.builtin.debug:
         msg: "proxmox node : {{ proxmox_node }}"
 
+    - name: SDN APPLY - THE LIVE RULES BEFORE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_snat_rules"
+
+    ## one record per (source, out iface, target), so a source seen twice carries two shapes
+    - name: SDN APPLY - THE COUNT OF EACH, AND THE ONES OF MIXED SHAPE
+      ansible.builtin.set_fact:
+        _apply_srcs: >-
+          {{ (network_list_snat_rules | default([])) | map(attribute='snat_source') | unique | list }}
+        _apply_before: {}
+        _apply_mixed: []
+
+    - name: SDN APPLY - ONE PASS PER SOURCE NETWORK
+      ansible.builtin.set_fact:
+        _apply_before: >-
+          {{ _apply_before | combine({ _apply_src_it:
+               ( (network_list_snat_rules | default([]))
+                 | selectattr('snat_source', 'equalto', _apply_src_it)
+                 | map(attribute='snat_count') | sum ) }) }}
+        _apply_mixed: >-
+          {{ _apply_mixed + ( [ _apply_src_it ]
+               if ( ( (network_list_snat_rules | default([]))
+                      | selectattr('snat_source', 'equalto', _apply_src_it) | list | length ) > 1 )
+               else [] ) }}
+      loop: "{{ _apply_srcs }}"
+      loop_control:
+        loop_var: _apply_src_it
+        label: "{{ _apply_src_it }}"
+
+    - name: SDN APPLY - WHAT WILL BE PUT BACK
+      ansible.builtin.debug:
+        msg:
+          - "an apply appends one rule to every nat-enabled source network, so this one puts them back"
+          - "source networks carrying a live rule : {{ _apply_srcs | length }}"
+          - "counts before : {{ _apply_before }}"
+          - "left untouched, more than one shape : {{ _apply_mixed | join(', ') if (_apply_mixed | length) > 0 else 'none' }}"
+
     - name: SDN APPLY - FLUSH THE PENDING CONFIG, THEN POLL THE UPID
       include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
         proxmox_vm_action: "network_apply_sdn"
+
+    ## AFTER the apply, and only then : the post-up hooks have run, so the surplus exists to remove.
+    - name: SDN APPLY - PUT EVERY SOURCE NETWORK BACK TO ITS COUNT
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_extra_snat_rules"
+        sdn_subnet_cidr: "{{ _apply_it }}"
+        sdn_snat_want: "{{ _apply_before[_apply_it] | int }}"
+      when: _apply_it not in _apply_mixed
+      loop: "{{ _apply_srcs }}"
+      ## loop_var is EXPLICIT : the called action loops on `item` in turn, and a rebound `item` would
+      ## resolve these vars against the INNER element (measured 2026-09-03).
+      loop_control:
+        loop_var: _apply_it
+        label: "{{ _apply_it }} back to {{ _apply_before[_apply_it] | default(0) }}"

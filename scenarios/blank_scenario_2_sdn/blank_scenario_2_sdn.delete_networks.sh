@@ -198,6 +198,11 @@ fi
 ## ONLY IF SOMETHING WAS WRITTEN. An apply runs `ifreload -a`, which replays every post-up hook and
 ## ADDS a rule per NAT-enabled subnet. Applying with nothing pending would inflate the very rules
 ## the next step clears - on an already-empty host this script would make things worse.
+## THE LIVE COUNTS, BEFORE THE APPLY. The apply below is an ifreload : it appends a rule to every
+## subnet of the host, including those this scenario never declared. Knowing what each carried
+## before is what lets step 5 put them back exactly as they were - see there.
+proxmox_network.datacenter.list_snat_rules.to.jsons.sh --json 2>/dev/null > "$TMP/before.jsonl" || true
+
 if [[ "$N_SUB" -gt 0 || "$N_VNET" -gt 0 ]] ; then
     echo ":: applying, once ..."
     proxmox_network.datacenter.apply_sdn.to.jsons.sh --json >/dev/null || {
@@ -221,7 +226,30 @@ fi
        "$TMP/subnets_to_delete.jsonl"
 } | sort -u | jq -R -c 'select(length > 0) | { sdn_subnet_cidr: ., sdn_snat_want: "0" }' > "$TMP/reconcile.jsonl"
 
-echo ":: reconciling the live rules to zero on $(grep -c . "$TMP/reconcile.jsonl" || true) network(s) ..."
+## AND THE OTHERS ARE PUT BACK, not left with the rule the apply above just gave them. Their own
+## count, read before the apply, is the only target that leaves them as this script found them :
+## their declaration would close a network no scenario of ours asked about. A source network whose
+## live rules have more than one shape is left alone and named - the primitive deletes by source
+## network, so it could remove the wrong rule.
+MINE=$(jq -r '.sdn_subnet_cidr' "$TMP/reconcile.jsonl" | jq -R -c . | jq -s -c .)
+jq -s -c --argjson mine "$MINE" '
+    group_by(.snat_source)
+    | map({ cidr:  .[0].snat_source,
+            count: ([ .[].snat_count ] | add // 0),
+            mixed: (([ .[].snat_target ] | unique | length) > 1) })
+    | .[]
+    | select(.cidr as $c | $mine | index($c) | not)
+    | select(.mixed | not)
+    | { sdn_subnet_cidr: .cidr, sdn_snat_want: (.count | tostring) }' \
+    "$TMP/before.jsonl" >> "$TMP/reconcile.jsonl" 2>/dev/null || true
+
+MIXED=$(jq -s -r --argjson mine "$MINE" '
+    group_by(.snat_source)
+    | map(select(([ .[].snat_target ] | unique | length) > 1) | .[0].snat_source)
+    | .[]' "$TMP/before.jsonl" 2>/dev/null | grep -vxF -f <(jq -r '.[]' <<< "$MINE") 2>/dev/null | paste -sd ' ' - || true)
+[[ -n "$MIXED" ]] && echo ":: left untouched, their live rules have more than one shape : ${MIXED}"
+
+echo ":: reconciling on $(grep -c . "$TMP/reconcile.jsonl" || true) network(s) - this scenario's to zero, every other one back to the count it had ..."
 proxmox_network.sdn_subnet_cidr.delete_extra_snat_rules.to.jsons.sh --json < "$TMP/reconcile.jsonl" >/dev/null || {
     echo "ERROR: the reconciliation failed - check with range42-context networks-internet-list" >&2 ; exit 1 ; }
 
