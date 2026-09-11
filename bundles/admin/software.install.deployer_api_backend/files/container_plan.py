@@ -42,6 +42,12 @@ def validate_config(raw: dict) -> dict:
     address = str(ipaddress.ip_address(raw.get('listen_address', '127.0.0.1')))
     state = host_path(raw.get('state_dir', root + '/state'))
     workspace = host_path(raw.get('workspace_host', state + '/workspaces'))
+    secrets_dir = host_path(raw.get('secrets_dir', root + '/secrets'))
+    for writable in (Path(state), Path(workspace)):
+        if (Path(root).is_relative_to(writable)
+                or Path(secrets_dir).is_relative_to(writable)
+                or writable.is_relative_to(secrets_dir)):
+            raise ValueError('Writable mounts cannot overlap installer records or credentials')
     inside = Path(raw.get('workspace_container', '/var/lib/range42/workspaces'))
     if not inside.is_absolute() or '..' in inside.parts or not (
             inside.is_relative_to(STATE_CONTAINER / 'workspaces') or inside.is_relative_to('/home')):
@@ -68,7 +74,7 @@ def validate_config(raw: dict) -> dict:
     return {'root': root, 'name': raw['name'], 'image': raw['image'], 'uid': raw['uid'], 'gid': raw['gid'],
             'state_dir': state, 'workspace_host': workspace, 'workspace_container': str(inside),
             'database_container': str(database), 'database_host': str(Path(workspace) / database.relative_to(inside)),
-            'secrets_dir': host_path(raw.get('secrets_dir', root + '/secrets')), 'port': port,
+            'secrets_dir': secrets_dir, 'port': port,
             'listen_address': address, 'cors_origins': origins, 'git_allowed_hosts': forges,
             'runtime_dir': runtime, 'workspace_template_dir': template}
 

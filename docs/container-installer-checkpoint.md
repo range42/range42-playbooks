@@ -196,3 +196,71 @@ Pending acceptance remains fresh/repeat execution, runtime/template immutable
 mounts, busy update refusal, guarded update, failed migration preservation,
 wrong/missing keys, recovery/rollback and explicit legacy adoption. The new tests
 are the starting point for this work, not proof that it is implemented.
+
+## Executable consumer continuation — 2026-09-11
+
+The saved eight red tests were reproduced at `e075ea3` before implementation
+(`/tmp/r42-installer-consumer-resumed-red.log`). The consumer is now called by
+the real bundle. `main.yml`, descriptor source/generated JSON and README use
+its authenticated immutable-image contract instead of source sync, post-start
+migration, unauthenticated OpenAPI probes and implicit host-network changes.
+
+Implemented in this continuation:
+
+- Private serialized installation lock and versioned managed record. Exact
+  image/container IDs, configuration, mount bindings, credentials and release
+  bytes are checked before accepting an unchanged repeat.
+- Fresh installation stages private runtime/template copies with literal link
+  and byte preservation. It creates a stopped candidate, persists its full ID,
+  then holds HTTP admission through startup, real internal readiness/profile
+  checks and record commit.
+- Explicit managed update uses the earlier continuous host-admission primitive,
+  real installed idle audit and exact original container ID. Persistent paths,
+  UID/GID and credentials cannot be relocated. Busy work refuses before stop.
+- Updates preserve a consistent SQLite backup and old stopped container. Failed
+  candidates are stopped before DB restoration and exact old-ID restart while
+  admission stays fenced; successful cutover commits before admission resumes.
+- `pending.json` blocks silent adoption of incomplete work. Legacy path aliases
+  map explicitly, while unknown installations/historical data stay preserved and
+  refused. No whole-SSH-home mount or implicit systemd conversion is introduced.
+
+Actual Ansible → disposable Docker acceptance passed in 115.15s, handle71409,
+log `/tmp/r42-installer-consumer-update-green2.log`: fresh install, authenticated
+unchanged repeat, implicit changed-plan refusal, changed valid encryption-key
+refusal, real provisioning-lock busy refusal without stopping the API, explicit
+successful update retaining original admission inode/credentials/workspace, and
+failed candidate rollback. The failure fixture modifies SQLite with its own
+`failed_candidate` table and exits; that table is absent after restoration,
+while the original managed record and running container ID are restored. The
+first failure-fixture attempt stopped on the workstation's missing Docker
+credential helper before its test image could build; the passing fixture uses
+its own empty Docker configuration and a local build without registry pulls.
+
+The actual runtime fixture also passed: handle54605, 10 checks with one other
+Docker case deselected in 10.70s (`/tmp/r42-installer-runtime-green.log`). This
+includes the consumer unit cases and a real generated `/runtime` profile,
+read-only runtime/template mounts, rejected runtime writes (EROFS), exact literal
+symlink retention, and refusal to treat edited source bytes as unchanged.
+New regressions also established that a candidate cannot start before its ID is
+recorded, and an unfinished pending cutover cannot become an unchanged repeat.
+Final host/planner/credential/maintenance/consumer validation passed 61 tests in
+0.71s (`/tmp/r42-installer-consumer-host-final.log`). Three additional red-to-green
+planner cases refuse writable mount overlap with installation records or global
+credentials. Scoped Ruff, descriptor regeneration and whitespace checks pass.
+
+All disposable resources use the already reviewed local immutable image
+`sha256:c025beb8c3bfd7299aa9addee69e9dfbae2515f88939344e06279f2cd72070c1`.
+The intentionally failing image is derived locally and removed afterward.
+Containers and networks are tracked by their unique installation label/full ID
+and removed by fixtures. No PVE guest, shared systemd installation, provider,
+firewall or upstream SDN state is touched.
+
+The earlier “Remaining integration” and paused-TDD sections are historical
+checkpoints. The current README is the authoritative public contract. Remaining
+work is explicit offline legacy-container adoption, automatic fresh-failure or
+interrupted-cutover recovery, configured provider/Proxmox seeding if desired,
+retention/pruning, and matched image/release acceptance before live installation.
+Host-installer/daemon death and independent external writers are not
+crash-atomic; stop/inspection/backup failure can require exact-ID recovery.
+This source checkpoint does not claim the entire historical installer objective
+or a shared-systemd-to-container migration is complete.

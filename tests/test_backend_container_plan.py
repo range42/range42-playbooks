@@ -84,3 +84,16 @@ def test_symlinked_host_paths_cannot_redirect_installer_state(tmp_path):
     alias.symlink_to(destination, target_is_directory=True)
     with pytest.raises(ValueError, match='symbolic|symlink'):
         module().validate_config({**config(tmp_path), 'state_dir': str(alias)})
+
+
+@pytest.mark.parametrize('binding', ['state_contains_installation', 'workspace_contains_installation', 'credentials_writable_through_state'])
+def test_writable_mounts_cannot_expose_installer_records_or_credentials(tmp_path, binding):
+    raw = config(tmp_path)
+    if binding == 'state_contains_installation':
+        raw['state_dir'] = str(tmp_path)
+    elif binding == 'workspace_contains_installation':
+        raw['workspace_host'] = str(tmp_path)
+    else:
+        raw['secrets_dir'] = raw['root'] + '/state/secrets'
+    with pytest.raises(ValueError, match='writable|overlap'):
+        module().validate_config(raw)
