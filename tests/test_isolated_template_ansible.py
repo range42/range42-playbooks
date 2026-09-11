@@ -78,6 +78,10 @@ elif exe=='pvesh' and a[:2]==['get','/cluster/resources']:
  print(json.dumps([{{'vmid':62000,'type':'qemu','node':'pve01'}}] if s['exists'] else []))
 elif exe=='pvesh' and a[1].endswith('/certificates/info'):
  print(json.dumps([{{'filename':'pve-root-ca.pem','fingerprint':':'.join(['AA']*32)}}]))
+elif exe=='pvesh' and a[1].endswith('/content'):
+ volumes=[{{'volid':v.split(',')[0],'vmid':62000}} for k,v in s['config'].items() if k in ('scsi0','ide2')]
+ if os.environ.get('TEMPLATE_TEST_ORPHAN')=='1':volumes.append({{'volid':'local-lvm:vm-62000-disk-0','vmid':62000}})
+ print(json.dumps(volumes))
 elif exe=='pvesh' and '/storage/' in a[1]:
  kind=os.environ.get('TEMPLATE_TEST_DISK_TYPE','lvmthin') if '/local-lvm/' in a[1] else 'dir'
  print(json.dumps({{'type':kind,'active':1,'enabled':1,'avail':100000000000,'content':'images,snippets'}}))
@@ -372,3 +376,22 @@ def test_missing_or_wrong_create_worker_cannot_import_disk(tmp_path, task_id):
         assert not any(
             row[0] == "qm" for row in json.loads(state.read_text())["commands"]
         )
+
+
+def test_actual_storage_type_zfspool_uses_the_same_owned_native_volume(tmp_path):
+    with fixture(tmp_path) as (variables, environment, inventory, calls, state):
+        environment["TEMPLATE_TEST_DISK_TYPE"] = "zfspool"
+        result = invoke(tmp_path, variables, environment, inventory)
+        assert result.returncode == 0, result.stdout[-3000:]
+        current = json.loads(state.read_text())
+        assert current["config"]["template"] == 1
+        assert current["config"]["scsi0"] == "local-lvm:vm-62000-disk-0,size=16G"
+
+
+def test_orphan_storage_volume_refuses_creation_and_disk_import(tmp_path):
+    with fixture(tmp_path) as (variables, environment, inventory, calls, state):
+        environment["TEMPLATE_TEST_ORPHAN"] = "1"
+        result = invoke(tmp_path, variables, environment, inventory)
+        assert result.returncode != 0
+        assert calls == []
+        assert json.loads(state.read_text())["commands"] == []

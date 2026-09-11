@@ -40,8 +40,14 @@ Provide enough measured disk capacity for the complete requested virtual disk;
 it does not treat thin provisioning as guaranteed free space. The reused import
 role uses native `storage:vm-<id>-disk-0` volume names; directory-backed VM-image
 storage and arbitrary disk layouts are not supported by this isolated path.
-The preflight explicitly requires `lvmthin` for disks and `dir` for snippets,
+The preflight explicitly requires `lvmthin` or `zfspool` for disks and `dir` for snippets,
 with active/enabled status, correct content types and readable free bytes.
+The selected VM ID must have no existing storage volumes on a fresh build.
+A resume requires the storage inventory to match its validated attached disks
+exactly; unreferenced or duplicate volumes stop the build before writes. This
+prevents the reused importer from allocating disk-1 and then attaching an old
+disk-0. ZFS uses the same native volume naming contract.
+[Proxmox ZFS storage plugin](https://github.com/proxmox/pve-storage/blob/master/src/PVE/Storage/ZFSPoolPlugin.pm)
 
 The inventory must contain exactly one `proxmox` host and exactly its
 `<inventory_hostname>-cli` counterpart in `proxmox_cli`. The SSH endpoint must
@@ -158,7 +164,11 @@ simulated in the orchestration fixture; helper tests validate the parsing and
 bounded subprocess behavior separately. Follow-up storage regressions passed
 2 focused checks; asynchronous-create regressions and affected success/failure
 paths passed 5 checks, then 2 additional missing/wrong-worker checks. Scoped
-Ruff and YAML/diff checks passed. This is not real Ubuntu image acceptance.
+Ruff and YAML/diff checks passed. A read-only deployment-plan check then found
+that the target pool named `local-lvm` actually uses ZFS; native ZFS support and
+orphan-volume refusal both reproduced failures before their fixes. Five focused
+checks then passed, including the real Ansible running-resume path. No storage
+was created or changed during these tests. This is not real Ubuntu acceptance.
 
 The operator invocation and report remain native Ansible: named validation,
 readiness, clone-cleanup and conversion tasks end with the standard play recap.

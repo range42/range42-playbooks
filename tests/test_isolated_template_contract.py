@@ -216,9 +216,51 @@ def test_cluster_identity_requires_exactly_one_valid_ca_fingerprint(contract):
 
 def test_storage_preflight_refuses_unsupported_or_unknown_backends(contract, plan):
     normalized = contract.template_plan(plan)
-    disk = {'type': 'lvmthin', 'active': 1, 'enabled': 1, 'content': 'images', 'avail': 20 * 1073741824}
-    snippet = {'type': 'dir', 'active': 1, 'enabled': 1, 'content': 'snippets'}
+    disk = {
+        "type": "lvmthin",
+        "active": 1,
+        "enabled": 1,
+        "content": "images",
+        "avail": 20 * 1073741824,
+    }
+    snippet = {"type": "dir", "active": 1, "enabled": 1, "content": "snippets"}
     assert contract.template_storage(disk, snippet, normalized)
-    for changes in ({'type': 'dir'}, {'type': 'unknown'}, {'avail': None}, {'avail': 1}, {'active': 0}):
+    for changes in (
+        {"type": "dir"},
+        {"type": "unknown"},
+        {"avail": None},
+        {"avail": 1},
+        {"active": 0},
+    ):
         with pytest.raises(ValueError):
             contract.template_storage({**disk, **changes}, snippet, normalized)
+
+
+def test_storage_preflight_accepts_native_zfs_volume_backend(contract, plan):
+    normalized = contract.template_plan(plan)
+    disk = {
+        "type": "zfspool",
+        "active": 1,
+        "enabled": 1,
+        "content": "rootdir,images",
+        "avail": 20 * 1073741824,
+    }
+    snippet = {"type": "dir", "active": 1, "enabled": 1, "content": "iso,snippets"}
+    assert contract.template_storage(disk, snippet, normalized)
+
+
+def test_storage_volume_inventory_refuses_orphaned_or_ambiguous_disks(contract, plan):
+    normalized = contract.template_plan(plan)
+    assert contract.template_volumes([], {}, normalized)
+    disk = {"volid": "local-lvm:vm-62000-disk-0", "vmid": 62000}
+    attached = {"scsi0": disk["volid"] + ",size=16G"}
+    assert contract.template_volumes([disk], attached, normalized)
+    for rows, config in (
+        ([disk], {}),
+        ([], attached),
+        ([disk, disk], attached),
+        ({}, {}),
+        ([{**disk, "vmid": 62001}], attached),
+    ):
+        with pytest.raises(ValueError):
+            contract.template_volumes(rows, config, normalized)

@@ -267,7 +267,9 @@ def template_cluster_identity(certificates):
 
 def template_storage(disk, snippets, plan):
     _require(isinstance(disk, Mapping) and isinstance(snippets, Mapping))
-    _require(disk.get("type") == "lvmthin" and snippets.get("type") == "dir")
+    _require(
+        disk.get("type") in {"lvmthin", "zfspool"} and snippets.get("type") == "dir"
+    )
     for storage, content in ((disk, "images"), (snippets, "snippets")):
         _require(
             storage.get("active") in (1, True)
@@ -276,6 +278,23 @@ def template_storage(disk, snippets, plan):
             and content in storage["content"].split(",")
         )
     _require(_number(disk.get("avail"), plan["disk_gb"] * 1073741824, 2**63 - 1))
+    return True
+
+
+def template_volumes(rows, config, plan):
+    """Refuse orphan volumes before the reused importer can select disk-0."""
+    template_disk_safe(config, plan)
+    _require(isinstance(rows, Sequence) and not isinstance(rows, (str, bytes)))
+    _require(len(rows) <= 2)
+    expected = {
+        config[key].split(",", 1)[0] for key in ("scsi0", "ide2") if key in config
+    }
+    actual = []
+    for row in rows:
+        _require(isinstance(row, Mapping))
+        _require(row.get("vmid") == plan["vm_id"] and isinstance(row.get("volid"), str))
+        actual.append(row["volid"])
+    _require(len(set(actual)) == len(actual) and set(actual) == expected)
     return True
 
 
@@ -290,4 +309,5 @@ class FilterModule:
             "range42_template_partial_config": template_partial_config,
             "range42_template_cluster_identity": template_cluster_identity,
             "range42_template_storage": template_storage,
+            "range42_template_volumes": template_volumes,
         }

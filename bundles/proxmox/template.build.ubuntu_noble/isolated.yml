@@ -124,6 +124,21 @@
       ansible.builtin.include_tasks: isolated_owned.yml
       when: _template_existing | length > 0
 
+    - name: ISOLATED TEMPLATE - Read selected storage volumes for this VM ID
+      ansible.builtin.command:
+        argv: [pvesh, get, "/nodes/{{ _template.node }}/storage/{{ _template.disk_storage }}/content", --content, images, --vmid, "{{ _template.vm_id }}", --output-format, json]
+      delegate_to: "{{ _template_cli }}"
+      register: _template_storage_volumes
+      changed_when: false
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Refuse orphan or ambiguous storage volumes before writes
+      ansible.builtin.assert:
+        that: >-
+          (_template_storage_volumes.stdout | from_json) | range42_template_volumes((_template_config.stdout | from_json) if _template_existing | length > 0 else {}, _template)
+        fail_msg: "The selected VM ID has unreferenced, duplicate or unexpected storage volumes."
+      no_log: true
+
     - name: ISOLATED TEMPLATE - Resolve the build-specific snippet path
       ansible.builtin.command:
         argv: [pvesm, path, "{{ _template.snippet_storage }}:snippets/{{ _template.snippet_name }}"]
