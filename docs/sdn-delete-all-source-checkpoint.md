@@ -94,9 +94,19 @@ pending row containing only `key`, while retaining legitimate delete-only rows.
 That failure was reproduced before the fix; all 42 scope checks then passed
 (`/tmp/r42-delete-key-only-green.log`). The final helper is frozen at SHA256
 `f76b5956896de67b2b4122df2f66f742c827c81f9fca37d1b4eae40b282c95a5`.
-Local results do not establish improved live performance; a reviewed repeat
-read-only probe remains pending. No live deletion acceptance is claimed.
+The subsequent frozen read-only probe, actual handle61395, passed rc0 in 77.24s
+at `2026-09-11T14:19:55.370572Z`, using exactly that helper from controller
+`97f9f9a6e73bf6daf752e6f344f3caeed13c4758`. It verified root on `pve01`, selected
+the present `r42smoke` zone with two VNets and two subnets, and returned sole
+cluster node `pve01` and its CA-bound identity. Sanitized result evidence is
+`/tmp/r42-sdn-delete-readonly-batched-20260911/result.json`; the detailed
+`scope.json` remains private alongside it. Both earlier timeout refusals remain
+preserved.
 
+This is passing bounded read-only collector compatibility on the 47-guest lab.
+The probe did not exercise the role's API-to-SSH CA pairing, any declaration or
+rule mutation, global apply, or runtime activation. It is not live deletion
+acceptance. The parent owns the separate fresh guest-roster/NAT comparison.
 
 ## Remaining limits
 
