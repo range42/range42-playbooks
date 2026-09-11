@@ -1,67 +1,135 @@
-# Container installer checkpoint — incomplete, paused 2026-09-11
+# Container installer checkpoint — integration incomplete, 2026-09-11
 
 Worktree: `/tmp/r42-container-installer-next-wave`, branch
 `fix/backend-container-installer-20260911`, based on playbooks `a150867`.
-Earlier credential-only checkpoint: `22e045d`. The root handoff remains
+Credential checkpoint: `22e045d`; planner checkpoint: `d6b0698`.
+The root handoff remains
 `_local-specs/2026-09-11-container-installer-handoff.md` in the shared project root.
 
-## Saved tested slice
+## Saved planner and credential slice
 
-`files/container_plan.py` now validates an explicit installation configuration
-and renders the authenticated Compose contract without creating state. It
-requires an immutable image ID/digest, checks explicit host/container paths,
-retains configured legacy workspace/database locations, uses token/key file
-mounts, and supplies complete runtime/template mounts and environment when
-configured. It does not mount the operator's SSH home. Tests first reproduced
-14 failures for the missing planner, then passed all 14 new cases plus the 7
-existing credential cases. Focused Ruff checks pass after formatting cleanup.
+`files/container_plan.py` validates explicit installation configuration and
+renders the authenticated Compose contract without creating state. It requires
+an immutable image ID/digest, retains configured legacy workspace/database
+locations, uses token/key file mounts, and supplies runtime/template bindings
+when configured. It does not mount the operator's SSH home. The planner and
+credential primitive have 21 focused passing tests; their original red/green
+logs remain `/tmp/r42-container-plan-{red,green}.log`.
 
-Logs: `/tmp/r42-container-plan-red.log` and
-`/tmp/r42-container-plan-green.log`. Only the planner and descriptor-independent
-Compose renderer are implemented. They are not yet called by the bundle.
+## Verified held-maintenance mechanism
 
-## Pending test specifications
+`files/container_maintenance.py` provides a local Docker transport and the
+`stopped_container(...)` context manager. Its caller supplies the authenticated
+maintenance capability, full immutable container ID, explicit installation and
+state paths, and API UID/GID. It verifies ownership labels, the running process,
+image/configuration, and the writable state mount against the exact admission
+inode reported by the API. Container names and remote Docker contexts are not
+accepted. Inspect mount order is normalized while every mount field and its
+multiplicity remain part of identity comparison.
 
-`tests/pending/backend_container_maintenance.py.txt` contains the next tests.
-They failed for the expected missing `container_maintenance.py` implementation
-before the user requested a stop. The file is deliberately outside pytest
-collection. On resumption, move it into the active tests directory, observe the
-red result, then implement the held helper and host admission context managers.
-The initial red log is `/tmp/r42-installer-maintenance-red.log`.
+The installer acquires the existing host admission inode exclusively **before**
+the idle audit and retains that same descriptor through old-container stop and
+the caller's replacement scope. The installer-owned
+`files/container_maintenance_probe.py` runs inside that exact container and
+reuses the installed backend's process/inode checks, strict attempt/artifact
+audit and provisioning lock. It also holds a SQLite writer transaction and its
+stdin pipe until controlled stop. No proof, credential or helper stderr is
+printed. The host requires a bounded, identity-bound idle acknowledgement
+before issuing stop, then verifies that exact container is stopped before
+allowing replacement work.
+
+The original stop-then-reacquire design failed a regression: losing the helper
+between its last liveness check and Docker stop reopened HTTP admission. The
+continuous host fence closes that window. Probe/pipe loss cannot release the
+host's admission lock. This implementation leaves backend source and its
+`flock-http-v1` protocol unchanged; its small probe deliberately depends on the
+installed backend validator functions, so each future backend image needs the
+compatibility acceptance below.
+
+The focused regressions cover malformed/partial replies, held stdin lifetime,
+exact ID and binding changes, helper loss before and during stop, lock
+contention, replacement inode detection, stop refusal, and local daemon
+selection. The former pending tests are now active. Disposable Docker tests
+also verify unfenced-probe refusal, busy provisioning and malformed orphan
+refusal without stopping the old API, plus both successful stop and deliberate
+probe SIGKILL while the old API still runs. A replacement starts on the same
+inode while finite authenticated HTTP and raw v0 writes remain blocked (503),
+public liveness remains available and authentication still rejects missing
+credentials (401). Releasing the host context restores authenticated readiness.
+
+Acceptance image, already present locally and used by immutable ID:
+
+```
+sha256:c025beb8c3bfd7299aa9addee69e9dfbae2515f88939344e06279f2cd72070c1
+```
+
+Reproduce the focused suite from this worktree:
+
+```sh
+RANGE42_INSTALLER_MAINTENANCE_TEST_IMAGE=sha256:c025beb8c3bfd7299aa9addee69e9dfbae2515f88939344e06279f2cd72070c1 \
+  pytest -q tests/test_backend_container_installer.py \
+    tests/test_backend_container_plan.py \
+    tests/test_backend_container_maintenance.py \
+    tests/test_backend_container_maintenance_docker.py
+```
+
+Without the explicit image variable, the two Docker cases are skipped. They
+create only uniquely named disposable containers, private synthetic credentials
+and loopback listeners; cleanup removes their recorded full IDs. No PVE, shared
+systemd installation, provider, runtime pin or upstream SDN changes occur.
+The final focused run passed **51 tests** (49 host/unit cases and two actual
+Docker cases) in 25.93 seconds. Focused Ruff checks pass for the implementation
+and tests. Independent read-only review found no remaining false-idle blocker
+within the caller obligations below. Detailed result:
+`/tmp/r42-installer-maintenance-final.log`. Earlier red/green evidence:
+`/tmp/r42-installer-continuous-admission-{red,green}.log` and
+`/tmp/r42-installer-maintenance-docker-green.log`.
+
+## Caller obligations and limitations
+
+- Serialize installation changes. This primitive does not provide a whole
+  release/installation lock, managed record or automated recovery.
+- Use the verified existing private inode and local Linux bind mount, with
+  matching host/container device, inode and UID. Remote daemons, UID remapping
+  and filesystems that cannot preserve this flock contract are unsupported.
+- Keep the context open through candidate validation and record commit. A
+  candidate must not replace the lock inode, and external authenticated
+  readiness is intentionally blocked during that scope. Full installer
+  cutover still needs internal validation before admitting new writes.
+- Stop/inspect failures can leave the exact old container stopped. The caller
+  must inspect and recover that ID before choosing rollback. No credentials,
+  workspace data, source releases or containers are automatically replaced.
+- The host installer must survive. Its death releases its flock; an already
+  dispatched Docker stop is not crash-atomic. This mechanism tolerates probe
+  and exec-pipe loss while the host holder survives, and does not claim safety
+  against arbitrary concurrent host/filesystem writers or independent Proxmox
+  operations not represented in the backend's tracked attempts.
 
 ## Remaining integration
 
 The installer is not deployment-ready. `main.yml`, parameter source/generated
 JSON and README still use the previous obsolete installer contract. Remaining:
 
-1. Managed installation record, ownership/binding/image inspection, serialized
-   release staging, immutable runtime/template copies and image/profile checks.
+1. Managed installation record, serialized release staging, immutable
+   runtime/template copies and image/profile checks; wire exact ownership and
+   binding inspection into this record.
 2. Authenticated unchanged-repeat no-op; existing credential digests and valid
    encryption key verification against existing database records.
-3. Held `docker exec -i ... maintenance_guard` through stop of the exact owned
-   container ID; no one-shot stdin pipe. Cover refusal and subprocess failure.
-4. Candidate migration/admission/readiness cutover and rollback before accepting
-   new writes. Proposed approach: acquire the same persistent host admission
-   flock after the old container stops and hold it through candidate validation
-   and record commit; validate readiness internally while external finite HTTP
-   remains blocked. This design is not implemented or accepted by Docker tests.
-5. Explicit stopped legacy-container mapping preserving original database,
+3. Integrate the verified held-maintenance primitive into candidate migration,
+   internal readiness validation and record cutover, with explicit rollback
+   before accepting new writes.
+4. Explicit stopped legacy-container mapping preserving original database,
    workspace paths, credentials and historical artifacts; unknown running
    legacy installations must remain untouched.
-6. Main playbook/descriptor/README integration, public liveness and authenticated
+5. Main playbook/descriptor/README integration, public liveness and authenticated
    readiness/Proxmox registration, with protected input and no token logging.
-7. Disposable Docker and real Ansible acceptance for fresh/repeat/busy refusal,
-   guarded update, failed migration preservation, wrong/missing key and runtime
-   read-only mounts. Planner boundary cases and final ownership checks still
-   need review before integration.
+6. Full disposable Docker and real Ansible installer acceptance for
+   fresh/repeat/busy refusal, guarded update, failed migration preservation,
+   wrong/missing key and runtime read-only mounts. The tests above verify the
+   maintenance mechanism, not the whole installer.
 
-No Docker containers were started, stopped or changed in this resumption. No
-PVE, shared systemd service, provider, runtime pin or upstream SDN changes were
-made. Existing Docker images include the separately tested maintenance images;
-use immutable IDs and uniquely named disposable resources when resuming.
-
-References checked: Docker documents that `exec -i` keeps stdin open and exec
-processes run only while the container primary process exists:
+Reference: Docker documents that `exec -i` keeps stdin open and exec processes
+run only while the container primary process exists:
 https://docs.docker.com/reference/cli/docker/container/exec/
 Compose bind/read-only configuration:
 https://docs.docker.com/reference/compose-file/services/
