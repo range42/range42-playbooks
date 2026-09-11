@@ -145,6 +145,23 @@
     # 3. WRITE. Every object stays PENDING until the apply below - that is the API's model,
     #    not a shortcut taken here.
     #
+    - name: SDN BOOTSTRAP - SNAPSHOT BEFORE ANY WRITE
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: network_snapshot_snat_rules
+
+    - name: SDN BOOTSTRAP - FIND ENABLED SUBNETS WITHOUT A LIVE RULE
+      ansible.builtin.set_fact:
+        _sdn_enabled_missing: >-
+          {%- set out = [] -%}
+          {%- for v in BUNDLE_SDN_VNETS -%}
+          {%- if (v.snat | default(true)) and (network_snat_snapshot.nat_counts[v.subnet] | default(0) | int) == 0 -%}
+          {%- set _ = out.append(v.subnet) -%}
+          {%- endif -%}
+          {%- endfor -%}
+          {{ out }}
+
     - name: SDN BOOTSTRAP - CREATE THE ZONE
       include_role:
         name: range42-ansible_roles-proxmox_controller
@@ -204,7 +221,8 @@
         proxmox_vm_action: "network_apply_sdn"
       when: >-
         (_sdn_zones_absent | length) + (_sdn_vnets_absent | length)
-        + (_sdn_subnets_absent | length) + (_sdn_subnets_drifted | length) > 0
+        + (_sdn_subnets_absent | length) + (_sdn_subnets_drifted | length)
+        + (_sdn_enabled_missing | length) > 0
 
     #### #### ####
     #
@@ -217,8 +235,21 @@
         name: range42-ansible_roles-proxmox_controller
       vars:
         proxmox_vm_action: "network_delete_extra_snat_rules"
-        sdn_subnet_cidr: "{{ item.subnet }}"
-        sdn_snat_want: "{{ 1 if (item.snat | default(true)) else 0 }}"
+        sdn_subnet_cidr: "{{ _sdnb_decl.subnet }}"
+        sdn_snat_want: "{{ 1 if (_sdnb_decl.snat | default(true)) else 0 }}"
       loop: "{{ BUNDLE_SDN_VNETS }}"
       loop_control:
-        label: "{{ item.subnet }} want={{ 1 if (item.snat | default(true)) else 0 }}"
+        loop_var: _sdnb_decl
+        label: "{{ _sdnb_decl.subnet }} want={{ 1 if (_sdnb_decl.snat | default(true)) else 0 }}"
+
+    - name: SDN BOOTSTRAP - PRESERVE EVERY UNDECLARED SOURCE
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: network_restore_snat_snapshot
+        sdn_snat_excluded_sources: "{{ BUNDLE_SDN_VNETS | map(attribute='subnet') | list }}"
+        sdn_snat_allow_new_rules: false
+      when: >-
+        (_sdn_zones_absent | length) + (_sdn_vnets_absent | length)
+        + (_sdn_subnets_absent | length) + (_sdn_subnets_drifted | length)
+        + (_sdn_enabled_missing | length) > 0
