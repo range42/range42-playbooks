@@ -103,13 +103,14 @@ remains. No live operation or capability marker changed.
 
 ## Remaining activation limits
 
-No capability marker is expanded by this change. The older
-`bootstrap.sdn_vnet`, `delete.all`, and standalone `reconcile.snat_rules`
-entrypoints still use their primary-node flows. They have not been adapted or
-validated here; this paired branch must not be activated while those mutation
-paths remain reachable without a separate guard/review. In particular, an
-unsupported composite may write declarations before the newer controller
-refuses its unproven apply.
+No capability marker is expanded by this change. Subsequent source work adapts
+`bootstrap.sdn_vnet` to the shared bootstrap contract (`6cf9a0d`) and adds
+explicit standalone reconciliation/read-only counting, documented in
+`sdn-remaining-entrypoints-wip.md`. The older `delete.all` entrypoint remains
+unadapted: it can delete declarations before the newer controller refuses an
+unproven apply. It needs retained pre-delete source/node scope and preservation
+without changing its intended deletion semantics. This paired branch has no
+matched live acceptance and must not be activated with that unresolved path.
 
 Review all remaining entrypoints, node mapping changes and selected zone
 membership changes before a matched release. Inventory SSH configuration is

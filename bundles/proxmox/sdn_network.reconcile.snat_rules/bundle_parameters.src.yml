@@ -1,41 +1,31 @@
 ---
 bundle: proxmox/sdn_network.reconcile.snat_rules
 description: >-
-  Bring the LIVE iptables SNAT rules of one subnet down to a declared count. Reads the running nat
-  table on the hypervisor and deletes only what is in excess - the one action of the family that looks
-  at the running state rather than the declared one.
+  Reconcile one uniquely declared source on every applicable zone member with WANT 0/1,
+  or inspect fresh per-node counts without mutations with WANT 99. Requires complete
+  cluster snapshot coverage; never falls back to pruning only the API coordinator.
 optional: false
 
-##
-## Caller-passed inputs carry the BUNDLE_ prefix : the backend will generate call-sites and inject its
-## own variables into a play whose variable space is FLAT, so a generator needs a mechanical rule for
-## which names it owns. proxmox_node is NOT prefixed - it is read from the scenario vault, not passed.
-## Full reasoning in ______TODO_bundle-parameters-declaration_v6.md section 9.
-##
-
 params:
-
   - name: BUNDLE_SDN_SUBNET_CIDR
-    renamed_to: [sdn_subnet_cidr]
     type: string
     required: true
     default_where: none
     description: >-
-      The subnet as a CIDR WITH its mask, exactly as iptables renders it - for instance
-      192.168.199.0/24. The role asserts that shape and refuses anything else, because the value is
-      what anchors the rule match. This is the CIDR, not the Proxmox subnet id.
+      Canonical IPv4 CIDR including its mask, for example 192.168.199.0/24, not a Proxmox
+      subnet ID. WANT 0/1 requires one authoritative subnet-to-VNet-to-zone binding.
+      Read-only WANT 99 also accepts a source whose declaration has been deleted.
 
   - name: BUNDLE_SDN_SNAT_WANT
-    renamed_to: [sdn_snat_want]
     type: int
     required: true
     default_where: none
     description: >-
-      How many live SNAT rules this subnet must end up with - 1 for a subnet declared snat=1, 0 for one
-      declared snat=0. REQUIRED here although the role defaults it to 1, because reconciling to a
-      target the caller never stated is how a rule someone meant to keep gets deleted. A value higher
-      than the live count makes the action a pure counter - nothing is in excess, nothing is deleted,
-      and the output still reports snat_before.
+      Exactly integer 0, 1, or 99. For 0/1, the declared SNAT state must already match;
+      exact-source NAT rules are reconciled on zone members after complete snapshot
+      and stable-state validation. Missing enabled rules are refused before cleanup.
+      99 only reports every node's snapshot count, without rule writes or SDN apply,
+      regardless of the count. Other numbers, strings and booleans are refused.
 
   - name: proxmox_node
     type: string
@@ -43,6 +33,8 @@ params:
     from_vault: true
     default_where: none
     description: >-
-      Proxmox node whose nat table is read and pruned, resolved from the scenario vault. The iptables
-      work itself is delegated by the role to groups['proxmox_cli'] | first, which must exist in the
-      inventory.
+      API coordinator node resolved from the scenario vault. Every cluster node must
+      have a verified SSH mapping into proxmox_cli; a standalone node may use the
+      controller default. Reconciliation is scoped to applicable zone members, while
+      read-only counts cover all nodes. The legacy snat_before alias identifies only
+      this primary node and is not an aggregate.
