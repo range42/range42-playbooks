@@ -1,0 +1,27 @@
+---
+- name: ISOLATED TEMPLATE - Read current exact ownership before mutation
+  ansible.builtin.command:
+    argv: [pvesh, get, "/nodes/{{ _template.node }}/qemu/{{ _template.vm_id }}/config", --output-format, json]
+  delegate_to: "{{ _template_cli }}"
+  register: _template_config
+  changed_when: false
+  no_log: true
+
+- name: ISOLATED TEMPLATE - Read current power state
+  ansible.builtin.command:
+    argv: [pvesh, get, "/nodes/{{ _template.node }}/qemu/{{ _template.vm_id }}/status/current", --output-format, json]
+  delegate_to: "{{ _template_cli }}"
+  register: _template_vm_status
+  changed_when: false
+  no_log: true
+
+- name: ISOLATED TEMPLATE - Refuse unknown power state
+  ansible.builtin.assert:
+    that: (_template_vm_status.stdout | from_json).status in ['running', 'stopped']
+  no_log: true
+
+- name: ISOLATED TEMPLATE - Require the unchanged template build and plan
+  ansible.builtin.assert:
+    that: (_template_config.stdout | from_json) | range42_template_owned(_template, _template_hostname.stdout | trim)
+    fail_msg: "Template ownership changed or is unverified; further mutations are refused."
+  no_log: true
