@@ -1,6 +1,7 @@
 # Matched SDN and isolated-template source integration
 
-This inactive candidate combines playbooks
+The initial inactive integration `e334b114f4effddd87bb813be8d464196f4ca009`
+combined playbooks
 `1346b84ace05715c2b068f8ff10625b3122d7a16` (selected-VNet/all-NIC deletion)
 with `5de4c927ecf8338ef3336342bebfcd3d54c435d6` (isolated template readiness).
 The paired controller is `eecc37c7ca6785b3548468748c8153e8546d2461`, merging
@@ -11,9 +12,9 @@ Both read-only `git merge-tree --write-tree` checks were conflict-free before
 creating separate worktrees. The resulting staged source trees exactly matched
 the predictions: playbooks `3ddbd40e1f88e0a06a8c23becdfa6de21064e882` and
 controller `a8b4bfeec6f1a0e4a5db630db42cff6d57262a0a` (before this documentation).
-No conflict resolution or implementation rewrite was needed. The SDN task bytes
-remain identical to `1346b84`; isolated-template task/helper bytes remain
-identical to `5de4c927`.
+No conflict resolution or implementation rewrite was needed. At that checkpoint,
+the SDN task bytes matched `1346b84` and isolated-template task/helper bytes
+matched `5de4c927`.
 
 Playbooks retain Hyde's separate SDN ancestor
 `0b784f1cec3457ea89613f1406d2b015b32f495f`; controller retains
@@ -57,14 +58,49 @@ Checks used the backend virtual environment's Python/Ansible, with
 - Scoped Ruff and staged/working diff checks passed. Test output retains the
   existing pytest-asyncio default-loop-scope deprecation warning.
 
+## Builder authorization cleanup follow-up
+
+The reviewed template follow-up
+`bb9ab16fa4c7b6bbb131da2b553021742d819729` merges into `e334b114` without
+conflicts. Its staged source tree, before this documentation update, is
+`4de6e09595d1fbc6632da9c790365244bd30cedd`, exactly the read-only merge-tree
+prediction. All eight changed template source/documentation/test files match
+the reviewed follow-up byte for byte. Every other source path is unchanged;
+the paired controller remains `eecc37c7ca6785b3548468748c8153e8546d2461`.
+
+Before cloud-init configuration, a stopped owned build must retain the exact
+reviewed builder key and user. An absent key is permitted only when the VM has
+no prior cloud-init binding. Unknown or multiple keys are preserved and refused.
+After successful guest readiness, one existing SSH operation resets clone
+identity and removes only fingerprint-matched builder authorizations from the
+supported build-user/root files. A fixed native Ansible report exposes the
+validated six-field completion proof. After shutdown, the controller removes
+the same reviewed key from the VM configuration, regenerates the cloud-init
+seed, and requires absent configuration keys and clean seed authorization
+before template conversion. Raw keys and seed contents remain private.
+
+The isolated source evidence is **59 guest tests**, a **69-case controller
+baseline**, and a subsequent **51-case affected follow-up** after reproducing
+the stopped-resume overwrite regression. These overlap and are not additive
+unique-test counts. The combined candidate then passed **106 checks in 49.09s**,
+exit0, handle96274: `test_template_authorization.py`, `test_template_ready.py`,
+`test_isolated_template_contract.py`, and the real Ansible clean/unknown-seed
+conversion cases against the exact paired controller. Log:
+`/tmp/r42-sdn-template-cleanup-integration.log`. Unchanged SDN tests were not
+repeated; their earlier matched evidence above still applies.
+
+Partial cleanup is not an automatic resume protocol. A configured or cleaned
+build with missing authorization requires reviewed operator recovery; unrelated
+guest authorization is preserved, and custom or ambiguous authorization layouts
+are refused. This integration adds no live template result.
+
 ## Explicit remaining boundaries
 
-This source integration is not a runtime acceptance or activation gate. In
-particular, a separate review found that successful `cloud-init clean` alone
-does not prove removal of the builder's SSH authorization. That cleanup and its
-controller config/seed readback are a pending, separately tested follow-up to
-this exact `5de4c927` template checkpoint. Do not resume a live build based on
-these matched tests alone.
+This source integration is not a runtime acceptance or activation gate. The
+authorization-cleanup source follow-up below closes the earlier finding that
+`cloud-init clean` alone did not remove builder SSH authorization. Live template
+resume and readback remain separately controlled operator work; these source
+tests do not establish their result.
 
 The isolated builder is an explicit operator `isolated.yml` entrypoint. The
 existing template `main.yml` and descriptor still describe the historical

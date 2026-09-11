@@ -32,6 +32,11 @@
           - default_admin_vm_ci_ssh_key | length > 16
         fail_msg: "Use one matching Proxmox API/SSH node and an explicit guest address with SSH credentials."
 
+    - name: ISOLATED TEMPLATE - Bind one reviewed builder public key before writes
+      ansible.builtin.set_fact:
+        _template_builder_key_sha256: "{{ default_admin_vm_ci_ssh_key | range42_template_key_sha256 }}"
+      no_log: true
+
     - name: ISOLATED TEMPLATE - Confirm the SSH node identity
       ansible.builtin.command:
         argv: [hostname, -s]
@@ -245,6 +250,14 @@
     - name: ISOLATED TEMPLATE - Guard cloud-init configuration
       ansible.builtin.include_tasks: isolated_owned.yml
 
+    - name: ISOLATED TEMPLATE - Refuse to overwrite unreviewed cloud-init authorization
+      ansible.builtin.assert:
+        that: >-
+          (_template_config.stdout | from_json) | range42_template_key_provisionable(default_admin_vm_ci_ssh_key,
+          default_admin_vm_ci_user)
+      when: not _template_resume_running
+      no_log: true
+
     - name: ISOLATED TEMPLATE - Configure only the selected owned guest
       ansible.builtin.include_role:
         name: range42-ansible_roles-proxmox_controller
@@ -297,9 +310,16 @@
     - name: ISOLATED TEMPLATE - Guard controlled shutdown
       ansible.builtin.include_tasks: isolated_owned.yml
 
+    - name: ISOLATED TEMPLATE - Require the exact configured builder authorization before guest cleanup
+      ansible.builtin.assert:
+        that: >-
+          ((_template_config.stdout | from_json) | range42_template_builder_key(default_admin_vm_ci_ssh_key,
+          default_admin_vm_ci_user)) == _template_builder_key_sha256
+      no_log: true
+
     - name: ISOLATED TEMPLATE - Prepare unique clone identity after successful upgrade
       ansible.builtin.script:
-        cmd: "files/template_ready.py --build-id {{ _template.build_id }} --plan-sha256 {{ _template.plan_sha256 }} --clean"
+        cmd: "files/template_ready.py --build-id {{ _template.build_id }} --plan-sha256 {{ _template.plan_sha256 }} --clean --ssh-user {{ default_admin_vm_ci_user | quote }} --ssh-key-sha256 {{ _template_builder_key_sha256 }}"
         executable: "{{ hostvars[_template.guest_host].ansible_python_interpreter | default('/usr/bin/python3') }}"
       become: true
       delegate_to: "{{ _template.guest_host }}"
@@ -311,8 +331,13 @@
       ansible.builtin.assert:
         that: >-
           (_template_clean.stdout | from_json) == {'version': 1, 'build_id': _template.build_id,
-          'plan_sha256': _template.plan_sha256, 'clone_identity': 'reset'}
+          'plan_sha256': _template.plan_sha256, 'clone_identity': 'reset',
+          'builder_authorization': 'removed', 'builder_key_sha256': _template_builder_key_sha256}
       no_log: true
+
+    - name: ISOLATED TEMPLATE - Report verified guest identity and builder authorization removal
+      ansible.builtin.debug:
+        msg: "{{ _template_clean.stdout | from_json }}"
 
     - name: ISOLATED TEMPLATE - Shut down only after successful guest verification
       ansible.builtin.command:
@@ -332,6 +357,21 @@
     - name: ISOLATED TEMPLATE - Guard final template conversion
       ansible.builtin.include_tasks: isolated_owned.yml
 
+    - name: ISOLATED TEMPLATE - Require the same builder key after controlled shutdown
+      ansible.builtin.assert:
+        that:
+          - (_template_vm_status.stdout | from_json).status == 'stopped'
+          - >-
+            ((_template_config.stdout | from_json) | range42_template_builder_key(default_admin_vm_ci_ssh_key,
+            default_admin_vm_ci_user)) == _template_builder_key_sha256
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Remove only the reviewed builder key from the stopped VM
+      ansible.builtin.command:
+        argv: [qm, set, "{{ _template.vm_id }}", --delete, sshkeys]
+      delegate_to: "{{ _template_cli }}"
+      no_log: true
+
     - name: ISOLATED TEMPLATE - Detach only this build's bootstrap vendor data
       ansible.builtin.command:
         argv: [qm, set, "{{ _template.vm_id }}", --delete, cicustom]
@@ -345,6 +385,34 @@
         mode: '0600'
       delegate_to: "{{ _template_cli }}"
       when: _template.apt_proxy_url | length > 0
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Regenerate the finalized cloud-init seed
+      ansible.builtin.command:
+        argv: [qm, cloudinit, update, "{{ _template.vm_id }}"]
+      delegate_to: "{{ _template_cli }}"
+      timeout: 60
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Recheck ownership after seed generation
+      ansible.builtin.include_tasks: isolated_owned.yml
+
+    - name: ISOLATED TEMPLATE - Inspect the regenerated user seed privately
+      ansible.builtin.command:
+        argv: [qm, cloudinit, dump, "{{ _template.vm_id }}", user]
+      delegate_to: "{{ _template_cli }}"
+      register: _template_user_seed
+      changed_when: false
+      timeout: 30
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Require clean authorization in config and generated seed before conversion
+      ansible.builtin.assert:
+        that:
+          - (_template_vm_status.stdout | from_json).status == 'stopped'
+          - >-
+            (_template_config.stdout | from_json) | range42_template_seed_clean(_template_user_seed.stdout,
+            default_admin_vm_ci_ssh_key)
       no_log: true
 
     - name: ISOLATED TEMPLATE - Convert only the successfully verified owned VM

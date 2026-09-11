@@ -1,12 +1,15 @@
 """Literal, fail-closed contracts shared by the isolated template playbook."""
 
 import hashlib
+import base64
 from collections.abc import Mapping, Sequence
 import ipaddress
 import json
 from pathlib import PurePosixPath
 import re
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
+
+import yaml
 
 
 def _require(condition):
@@ -26,6 +29,124 @@ def _number(value, minimum, maximum):
         and not isinstance(value, bool)
         and minimum <= value <= maximum
     )
+
+
+def template_key_sha256(key):
+    """One literal public key, with its SSH wire type bound to decoded bytes."""
+    _require(isinstance(key, str) and len(key) <= 16384)
+    lines = key.strip().splitlines()
+    _require(len(lines) == 1)
+    fields = lines[0].split()
+    _require(
+        len(fields) >= 2
+        and fields[0]
+        in {
+            "ssh-ed25519",
+            "ssh-rsa",
+            "ecdsa-sha2-nistp256",
+            "ecdsa-sha2-nistp384",
+            "ecdsa-sha2-nistp521",
+        }
+    )
+    try:
+        blob = base64.b64decode(fields[1], validate=True)
+    except (ValueError, TypeError):
+        _require(False)
+    _require(base64.b64encode(blob).decode() == fields[1])
+    parts = []
+    position = 0
+    while position < len(blob):
+        _require(position + 4 <= len(blob))
+        size = int.from_bytes(blob[position : position + 4], "big")
+        position += 4
+        _require(size > 0 and position + size <= len(blob))
+        parts.append(blob[position : position + size])
+        position += size
+    _require(parts and parts[0] == fields[0].encode())
+    if fields[0] == "ssh-ed25519":
+        _require(len(parts) == 2 and len(parts[1]) == 32)
+    elif fields[0] == "ssh-rsa":
+        _require(len(parts) == 3)
+    else:
+        _require(
+            len(parts) == 3
+            and parts[1] == fields[0].removeprefix("ecdsa-sha2-").encode()
+        )
+    return hashlib.sha256(blob).hexdigest()
+
+
+def template_builder_key(config, key, user):
+    """Proxmox stores sshkeys URI-escaped; never adopt or erase other records."""
+    fingerprint = template_key_sha256(key)
+    _require(_text(user, r"[a-z_][a-z0-9_-]{0,31}"))
+    _require(isinstance(config, Mapping) and config.get("ciuser") == user)
+    supplied = config.get("sshkeys")
+    _require(isinstance(supplied, str) and len(supplied) <= 49152)
+    decoded = unquote(supplied, errors="strict")
+    _require(decoded.strip() == key.strip())
+    _require(template_key_sha256(decoded) == fingerprint)
+    return fingerprint
+
+
+def template_key_provisionable(config, key, user):
+    """A stopped resume cannot overwrite unreviewed cloud-init authorization."""
+    _require(isinstance(config, Mapping) and _text(user, r"[a-z_][a-z0-9_-]{0,31}"))
+    template_key_sha256(key)
+    if "sshkeys" in config:
+        template_builder_key(config, key, user)
+    else:
+        _require(
+            not {
+                "ciuser",
+                "cipassword",
+                "cicustom",
+                "nameserver",
+                "searchdomain",
+            }.intersection(config)
+        )
+        _require(not any(re.fullmatch(r"ipconfig\d+", name) for name in config))
+    return True
+
+
+def template_seed_clean(config, seed, key):
+    """Conversion needs an empty generated authorization surface after removal."""
+    template_key_sha256(key)
+    _require(isinstance(config, Mapping) and "sshkeys" not in config)
+    _require(isinstance(seed, str) and 0 < len(seed) <= 65536)
+    try:
+        document = yaml.compose(seed, Loader=yaml.SafeLoader)
+    except yaml.YAMLError:
+        _require(False)
+    _require(isinstance(document, yaml.MappingNode))
+    key_blob = key.split()[1]
+    pending = [(document, 0)]
+    seen = 0
+    while pending:
+        value, depth = pending.pop()
+        seen += 1
+        _require(depth <= 16 and seen <= 4096)
+        if isinstance(value, yaml.MappingNode):
+            names = []
+            for name, entry in value.value:
+                _require(
+                    isinstance(name, yaml.ScalarNode)
+                    and name.tag == "tag:yaml.org,2002:str"
+                )
+                names.append(name.value)
+                if name.value in {"ssh_authorized_keys", "ssh_import_id"}:
+                    _require(
+                        isinstance(entry, yaml.SequenceNode)
+                        and not entry.value
+                        or isinstance(entry, yaml.ScalarNode)
+                        and entry.tag == "tag:yaml.org,2002:null"
+                    )
+                pending.extend([(name, depth + 1), (entry, depth + 1)])
+            _require(len(names) == len(set(names)))
+        elif isinstance(value, yaml.SequenceNode):
+            pending.extend((entry, depth + 1) for entry in value.value)
+        elif isinstance(value, yaml.ScalarNode):
+            _require(key_blob not in value.value)
+    return True
 
 
 def template_plan(value):
@@ -322,4 +443,8 @@ class FilterModule:
             "range42_template_cluster_identity": template_cluster_identity,
             "range42_template_storage": template_storage,
             "range42_template_volumes": template_volumes,
+            "range42_template_key_sha256": template_key_sha256,
+            "range42_template_builder_key": template_builder_key,
+            "range42_template_key_provisionable": template_key_provisionable,
+            "range42_template_seed_clean": template_seed_clean,
         }
