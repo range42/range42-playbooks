@@ -106,11 +106,13 @@ remains. No live operation or capability marker changed.
 No capability marker is expanded by this change. Subsequent source work adapts
 `bootstrap.sdn_vnet` to the shared bootstrap contract (`6cf9a0d`) and adds
 explicit standalone reconciliation/read-only counting, documented in
-`sdn-remaining-entrypoints-wip.md`. The older `delete.all` entrypoint remains
-unadapted: it can delete declarations before the newer controller refuses an
-unproven apply. It needs retained pre-delete source/node scope and preservation
-without changing its intended deletion semantics. This paired branch has no
-matched live acceptance and must not be activated with that unresolved path.
+`sdn-remaining-entrypoints-wip.md`. Subsequent guarded `delete.all` source now retains pre-delete scope and snapshots,
+requires complete pending/guest inspection, serializes deletion admission and
+reuses verified all-node apply/reconciliation/preservation. See
+[the deletion checkpoint](sdn-delete-all-source-checkpoint.md) for exact local
+validation. Automatic partial-delete recovery, stable state-directory installer
+integration and matched live acceptance remain pending. No activation claim is
+made by these source tests.
 
 Review all remaining entrypoints, node mapping changes and selected zone
 membership changes before a matched release. Inventory SSH configuration is

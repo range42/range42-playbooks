@@ -1,0 +1,25 @@
+---
+- name: SDN DELETE - RETAIN THE NEXT DECLARATION BEFORE REQUESTING ITS REMOVAL
+  ansible.builtin.include_tasks: sdn_delete_phase.yml
+  vars:
+    _sdnd_phase: deleting
+    _sdnd_extra_evidence:
+      next: "{{ _sdnd_object }}"
+
+- name: SDN DELETE - REMOVE ONE OBJECT FROM THE VERIFIED ORIGINAL SCOPE
+  ansible.builtin.include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "{{ _sdnd_object.action }}"
+    sdn_zone: "{{ _sdnd_scope.zone }}"
+    sdn_vnet: "{{ _sdnd_object.vnet | default('') }}"
+    sdn_subnet_id: "{{ _sdnd_object.id }}"
+
+- name: SDN DELETE - RETAIN SUCCESSFUL DECLARATION RESPONSE
+  ansible.builtin.set_fact:
+    _sdnd_completed: "{{ _sdnd_completed + [_sdnd_object] }}"
+
+- name: SDN DELETE - DURABLY RECORD COMPLETED DECLARATIONS
+  ansible.builtin.include_tasks: sdn_delete_phase.yml
+  vars:
+    _sdnd_phase: declarations

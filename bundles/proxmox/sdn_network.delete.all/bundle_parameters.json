@@ -2,18 +2,15 @@
   "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
   "tier": "proxmox",
   "bundle": "proxmox/sdn_network.delete.all",
-  "description": "Delete one zone completely - its subnets, its vnets, the zone itself - then apply and reconcile every removed subnet's live SNAT rules down to zero. Zone-scoped and driven by what is LIVE, not by a declaration.",
+  "description": "Delete one explicit zone and all its VNets/subnets after complete privileged pending/guest inspection and all-node snapshots. Retain original source/node intent through verified apply and exact rule preservation. Requires stable operator-owned RANGE42_SDN_DELETE_STATE_DIR shared across attempts for the cluster; incomplete durable evidence blocks blind retries and other zones.",
   "optional": false,
   "params": [
     {
       "name": "BUNDLE_SDN_ZONE",
-      "renamed_to": [
-        "sdn_zone"
-      ],
       "type": "string",
       "required": true,
       "default_where": "none",
-      "description": "The zone to wipe. Every vnet whose vnet_zone is this zone is removed, with the subnets those vnets hold, then the zone. Nothing outside the zone is read or touched. There is no wildcard and no all-zones mode - the scope of a delete is stated, never inferred."
+      "description": "Zone to delete, 2–8 alphanumeric characters beginning with a letter. Every matching VNet and its subnets are in scope, regardless of deployment owner. Current or pending guest attachments are refused before writes. Reads cover the whole cluster because global apply requires complete pending/rule proof. At most 64 VNets and 64 IPv4 source subnets are supported in one operation."
     },
     {
       "name": "proxmox_node",
@@ -21,7 +18,7 @@
       "required": true,
       "from_vault": true,
       "default_where": "none",
-      "description": "Proxmox node the API calls go through, resolved from the scenario vault. The reconciliation step is delegated by the role to groups['proxmox_cli'] | first, which must exist in the inventory."
+      "description": "API coordinator node. Its explicitly mapped proxmox_cli SSH host must prove root UID and the same node name; API and SSH cluster CA fingerprints must match. All cluster nodes require verified snapshot/reload coverage. Cleanup uses retained original zone membership after declarations disappear."
     }
   ]
 }

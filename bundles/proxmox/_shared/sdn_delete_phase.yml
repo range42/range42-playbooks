@@ -1,0 +1,10 @@
+---
+- name: SDN DELETE - DURABLY RECORD THE CURRENT PHASE
+  ansible.builtin.include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: network_sdn_delete_journal
+    sdn_delete_journal_operation: phase
+    sdn_delete_journal_request: >-
+      {{ _sdnd_address | combine({'token': _sdnd_receipt.token, 'phase': _sdnd_phase,
+          'evidence': {'completed': _sdnd_completed} | combine(_sdnd_extra_evidence | default({}))}) }}

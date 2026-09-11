@@ -106,7 +106,7 @@ freshness by immediately collecting them after clearing old facts. This adds a
 controller action but does not expand any runtime capability marker or activate
 a release. No live calls or pushes were performed.
 
-## Delete-all read-only scope review
+## Historical delete-all scope review before this continuation
 
 No deletion source was changed or disabled. `delete.all` reads the complete
 cluster zone/VNet/subnet inventories, selects VNets whose `vnet_zone` equals the
@@ -130,3 +130,15 @@ removal semantics while establishing complete pre-write scope/ownership intent,
 node membership, pending-change review, guest-attachment policy, all-node reload
 proof, and exact non-target preservation. No deletion redesign or live acceptance
 was performed here.
+
+
+## Subsequent guarded deletion source
+
+The next authorized source slice implements the complete before-write scope,
+privileged attachment/pending review, stable cluster-bound private journal and
+existing all-node apply/reconcile/preservation flow for `delete.all`. Its actual
+local paired checks and remaining operational limits are recorded in
+[the deletion source checkpoint](sdn-delete-all-source-checkpoint.md). The review
+above describes the old entrypoint; deletion is no longer an unguarded primary-
+node cleanup sequence in this source candidate. Automatic partial-delete resume,
+installer state-directory integration and matched live acceptance remain pending.
