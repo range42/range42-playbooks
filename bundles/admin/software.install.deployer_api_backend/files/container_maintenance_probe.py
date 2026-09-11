@@ -21,6 +21,8 @@ from app.core.maintenance_guard import _proof_matches, assert_idle
 def require_external_fence(gate):
     descriptor = gate._open()
     try:
+        if os.fstat(descriptor).st_size:
+            raise ValueError('Unfinished maintenance intent requires explicit recovery')
         try:
             fcntl.flock(descriptor, fcntl.LOCK_SH | fcntl.LOCK_NB)
         except BlockingIOError:

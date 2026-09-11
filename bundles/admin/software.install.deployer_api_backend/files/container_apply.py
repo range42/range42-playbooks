@@ -18,7 +18,7 @@ import urllib.request
 import uuid
 
 from container_install import _secret, provision_credentials
-from container_maintenance import DockerCLI, host_admission, stopped_container
+from container_maintenance import PROTOCOL, DockerCLI, host_admission, stopped_container
 from container_plan import compose_document, validate_config
 
 
@@ -173,6 +173,19 @@ def request(plan, path, *, authenticated=True):
         return json.loads(response.read(1024 * 1024))
 
 
+def verify_image_protocol(docker, reference):
+    image = json.loads(docker._run(['image', 'inspect', reference]))[0]['Id']
+    if not isinstance(image, str) or len(image) != 71 or not image.startswith('sha256:') or any(char not in '0123456789abcdef' for char in image[7:]):
+        raise ValueError('Candidate immutable image identity is invalid')
+    protocol = docker._run(['run', '--rm', '--network', 'none', '--read-only',
+                           '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
+                           '--entrypoint', 'python', image, '-c',
+                           'from app.core.maintenance import PROTOCOL; print(PROTOCOL)'], timeout=30)
+    if protocol.strip() != PROTOCOL:
+        raise ValueError('Candidate maintenance protocol is unsupported; a durable-intent v2 image is required')
+    return image
+
+
 def wait_health(plan, docker, identifier):
     deadline = time.monotonic() + 35
     while time.monotonic() < deadline:
@@ -195,6 +208,8 @@ def wait_health(plan, docker, identifier):
 INTERNAL_READY = """import asyncio, json
 from app.core.db import get_session_factory
 from app.routes.v1.health import readiness
+from app.core.maintenance import PROTOCOL
+assert PROTOCOL == 'flock-http-intent-v2'
 async def main():
     async with get_session_factory()() as session:
         result = await readiness(session)
@@ -346,7 +361,7 @@ def managed_update(docker, record, plan):
         raise ValueError(
             "Guarded update cannot relocate persistent bindings or credentials"
         )
-    image = json.loads(docker._run(["image", "inspect", plan["image"]]))[0]["Id"]
+    image = verify_image_protocol(docker, plan["image"])
     root = Path(plan["root"])
     release_id, release, _ = stage(plan, root)
     proof = request(original, "/v1/admin/maintenance")
@@ -400,6 +415,7 @@ def managed_update(docker, record, plan):
             }
             write_json(root / "installation.json", replacement)
             (root / "pending.json").unlink()
+            gate.complete()
         except Exception:
             if identifier:
                 docker.stop(identifier)
@@ -417,6 +433,7 @@ def managed_update(docker, record, plan):
             pending["status"] = "rolled_back"
             write_json(backup / "failure.json", pending)
             (root / "pending.json").unlink(missing_ok=True)
+            gate.complete()
             raise ValueError(
                 "Candidate failed; original database and managed container restored"
             ) from None
@@ -480,7 +497,7 @@ def apply(raw: dict, *, operation="apply"):
             return {"status": "unchanged", "changed": False}
         if operation == "update":
             raise ValueError("Guarded update requires an existing managed installation")
-        image = json.loads(docker._run(["image", "inspect", plan["image"]]))[0]["Id"]
+        image = verify_image_protocol(docker, plan["image"])
         for field in ("state_dir", "workspace_host"):
             path = Path(plan[field])
             path.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -504,7 +521,8 @@ def apply(raw: dict, *, operation="apply"):
             "release_dir": str(release),
         }
         write_json(root / "pending.json", pending)
-        with host_admission(lock, uid=plan["uid"], gid=plan["gid"]):
+        with host_admission(lock, uid=plan["uid"], gid=plan["gid"]) as gate:
+            gate.begin_intent()
             identifier = create_candidate(docker, release, plan)
             pending["container_id"] = identifier
             write_json(root / "pending.json", pending)
@@ -529,8 +547,11 @@ def apply(raw: dict, *, operation="apply"):
                 }
                 write_json(record_path, record)
                 (root / "pending.json").unlink()
+                gate.complete()
             except Exception:
                 docker.stop(identifier)
+                if docker.inspect(identifier)["State"]["Running"]:
+                    raise ValueError("Candidate remains running; durable maintenance intent retained") from None
                 raise
         if request(plan, "/v1/health/ready").get("ready") is not True:
             raise ValueError("Installed API readiness failed")

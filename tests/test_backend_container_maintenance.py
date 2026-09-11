@@ -9,7 +9,7 @@ import sys
 import pytest
 
 FILE = Path(__file__).resolve().parents[1] / 'bundles/admin/software.install.deployer_api_backend/files/container_maintenance.py'
-PROOF = {'protocol': 'flock-http-v1', 'enabled': True,
+PROOF = {'protocol': 'flock-http-intent-v2', 'enabled': True,
          'process': {'pid': 1, 'start_time': '10', 'boot_id': 'test'},
          'lock': {'path': '/state/maintenance.lock', 'device': 1, 'inode': 2, 'uid': 1000}}
 
@@ -313,3 +313,84 @@ def test_inspect_mount_order_does_not_change_mount_identity(tmp_path):
     docker.before_second_inspect = lambda: docker.info['Mounts'].reverse()
     with stop_scope(docker):
         assert not docker.info['State']['Running']
+
+
+def test_preexisting_intent_refuses_host_without_rewriting_it(tmp_path):
+    path = tmp_path / 'maintenance.lock'
+    path.write_bytes(b'previous incomplete cutover\n')
+    path.chmod(0o600)
+    with pytest.raises(ValueError, match='intent|recovery'):
+        with module().host_admission(path, uid=os.getuid(), gid=os.getgid()):
+            pytest.fail('existing intent admitted another installer')
+    assert path.read_bytes() == b'previous incomplete cutover\n'
+
+
+def test_intent_survives_context_failure_and_only_its_holder_can_complete(tmp_path):
+    path = tmp_path / 'maintenance.lock'
+    path.touch(mode=0o600)
+    with module().host_admission(path, uid=os.getuid(), gid=os.getgid()) as gate:
+        gate.begin_intent()
+        assert path.stat().st_size > 0
+        inode = path.stat().st_ino
+        gate.complete()
+        assert path.read_bytes() == b'' and path.stat().st_ino == inode
+        with pytest.raises(ValueError, match='owned|intent'):
+            gate.complete()
+    with pytest.raises(ValueError, match='injected'):
+        with module().host_admission(path, uid=os.getuid(), gid=os.getgid()) as gate:
+            gate.begin_intent()
+            raise ValueError('injected cutover failure')
+    assert path.stat().st_size > 0 and path.stat().st_ino == inode
+
+
+def test_marker_writes_refuse_link_aliases_and_identity_changes(tmp_path):
+    path = tmp_path / 'maintenance.lock'
+    path.touch(mode=0o600)
+    os.link(path, tmp_path / 'alias')
+    with pytest.raises(ValueError, match='private|regular|link'):
+        with module().host_admission(path, uid=os.getuid(), gid=os.getgid()):
+            pytest.fail('linked admission inode accepted for writes')
+    (tmp_path / 'alias').unlink()
+    with module().host_admission(path, uid=os.getuid(), gid=os.getgid()) as gate:
+        gate.begin_intent()
+        path.rename(tmp_path / 'original')
+        path.touch(mode=0o600)
+        with pytest.raises(ValueError, match='identity|changed'):
+            gate.complete()
+    assert (tmp_path / 'original').stat().st_size > 0 and path.read_bytes() == b''
+
+
+def test_old_protocol_is_refused_before_any_container_action(tmp_path):
+    docker = LocalContainer(tmp_path)
+    proof = {**proof_for(docker.gate), 'protocol': 'flock-http-v1'}
+    with pytest.raises(ValueError, match='unsupported'):
+        with module().stopped_container(docker, docker.container_id, proof,
+                state_dir=docker.root, installation_root=docker.root,
+                uid=os.getuid(), gid=os.getgid()):
+            pytest.fail('v1 running image cannot honor durable intent')
+    assert docker.calls == []
+
+
+def test_failed_marker_clear_restores_fence_and_modified_marker_is_never_cleared(tmp_path, monkeypatch):
+    path = tmp_path / 'maintenance.lock'
+    path.touch(mode=0o600)
+    implementation = module()
+    with implementation.host_admission(path, uid=os.getuid(), gid=os.getgid()) as gate:
+        gate.begin_intent()
+        marker = path.read_bytes()
+        fsync = os.fsync
+        count = 0
+        def fail_once(descriptor):
+            nonlocal count
+            count += 1
+            if count == 1:
+                raise OSError('injected fsync failure')
+            return fsync(descriptor)
+        monkeypatch.setattr(implementation.os, 'fsync', fail_once)
+        with pytest.raises(OSError, match='injected'):
+            gate.complete()
+        assert path.read_bytes() == marker
+        path.write_bytes(b'external marker')
+        with pytest.raises(ValueError, match='owned'):
+            gate.complete()
+    assert path.read_bytes() == b'external marker'

@@ -155,6 +155,9 @@ def test_old_container_stop_retains_host_admission_through_replacement(tmp_path,
             assert request(replacement_url, '/v1/health/ready', authenticated=False)[0] == 401
             assert (state / 'maintenance.lock').stat().st_ino == original_inode
             gate.verify()
+            from test_backend_container_consumer import consumer
+            consumer().verify_ready(docker, replacement)
+            gate.complete()
         assert request(replacement_url, '/v1/health/ready')[1]['ready']
         status, fresh = request(replacement_url, '/v1/admin/maintenance')
         assert status == 200 and fresh['lock'] == proof['lock']

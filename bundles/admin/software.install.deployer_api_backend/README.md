@@ -44,7 +44,10 @@ changed source bytes require an explicit update.
 
 Fresh startup and updates hold the persistent HTTP admission inode through
 candidate startup, internal backend readiness/runtime-profile checks and record
-commit. A candidate is created stopped and its full ID is recorded before start.
+commit. They also write and fsync an intent on that same inode before starting
+a fresh candidate or stopping the old container. The v2 API refuses new finite
+requests while any intent bytes remain, even after installer exit or restart.
+A candidate is created stopped and its full ID is recorded before start.
 Public health stays available while authenticated finite API operations are
 fenced. The image migrates SQLite before it serves; no post-start Alembic command
 is used. Successful update retains the old stopped container and private backup.
@@ -56,12 +59,17 @@ The configured workspace/database/state/credential paths, installation name and
 UID/GID cannot be relocated by update. After stop, the installer takes a SQLite
 backup; a failed candidate is stopped before restoring that backup and restarting
 the exact prior container. The host admission lock remains held throughout.
+Only verified candidate readiness plus record commit, or verified old-container readiness plus restored
+record, clears and fsyncs the owned intent. Stop/inspect or rollback-readiness
+failures preserve the marker when the flock closes.
 After admitting new requests, a subsequent readiness failure is reported without
 rolling back potentially new user data.
 
 `pending.json` denotes incomplete installation/cutover. It blocks automatic repeat
-and needs explicit operator review. Failed candidate artifacts and backups remain
-private. The installer does not prune old releases, containers or backups.
+and needs explicit operator review. It is not the API admission fence; the
+nonempty original maintenance inode is. A new helper refuses preexisting intent
+without clearing it. Never delete or replace that inode to resume service.
+Failed candidate artifacts and backups remain private. The installer does not prune old releases, containers or backups.
 
 ## Persistent credentials and runtime
 
@@ -121,15 +129,24 @@ legacy installations and existing unrecorded workspaces are preserved/refused;
 there is no implicit systemd conversion. Fresh failures and interrupted cutovers
 also require operator recovery; no automatic partial-install resume is claimed.
 
-The host installer must survive for its flock to remain held. Probe/pipe loss
-is tolerated, but arbitrary installer death, daemon loss or external filesystem
-writers are not crash-atomic. A failed stop/inspection/backup before candidate
-startup can leave the old container stopped and requires exact-ID inspection.
-Automatic restoration must not run if candidate termination cannot be proved.
+Installer death releases its flock but retains the fsynced intent, so a v2 API
+keeps finite requests fenced across restart on the same persistent inode. This
+is durable admission, not automatic crash recovery or atomic Docker/database
+rollback. A failed stop/inspection/backup can leave an exact container stopped
+or its state unknown. Prove failed candidates stopped before restoring data;
+verify the recovered container, readiness and managed bindings before any
+explicit recovery clears the original inode. Arbitrarily privileged filesystem
+writers, data loss and independent Proxmox operations remain outside this fence.
+
 Local Linux inode/UID semantics are required; remote Docker daemons, user-namespace
-remapping and network filesystems are unsupported. The backend must implement the
-verified `flock-http-v1` protocol and compatible internal readiness/profile APIs.
-Each new image requires matched compatibility tests.
+remapping and network filesystems are unsupported. The running backend and each
+candidate must implement `flock-http-intent-v2` and compatible internal readiness/
+profile APIs. Before fresh startup or update, the installer probes the immutable
+candidate image in a disposable container with no network, mounts or secrets.
+A v1 image is refused: it ignores intent bytes. Existing v1 installations need a
+reviewed offline migration; automatic online v1-to-v2 upgrade is not implemented.
+An unchanged v1 repeat may still verify readiness without modifying it. Each new
+image requires matched compatibility tests.
 
 See `docs/container-installer-checkpoint.md` for exact local acceptance evidence.
 No shared installation or live Proxmox acceptance is implied by these source tests.

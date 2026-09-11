@@ -159,3 +159,22 @@ def test_unfinished_cutover_is_not_silently_adopted_as_unchanged(tmp_path, monke
     with pytest.raises(ValueError, match="pending|incomplete"):
         module.apply(config(tmp_path))
     assert verified == []
+
+
+@pytest.mark.parametrize('protocol', ['flock-http-v1', '', 'future-unknown'])
+def test_unsupported_candidate_image_refuses_before_start_or_mounts(protocol):
+    import json
+    module = consumer()
+    calls = []
+    image = 'sha256:' + 'a' * 64
+
+    class Docker:
+        def _run(self, args, **kwargs):
+            calls.append(args)
+            return json.dumps([{'Id': image}]) if args[:2] == ['image', 'inspect'] else protocol
+
+    with pytest.raises(ValueError, match='protocol|unsupported'):
+        module.verify_image_protocol(Docker(), image)
+    assert calls[1][:3] == ['run', '--rm', '--network']
+    assert 'none' in calls[1] and '--entrypoint' in calls[1]
+    assert not any(arg in calls[1] for arg in ['--mount', '--volume', '--publish'])

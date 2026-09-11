@@ -11,7 +11,7 @@ import stat
 import subprocess
 import time
 
-PROTOCOL = 'flock-http-v1'
+PROTOCOL = 'flock-http-intent-v2'
 MAX_MESSAGE = 4096
 
 
@@ -108,10 +108,12 @@ class AdmissionLock:
         if parent.st_uid != uid or parent.st_mode & 0o022:
             raise ValueError('Admission directory must be private and owned by the API user')
         self.path = path
-        self.descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        self.descriptor = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
+        self.acquired = False
+        self.intent = None
         try:
             self.original = os.fstat(self.descriptor)
-            if (not stat.S_ISREG(self.original.st_mode)
+            if (not stat.S_ISREG(self.original.st_mode) or self.original.st_nlink != 1
                     or (self.original.st_uid, self.original.st_gid) != (uid, gid)
                     or self.original.st_mode & 0o077):
                 raise ValueError('Admission lock must be a private regular file owned by the API user')
@@ -124,7 +126,7 @@ class AdmissionLock:
         if self.path != self.path.resolve():
             raise ValueError('Admission lock path changed')
         current = self.path.lstat()
-        attributes = ('st_dev', 'st_ino', 'st_uid', 'st_gid', 'st_mode')
+        attributes = ('st_dev', 'st_ino', 'st_uid', 'st_gid', 'st_mode', 'st_nlink')
         if any(getattr(current, key) != getattr(self.original, key) for key in attributes):
             raise ValueError('Admission lock identity changed')
 
@@ -135,8 +137,36 @@ class AdmissionLock:
         except BlockingIOError:
             raise ValueError('Admission lock is busy or held by another process') from None
         self.verify()
+        if os.fstat(self.descriptor).st_size:
+            raise ValueError('Unfinished maintenance intent requires explicit recovery')
+        self.acquired = True
+
+    def begin_intent(self) -> None:
+        self.verify()
+        if not self.acquired or self.intent is not None or os.fstat(self.descriptor).st_size:
+            raise ValueError('Maintenance intent requires an empty exclusively owned inode')
+        self.intent = (PROTOCOL + ':' + os.urandom(16).hex() + '\n').encode()
+        if os.pwrite(self.descriptor, self.intent, 0) != len(self.intent):
+            raise ValueError('Maintenance intent could not be written completely')
+        os.fsync(self.descriptor)
+
+    def complete(self) -> None:
+        self.verify()
+        if (not self.acquired or self.intent is None
+                or os.pread(self.descriptor, len(self.intent) + 1, 0) != self.intent):
+            raise ValueError('Only the owned maintenance intent can be completed')
+        try:
+            os.ftruncate(self.descriptor, 0)
+            os.fsync(self.descriptor)
+        except BaseException:
+            # A failed clear must not intentionally reopen admission on exit.
+            os.pwrite(self.descriptor, self.intent, 0)
+            os.fsync(self.descriptor)
+            raise
+        self.intent = None
 
     def close(self) -> None:
+        self.acquired = False
         os.close(self.descriptor)
 
 
@@ -201,7 +231,9 @@ def stopped_container(docker, identifier: str, proof: dict, *, state_dir: Path,
 
     The caller must serialize installation changes and inspect the exact ID on
     failure: a failed stop or inspection can leave it stopped. No source/state rollback or
-    container restart is performed by this mechanism.
+    container restart is performed by this mechanism. The caller completes its
+    owned intent only after verified readiness and managed state commit; leaving
+    this scope closes flock but preserves any unfinished intent.
     """
     _container_id(identifier)
     validate_proof(proof)
@@ -226,6 +258,7 @@ def stopped_container(docker, identifier: str, proof: dict, *, state_dir: Path,
             _bound_gate(gate, proof)
             if helper.poll() is not None:
                 raise ValueError('Maintenance helper exited before controlled stop')
+            gate.begin_intent()
             docker.stop(identifier)
             stopped = docker.inspect(identifier)
             after_stop = _container_snapshot(stopped, identifier, proof, state_dir, installation_root, running=False)

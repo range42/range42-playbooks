@@ -200,6 +200,9 @@ def test_real_ansible_fresh_repeat_and_changed_managed_state_refusal(tmp_path):
         assert failed.returncode != 0 and "restored" in failed.stdout.lower(), (
             failed.stdout
         )
+        assert (root / "state/maintenance.lock").read_bytes() == b''
+        from test_backend_container_consumer import consumer
+        assert consumer().request(current['config'], '/v1/health/ready')['ready'] is True
         assert record_path.read_bytes() == current_bytes
         assert (
             json.loads(cli("inspect", current["container_id"]))[0]["State"]["Running"]
@@ -247,7 +250,8 @@ def test_real_ansible_fresh_repeat_and_changed_managed_state_refusal(tmp_path):
                 timeout=15,
             )
         for image in images:
-            cli("image", "rm", image)
+            cli("image", "rm", "--no-prune", image)
+        assert cli("image", "inspect", IMAGE, "--format", "{{.Id}}") == IMAGE
 
 
 def test_managed_runtime_is_staged_with_actual_profile_and_readonly_mounts(tmp_path):

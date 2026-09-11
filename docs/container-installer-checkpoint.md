@@ -1,4 +1,4 @@
-# Container installer checkpoint — integration incomplete, 2026-09-11
+# Container installer checkpoints — 2026-09-11
 
 Worktree: `/tmp/r42-container-installer-next-wave`, branch
 `fix/backend-container-installer-20260911`, based on playbooks `a150867`.
@@ -264,3 +264,102 @@ Host-installer/daemon death and independent external writers are not
 crash-atomic; stop/inspection/backup failure can require exact-ID recovery.
 This source checkpoint does not claim the entire historical installer objective
 or a shared-systemd-to-container migration is complete.
+
+
+## Durable admission after installer loss — v2 continuation
+
+This section supersedes the earlier v1 admission limitation; historical test
+results above remain evidence for their original source/image only. A real API
+regression reproduced the missing fence: failed candidate readiness followed by
+Docker stop or inspection failure released the host flock, and authenticated
+maintenance returned 200 while the candidate still ran. `pending.json` stopped
+a later installer but did not stop the API. Red evidence:
+`/tmp/r42-maintenance-intent-installer-red.log` and
+`/tmp/r42-maintenance-intent-api-red.log`.
+
+The paired API checkpoint is `553af0a54d9094721a42044248ad4e21b37e3c18`, based on
+`9f3769a` (including the corrected v3 allocation inventory fixture). Its protocol
+is `flock-http-intent-v2`: after taking the shared flock, finite handlers reject
+any nonempty original inode with HTTP 503. Authentication and exact public
+liveness/event-stream exceptions are preserved. Startup does not truncate the
+file, and a preexisting marker also refuses the native helper and installer
+probe. The native helper remains a drain/audit primitive; the installer owns
+intent creation and completion.
+
+The installer holds the original private inode exclusively, verifies the old
+API's idle/provisioning audit, then writes and fsyncs its own intent before
+old-container stop. Fresh startup records intent before candidate creation.
+Closing the holder never clears it. Only verified candidate readiness plus
+committed installation record, or verified old-container readiness plus restored
+record, clears and fsyncs that exact owned marker. Modified markers, hardlinks or
+changed inode/ownership are refused. A failed clear attempts to restore the
+marker before propagating the storage failure.
+
+Both the running API proof and immutable candidate image must support v2. The
+candidate probe overrides the entrypoint to read its protocol with no network,
+mounts, published ports or secrets. The previous immutable v1 image was actually
+probed and refused. V1 running updates require a separately reviewed offline
+migration; no automatic upgrade is claimed. Unchanged legacy v1 verification
+remains read-only.
+
+Local acceptance image:
+
+```
+sha256:9b59eb7e7c19b05a6e705e7b1de57a74267462c37e5648ec0230874019902c5e
+```
+
+It was built without registry pulls from the previous local acceptance image
+plus the paired API `app` tree. It is a disposable compatibility fixture, not a
+published release image. The API maintenance checks pass **41 tests**; the
+installer host/planner/credential/consumer/paired-API set passes **72 tests** in
+2.78s. API OpenAPI changes only the protocol constant. Scoped Ruff and whitespace
+checks pass.
+
+Actual disposable Docker failure acceptance passes **3 cases** in 63.65s:
+fresh candidate stop failure, update candidate stop failure, and restored old
+container whose readiness validation fails. Each first runs real migrations and
+internal readiness, then injects only the failure boundary. The still-running
+candidate or old container remains fenced after installer exit and a real Docker
+restart: authenticated finite requests 503, missing authentication 401 and public
+liveness 200. Original inode/intent and private pending state persist; retries
+refuse implicit recovery. Real local API tests separately cover an unavailable
+Docker inspection and a marker writer exiting with `os._exit`.
+
+The final exact-image combined run passed **7 Docker cases** in 222.96s
+(`/tmp/r42-maintenance-intent-docker-final.log`), including those three failure
+cases, the real Ansible fresh/repeat/busy-refusal/update/failed-candidate rollback
+consumer, read-only runtime/profile/template staging, and normal/probe-loss held
+replacement. Verified rollback restores the database and original managed ID,
+then leaves the marker empty and authenticated readiness available. The first
+combined run passed the Ansible consumer but its old image cleanup also removed
+an untagged parent image, making three later fixtures fail before startup. Cleanup
+now uses `--no-prune` and asserts the provided parent image remains; the final
+combined run is green. Disposable containers/networks and the derived failure
+image were removed by their exact fixture IDs. The explicitly tagged compatibility
+image remains local for review.
+
+Reproduce from this worktree with the paired backend's Python environment:
+
+```sh
+RANGE42_INSTALLER_API_SOURCE=/tmp/r42-api-maintenance-intent-next-wave \
+  pytest -q tests/test_backend_container_installer.py \
+    tests/test_backend_container_plan.py tests/test_backend_container_maintenance.py \
+    tests/test_backend_container_consumer.py tests/test_backend_container_admission_loss.py
+RANGE42_INSTALLER_MAINTENANCE_TEST_IMAGE=sha256:9b59eb7e7c19b05a6e705e7b1de57a74267462c37e5648ec0230874019902c5e \
+  pytest -q tests/test_backend_container_admission_loss_docker.py \
+    tests/test_backend_container_consumer_docker.py \
+    tests/test_backend_container_maintenance_docker.py
+```
+
+Logs: `/tmp/r42-maintenance-intent-api-final.log`,
+`/tmp/r42-maintenance-intent-host-final.log`,
+`/tmp/r42-maintenance-intent-docker-green.log`. No live shared/API/PVE,
+provider, systemd or upstream SDN state was changed.
+
+Remaining scope is explicit offline v1/legacy adoption and recovery after fresh
+failure or interrupted cutover, pruning and matched production-image acceptance.
+Durable admission does not make Docker/database rollback crash-atomic, recover
+lost files, or fence privileged external filesystem/Docker writers and independent
+PVE operations. Unknown candidate state must never trigger database restoration;
+operator recovery must verify exact IDs/readiness/bindings before clearing the
+original inode. No automatic partial-install resume or shared migration is claimed.
