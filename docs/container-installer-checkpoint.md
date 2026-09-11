@@ -133,3 +133,66 @@ run only while the container primary process exists:
 https://docs.docker.com/reference/cli/docker/container/exec/
 Compose bind/read-only configuration:
 https://docs.docker.com/reference/compose-file/services/
+
+
+## Paused consumer TDD checkpoint — 2026-09-11
+
+The user requested a stop to conserve usage. The existing helper implementation
+at `490ec100675bf331ef7977853475944d428f1f26` remains unchanged. Its previously
+recorded **51 passing tests** (including two real Docker cases) are helper
+acceptance only; they were not rerun during this consumer planning slice.
+
+Two new test files preserve the next consumer's behavior contract:
+
+- `tests/test_backend_container_consumer.py`: invalid input before mutation,
+  refusal to adopt unknown installation or historical workspace data,
+  installation serialization without replacing the lock inode, symlink-lock
+  refusal, byte/literal-link-preserving staging and special-file refusal.
+- `tests/test_backend_container_consumer_docker.py`: proposed real Ansible bundle
+  → disposable Docker fresh installation, unchanged authenticated repeat,
+  retained database/workspace/credential bindings, changed-plan refusal and
+  valid-but-wrong credential-key refusal. It first asserts the consumer is wired
+  into `main.yml`; therefore the obsolete playbook cannot execute accidentally.
+
+The initial focused TDD run produced **8 expected failures** in 0.16 seconds:
+seven because `files/container_apply.py` is absent, and one because the real
+bundle remains unwired. Log: `/tmp/r42-installer-consumer-red.log`. No Docker
+container, guest, network, service, provider or installation was changed by this
+run. These are intentionally red tests on the isolated installer branch, not a
+passing release candidate. No new consumer implementation was started.
+
+### Agreed next consumer slice
+
+Use one standard-library CLI called from the real Ansible bundle, reusing
+`container_plan.py`, `container_install.py` and `container_maintenance.py`.
+Serialize changes with a private installation-root lock; keep a versioned,
+atomically written managed record with the exact immutable image/container ID,
+configuration, persistent mount bindings and credential digests. Stage runtime
+and private template trees into a new immutable release, preserving literal
+symlink strings and bytes; reject escaping links, unsupported paths and unknown
+legacy state before provisioning or overwrite. Validate the candidate's actual
+runtime profile and configured environment inside the image.
+
+The first executable slice should support fresh installation and unchanged
+repeat through `main.yml`, the parameter source/generated descriptor and README.
+An unchanged repeat must inspect the exact running container, image, mounts,
+release bytes, credentials and authenticated readiness without recreating it or
+rewriting state. Existing records must retain the configured database/workspace,
+API token, encryption key, runtime and template bindings. Test in a uniquely
+named disposable local container via actual Ansible; do not run the existing
+obsolete playbook merely to make these tests proceed.
+
+A changed managed plan must never fall through to ordinary Compose replacement.
+Until update integration is implemented, refuse it explicitly before stopping
+or modifying the old container. The full installer objective still requires
+held-admission candidate migration/validation/cutover, original credential
+verification against encrypted database records, failure recovery and reviewed
+rollback. Keep the existing `stopped_container(...)` context and original
+admission inode held through validation and record commit. Unknown running
+legacy installations must remain untouched; stopped legacy adoption requires
+explicit mapping and its own acceptance.
+
+Pending acceptance remains fresh/repeat execution, runtime/template immutable
+mounts, busy update refusal, guarded update, failed migration preservation,
+wrong/missing keys, recovery/rollback and explicit legacy adoption. The new tests
+are the starting point for this work, not proof that it is implemented.
