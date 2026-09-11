@@ -1,0 +1,23 @@
+---
+- name: ISOLATED TEMPLATE - Collect the current guest's completion proof
+  block:
+    - name: ISOLATED TEMPLATE - Verify successful upgrade and package consistency before conversion
+      ansible.builtin.script:
+        cmd: "files/template_ready.py --build-id {{ _template.build_id }} --plan-sha256 {{ _template.plan_sha256 }}"
+        executable: "{{ hostvars[_template.guest_host].ansible_python_interpreter | default('/usr/bin/python3') }}"
+      become: true
+      delegate_to: "{{ _template.guest_host }}"
+      register: _template_ready
+      timeout: 1815
+      changed_when: false
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Require the exact current guest success proof
+      ansible.builtin.assert:
+        that: (_template_ready.stdout | from_json) | range42_template_success(_template)
+      no_log: true
+
+  rescue:
+    - name: ISOLATED TEMPLATE - Preserve the failed build for review
+      ansible.builtin.fail:
+        msg: "Template upgrade success was not verified. The owned VM and build snippet remain for review; no conversion occurred."

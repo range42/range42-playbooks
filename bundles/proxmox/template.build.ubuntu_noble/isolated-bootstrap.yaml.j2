@@ -1,0 +1,15 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+package_reboot_if_required: false
+{% if _template.apt_proxy_url %}
+apt:
+  http_proxy: {{ _template.apt_proxy_url | to_json }}
+{% endif %}
+write_files:
+  - path: /var/lib/range42-template-build.json
+    owner: root:root
+    permissions: '0600'
+    content: {{ {'build_id': _template.build_id, 'plan_sha256': _template.plan_sha256} | to_json | to_json }}
+# Deliberately stays running: the controller must verify successful cloud-init
+# and dpkg completion before issuing shutdown and converting this owned VM.
