@@ -6,14 +6,13 @@
   vars_files:
     - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
   tasks:
-    - name: SDN APPLY - SNAPSHOT THE NODE BEFORE APPLY
-      ansible.builtin.include_role:
-        name: range42-ansible_roles-proxmox_controller
+    - name: SDN APPLY - SNAPSHOT EVERY NODE BEFORE APPLY
+      ansible.builtin.include_tasks: ../_shared/sdn_cluster_snapshot.yml
       vars:
-        proxmox_vm_action: network_snapshot_snat_rules
-        sdn_snat_review_policy: true
-        sdn_snat_excluded_sources: "{{ BUNDLE_SDN_CHANGED_SOURCES | default([]) }}"
-        sdn_snat_allow_new_rules: true
+        _sdn_snapshot_desired_sources: []
+        _sdn_snapshot_new_zones: {}
+        _sdn_snapshot_excluded_sources: "{{ BUNDLE_SDN_CHANGED_SOURCES | default([]) }}"
+        _sdn_snapshot_allow_new_rules: true
 
     - name: SDN APPLY - REQUIRE THE REVIEWED SNAPSHOT BEFORE ANY WRITE
       ansible.builtin.assert:

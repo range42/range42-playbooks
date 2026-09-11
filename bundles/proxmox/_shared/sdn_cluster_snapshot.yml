@@ -1,0 +1,54 @@
+---
+# Used by every writing SDN composite. Old or stale controller facts cannot
+# authorize writes, even if a previous invocation observed the same subnet.
+- name: SDN - CLEAR PREVIOUS CLUSTER SNAPSHOT PROOF
+  ansible.builtin.set_fact:
+    network_snat_plan: null
+    network_snat_plan_input: null
+    network_snat_snapshots: null
+    network_snat_reload_baseline: null
+    network_snat_snapshot_verified: false
+    network_snat_apply_attempted: null
+    network_snat_apply_verified: false
+  no_log: true
+
+- name: SDN - SNAPSHOT EVERY CLUSTER NODE FOR THE EXACT REQUESTED INTENT
+  ansible.builtin.include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: network_snapshot_snat_rules
+    sdn_snat_desired_sources: "{{ _sdn_snapshot_desired_sources }}"
+    sdn_snat_new_zones: "{{ _sdn_snapshot_new_zones }}"
+    sdn_snat_review_policy: true
+    sdn_snat_excluded_sources: "{{ _sdn_snapshot_excluded_sources | default([]) }}"
+    sdn_snat_allow_new_rules: "{{ _sdn_snapshot_allow_new_rules | default(false) }}"
+
+- name: SDN - REQUIRE CURRENT COMPLETE COVERAGE BEFORE THE FIRST WRITE
+  ansible.builtin.assert:
+    that:
+      - network_snat_snapshot_verified is sameas true
+      - network_snat_apply_attempted is sameas false
+      - network_snat_apply_verified is sameas false
+      - network_snat_plan is mapping and network_snat_plan.version == 1
+      - network_snat_plan.nodes | length > 0
+      - network_snat_snapshots is mapping
+      - network_snat_reload_baseline is mapping
+      - (network_snat_snapshots | list | sort) == (network_snat_plan.nodes | map(attribute='node') | sort)
+      - (network_snat_reload_baseline | list | sort) == (network_snat_plan.nodes | map(attribute='node') | sort)
+      - network_snat_plan_input is mapping
+      - network_snat_plan_input.desired_sources == _sdn_snapshot_desired_sources
+      - network_snat_plan_input.new_zones == _sdn_snapshot_new_zones
+    fail_msg: The matching controller must verify every cluster node's fresh snapshot, reload baseline and exact source intent before any SDN write.
+
+- name: SDN - FIND ENABLED SOURCES MISSING ON ANY APPLICABLE NODE
+  ansible.builtin.set_fact:
+    _sdn_enabled_missing: >-
+      {%- set missing = [] -%}
+      {%- for node in network_snat_plan.nodes -%}
+      {%- for target in node.targets -%}
+      {%- if target.want == 1 and (network_snat_snapshots[node.node].nat_counts[target.source] | default(0) | int) == 0 -%}
+      {%- set _ = missing.append({'node': node.node, 'source': target.source}) -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {{ missing }}

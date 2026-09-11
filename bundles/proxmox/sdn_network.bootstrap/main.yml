@@ -15,8 +15,8 @@
 #   BUNDLE_SDN_ZONE    name of the SDN zone that holds every vnet below
 #   BUNDLE_SDN_VNETS   list of { vnet, subnet, gateway, snat }
 #
-# Nothing else. The zone type is pinned to `simple` by the role, and the apply polling keeps
-# the role defaults (60 retries x 2s).
+# Operator inventory also supplies complete node-to-SSH coverage. Only simple zones are
+# supported; a new zone uses the same sdn_zone_nodes membership for planning and creation.
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
@@ -74,6 +74,19 @@
         name: range42-ansible_roles-proxmox_controller
       vars:
         proxmox_vm_action: "network_list_sdn_subnets"
+
+    - name: SDN BOOTSTRAP - REQUIRE EXISTING VNETS TO BELONG TO THE DECLARED ZONE
+      ansible.builtin.assert:
+        that:
+          - _sdn_vnet_matches | length <= 1
+          - _sdn_vnet_matches | length == 0 or (_sdn_vnet_matches[0].vnet_zone | default('')) == BUNDLE_SDN_ZONE
+        fail_msg: An existing VNet must have one authoritative binding to the declared zone; no network write is authorized.
+      vars:
+        _sdn_vnet_matches: "{{ network_list_sdn_vnets | selectattr('vnet', 'equalto', _sdn_declared_vnet.vnet) | list }}"
+      loop: "{{ BUNDLE_SDN_VNETS }}"
+      loop_control:
+        loop_var: _sdn_declared_vnet
+        label: "{{ _sdn_declared_vnet.vnet }}"
 
     #### #### ####
     #
@@ -146,19 +159,13 @@
     #    not a shortcut taken here.
     #
     - name: SDN BOOTSTRAP - SNAPSHOT BEFORE ANY WRITE
-      ansible.builtin.include_role:
-        name: range42-ansible_roles-proxmox_controller
+      ansible.builtin.include_tasks: ../_shared/sdn_cluster_snapshot.yml
       vars:
-        proxmox_vm_action: network_snapshot_snat_rules
-
-    - name: SDN BOOTSTRAP - FIND ENABLED SUBNETS WITHOUT A LIVE RULE
-      ansible.builtin.set_fact:
-        _sdn_enabled_missing: >-
+        _sdn_snapshot_new_zones: "{{ {BUNDLE_SDN_ZONE: sdn_zone_nodes | default([])} if (_sdn_zones_absent | length > 0) else {} }}"
+        _sdn_snapshot_desired_sources: >-
           {%- set out = [] -%}
           {%- for v in BUNDLE_SDN_VNETS -%}
-          {%- if (v.snat | default(true)) and (network_snat_snapshot.nat_counts[v.subnet] | default(0) | int) == 0 -%}
-          {%- set _ = out.append(v.subnet) -%}
-          {%- endif -%}
+          {%- set _ = out.append({'source': v.subnet, 'vnet': v.vnet, 'zone': BUNDLE_SDN_ZONE, 'want': 1 if (v.snat | default(true)) else 0}) -%}
           {%- endfor -%}
           {{ out }}
 
@@ -214,7 +221,7 @@
     # 4. APPLY. Once, and only if step 3 wrote something. See the header for the measurement
     #    that makes this guard load-bearing rather than decorative.
     #
-    - name: SDN BOOTSTRAP - APPLY, ONCE, AND ONLY IF SOMETHING WAS WRITTEN
+    - name: SDN BOOTSTRAP - APPLY ONCE FOR DECLARATION DRIFT OR MISSING ENABLED RULES
       include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
@@ -226,7 +233,7 @@
 
     #### #### ####
     #
-    # 5. RECONCILE, always, one pass per declared subnet. `want` follows the declaration :
+    # 5. RECONCILE each declared source on its zone members. `want` follows the declaration :
     #    a subnet declared snat=1 keeps exactly one rule, a subnet declared snat=0 keeps none.
     #    This is what catches a rule that outlived its declaration, which no API read shows.
     #
@@ -234,13 +241,7 @@
       include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
-        proxmox_vm_action: "network_delete_extra_snat_rules"
-        sdn_subnet_cidr: "{{ _sdnb_decl.subnet }}"
-        sdn_snat_want: "{{ 1 if (_sdnb_decl.snat | default(true)) else 0 }}"
-      loop: "{{ BUNDLE_SDN_VNETS }}"
-      loop_control:
-        loop_var: _sdnb_decl
-        label: "{{ _sdnb_decl.subnet }} want={{ 1 if (_sdnb_decl.snat | default(true)) else 0 }}"
+        proxmox_vm_action: "network_reconcile_snat_sources"
 
     - name: SDN BOOTSTRAP - PRESERVE EVERY UNDECLARED SOURCE
       ansible.builtin.include_role:

@@ -8,6 +8,8 @@ import sys
 
 import pytest
 
+from sdn_controller_fixture import CLUSTER_SNAPSHOT, RECONCILE
+
 ROOT = Path(__file__).resolve().parents[1]
 TARGET = "10.80.1.0/24"
 
@@ -18,7 +20,8 @@ def run_bundle(tmp_path, mode, initial):
     (config / "secrets/default_vault.yml").write_text("proxmox_node: pve-test\n")
     role = tmp_path / "roles/range42-ansible_roles-proxmox_controller/tasks"
     role.mkdir(parents=True)
-    (role / "main.yml").write_text("""- ansible.builtin.set_fact:
+    (role / "main.yml").write_text(
+        """- ansible.builtin.set_fact:
     observed_actions: "{{ observed_actions | default([]) + [proxmox_vm_action] }}"
 - ansible.builtin.set_fact:
     network_list_sdn_subnets: "{{ fixture_subnets }}"
@@ -35,11 +38,10 @@ def run_bundle(tmp_path, mode, initial):
 - ansible.builtin.set_fact:
     observed_restoration: "{{ observed_restoration | default([]) + [sdn_snat_excluded_sources] }}"
   when: proxmox_vm_action == 'network_restore_snat_snapshot'
-- ansible.builtin.set_fact:
-    observed_reconciliation: "{{ observed_reconciliation | default([]) + [{'cidr': sdn_subnet_cidr, 'want': sdn_snat_want | int}] }}"
-  loop: ['controller-inner-loop']
-  when: proxmox_vm_action == 'network_delete_extra_snat_rules'
-""")
+"""
+        + CLUSTER_SNAPSHOT
+        + RECONCILE
+    )
     inventory = tmp_path / "hosts.ini"
     inventory.write_text(
         f"proxmox ansible_connection=local ansible_python_interpreter={sys.executable}\n"
@@ -144,18 +146,26 @@ def test_already_matching_internet_state_does_not_rewrite_or_apply_cluster(
     assert result["reconciled"] == [{"cidr": TARGET, "want": initial}]
 
 
-def run_network_bundle(tmp_path, bundle, *, drift=False, live_count=1, changed_sources=None,
-                       supports_review=True):
+def run_network_bundle(
+    tmp_path,
+    bundle,
+    *,
+    drift=False,
+    live_count=1,
+    changed_sources=None,
+    supports_review=True,
+):
     config = tmp_path / "config"
     (config / "secrets").mkdir(parents=True)
     (config / "secrets/default_vault.yml").write_text("proxmox_node: pve-test\n")
     role = tmp_path / "roles/range42-ansible_roles-proxmox_controller/tasks"
     role.mkdir(parents=True)
-    (role / "main.yml").write_text("""- ansible.builtin.set_fact:
+    (role / "main.yml").write_text(
+        """- ansible.builtin.set_fact:
     observed_actions: "{{ observed_actions | default([]) + [proxmox_vm_action] }}"
 - ansible.builtin.set_fact:
     network_list_sdn_zones: [{zone: zone}]
-    network_list_sdn_vnets: [{vnet: target}]
+    network_list_sdn_vnets: [{vnet: target, vnet_zone: zone}]
     network_list_sdn_subnets: "{{ fixture_subnets }}"
   when: proxmox_vm_action in ['network_list_sdn_zones', 'network_list_sdn_vnets', 'network_list_sdn_subnets']
 - ansible.builtin.set_fact:
@@ -176,7 +186,9 @@ def run_network_bundle(tmp_path, bundle, *, drift=False, live_count=1, changed_s
 - ansible.builtin.copy:
     dest: "{{ fixture_action_log }}"
     content: "{{ observed_actions | to_json }}"
-""")
+"""
+        + CLUSTER_SNAPSHOT
+    )
     inventory = tmp_path / "hosts.ini"
     inventory.write_text(
         f"proxmox ansible_connection=local ansible_python_interpreter={sys.executable}\n"
@@ -276,16 +288,24 @@ def test_explicit_apply_preserves_prior_duplicates_without_erasing_new_pending_n
     assert result["review"] == {"enabled": True, "excluded": [], "allow_new": True}
 
 
-def test_explicit_apply_reviews_the_same_changed_sources_before_and_after_apply(tmp_path):
+def test_explicit_apply_reviews_the_same_changed_sources_before_and_after_apply(
+    tmp_path,
+):
     changed = [TARGET, "10.80.2.0/24"]
     result = run_network_bundle(tmp_path, "apply", changed_sources=changed)
     assert result["actions"] == [
-        "network_snapshot_snat_rules", "network_apply_sdn", "network_restore_snat_snapshot",
+        "network_snapshot_snat_rules",
+        "network_apply_sdn",
+        "network_restore_snat_snapshot",
     ]
     assert result["review"] == {"enabled": True, "excluded": changed, "allow_new": True}
     assert result["restoration"] == [{"excluded": changed, "allow_new": True}]
 
 
-def test_old_controller_without_reviewed_snapshot_cannot_apply_pending_changes(tmp_path):
-    result = run_network_bundle(tmp_path, "apply", changed_sources=[TARGET], supports_review=False)
+def test_old_controller_without_reviewed_snapshot_cannot_apply_pending_changes(
+    tmp_path,
+):
+    result = run_network_bundle(
+        tmp_path, "apply", changed_sources=[TARGET], supports_review=False
+    )
     assert result["actions"] == ["network_snapshot_snat_rules"]

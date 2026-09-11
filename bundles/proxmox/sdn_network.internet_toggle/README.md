@@ -15,8 +15,8 @@ Flip outbound internet for one subnet, whatever it is now. A composite, in three
 | `BUNDLE_SDN_SUBNET_ID` | yes | `sdn_subnet_id` | the id Proxmox built, `<zone>-<network>-<mask>` |
 | `proxmox_node` | yes | - | read from the scenario vault, not passed at the call-site |
 
-**One input only.** The vnet, the CIDR, the node and the current snat are read from
-`list_sdn_subnets`. That is not laziness: the caller cannot pass a vnet/subnet pair that does not
+**One input only.** The VNet, CIDR and current snat are read from
+`list_sdn_subnets`; `list_sdn_vnets` supplies the authoritative zone binding. That is not laziness: the caller cannot pass a vnet/subnet pair that does not
 exist, and the read doubles as the subnet's existence proof - so a wrong id fails with a message
 naming the problem instead of a bare API `500`.
 
@@ -44,10 +44,22 @@ declaration may be right while the live rules are not.
 resending them would only add a second way to get them wrong. Verified on real hardware in SDN plan
 T-08.
 
-**The reconciliation runs on the hypervisor.** The role delegates it to `groups['proxmox_cli'] | first`
-and asserts the group is not empty - the host carrying the API address is `ansible_connection: local`,
-so an undelegated shell would prune the deployer's own nat table. The inventory must define a
-`proxmox_cli` group.
+## Cluster snapshot contract
+
+These composites require the paired controller's verified cluster snapshot
+contract. Configure one API coordinator and complete `sdn_snat_node_hosts`
+node-to-host mapping into `proxmox_cli`; the single-node/single-SSH-host case can
+use the controller default. Every cluster node must be online, reachable and
+visible with effective `Sys.Audit` on its node path. Only simple SDN zones are
+supported.
+
+The snapshot records exact `{source, vnet, zone, want}` intent before the first
+write. Existing VNet zone bindings come from the API. Reconciliation changes a
+source only on its zone members, while snapshot and post-apply preservation cover
+every node. A missing enabled rule on any applicable node can require one apply.
+Stable requests use a verified no-apply path; a failed or unverified apply never
+authorizes cleanup. See [the matched source checkpoint](../../../docs/sdn-cluster-composites.md)
+for tests and activation limits.
 
 ## Related
 

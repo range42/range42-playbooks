@@ -32,16 +32,34 @@
       ansible.builtin.set_fact:
         _sdn_want: "{{ 1 }}"
 
-    - name: SDN INTERNET - SNAPSHOT BEFORE ANY WRITE
+    - name: SDN INTERNET - READ AUTHORITATIVE VNET ZONE BINDINGS
       ansible.builtin.include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
-        proxmox_vm_action: network_snapshot_snat_rules
+        proxmox_vm_action: network_list_sdn_vnets
+
+    - name: SDN INTERNET - SELECT THE TARGET VNET BINDING
+      ansible.builtin.set_fact:
+        _sdn_vnet_matches: "{{ network_list_sdn_vnets | selectattr('vnet', 'equalto', _sdn_entry.subnet_vnet) | list }}"
+
+    - name: SDN INTERNET - REQUIRE ONE AUTHORITATIVE TARGET ZONE
+      ansible.builtin.assert:
+        that:
+          - _sdn_vnet_matches | length == 1
+          - (_sdn_vnet_matches[0].vnet_zone | default('')) is string
+          - (_sdn_vnet_matches[0].vnet_zone | default('')) | length > 0
+        fail_msg: The target VNet must have one authoritative zone binding before any network write.
+
+    - name: SDN INTERNET - SNAPSHOT BEFORE ANY WRITE
+      ansible.builtin.include_tasks: ../_shared/sdn_cluster_snapshot.yml
+      vars:
+        _sdn_snapshot_new_zones: {}
+        _sdn_snapshot_desired_sources: "{{ [{'source': _sdn_entry.subnet_cidr, 'vnet': _sdn_entry.subnet_vnet, 'zone': _sdn_vnet_matches[0].vnet_zone, 'want': _sdn_want | int}] }}"
 
     - name: SDN INTERNET - IDENTIFY NECESSARY WRITES AND APPLY
       ansible.builtin.set_fact:
         _sdn_write: "{{ (_sdn_entry.subnet_snat | default(0) | int) != (_sdn_want | int) }}"
-        _sdn_apply: "{{ ((_sdn_entry.subnet_snat | default(0) | int) != (_sdn_want | int)) or ((_sdn_want | int) == 1 and (network_snat_snapshot.nat_counts[_sdn_entry.subnet_cidr] | default(0) | int) == 0) }}"
+        _sdn_apply: "{{ ((_sdn_entry.subnet_snat | default(0) | int) != (_sdn_want | int)) or ((_sdn_want | int) == 1 and (_sdn_enabled_missing | length) > 0) }}"
 
     - name: SDN INTERNET - UPDATE ONLY THE TARGET DECLARATION
       ansible.builtin.include_role:
@@ -64,9 +82,7 @@
       ansible.builtin.include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
-        proxmox_vm_action: network_delete_extra_snat_rules
-        sdn_subnet_cidr: "{{ _sdn_entry.subnet_cidr }}"
-        sdn_snat_want: "{{ _sdn_want | int }}"
+        proxmox_vm_action: network_reconcile_snat_sources
 
     - name: SDN INTERNET - PRESERVE NON-TARGET RULE IDENTITIES AND ORDER
       ansible.builtin.include_role:

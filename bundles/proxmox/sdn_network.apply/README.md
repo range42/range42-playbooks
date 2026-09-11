@@ -53,8 +53,9 @@ Retain the original private snapshot for diagnosis without publishing raw rules.
 This isolated preservation implementation is not ready for shared activation.
 It requires the paired controller's reviewed snapshot implementation and a
 verified legacy iptables backend. nft is refused before snapshot/apply. Only one
-SSH node is covered; global apply needs complete multi-node coverage before use
-on a multi-node cluster. No live SDN acceptance has been performed for this slice.
+API coordinator is allowed; complete node-to-SSH coverage and successful reload
+workers on every cluster node are required. See [the matched source checkpoint](../../../docs/sdn-cluster-composites.md).
+No live SDN acceptance has been performed for this slice.
 
 ## The side effect to know before calling this in a loop
 

@@ -8,6 +8,8 @@ import sys
 
 import pytest
 
+from sdn_controller_fixture import CLUSTER_SNAPSHOT, RECONCILE
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -26,7 +28,8 @@ def test_apply_preserves_other_subnets_and_reconciles_only_the_target(
     role.mkdir(parents=True)
     # Only the controller boundary is substituted. Real Ansible imports, loop
     # scopes, target selection and caller variables execute from the bundle.
-    (role / "main.yml").write_text("""- ansible.builtin.set_fact:
+    (role / "main.yml").write_text(
+        """- ansible.builtin.set_fact:
     network_list_sdn_subnets: "{{ fixture_subnets }}"
   when: proxmox_vm_action == 'network_list_sdn_subnets'
 - ansible.builtin.set_fact:
@@ -44,11 +47,10 @@ def test_apply_preserves_other_subnets_and_reconciles_only_the_target(
 - ansible.builtin.set_fact:
     observed_restoration: "{{ observed_restoration | default([]) + [sdn_snat_excluded_sources] }}"
   when: proxmox_vm_action == 'network_restore_snat_snapshot'
-- ansible.builtin.set_fact:
-    observed_reconciliation: "{{ observed_reconciliation | default([]) + [{'cidr': sdn_subnet_cidr, 'want': sdn_snat_want | int}] }}"
-  loop: ['controller-inner-loop']
-  when: proxmox_vm_action == 'network_delete_extra_snat_rules'
-""")
+"""
+        + CLUSTER_SNAPSHOT
+        + RECONCILE
+    )
     subnet_id = "zone-10.80.1.0-24"
     fixture = [
         {

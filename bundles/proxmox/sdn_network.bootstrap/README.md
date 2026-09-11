@@ -54,6 +54,28 @@ contract. `proxmox_node` is not passed - the play loads `default_vault.yml` and 
 key - so it keeps its vault-key name. Full reasoning in
 `______TODO_bundle-parameters-declaration_v6.md` section 9.
 
+## Cluster snapshot contract
+
+These composites require the paired controller's verified cluster snapshot
+contract. Configure one API coordinator and complete `sdn_snat_node_hosts`
+node-to-host mapping into `proxmox_cli`; the single-node/single-SSH-host case can
+use the controller default. Every cluster node must be online, reachable and
+visible with effective `Sys.Audit` on its node path. Only simple SDN zones are
+supported.
+
+The snapshot records exact `{source, vnet, zone, want}` intent before the first
+write. Existing VNet zone bindings come from the API. Reconciliation changes a
+source only on its zone members, while snapshot and post-apply preservation cover
+every node. A missing enabled rule on any applicable node can require one apply.
+Stable requests use a verified no-apply path; a failed or unverified apply never
+authorizes cleanup. See [the matched source checkpoint](../../../docs/sdn-cluster-composites.md)
+for tests and activation limits.
+
+For a new zone, the operator inventory may set `sdn_zone_nodes` to a node list or
+comma-separated node names. The same value feeds coverage planning and zone
+creation; omission means all cluster nodes. Existing zone membership comes from
+the API and is not silently changed.
+
 Target : `hosts: proxmox`, fixed. The reconciliation step runs on `proxmox_cli` - the role delegates
 there itself, because the host carrying the API address is `ansible_connection: local` and an
 undelegated shell would run on the deployer instead of the hypervisor.
@@ -81,7 +103,7 @@ match the declaration, and it is cheap : it reads the nat table and deletes only
 that outlived its declaration is invisible to any API read and visible only here. Same choice as the
 devkit composite, for the same reason.
 
-**Every step loops over a computed list rather than carrying a `when:`.** A folded `>-` scalar yields
+**Declaration writes loop over computed lists.** A folded `>-` scalar yields
 a string, and the string `"False"` is truthy - a `when:` fed by a templated boolean fact is a trap
 this project has already paid for. An empty list runs zero iterations and needs no boolean, so the
 zone, though it is a single object, is carried as a list of zero or one.
