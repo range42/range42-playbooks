@@ -27,8 +27,12 @@ Test logs are `/tmp/r42-sdn-preservation-green.log`,
 
 Remaining before review/activation:
 
-- Close the controller's numbered-delete check/write race with independent
-  writers; current fresh checks are not an atomic guarantee.
+- The controller continuation now closes the numbered-delete race for cooperating
+  legacy xtables writers using one outer flock and private child lock file.
+  Its 34 focused tests pass, including independent-process contention. nft and
+  unknown backends are rejected before snapshot/table access; a safe nft path
+  remains unimplemented and the lab backend is not yet verified. See the paired
+  controller's `docs/snat-preservation-locking.md` for the exact boundary.
 - Decide the operator workflow for legitimate pending changes that remove or
   reorder old rules: preservation currently fails closed after apply.
 - Resolve/document multi-node coverage; snapshots cover one SSH target while
