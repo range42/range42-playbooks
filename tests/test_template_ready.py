@@ -1,6 +1,7 @@
 """A halted or partly configured guest must never become a successful template."""
 
 import importlib.util
+import json
 import os
 from pathlib import Path
 import time
@@ -24,6 +25,20 @@ STATUS = {
         "recoverable_errors": {},
     },
 }
+USER_DEPRECATION = (
+    "'user' of type string is deprecated in 22.2 and scheduled to be removed in "
+    "27.2. Use 'users' list instead."
+)
+
+
+def compatibility_status():
+    # Exact shape/count/return code observed in the owned Noble build. Only the
+    # public documented deprecation is retained; no private guest data is used.
+    return {
+        **STATUS,
+        "extended_status": "degraded done",
+        "recoverable_errors": {"DEPRECATED": [USER_DEPRECATION] * 2},
+    }
 
 
 @pytest.fixture
@@ -43,7 +58,170 @@ def test_complete_healthy_package_stage_returns_only_fixed_proof(helper):
         "cloud_init": "done",
         "package_audit": "clean",
         "package_module": "completed",
+        "cloud_init_warning_category": "none",
+        "cloud_init_warning_count": 0,
     }
+
+
+def test_exact_scalar_user_deprecation_preserves_package_success_and_warning_proof(
+    helper,
+):
+    proof = helper.readiness(
+        compatibility_status(), 2, EXPECTED, EXPECTED, 0, b"", True
+    )
+    assert proof is not None
+    assert proof["cloud_init_warning_category"] == "proxmox_scalar_user_deprecation"
+    assert proof["cloud_init_warning_count"] == 2
+    assert proof["package_audit"] == "clean"
+    assert USER_DEPRECATION not in json.dumps(proof)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"marker": {**EXPECTED, "build_id": "c" * 32}},
+        {"audit_rc": 1},
+        {"audit_output": b"private unfinished package"},
+        {"package_semaphore": False},
+    ],
+)
+def test_compatibility_keeps_current_owner_package_audit_and_semaphore_required(
+    helper, changes
+):
+    args = {
+        "status": compatibility_status(),
+        "status_rc": 2,
+        "marker": EXPECTED,
+        "expected": EXPECTED,
+        "audit_rc": 0,
+        "audit_output": b"",
+        "package_semaphore": True,
+        **changes,
+    }
+    assert helper.readiness(**args) is None
+
+
+def test_recognized_final_stage_warnings_must_also_exist_in_aggregate(helper):
+    status = compatibility_status()
+    status["modules-final"] = {
+        **STATUS["modules-final"],
+        "recoverable_errors": {"DEPRECATED": [USER_DEPRECATION] * 2},
+    }
+    assert (
+        helper.readiness(status, 2, EXPECTED, EXPECTED, 0, b"", True)[
+            "cloud_init_warning_count"
+        ]
+        == 2
+    )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"recoverable_errors": {"DEPRECATED": [USER_DEPRECATION, "unknown warning"]}},
+        {"recoverable_errors": {"WARNING": [USER_DEPRECATION]}},
+        {"recoverable_errors": {"DEPRECATED": [USER_DEPRECATION + " private text"]}},
+        {"recoverable_errors": {"DEPRECATED": []}},
+        {"recoverable_errors": {"DEPRECATED": [USER_DEPRECATION] * 33}},
+        {"recoverable_errors": {"DEPRECATED": [None]}},
+        {"recoverable_errors": []},
+        {"extended_status": "done"},
+        {"errors": ["package failure"]},
+        {
+            "modules-final": {
+                **STATUS["modules-final"],
+                "recoverable_errors": {"WARNING": ["package failure"]},
+            }
+        },
+        {
+            "modules-final": {
+                **STATUS["modules-final"],
+                "recoverable_errors": {"DEPRECATED": [USER_DEPRECATION] * 3},
+            }
+        },
+    ],
+)
+def test_known_deprecation_never_masks_other_or_inconsistent_outcomes(helper, changes):
+    assert (
+        helper.readiness(
+            {**compatibility_status(), **changes}, 2, EXPECTED, EXPECTED, 0, b"", True
+        )
+        is None
+    )
+
+
+def prepare_observation(helper, monkeypatch, tmp_path, status, rc):
+    marker = tmp_path / "marker.json"
+    marker.write_text(json.dumps(EXPECTED))
+    semaphore = tmp_path / "semaphore"
+    semaphore.touch()
+    paths = {
+        "/var/lib/range42-template-build.json": marker,
+        "/var/lib/cloud/instance/sem/config_package_update_upgrade_install": semaphore,
+    }
+    monkeypatch.setattr(helper, "Path", lambda path: paths[path])
+    calls = []
+
+    def command(argv, *_args):
+        calls.append(argv)
+        return (
+            (rc, json.dumps(status).encode()) if argv[0] == "cloud-init" else (0, b"")
+        )
+
+    monkeypatch.setattr(helper, "command", command)
+    return calls
+
+
+def test_observe_allows_known_rc2_to_reach_real_readiness_and_audit(
+    helper, monkeypatch, tmp_path
+):
+    calls = prepare_observation(
+        helper, monkeypatch, tmp_path, compatibility_status(), 2
+    )
+    proof = helper.observe(EXPECTED, time.monotonic() + 5)
+    assert proof is not None
+    assert proof["cloud_init_warning_count"] == 2
+    assert calls == [["cloud-init", "status", "--format=json"], ["dpkg", "--audit"]]
+
+
+@pytest.mark.parametrize(
+    "status,rc",
+    [
+        (
+            {
+                **STATUS,
+                "recoverable_errors": {"WARNING": ["private warning"]},
+                "extended_status": "degraded done",
+            },
+            2,
+        ),
+        ({**STATUS, "status": "error", "errors": ["private failure"]}, 1),
+        (STATUS, 7),
+    ],
+)
+def test_terminal_unsupported_status_fails_without_spending_remaining_wait(
+    helper, monkeypatch, tmp_path, status, rc, capsys
+):
+    calls = prepare_observation(helper, monkeypatch, tmp_path, status, rc)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "template_ready.py",
+            "--build-id",
+            EXPECTED["build_id"],
+            "--plan-sha256",
+            EXPECTED["plan_sha256"],
+        ],
+    )
+
+    def no_sleep(_seconds):
+        pytest.fail("A terminal incompatible outcome must not repeat the1800s wait")
+
+    monkeypatch.setattr(helper.time, "sleep", no_sleep)
+    assert helper.main() == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result == {"template_readiness": "unsupported_cloud_init_completion"}
+    assert calls == [["cloud-init", "status", "--format=json"]]
 
 
 @pytest.mark.parametrize(

@@ -126,7 +126,8 @@ if len(sys.argv)>1 and 'template_ready.py' in sys.argv[1]:
  good=os.environ.get('TEMPLATE_TEST_READY','success')=='success';s['ready']=good;p.write_text(json.dumps(s))
  marker=s['config']['description'].splitlines()
  proof={{'version':1,'build_id':marker[0].split(':')[1],'plan_sha256':marker[1].split(':')[1]}}
- proof.update({{'clone_identity':'reset'}} if clean else {{'cloud_init':'done' if good else 'running','package_audit':'clean','package_module':'completed'}})
+ count=s.get('warning_count',0)
+ proof.update({{'clone_identity':'reset'}} if clean else {{'cloud_init':'done' if good else 'running','package_audit':'clean','package_module':'completed','cloud_init_warning_category':'proxmox_scalar_user_deprecation' if count else 'none','cloud_init_warning_count':count}})
  print(json.dumps(proof))
  sys.exit(0 if good else 1)
 os.execv({sys.executable!r},[{sys.executable!r}]+sys.argv[1:])
@@ -313,10 +314,17 @@ def test_failed_owned_running_build_resumes_without_forced_stop_or_reconfigurati
         assert first.returncode != 0
         before = json.loads(state.read_text())
         assert before.get("ready") is False, first.stdout[-4000:]
+        before["warning_count"] = 2
+        state.write_text(json.dumps(before))
         variables["template_build_resume"] = True
         environment["TEMPLATE_TEST_READY"] = "success"
         second = invoke(tmp_path, variables, environment, inventory)
         assert second.returncode == 0, second.stdout[-5000:] + second.stderr[-1000:]
+        assert '"cloud_init_warning_count": 2' in second.stdout
+        assert (
+            '"cloud_init_warning_category": "proxmox_scalar_user_deprecation"'
+            in second.stdout
+        )
         after = json.loads(state.read_text())
         resumed = after["commands"][len(before["commands"]) :]
         assert ["qm", "start", "62000"] not in resumed

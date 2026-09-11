@@ -141,6 +141,16 @@ def template_owned(config, plan, node):
 
 
 def template_success(proof, plan):
+    _require(isinstance(proof, Mapping))
+    count = proof.get("cloud_init_warning_count")
+    category = proof.get("cloud_init_warning_category")
+    _require(
+        type(count) is int
+        and (
+            (count == 0 and category == "none")
+            or (1 <= count <= 32 and category == "proxmox_scalar_user_deprecation")
+        )
+    )
     expected = {
         "version": 1,
         "build_id": plan["build_id"],
@@ -148,6 +158,8 @@ def template_success(proof, plan):
         "cloud_init": "done",
         "package_audit": "clean",
         "package_module": "completed",
+        "cloud_init_warning_category": category,
+        "cloud_init_warning_count": count,
     }
     _require(
         isinstance(proof, Mapping)

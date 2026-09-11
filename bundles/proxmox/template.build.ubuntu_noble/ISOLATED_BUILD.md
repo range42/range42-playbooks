@@ -2,9 +2,12 @@
 
 `isolated.yml` prepares one explicit owned template without invoking the fixed
 twelve-template family or its shared proxy updater. It is an operator Ansible
-entrypoint, not a deployer-UI template-creation feature. It has not been activated
-or run against a real guest. A fresh template and successful three-guest content
-acceptance remain unverified.
+entrypoint, not a deployer-UI template-creation feature. The initial owned build
+completed cloud-init and a clean package audit but refused two compatibility
+deprecations. Its VM/image/snippet were retained without template conversion.
+The compatibility change below has focused local validation; its real owned
+resume, a ready template and successful three-guest content acceptance remain
+unverified. Installed runtime/default templates have not been changed.
 
 This work is based on installed playbooks
 `a15086757d39648d5f4c772632c72830da622e05` and requires controller
@@ -12,6 +15,33 @@ This work is based on installed playbooks
 `99fd63cfcf65a52eaed05af4404f81522acfaa52`. No newer SDN branch is pulled in. The
 normal guest bootstrap continues to use catalog
 `0b170a768b9603cf8f5b080e4eac780cbad07c75` and its unchanged500-second wait.
+
+## Explicit Proxmox user compatibility
+
+The owned Noble build observed cloud-init `done` with rc2 solely because Proxmox
+generates a scalar `user` setting. Cloud-init still normalizes that setting, but
+records its documented22.2 deprecation twice. The helper accepts only the exact
+upstream message under `recoverable_errors.DEPRECATED`, with1–32 occurrences,
+rc2 and `extended_status: degraded done`. Every other warning, extra text,
+severity, malformed value or error is refused. A warning-free result still
+requires rc0 and `extended_status: done`.
+
+This exception does not bypass the owned build marker, completed final stage,
+package semaphore or clean `dpkg --audit`. Any final-stage warning must also be
+the same supported message and cannot exceed the aggregate warning count.
+The validated proof retains `cloud_init_warning_category` (`none` or
+`proxmox_scalar_user_deprecation`) and `cloud_init_warning_count`. A native
+Ansible debug task reports only that validated proof before clone cleanup;
+raw status, warnings and command output stay under `no_log`. Unsupported
+terminal `done`, `error` or `disabled` states fail immediately with a fixed
+reason instead of spending the remaining1800-second template-build budget.
+
+Primary sources: [Canonical user normalization](https://github.com/canonical/cloud-init/blob/24.1/cloudinit/distros/ug_util.py),
+[Canonical deprecation format](https://github.com/canonical/cloud-init/blob/24.1/cloudinit/lifecycle.py),
+[Proxmox cloud-init user-data generation](https://github.com/proxmox/qemu-server/blob/master/src/PVE/QemuServer/Cloudinit.pm).
+Modernizing Proxmox's generated user configuration is separate work; this
+compatibility does not suppress arbitrary deprecations or diagnose the earlier
+three-guest500-second deployment failures.
 
 ## Before an authorized build
 

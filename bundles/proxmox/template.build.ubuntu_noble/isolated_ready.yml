@@ -17,6 +17,10 @@
         that: (_template_ready.stdout | from_json) | range42_template_success(_template)
       no_log: true
 
+    - name: ISOLATED TEMPLATE - Report verified completion and compatibility warnings
+      ansible.builtin.debug:
+        msg: "{{ _template_ready.stdout | from_json }}"
+
   rescue:
     - name: ISOLATED TEMPLATE - Preserve the failed build for review
       ansible.builtin.fail:

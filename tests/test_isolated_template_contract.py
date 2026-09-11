@@ -121,6 +121,8 @@ def test_success_proof_requires_current_build_and_package_consistency(contract, 
         "cloud_init": "done",
         "package_audit": "clean",
         "package_module": "completed",
+        "cloud_init_warning_category": "none",
+        "cloud_init_warning_count": 0,
     }
     assert contract.template_success(proof, normalized)
     for changes in (
@@ -129,9 +131,30 @@ def test_success_proof_requires_current_build_and_package_consistency(contract, 
         {"cloud_init": "degraded done"},
         {"package_audit": "unavailable"},
         {"package_module": "missing"},
+        {"cloud_init_warning_category": "unknown"},
+        {"cloud_init_warning_count": True},
+        {"cloud_init_warning_count": 2},
     ):
         with pytest.raises(ValueError):
             contract.template_success({**proof, **changes}, normalized)
+    assert contract.template_success(
+        {
+            **proof,
+            "cloud_init_warning_category": "proxmox_scalar_user_deprecation",
+            "cloud_init_warning_count": 2,
+        },
+        normalized,
+    )
+    for count in (0, -1, 33, True, "2"):
+        with pytest.raises(ValueError):
+            contract.template_success(
+                {
+                    **proof,
+                    "cloud_init_warning_category": "proxmox_scalar_user_deprecation",
+                    "cloud_init_warning_count": count,
+                },
+                normalized,
+            )
 
 
 def test_active_resume_requires_unchanged_disk_network_resources_and_bootstrap(
