@@ -1,0 +1,22 @@
+---
+- name: sdn_network.delete.selected
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - name: SDN DELETE - REQUIRE EXPLICIT SELECTED NAMES AND TYPED READ-ONLY FLAG
+      ansible.builtin.assert:
+        that:
+          - (BUNDLE_SDN_VNETS | type_debug) == 'list'
+          - BUNDLE_SDN_VNETS | length > 0
+          - BUNDLE_SDN_VNETS | length <= 64
+          - (BUNDLE_SDN_DELETE_READ_ONLY | default(false) | type_debug) == 'bool'
+        fail_msg: Selected deletion requires an explicit nonempty VNet list and a boolean read-only flag.
+
+    - name: SDN DELETE - RUN THE GUARDED SELECTED-VNET FLOW
+      ansible.builtin.include_tasks: ../_shared/sdn_delete.yml
+      vars:
+        _sdnd_zone: "{{ BUNDLE_SDN_ZONE }}"
+        _sdnd_vnets: "{{ BUNDLE_SDN_VNETS }}"
+        _sdnd_read_only: "{{ BUNDLE_SDN_DELETE_READ_ONLY | default(false) }}"

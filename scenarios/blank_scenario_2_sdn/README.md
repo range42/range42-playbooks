@@ -169,3 +169,22 @@ Reachability measured from `bs2-team-143-01`.
 | DNS | `deb.debian.org` | resolved |
 
 The 8 remaining admin VMs stay behind their feature flags and were not exercised by this run.
+
+
+### Guarded selected-network deletion (source continuation)
+
+`blank_scenario_2_sdn.delete_networks.sh` now delegates to the paired
+`sdn_network.delete.selected` bundle. It reads the manifest's VM/template `net*`
+bridge names and uses `range42_sdn_zone` from the same setup vault (default
+`r42zone`). The zone and all other VNets remain; authoritative live CIDRs replace
+the former address/subnet-ID inference. Complete root-visible guest and pending
+inspection is mandatory, including attachments owned by other scenarios.
+
+Normal deletion requires the shared persistent `RANGE42_SDN_DELETE_STATE_DIR`
+and matching controller/playbooks cluster-preservation source. `--dry-run`,
+`--check` and `-C` perform an explicit read-only declaration/guest preview, with
+no journal, declaration, apply or rule writes. Other Ansible arguments are
+forwarded. Preview does not collect rule snapshots or admit a later write.
+Partial failures retain the existing durable journal and block blind retries;
+no automatic recovery or live activation is claimed.
+See [the selected bundle contract](../../bundles/proxmox/sdn_network.delete.selected/README.md).

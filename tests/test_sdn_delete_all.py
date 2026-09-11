@@ -14,7 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTROLLER = Path(os.environ["RANGE42_CONTROLLER_TEST_ROOT"])
 
 
-def paired(tmp_path, monkeypatch, *, fault=None, **options):
+def paired(
+    tmp_path, monkeypatch, *, fault=None, selected=False, read_only=False, **options
+):
     monkeypatch.syspath_prepend(str(CONTROLLER / "tests"))
     spec = importlib.util.spec_from_file_location(
         "delete_cluster_fixture", CONTROLLER / "tests/test_snat_cluster_ansible.py"
@@ -34,10 +36,14 @@ def paired(tmp_path, monkeypatch, *, fault=None, **options):
         ]
     if fault == "attached":
         source["guest_configs"]["qemu/100"]["current"]["net0"] = "bridge=net1"
+    if selected:
+        # An unrelated guest uses another VNet in the SAME retained zone.
+        source["families"]["vnets"][1]["zone"] = "lab"
     scope_path = tmp_path / "scope.json"
     scope_path.write_text(json.dumps(source))
     after = json.loads(json.dumps(source))
-    after["families"]["zones"].pop(0)
+    if not selected:
+        after["families"]["zones"].pop(0)
     after["families"]["vnets"].pop(0)
     after["subnets"].pop("net1")
     (tmp_path / "after.json").write_text(json.dumps(after))
@@ -45,9 +51,12 @@ def paired(tmp_path, monkeypatch, *, fault=None, **options):
     config.mkdir(mode=0o700)
     monkeypatch.setenv("RANGE42_ACTIVE_CONFIG_DIR", str(config))
     monkeypatch.setenv("RANGE42_SDN_DELETE_STATE_DIR", str(config))
-    tasks = yaml.safe_load(
-        (ROOT / "bundles/proxmox/sdn_network.delete.all/main.yml").read_text()
-    )[0]["tasks"]
+    bundle = (
+        ROOT
+        / "bundles/proxmox"
+        / ("sdn_network.delete.selected" if selected else "sdn_network.delete.all")
+    )
+    tasks = yaml.safe_load((bundle / "main.yml").read_text())[0]["tasks"]
 
     def resolve_includes(value):
         if isinstance(value, list):
@@ -56,15 +65,16 @@ def paired(tmp_path, monkeypatch, *, fault=None, **options):
             return value
         for key in ("ansible.builtin.include_tasks", "include_tasks"):
             if key in value:
-                value[key] = str(
-                    (
-                        ROOT / "bundles/proxmox/sdn_network.delete.all" / value[key]
-                    ).resolve()
-                )
+                value[key] = str((bundle / value[key]).resolve())
         return {key: resolve_includes(item) for key, item in value.items()}
 
     tasks = resolve_includes(tasks)
-    tasks.insert(0, {"ansible.builtin.set_fact": {"BUNDLE_SDN_ZONE": "lab"}})
+    task_vars = {"BUNDLE_SDN_ZONE": "lab"}
+    if selected:
+        task_vars.update(
+            BUNDLE_SDN_VNETS=["net1"], BUNDLE_SDN_DELETE_READ_ONLY=read_only
+        )
+    tasks.insert(0, {"ansible.builtin.set_fact": task_vars})
     io = [
         {
             "ansible.builtin.command": {
@@ -78,7 +88,7 @@ def paired(tmp_path, monkeypatch, *, fault=None, **options):
                 + str(scope_path)
                 + "' if not (network_snat_apply_verified | default(false)) else '"
                 + str(tmp_path / "after.json")
-                + "') }}",
+                + "') | from_json | combine({'vnets': sdn_delete_vnets | default(none)}) | to_json }}",
             },
             "register": "fixture_delete_scope",
             "when": "proxmox_vm_action == 'network_plan_sdn_delete'",

@@ -1,0 +1,40 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/sdn_network.delete.selected",
+  "description": "Delete explicitly selected VNets and their authoritative live subnets while retaining the zone and all nonselected objects. Reuse complete privileged guest/pending checks, retained all-node snapshots, durable cluster admission, verified apply and exact unrelated-rule preservation. Normal execution requires persistent RANGE42_SDN_DELETE_STATE_DIR; read-only mode performs inspection only.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_SDN_ZONE",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Existing selected VNets must belong to this explicit simple zone. The zone is retained even when no VNets remain. Uses the Proxmox 2–8 alphanumeric name grammar beginning with a letter; another zone is never inferred."
+    },
+    {
+      "name": "BUNDLE_SDN_VNETS",
+      "type": "list",
+      "items": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "1–64 unique explicit VNet names. Delete every authoritative live subnet attached to an existing selected VNet, at most 64 IPv4 source subnets total. Names absent from current declarations do not authorize orphan-rule cleanup. Current or pending guest attachments block only the selected VNets; complete privileged visibility is required across all guests."
+    },
+    {
+      "name": "BUNDLE_SDN_DELETE_READ_ONLY",
+      "type": "bool",
+      "required": false,
+      "default": false,
+      "default_where": "bundle-inline",
+      "description": "When true, inspect current declarations, pending changes and all guest attachments, then report selected names and authoritative CIDRs. Do not write declarations, apply, rules or journal files. Rule snapshots and mutation admission are not checked, so the report is not approval to mutate."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "API coordinator node. Its mapped root SSH host must match the node and cluster CA. Mutations require complete online/quorate node coverage and explicit node-to-proxmox_cli mapping, with the existing standalone default."
+    }
+  ]
+}

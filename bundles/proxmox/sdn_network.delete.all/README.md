@@ -4,6 +4,9 @@ Delete one explicit zone and every VNet/subnet belonging to it. The declaration
 order remains subnets, VNets, zone, followed by one verified global apply and
 cleanup of the removed sources on their original zone members. Selection is
 zone-wide; it is not restricted to objects created by one deployment.
+To keep the zone and delete only explicit VNets, use
+[`sdn_network.delete.selected`](../sdn_network.delete.selected/README.md). Both
+wrappers reuse `_shared/sdn_delete.yml`; the all-zone default remains unchanged.
 
 ## Required inputs and installation
 
@@ -56,7 +59,8 @@ private rule evidence before any declaration removal.
 ## Completion and retry behavior
 
 A single cluster-wide journal lock and record scan exclude overlapping
-`delete.all` operations, including operations on different zones. Each API
+normal `delete.all` and `delete.selected` operations, including different
+selections or zones. Each API
 request has a durable before/after phase record. After declaration removal, the
 original saved source/node scope remains available for the existing controller
 apply/reconcile/restore pipeline. Every covered node must finish its verified
@@ -91,7 +95,7 @@ iptables; nft remains refused.
 
 Reads and remote writes are not an atomic cluster transaction. All other SDN
 writers, guest NIC changes and manual/external reloads still require operator
-coordination. The journal serializes this entrypoint only. Runtime host/workspace
+coordination. The journal serializes both guarded deletion entrypoints using that root. Runtime host/workspace
 locks and the all-node reload guards remain necessary. Failure after a write
 can leave partial state requiring inspection; no cross-node rollback is promised.
 

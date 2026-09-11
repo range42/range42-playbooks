@@ -1,0 +1,49 @@
+---
+- name: Select only this scenario's manifest SDN bridge names
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: SDN DELETE - READ THE SCENARIO MANIFEST PRIVATELY
+      ansible.builtin.set_fact:
+        _sdnd_manifest: "{{ lookup('file', playbook_dir ~ '/../manifest/scenario_vms.json') | from_json }}"
+      no_log: true
+
+    - name: SDN DELETE - REQUIRE COMPLETE VM AND TEMPLATE LISTS
+      ansible.builtin.assert:
+        that:
+          - _sdnd_manifest is mapping
+          - (_sdnd_manifest.vms | default([]) | type_debug) == 'list'
+          - (_sdnd_manifest.templates | default([]) | type_debug) == 'list'
+          - (_sdnd_manifest.vms | default([]) + _sdnd_manifest.templates | default([])) | reject('mapping') | length == 0
+        fail_msg: The scenario manifest must contain valid VM and template lists.
+      no_log: true
+
+    - name: SDN DELETE - RETAIN ONLY DECLARED BRIDGE FIELDS
+      ansible.builtin.set_fact:
+        _sdnd_bridges: "{{ (_sdnd_manifest.vms | default([]) + _sdnd_manifest.templates | default([])) | map(attribute='bridge', default='') | list }}"
+      no_log: true
+
+    - name: SDN DELETE - REQUIRE STRING BRIDGES BEFORE SELECTING NAMES
+      ansible.builtin.assert:
+        that: _sdnd_bridges | reject('string') | length == 0
+        fail_msg: Every supplied manifest bridge must be a string.
+      no_log: true
+
+    - name: SDN DELETE - SELECT DISTINCT NET BRIDGES WITHOUT INFERRING SUBNETS
+      ansible.builtin.set_fact:
+        _sdnd_scenario_vnets: "{{ _sdnd_bridges | select('match', '^net') | unique | sort }}"
+      no_log: true
+
+    - name: SDN DELETE - REQUIRE EXPLICIT VALID SDN NAMES
+      ansible.builtin.assert:
+        that:
+          - _sdnd_scenario_vnets | length > 0
+          - _sdnd_scenario_vnets | length <= 64
+          - _sdnd_scenario_vnets | reject('match', '^[A-Za-z][A-Za-z0-9]{1,7}$') | length == 0
+        fail_msg: The scenario must declare 1–64 valid net* SDN bridge names; no networks are inferred from IPs.
+      no_log: true
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.selected/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ range42_sdn_zone | default('r42zone') }}"
+    BUNDLE_SDN_VNETS: "{{ _sdnd_scenario_vnets }}"
