@@ -77,3 +77,37 @@ def test_internet_off_preserves_nonmember_and_unrelated_rule_order(
         "apply_attempted": bool(initial),
         "apply_verified": bool(initial),
     }
+
+
+@pytest.mark.parametrize(
+    "membership,expected_nodes", [(["pve2"], "pve2"), ("pve2", "pve2"), ([], None)]
+)
+def test_bootstrap_zone_post_matches_the_snapshot_membership(
+    tmp_path, membership, expected_nodes, monkeypatch
+):
+    monkeypatch.syspath_prepend(str(CONTROLLER / "tests"))
+    zone_fixture = importlib.import_module("test_sdn_zone_nodes")
+    from test_sdn_cluster_composites import TARGET, run_composite
+
+    with zone_fixture.zone_api(tmp_path) as (host, ca, calls):
+        result, observed = run_composite(
+            tmp_path,
+            "bootstrap",
+            absent=True,
+            membership=membership,
+            real_zone_api=(host, ca),
+        )
+    assert result.returncode == 0, result.stdout[-4500:] + result.stderr
+    assert calls == [
+        {
+            "zone": "lab",
+            "type": "simple",
+            **({"nodes": expected_nodes} if expected_nodes else {}),
+        }
+    ]
+    applicable = [
+        node["node"]
+        for node in observed["reconciled"]
+        if {"source": TARGET, "want": 1} in node["targets"]
+    ]
+    assert applicable == (["pve2"] if expected_nodes else ["pve1", "pve2"])

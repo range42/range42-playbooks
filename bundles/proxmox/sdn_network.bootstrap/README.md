@@ -73,7 +73,8 @@ for tests and activation limits.
 
 For a new zone, the operator inventory may set `sdn_zone_nodes` to a node list or
 comma-separated node names. The same value feeds coverage planning and zone
-creation; omission means all cluster nodes. Existing zone membership comes from
+creation. The controller sends a validated comma-separated API string for a
+subset and omits the API field for empty/all-node scope. Existing zone membership comes from
 the API and is not silently changed.
 
 Target : `hosts: proxmox`, fixed. The reconciliation step runs on `proxmox_cli` - the role delegates

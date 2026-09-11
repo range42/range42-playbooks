@@ -2,8 +2,9 @@
 
 This source continuation pairs the playbooks preservation branch (starting at
 `fb536e79ea969de6378e3cd272f75b878b0a03b3`) with controller
-`ed31eeea9c4bde167386b8dbc3ba0801eb2be3d6` (stable-path source
-`4d14f3ccf64ba5ec16b4c5a49081e73794175292` plus its fixture dispatch correction).
+`932fdb4b02aed4d6612e648cdab318b77e8a64ff` (stable-path source
+`4d14f3ccf64ba5ec16b4c5a49081e73794175292`, fixture correction `ed31eee`,
+and validated zone-creation request encoding).
 It preserves the existing Hyde integration; it does not update the installed
 shared runtime or change any guest, SDN declaration, or firewall rule.
 
@@ -59,6 +60,25 @@ Controller's preceding 61 checks (27 real Ansible) are separately recorded in
 its `docs/sdn-cluster-coverage-wip.md`. The pytest asyncio default-loop
 configuration warning remains. Scoped Ruff/formatting and whitespace checks
 are recorded with the source checkpoint.
+
+## Reviewed zone-creation follow-up
+
+The initial paired boundary fixture did not inspect the actual zone POST. Review
+caught a real mismatch: list-valued `sdn_zone_nodes` passed planner validation
+but was forwarded as a JSON list where Proxmox expects a node-list string.
+Controller `932fdb4` now validates current membership and the saved new-zone
+scope, emits a comma-separated string for a subset, and omits `nodes` for empty
+or all-node membership. Bootstrap's advertised list/string inputs now produce
+the same node set in both planning and the actual request.
+
+Three additional paired bootstrap tests execute the controller's actual zone
+creation task over private loopback TLS and inspect the JSON body and planned
+target nodes. List and empty cases failed before the fix; all three pass in
+30.00s (`/tmp/r42-paired-zone-green.log`). The earlier two preservation cases were
+deselected in that bounded command. Controller separately passed 40 checks
+(11 actual request cases plus 29 existing planner cases). These request tests do
+not create zones on a real Proxmox cluster. Scoped Ruff/formatting and whitespace
+checks passed. No capability marker or installed runtime changed.
 
 ## Remaining activation limits
 

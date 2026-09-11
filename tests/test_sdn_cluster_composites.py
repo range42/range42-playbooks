@@ -31,6 +31,7 @@ def run_composite(
     absent=False,
     foreign=False,
     missing_zone=False,
+    real_zone_api=None,
 ):
     role = tmp_path / "roles/range42-ansible_roles-proxmox_controller"
     (role / "tasks").mkdir(parents=True)
@@ -98,6 +99,17 @@ def run_composite(
     dest: "{{ fixture_output }}"
     content: "{{ {'actions':observed_actions,'intent':observed_intent | default([]),'new_zones':observed_new_zones | default({}),'reconciled':observed_reconciled | default([])} | to_json }}"
 """
+    if real_zone_api:
+        (role / "tasks/add-zone.yml").write_bytes(
+            (
+                CONTROLLER
+                / "roles/range42-ansible_roles-proxmox_controller/tasks/include/network/add_network_sdn_zone.yaml"
+            ).read_bytes()
+        )
+        tasks += """
+- ansible.builtin.include_tasks: add-zone.yml
+  when: proxmox_vm_action == 'network_add_sdn_zone'
+"""
     (role / "tasks/main.yml").write_text(tasks)
     vnet = {
         "vnet": "target",
@@ -130,6 +142,14 @@ def run_composite(
         "fixture_incomplete": incomplete,
         "fixture_output": str(output),
     }
+    if real_zone_api:
+        variables.update(
+            proxmox_api_host=real_zone_api[0],
+            proxmox_api_user="fixture",
+            proxmox_api_token_id="fixture",
+            proxmox_api_token_secret="fixture",
+            proxmox_api_validate_certs=True,
+        )
     if stale:
         variables.update(
             network_snat_plan={
@@ -183,6 +203,7 @@ def run_composite(
             "ANSIBLE_ROLES_PATH": str(tmp_path / "roles"),
             "RANGE42_ACTIVE_CONFIG_DIR": str(config.parent),
             "ANSIBLE_NOCOLOR": "1",
+            **({"SSL_CERT_FILE": str(real_zone_api[1])} if real_zone_api else {}),
         },
         text=True,
         capture_output=True,
