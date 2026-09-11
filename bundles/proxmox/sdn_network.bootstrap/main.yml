@@ -134,7 +134,7 @@
           {%-       set want_snat = (1 if (v.snat | default(true)) else 0) -%}
           {%-       set have_snat = (s.subnet_snat | default(0) | int) -%}
           {%-       if (have_snat != want_snat)
-                       or ((s.subnet_gateway | default('')) != (v.gateway | default(''))) -%}
+                       or (v.gateway is defined and (s.subnet_gateway | default('')) != v.gateway) -%}
           {%-         set _ = out.append(v | combine({'subnet_id': s.subnet})) -%}
           {%-       endif -%}
           {%-     endif -%}

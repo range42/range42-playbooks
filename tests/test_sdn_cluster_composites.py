@@ -32,6 +32,8 @@ def run_composite(
     foreign=False,
     missing_zone=False,
     real_zone_api=None,
+    extra_vars=None,
+    omit_gateway=False,
 ):
     role = tmp_path / "roles/range42-ansible_roles-proxmox_controller"
     (role / "tasks").mkdir(parents=True)
@@ -118,6 +120,11 @@ def run_composite(
     variables = {
         "BUNDLE_SDN_ZONE": "lab",
         "BUNDLE_SDN_SUBNET_ID": "lab-10.80.1.0-24",
+        "BUNDLE_SDN_VNET": "target",
+        "BUNDLE_SDN_SUBNET_CIDR": TARGET,
+        "BUNDLE_SDN_SUBNET_GATEWAY": "10.80.1.1",
+        "BUNDLE_SDN_SUBNET_SNAT": 1,
+        "BUNDLE_SDN_SNAT_WANT": 1,
         "BUNDLE_SDN_VNETS": [
             {"vnet": "target", "subnet": TARGET, "gateway": "10.80.1.1", "snat": True}
         ],
@@ -142,6 +149,11 @@ def run_composite(
         "fixture_incomplete": incomplete,
         "fixture_output": str(output),
     }
+    if omit_gateway:
+        variables.pop("BUNDLE_SDN_SUBNET_GATEWAY")
+        variables["BUNDLE_SDN_VNETS"][0].pop("gateway")
+    if extra_vars:
+        variables.update(extra_vars)
     if real_zone_api:
         variables.update(
             proxmox_api_host=real_zone_api[0],
