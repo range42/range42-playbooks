@@ -1,9 +1,11 @@
 ---
-# Direct parameters adapt to the same verified bootstrap flow. The imported
-# play reads proxmox_node from the vault and owns all cluster/declaration work.
-- name: sdn_network.bootstrap.sdn_vnet - validate direct inputs
+# Direct entrypoint: public list variables cannot override the direct request.
+# The shared flow reads proxmox_node from this play's vault.
+- name: sdn_network.bootstrap.sdn_vnet
   hosts: proxmox
   gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
   tasks:
     - name: SDN BOOTSTRAP VNET - REQUIRE AN EXPLICIT VALID DESIRED STATE
       ansible.builtin.assert:
@@ -13,10 +15,12 @@
           - BUNDLE_SDN_SUBNET_GATEWAY is not defined or BUNDLE_SDN_SUBNET_GATEWAY is string
         fail_msg: Single-VNet bootstrap requires SNAT 0 or 1 and an optional string gateway before any write.
 
-- ansible.builtin.import_playbook: ../sdn_network.bootstrap/main.yml
-  vars:
-    BUNDLE_SDN_VNETS: >-
-      {{ [{'vnet': BUNDLE_SDN_VNET, 'subnet': BUNDLE_SDN_SUBNET_CIDR,
-           'snat': (BUNDLE_SDN_SUBNET_SNAT | default(1)) == 1}
-          | combine({'gateway': BUNDLE_SDN_SUBNET_GATEWAY}
-                    if BUNDLE_SDN_SUBNET_GATEWAY is defined else {})] }}
+    - name: SDN BOOTSTRAP VNET - RUN THE VERIFIED FLOW FOR THE DIRECT REQUEST
+      ansible.builtin.include_tasks: ../_shared/sdn_bootstrap.yml
+      vars:
+        _sdn_bootstrap_zone: "{{ BUNDLE_SDN_ZONE }}"
+        _sdn_bootstrap_networks: >-
+          {{ [{'vnet': BUNDLE_SDN_VNET, 'subnet': BUNDLE_SDN_SUBNET_CIDR,
+               'snat': (BUNDLE_SDN_SUBNET_SNAT | default(1)) == 1}
+              | combine({'gateway': BUNDLE_SDN_SUBNET_GATEWAY}
+                        if BUNDLE_SDN_SUBNET_GATEWAY is defined else {})] }}

@@ -92,3 +92,21 @@ def test_single_vnet_explicit_off_maps_to_disabled_declaration_and_intent(tmp_pa
     ]
     assert observed["actions"].count("network_update_sdn_subnet") == 1
     assert observed["actions"].count("network_apply_sdn") == 1
+
+
+def test_list_bootstrap_retains_every_declared_network(tmp_path):
+    networks = [
+        {"vnet": "target", "subnet": TARGET, "gateway": "10.80.1.1", "snat": True},
+        {"vnet": "target2", "subnet": "10.80.2.0/24", "snat": False},
+    ]
+    result, observed = run_composite(
+        tmp_path, "bootstrap", extra_vars={"BUNDLE_SDN_VNETS": networks}
+    )
+    assert result.returncode == 0, result.stdout[-4500:] + result.stderr
+    assert observed["intent"] == [
+        {"source": TARGET, "vnet": "target", "zone": "lab", "want": 1},
+        {"source": "10.80.2.0/24", "vnet": "target2", "zone": "lab", "want": 0},
+    ]
+    assert observed["actions"].count("network_add_sdn_vnet") == 1
+    assert observed["actions"].count("network_add_sdn_subnet") == 1
+    assert observed["actions"].count("network_apply_sdn") == 1

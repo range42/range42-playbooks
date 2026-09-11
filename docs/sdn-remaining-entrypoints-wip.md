@@ -8,8 +8,8 @@ No source was pushed.
 
 ## Work currently present
 
-The direct-parameter `bootstrap.sdn_vnet` entrypoint is a thin input-validation
-adapter into the existing cluster bootstrap composite. It requires integer
+The direct-parameter `bootstrap.sdn_vnet` entrypoint validates its direct inputs
+and passes a normalized private input into the shared bootstrap task body. It requires integer
 SNAT 0/1 and an optional string gateway before entering that flow. This removes
 the separate primary-node-only mutation sequence. The shared bootstrap now
 compares gateway drift only when the caller explicitly supplies a gateway;
@@ -30,17 +30,26 @@ prospective log label, not a passing result. The failing regression is
 explicit direct SNAT0 request incorrectly produces want1. This is a real input
 precedence bug; the fixture must not be weakened to hide it.
 
-The next implementation should give both wrappers one shared bootstrap task
-body with a private, explicit input mapping, or otherwise prove that unrelated
-ambient bundle inputs cannot override the adapter's declared parameters. Do not
-work around it by setting a global `BUNDLE_SDN_VNETS` fact that can contaminate
-later calls. The original standalone entrypoint source is retained by Git at
-the base commit. This WIP has not been activated.
+The explicitly resumed continuation fixes this precedence bug by giving both
+wrappers one shared task body with private `_sdn_bootstrap_zone` and
+`_sdn_bootstrap_networks` include variables. No global public bundle-input fact
+is written. The ambient-list/SNAT0 regression remains, alongside a two-network
+ordinary-list regression. The original entrypoint source is retained by Git at
+the base commit. This source has not been activated. The resumed affected run
+(handle6079) completed exit0: **26 passed, 15 deselected in 138.88s**, log
+`/tmp/r42-sdn-adapter-private-input-green.log`. It includes the unchanged ambient
+list/SNAT0 regression, ordinary two-network list behavior, gateway omission,
+cluster coverage/binding refusal, and actual paired zone POST checks. Controller
+source was unchanged; no additional controller suite was run. Independent review
+confirmed the extracted task body differs only in its private input names,
+include path/header and the intended explicit-gateway drift condition.
 
-Scoped Ruff and whitespace checks pass. No broader suite or new test sweep was
-started after the pause request. Parameter descriptions/generated metadata,
-paired real-controller preservation tests for this adapter and final source
-review remain unfinished. Treat this as partial source work, not a deployable
+The pause was honored by saving WIP commit `01e4566`; the subsequent explicit
+continuation authorized only this input-isolation fix and its affected checks.
+The single-VNet README now describes gateway omission, explicit gateway/SNAT
+drift and missing-enabled-rule applies. Scoped Ruff and whitespace checks pass.
+Parameter descriptions/generated metadata and additional paired real-controller
+preservation coverage for this adapter remain follow-up work. Treat this as partial source work, not a deployable
 matched release.
 
 ## Standalone reconciliation remains unimplemented

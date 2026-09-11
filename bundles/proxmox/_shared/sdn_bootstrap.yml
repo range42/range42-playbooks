@@ -1,0 +1,208 @@
+---
+# Both public entrypoints supply these private inputs at the include boundary.
+# No public BUNDLE_* fact is overwritten or inherited from another wrapper.
+
+#### #### ####
+#
+# 1. READ the live state. Three calls, each leaving its result in a fact named after the
+#    action. These three list actions REBUILD their fact from scratch, so calling them
+#    after another bundle already read is safe - unlike network_list_interfaces_vm, which
+#    appends.
+#
+- name: SDN BOOTSTRAP - READ THE LIVE ZONES
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "network_list_sdn_zones"
+
+- name: SDN BOOTSTRAP - READ THE LIVE VNETS
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "network_list_sdn_vnets"
+
+- name: SDN BOOTSTRAP - READ THE LIVE SUBNETS
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "network_list_sdn_subnets"
+
+- name: SDN BOOTSTRAP - REQUIRE EXISTING VNETS TO BELONG TO THE DECLARED ZONE
+  ansible.builtin.assert:
+    that:
+      - _sdn_vnet_matches | length <= 1
+      - _sdn_vnet_matches | length == 0 or (_sdn_vnet_matches[0].vnet_zone | default('')) == _sdn_bootstrap_zone
+    fail_msg: An existing VNet must have one authoritative binding to the declared zone; no network write is authorized.
+  vars:
+    _sdn_vnet_matches: "{{ network_list_sdn_vnets | selectattr('vnet', 'equalto', _sdn_declared_vnet.vnet) | list }}"
+  loop: "{{ _sdn_bootstrap_networks }}"
+  loop_control:
+    loop_var: _sdn_declared_vnet
+    label: "{{ _sdn_declared_vnet.vnet }}"
+
+#### #### ####
+#
+# 2. DIFF. Four lists, and the whole idempotence of this bundle sits here : a declared
+#    object that is already live in the declared shape appears in none of them.
+#
+#    The subnet id is DERIVED, `<zone>-<network>-<mask>`, because that is what Proxmox builds
+#    and the only key a declared CIDR can be matched against in the live list. But the derivation
+#    is used for the MATCHING ONLY : the id carried into the update below is `s.subnet`, the one
+#    the API returned. No write is ever keyed on a value this bundle computed - a derivation is
+#    fine to recognise an object, not to address it.
+#
+#    `subnet_gateway` and `subnet_snat` are ABSENT from a live entry when the API did not
+#    return them - the role builds those dicts with `omit`, which drops the key rather
+#    than leaving a placeholder (verified). Hence the `default()` on every read.
+#
+- name: SDN BOOTSTRAP - WHAT IS MISSING, AND WHAT HAS DRIFTED
+  ansible.builtin.set_fact:
+
+    _sdn_zones_absent: >-
+      {%- set live = network_list_sdn_zones | default([]) | map(attribute='zone') | list -%}
+      {{ [] if (_sdn_bootstrap_zone in live) else [ _sdn_bootstrap_zone ] }}
+
+    _sdn_vnets_absent: >-
+      {%- set live = network_list_sdn_vnets | default([]) | map(attribute='vnet') | list -%}
+      {{ _sdn_bootstrap_networks | rejectattr('vnet', 'in', live) | list }}
+
+    _sdn_subnets_absent: >-
+      {%- set live = network_list_sdn_subnets | default([]) | map(attribute='subnet') | list -%}
+      {%- set out = [] -%}
+      {%- for v in _sdn_bootstrap_networks -%}
+      {%-   set id = _sdn_bootstrap_zone ~ '-' ~ (v.subnet | replace('/', '-')) -%}
+      {%-   if id not in live -%}
+      {%-     set _ = out.append(v) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+    _sdn_subnets_drifted: >-
+      {%- set out = [] -%}
+      {%- for v in _sdn_bootstrap_networks -%}
+      {%-   set id = _sdn_bootstrap_zone ~ '-' ~ (v.subnet | replace('/', '-')) -%}
+      {%-   for s in (network_list_sdn_subnets | default([])) -%}
+      {%-     if s.subnet == id -%}
+      {%-       set want_snat = (1 if (v.snat | default(true)) else 0) -%}
+      {%-       set have_snat = (s.subnet_snat | default(0) | int) -%}
+      {%-       if (have_snat != want_snat)
+                   or (v.gateway is defined and (s.subnet_gateway | default('')) != v.gateway) -%}
+      {%-         set _ = out.append(v | combine({'subnet_id': s.subnet})) -%}
+      {%-       endif -%}
+      {%-     endif -%}
+      {%-   endfor -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: SDN BOOTSTRAP - WHAT THIS RUN WILL DO
+  ansible.builtin.debug:
+    msg:
+      ## Printed because the node is about to be modified, and to keep proxmox_node visible to
+      ## the annotation checker, which does not scan the role's repo.
+      - "proxmox node      : {{ proxmox_node }}"
+      - "zone to create    : {{ _sdn_zones_absent }}"
+      - "vnets to create   : {{ _sdn_vnets_absent   | map(attribute='vnet') | list }}"
+      - "subnets to create : {{ _sdn_subnets_absent | map(attribute='subnet') | list }}"
+      - "subnets to update : {{ _sdn_subnets_drifted | map(attribute='subnet_id') | list }}"
+
+#### #### ####
+#
+# 3. WRITE. Every object stays PENDING until the apply below - that is the API's model,
+#    not a shortcut taken here.
+#
+- name: SDN BOOTSTRAP - SNAPSHOT BEFORE ANY WRITE
+  ansible.builtin.include_tasks: sdn_cluster_snapshot.yml
+  vars:
+    _sdn_snapshot_new_zones: "{{ {_sdn_bootstrap_zone: sdn_zone_nodes | default([])} if (_sdn_zones_absent | length > 0) else {} }}"
+    _sdn_snapshot_desired_sources: >-
+      {%- set out = [] -%}
+      {%- for v in _sdn_bootstrap_networks -%}
+      {%- set _ = out.append({'source': v.subnet, 'vnet': v.vnet, 'zone': _sdn_bootstrap_zone, 'want': 1 if (v.snat | default(true)) else 0}) -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: SDN BOOTSTRAP - CREATE THE ZONE
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "network_add_sdn_zone"
+    sdn_zone: "{{ _sdn_bootstrap_zone }}"
+  loop: "{{ _sdn_zones_absent }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: SDN BOOTSTRAP - CREATE THE MISSING VNETS
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "network_add_sdn_vnet"
+    sdn_zone: "{{ _sdn_bootstrap_zone }}"
+    sdn_vnet: "{{ item.vnet }}"
+  loop: "{{ _sdn_vnets_absent }}"
+  loop_control:
+    label: "{{ item.vnet }}"
+
+- name: SDN BOOTSTRAP - CREATE THE MISSING SUBNETS
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "network_add_sdn_subnet"
+    sdn_vnet: "{{ item.vnet }}"
+    sdn_subnet: "{{ item.subnet }}"
+    sdn_subnet_gateway: "{{ item.gateway | default(omit) }}"
+    sdn_subnet_snat: "{{ 1 if (item.snat | default(true)) else 0 }}"
+  loop: "{{ _sdn_subnets_absent }}"
+  loop_control:
+    label: "{{ item.vnet }} {{ item.subnet }}"
+
+- name: SDN BOOTSTRAP - UPDATE THE DRIFTED SUBNETS
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "network_update_sdn_subnet"
+    sdn_subnet_id: "{{ item.subnet_id }}"
+    sdn_vnet: "{{ item.vnet }}"
+    sdn_subnet_gateway: "{{ item.gateway | default(omit) }}"
+    sdn_subnet_snat: "{{ 1 if (item.snat | default(true)) else 0 }}"
+  loop: "{{ _sdn_subnets_drifted }}"
+  loop_control:
+    label: "{{ item.subnet_id }}"
+
+#### #### ####
+#
+# 4. APPLY. Once, and only if step 3 wrote something. See the header for the measurement
+#    that makes this guard load-bearing rather than decorative.
+#
+- name: SDN BOOTSTRAP - APPLY ONCE FOR DECLARATION DRIFT OR MISSING ENABLED RULES
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "network_apply_sdn"
+  when: >-
+    (_sdn_zones_absent | length) + (_sdn_vnets_absent | length)
+    + (_sdn_subnets_absent | length) + (_sdn_subnets_drifted | length)
+    + (_sdn_enabled_missing | length) > 0
+
+#### #### ####
+#
+# 5. RECONCILE each declared source on its zone members. `want` follows the declaration :
+#    a subnet declared snat=1 keeps exactly one rule, a subnet declared snat=0 keeps none.
+#    This is what catches a rule that outlived its declaration, which no API read shows.
+#
+- name: SDN BOOTSTRAP - RECONCILE THE LIVE SNAT RULES
+  include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: "network_reconcile_snat_sources"
+
+- name: SDN BOOTSTRAP - PRESERVE EVERY UNDECLARED SOURCE
+  ansible.builtin.include_role:
+    name: range42-ansible_roles-proxmox_controller
+  vars:
+    proxmox_vm_action: network_restore_snat_snapshot
+    sdn_snat_excluded_sources: "{{ _sdn_bootstrap_networks | map(attribute='subnet') | list }}"
+    sdn_snat_allow_new_rules: false
+  when: >-
+    (_sdn_zones_absent | length) + (_sdn_vnets_absent | length)
+    + (_sdn_subnets_absent | length) + (_sdn_subnets_drifted | length)
+    + (_sdn_enabled_missing | length) > 0
