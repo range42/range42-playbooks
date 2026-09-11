@@ -70,8 +70,33 @@ retained `r42smoke` zone on the 47-guest lab. Actual observer 87560 completed
 exit 0, but the collector itself returned rc 1 after 118.26s at 13:58:26Z with
 `Deletion inventory command timed out`. No scope was accepted and no declaration,
 rule or guest write was performed. This is a real-target compatibility/performance
-limitation, not passing deletion acceptance. A bounded stage/timing trace is
-being reviewed before any change; the limits have not simply been increased.
+limitation, not passing deletion acceptance. The subsequent fixed-category trace confirmed cumulative startup overhead:
+64 commands, first guest read at 27.166s, approximately 1.9–2.0s per QEMU read,
+and the last pending request starting at 119.694s exhausted the overall 120s
+budget. The lab roster was 47 QEMU guests and no LXC guests. Root trace evidence:
+`/tmp/r42-sdn-delete-readonly-20260911/trace-result.json`.
+
+Controller `1dbc75d8396d546d6718c389e17b8f423349b386` removes redundant QEMU
+`/config` reads and batches
+at most two independent guest reads from the main thread. LXC retains current
+and pending reads, because raw reference-valued LXC fields are omitted by the
+pending endpoint. WNOWAIT retains child identity through process-group cleanup;
+failure or timeout stops every sibling group before children are reaped. The
+existing 10s/120s and 4MiB/16MiB bounds remain unchanged, as do full attachment
+checks and the final roster reread.
+
+Ten focused regressions failed before this optimization. Actual handle67821
+passed 63 collector/scope/role checks in 37.16s; actual handle76091 passed both
+affected paired success/partial-retry cases in 49.50s, with 7 deselected.
+Logs: `/tmp/r42-delete-batch-final.log` and `/tmp/r42-delete-batch-paired.log`.
+Review follow-up `97f9f9a6e73bf6daf752e6f344f3caeed13c4758` rejects a malformed
+pending row containing only `key`, while retaining legitimate delete-only rows.
+That failure was reproduced before the fix; all 42 scope checks then passed
+(`/tmp/r42-delete-key-only-green.log`). The final helper is frozen at SHA256
+`f76b5956896de67b2b4122df2f66f742c827c81f9fca37d1b4eae40b282c95a5`.
+Local results do not establish improved live performance; a reviewed repeat
+read-only probe remains pending. No live deletion acceptance is claimed.
+
 
 ## Remaining limits
 

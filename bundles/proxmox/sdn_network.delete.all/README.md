@@ -40,7 +40,9 @@ are checked when advertised. Unknown families or malformed/incomplete responses
 refuse the operation.
 
 Current and pending QEMU/LXC NIC definitions are read for every guest, including
-stopped guests and templates. A NIC using a selected VNet, even with a pending
+stopped guests and templates. QEMU uses its complete `/pending` response. LXC
+also reads `/config?current=1`, because raw LXC arrays are omitted from the
+pending endpoint. A NIC using a selected VNet, even with a pending
 removal, blocks deletion. Guests are never detached automatically. Custom QEMU
 arguments/raw LXC networking, malformed NIC definitions, missing guest reads or
 changed guest discovery prevent a claim of complete attachment safety.
@@ -82,7 +84,9 @@ One operation supports at most 64 selected VNets and 64 selected IPv4 subnets.
 The private journal is limited to 16 MiB and 512 events; bounds are checked before
 writes or phase publication. Inventory reads have a 120s overall deadline,
 10s per command, 4 MiB per command output and 16 MiB aggregate output. Timed-out
-read command groups are killed and reaped. The controller supports legacy
+read command groups are killed and owned children reaped. Guest reads are
+batched at most two at a time from the main thread; a failing sibling stops
+both groups. The controller supports legacy
 iptables; nft remains refused.
 
 Reads and remote writes are not an atomic cluster transaction. All other SDN
