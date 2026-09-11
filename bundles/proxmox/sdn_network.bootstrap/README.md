@@ -1,11 +1,12 @@
 # sdn_network.bootstrap
 
-Bring the declared SDN networks up on a Proxmox cluster : read the live state, create what is
-missing, update what has drifted, apply **once**, then reconcile the live SNAT rules.
+Bring the declared SDN networks up on a Proxmox cluster: verify cluster coverage,
+create missing objects, update explicit drift, apply **at most once when needed**,
+then reconcile the live SNAT rules.
 
-**This is the only `sdn_network.*` bundle a scenario calls.** The others expose a single action
-each, for the backend-api and the deployer-ui to drive live, and for debugging. A scenario needs
-one line :
+Use this bundle when a scenario supplies a declared network list. The direct-input
+`sdn_network.bootstrap.sdn_vnet` bundle shares the same verified implementation
+for one network. A scenario can import the list entrypoint as follows:
 
 ```yaml
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.bootstrap/main.yml"
@@ -39,9 +40,10 @@ BUNDLE_SDN_VNETS:
   - { vnet: net143, subnet: 192.168.143.0/24, gateway: 192.168.143.1, snat: true }
 ```
 
-`gateway` is optional - a subnet without one is legal. `snat` is optional and defaults to `true`;
-it is what gives the guests outbound internet. A **single-entry list** is the "on the fly" case the
-backend uses, and behaves exactly the same.
+`gateway` is optional: omission preserves an existing gateway, or leaves a new
+subnet without one. An explicit gateway value participates in drift detection.
+`snat` is optional and defaults to `true`, enabling subnet SNAT. A single-entry
+list is supported.
 
 The zone type is pinned to `simple` by the role (host-local, no VLAN, no VXLAN), so it is not a
 parameter. Apply polling keeps the role defaults, 60 retries x 2s.
@@ -83,8 +85,9 @@ undelegated shell would run on the deployer instead of the hypervisor.
 
 ## What it guarantees
 
-- **A second run writes nothing.** A declared object already live in the declared shape appears in
-  none of the four diff lists, so no create and no update runs, and the apply is skipped.
+- **A fully reconciled repeat writes nothing.** Matching declarations and live
+  rules need no creation, update or apply. Missing enabled rules can require an
+  apply, and surplus rules can require cleanup even when declarations match.
 - **One apply per run, at most.** Never one per vnet.
 - **The live rules match the declaration.** A subnet declared `snat: false` ends with zero SNAT
   rules even if one survived from an earlier state, and a subnet declared `snat: true` ends with
@@ -99,10 +102,10 @@ NAT-enabled `vmbr`. Each apply therefore adds one rule per legacy bridge. Measur
 count forever, until the legacy sweep lands. Removing the `when:` would look harmless and would not
 be.
 
-**The reconciliation is deliberately NOT guarded.** It is the only thing that proves the live rules
-match the declaration, and it is cheap : it reads the nat table and deletes only the surplus. A rule
-that outlived its declaration is invisible to any API read and visible only here. Same choice as the
-devkit composite, for the same reason.
+**Reconciliation also runs when no apply is needed.** Fresh scope, coverage and
+completion checks still guard every rule change. Reconciliation compares live
+rules with the requested declaration, including rules left behind after SNAT
+was disabled.
 
 **Declaration writes loop over computed lists.** A folded `>-` scalar yields
 a string, and the string `"False"` is truthy - a `when:` fed by a templated boolean fact is a trap
