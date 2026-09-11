@@ -180,6 +180,21 @@ bridge names and uses `range42_sdn_zone` from the same setup vault (default
 the former address/subnet-ID inference. Complete root-visible guest and pending
 inspection is mandatory, including attachments owned by other scenarios.
 
+Manifest versions 1/2 select the existing top-level VM/template `bridge` fields.
+Version 3 selects every VM's `nics[].bridge`, including additional NICs; indexes
+must be contiguous integers from zero, and the top-level bridge/IP must match
+NIC zero. Version 3 templates are references and cannot declare NIC ownership.
+Mixed versions, malformed NIC lists or contradictory management fields refuse
+before entering the deletion bundle. Explicit non-`net*` bridges remain outside
+this legacy adapter's selection; no ownership is inferred from addresses.
+
+The version 3 data contract matches the emitted `scenario_vms.json` in the
+deployer UI. Generated scenarios do not automatically include this legacy
+script, its `00_sdn_bootstrap/delete.yml` adapter or its inventory/vault context.
+Their often-used `r42*` VNets are not selected by this adapter. This is not a
+generic UI network-teardown integration; operators with an explicit reviewed
+selection can use the selected bundle directly.
+
 Normal deletion requires the shared persistent `RANGE42_SDN_DELETE_STATE_DIR`
 and matching controller/playbooks cluster-preservation source. `--dry-run`,
 `--check` and `-C` perform an explicit read-only declaration/guest preview, with

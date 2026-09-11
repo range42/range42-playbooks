@@ -36,7 +36,7 @@ write.
 
 ## Focused evidence
 
-All commands used the existing backend virtual environment's Python/Ansible,
+The initial checkpoint used the existing backend virtual environment's Python/Ansible,
 with `RANGE42_CONTROLLER_TEST_ROOT` pointing at the isolated paired controller.
 
 - **52 controller scope cases passed** in 2.33s, including the original guards
@@ -61,6 +61,41 @@ with `RANGE42_CONTROLLER_TEST_ROOT` pointing at the isolated paired controller.
   diff checks pass. Final formatting of seven owned Python files preserved
   identical ASTs to the tested source.
 
+The additional-NIC continuation starts from playbooks `c233f141` and retains
+controller `3cd79707776e7ec310b1495bf926bd076fc2c706` unchanged. Its real
+CLI→Ansible boundary suite reproduced **16 failures** against the old adapter:
+the secondary bridge was omitted and malformed/contradictory input reached the
+deletion bundle. All **18 boundary cases then passed**, including legacy v1/v2
+VM/template compatibility. Logs: `/tmp/r42-selected-nics-red.log` and
+`/tmp/r42-selected-nics-green.log`.
+
+These checks use local `python3 -m pytest` and its sibling `ansible-playbook`.
+`tests/test_sdn_delete_manifest_nics.py` also invokes the real selected bundle
+and paired controller with disposable API/iptables transport fixtures. The
+fixture includes primary and additional NIC VNets, an attached same-zone
+neighbour, an attached guest in a separate zone, and NAT copies on a nonmember
+node. No live network or guest operation is implied.
+
+The final affected run passed **27 cases in 123.46s**, actual pytest exit0
+(session49287; `/tmp/r42-selected-nics-final.log`): 18 manifest boundary cases,
+three paired CLI deletion/preview/foreign-secondary-NIC cases, five existing CLI
+cases and one whole-zone deletion/repeat case. The deletion receipt contains
+only both selected subnets and VNets; exact zone lists and unrelated/nonmember
+rule identities, multiplicities and order remain unchanged. Preview and foreign
+selection have no declaration/apply/rule writes or deletion journal record.
+Scoped Ruff, shell syntax, YAML parsing and diff checks pass. The only emitted
+test warning is the environment's existing pytest-asyncio default-loop-scope
+deprecation. Independent source review found no blocker.
+
+Reproduce the affected run from the playbooks tree with the matching controller:
+
+```sh
+RANGE42_CONTROLLER_TEST_ROOT=/tmp/r42-sdn-selected-delete-controller-next-wave \
+  python3 -m pytest -q tests/test_sdn_delete_manifest_nics.py \
+  tests/test_sdn_delete_selected_cli.py \
+  tests/test_sdn_delete_all.py::test_delete_removes_zone_then_cleans_members_and_preserves_every_other_rule
+```
+
 ## Remaining operational limits
 
 Automatic recovery/resume/rollback after partial deletion is not implemented.
@@ -68,9 +103,21 @@ The private journal retains attempted versus acknowledged operations for an
 operator-reviewed recovery. External/manual SDN, guest NIC and rule writers
 still require coordination; this is not an atomic cluster transaction. Existing
 legacy-iptables-only mutation support and collector/journal bounds remain.
-The legacy adapter selects existing top-level `bridge` fields and does not
-infer additional NIC/network ownership. A future generic manifest adapter needs
-an explicit extra-NIC selection contract.
+The additional-NIC continuation retains legacy version 1/2 top-level `bridge`
+selection and supports the actual concrete version 3 `nics[].bridge` layout.
+It validates contiguous integer indexes and exact top-level management bridge/IP
+agreement before selecting all explicit `net*` bridges. Version 3 template
+references do not grant network ownership. Unsupported/mixed versions and
+malformed or contradictory layouts refuse before entering the guarded bundle.
+
+This matches `range42-deployer-ui/src/services/concreteScenario.js`'s emitted
+VM manifest and the NIC layout in
+`range42-backend-api/app/core/scenario_manifest.py`; it does not infer bridges
+from UI draft `network_id` values, executable extra-config strings or addresses.
+Generated UI scenarios do not include this legacy CLI/layout or automatically
+provide its inventory/vault context. Their common `r42*` names remain outside
+the legacy `net*` selection convention. Generic generated-scenario network
+deletion therefore remains a separate integration boundary.
 
 No release activation or live selected-delete acceptance is claimed. A reviewed
 matched controller/playbooks release and stable per-cluster state configuration

@@ -15,12 +15,41 @@
           - (_sdnd_manifest.vms | default([]) | type_debug) == 'list'
           - (_sdnd_manifest.templates | default([]) | type_debug) == 'list'
           - (_sdnd_manifest.vms | default([]) + _sdnd_manifest.templates | default([])) | reject('mapping') | length == 0
+          - (_sdnd_manifest.version | default(2) | type_debug) == 'int'
+          - (_sdnd_manifest.version | default(2)) in [1, 2, 3]
         fail_msg: The scenario manifest must contain valid VM and template lists.
       no_log: true
 
-    - name: SDN DELETE - RETAIN ONLY DECLARED BRIDGE FIELDS
+    - name: SDN DELETE - REQUIRE LEGACY RECORDS WITHOUT UNVERSIONED NIC LISTS
+      ansible.builtin.assert:
+        that: item.nics is not defined
+        fail_msg: NIC lists require the explicit concrete version 3 manifest contract.
+      loop: "{{ _sdnd_manifest.vms | default([]) + _sdnd_manifest.templates | default([]) }}"
+      when: (_sdnd_manifest.version | default(2)) != 3
+      no_log: true
+
+    - name: SDN DELETE - REQUIRE VERSION 3 TEMPLATES TO REMAIN REFERENCES
+      ansible.builtin.assert:
+        that:
+          - item.bridge is not defined
+          - item.nics is not defined
+          - item.ip is not defined
+        fail_msg: Version 3 template references cannot declare scenario NIC ownership.
+      loop: "{{ _sdnd_manifest.templates | default([]) }}"
+      when: (_sdnd_manifest.version | default(2)) == 3
+      no_log: true
+
+    - name: SDN DELETE - INITIALIZE EXPLICIT BRIDGES FOR THIS MANIFEST VERSION
       ansible.builtin.set_fact:
-        _sdnd_bridges: "{{ (_sdnd_manifest.vms | default([]) + _sdnd_manifest.templates | default([])) | map(attribute='bridge', default='') | list }}"
+        _sdnd_bridges: "{{ [] if (_sdnd_manifest.version | default(2)) == 3 else (_sdnd_manifest.vms | default([]) + _sdnd_manifest.templates | default([])) | map(attribute='bridge', default='') | list }}"
+      no_log: true
+
+    - name: SDN DELETE - VALIDATE AND RETAIN EVERY CONCRETE VM NIC
+      ansible.builtin.include_tasks: delete_manifest_nics.yml
+      loop: "{{ _sdnd_manifest.vms | default([]) }}"
+      loop_control:
+        loop_var: _sdnd_vm
+      when: (_sdnd_manifest.version | default(2)) == 3
       no_log: true
 
     - name: SDN DELETE - REQUIRE STRING BRIDGES BEFORE SELECTING NAMES
