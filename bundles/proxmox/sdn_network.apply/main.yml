@@ -11,6 +11,15 @@
         name: range42-ansible_roles-proxmox_controller
       vars:
         proxmox_vm_action: network_snapshot_snat_rules
+        sdn_snat_review_policy: true
+        sdn_snat_excluded_sources: "{{ BUNDLE_SDN_CHANGED_SOURCES | default([]) }}"
+        sdn_snat_allow_new_rules: true
+
+    - name: SDN APPLY - REQUIRE THE REVIEWED SNAPSHOT BEFORE ANY WRITE
+      ansible.builtin.assert:
+        that:
+          - "(network_snat_snapshot.reviewed_policy | default(none)) == {'excluded_sources': BUNDLE_SDN_CHANGED_SOURCES | default([]), 'allow_new_rules': true}"
+        fail_msg: The controller must validate and record the requested NAT preservation scope before apply.
 
     - name: SDN APPLY - FLUSH PENDING CONFIGURATION ONCE
       ansible.builtin.include_role:
@@ -23,5 +32,5 @@
         name: range42-ansible_roles-proxmox_controller
       vars:
         proxmox_vm_action: network_restore_snat_snapshot
-        sdn_snat_excluded_sources: []
+        sdn_snat_excluded_sources: "{{ BUNDLE_SDN_CHANGED_SOURCES | default([]) }}"
         sdn_snat_allow_new_rules: true

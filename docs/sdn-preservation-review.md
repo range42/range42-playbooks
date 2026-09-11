@@ -1,7 +1,7 @@
 # Incomplete scoped SDN preservation checkpoint
 
 Do not activate this branch. It starts at installed playbooks `a150867` and is
-paired with controller checkpoint `a0c43ab` in
+paired with the controller preservation branch in
 `/tmp/r42-sdn-controller-preservation-next-wave`. The live installation still
 uses playbooks `a150867` and controller `99fd63c`.
 
@@ -15,8 +15,9 @@ rules with different comments or translated source addresses.
 This checkpoint instead snapshots exact rule identities before writes. Internet
 on/off/toggle reconcile only the selected subnet; already matching requests skip
 global apply. Bootstrap preserves undeclared sources and applies when an enabled
-subnet lacks a live rule. Explicit standalone apply permits new NAT identities
-from pending configuration while removing known appended duplicates.
+subnet lacks a live rule. Explicit standalone apply accepts reviewed changed
+source CIDRs for pending removal/reordering/replacement and permits appended NAT
+rules for new sources while removing known appended duplicates of untouched rules.
 
 Fourteen real-Ansible orchestration cases pass; the controller's 26 helper tests
 and two real-Ansible action cases also pass. Focused Ruff and whitespace checks
@@ -33,8 +34,17 @@ Remaining before review/activation:
   unknown backends are rejected before snapshot/table access; a safe nft path
   remains unimplemented and the lab backend is not yet verified. See the paired
   controller's `docs/snat-preservation-locking.md` for the exact boundary.
-- Decide the operator workflow for legitimate pending changes that remove or
-  reorder old rules: preservation currently fails closed after apply.
+- The pending-change workflow is now implemented with
+  `BUNDLE_SDN_CHANGED_SOURCES`: validate a unique canonical IPv4 CIDR list before
+  apply, record the scope in a reviewed snapshot, and require the same scope at
+  restoration. Non-NAT and untouched-source changes still fail closed. The
+  current continuation passes 55 focused controller checks and 11 real-Ansible
+  bundle orchestration checks; logs are `/tmp/r42-snat-pending-green.log` and
+  `/tmp/r42-sdn-reviewed-bundle-green.log`. This is not a rollback mechanism or
+  desired-state verification for the explicitly changed sources.
+  A subsequent compatibility regression requires the actual reviewed snapshot
+  before apply, so an older controller cannot silently ignore the review flag;
+  all three final apply checks pass in `/tmp/r42-sdn-controller-capability-green.log`.
 - Resolve/document multi-node coverage; snapshots cover one SSH target while
   SDN apply affects the cluster.
 - Update bundle READMEs and compatibility documentation; check capability
