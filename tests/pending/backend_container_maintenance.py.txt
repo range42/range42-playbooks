@@ -1,0 +1,64 @@
+"""Exercise held installer subprocess and filesystem admission, without Docker."""
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+import pytest
+
+FILE = Path(__file__).resolve().parents[1] / 'bundles/admin/software.install.deployer_api_backend/files/container_maintenance.py'
+PROOF = {'protocol': 'flock-http-v1', 'enabled': True,
+         'process': {'pid': 1, 'start_time': '10', 'boot_id': 'test'},
+         'lock': {'path': '/state/maintenance.lock', 'device': 1, 'inode': 2, 'uid': 1000}}
+
+
+def module():
+    assert FILE.exists(), 'installer must retain maintenance admission through controlled stop'
+    spec = importlib.util.spec_from_file_location('container_maintenance', FILE)
+    value = importlib.util.module_from_spec(spec); spec.loader.exec_module(value)
+    return value
+
+
+def test_helper_stdin_stays_open_until_controlled_stop_scope_ends(tmp_path):
+    released = tmp_path / 'released'
+    code = 'import sys,json; proof=json.loads(sys.stdin.readline()); print(json.dumps({"status":"idle",**proof}),flush=True); sys.stdin.read(1); open(sys.argv[1],"w").write("released")'
+    with module().held_maintenance([sys.executable, '-c', code, str(released)], PROOF, timeout=2) as process:
+        assert process.poll() is None
+        assert not released.exists()
+        process.stdin.flush()
+    assert released.read_text() == 'released'
+
+
+@pytest.mark.parametrize('response', [{'status': 'refused'}, {'status': 'idle', 'process': {'pid': 99}}, []])
+def test_refused_or_unbound_acknowledgement_never_enters_update_scope(response):
+    code = 'import sys,json; sys.stdin.readline(); print(sys.argv[1],flush=True);sys.stdin.read(1)'
+    entered = False
+    with pytest.raises(ValueError, match='maintenance|Maintenance'):
+        with module().held_maintenance([sys.executable, '-c', code, json.dumps(response)], PROOF, timeout=2):
+            entered = True
+    assert not entered
+
+
+def test_host_admission_holds_same_inode_and_blocks_another_process(tmp_path):
+    path = tmp_path / 'maintenance.lock'
+    path.touch(mode=0o600); before = path.stat().st_ino
+    with module().host_admission(path, uid=os.getuid(), gid=os.getgid()):
+        result = subprocess.run([sys.executable, '-c', 'import sys,fcntl;f=open(sys.argv[1],"r");fcntl.flock(f,fcntl.LOCK_SH|fcntl.LOCK_NB)', str(path)], capture_output=True)
+        assert result.returncode != 0
+        assert path.stat().st_ino == before
+    result = subprocess.run([sys.executable, '-c', 'import sys,fcntl;f=open(sys.argv[1],"r");fcntl.flock(f,fcntl.LOCK_SH|fcntl.LOCK_NB)', str(path)], capture_output=True)
+    assert result.returncode == 0
+
+
+def test_host_admission_refuses_another_holder_or_a_symlink(tmp_path):
+    path = tmp_path / 'gate'; path.touch(mode=0o600)
+    with module().host_admission(path, uid=os.getuid(), gid=os.getgid()):
+        with pytest.raises(ValueError, match='held|busy'):
+            with module().host_admission(path, uid=os.getuid(), gid=os.getgid()):
+                pytest.fail('second installer entered')
+    alias = tmp_path / 'alias'; alias.symlink_to(path)
+    with pytest.raises(ValueError, match='symlink|symbolic'):
+        with module().host_admission(alias, uid=os.getuid(), gid=os.getgid()):
+            pytest.fail('linked gate accepted')
