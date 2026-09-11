@@ -2,9 +2,9 @@
 
 This source continuation pairs the playbooks preservation branch (starting at
 `fb536e79ea969de6378e3cd272f75b878b0a03b3`) with controller
-`932fdb4b02aed4d6612e648cdab318b77e8a64ff` (stable-path source
+`92e68c91f63cba64ad304d2e2c3f750320db6c16` (stable-path source
 `4d14f3ccf64ba5ec16b4c5a49081e73794175292`, fixture correction `ed31eee`,
-and validated zone-creation request encoding).
+zone encoding `932fdb4`, and explicit cluster quorum evidence).
 It preserves the existing Hyde integration; it does not update the installed
 shared runtime or change any guest, SDN declaration, or firewall rule.
 
@@ -79,6 +79,27 @@ deselected in that bounded command. Controller separately passed 40 checks
 (11 actual request cases plus 29 existing planner cases). These request tests do
 not create zones on a real Proxmox cluster. Scoped Ruff/formatting and whitespace
 checks passed. No capability marker or installed runtime changed.
+
+## Reviewed quorum follow-up
+
+The controller's reused cluster validator previously accepted multiple online
+nodes without a cluster/quorum record. It now requires exactly one usable
+quorate cluster record whenever more than one node is present, with strict
+quorum and node-count types and matching inventory count. A standalone node
+without a cluster record remains supported.
+
+Successful fixtures now include the authoritative cluster record. An explicit
+paired regression removes it from the fresh creation read while keeping the
+snapshot valid, and requires refusal before any zone POST. That case failed
+before the fix (`/tmp/r42-paired-quorum-red.log`). All 18 affected composite and
+paired checks then passed in 113.57s (`/tmp/r42-paired-quorum-green.log`), including
+the existing stable/no-apply and verified-apply preservation paths. Controller
+validation also covers its existing actual-Ansible snapshot/apply/reconcile
+cases and actual TLS zone requests: all 82 affected checks passed in 272.46s
+(36 planner, 19 actual zone requests, 27 real-Ansible lifecycle cases), log
+`/tmp/r42-quorum-green.log`. Scoped Ruff/formatting, whitespace checks and
+independent review passed. The existing pytest asyncio configuration warning
+remains. No live operation or capability marker changed.
 
 ## Remaining activation limits
 

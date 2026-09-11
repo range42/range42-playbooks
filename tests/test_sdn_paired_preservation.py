@@ -111,3 +111,23 @@ def test_bootstrap_zone_post_matches_the_snapshot_membership(
         if {"source": TARGET, "want": 1} in node["targets"]
     ]
     assert applicable == (["pve2"] if expected_nodes else ["pve1", "pve2"])
+
+
+def test_bootstrap_refuses_zone_post_when_fresh_quorum_evidence_disappears(
+    tmp_path, monkeypatch
+):
+    monkeypatch.syspath_prepend(str(CONTROLLER / "tests"))
+    zone_fixture = importlib.import_module("test_sdn_zone_nodes")
+    from test_sdn_cluster_composites import run_composite
+
+    status = [{"type": "node", "name": node, "online": 1} for node in ["pve1", "pve2"]]
+    with zone_fixture.zone_api(tmp_path, status=status) as (host, ca, calls):
+        result, _ = run_composite(
+            tmp_path,
+            "bootstrap",
+            absent=True,
+            membership=["pve2"],
+            real_zone_api=(host, ca),
+        )
+    assert result.returncode != 0
+    assert calls == []

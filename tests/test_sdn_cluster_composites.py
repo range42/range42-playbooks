@@ -76,7 +76,7 @@ def run_composite(
           new_zones: "{{ sdn_snat_new_zones | default({}) }}"
     - ansible.builtin.command:
         argv: ["{{ ansible_python_interpreter }}", -c, "{{ lookup('file', role_path ~ '/files/snat_cluster.py') }}", plan]
-        stdin: "{{ {'primary_node':'pve1', 'status':[{'type':'node','name':'pve1','online':1},{'type':'node','name':'pve2','online':1}], 'cli_hosts':['ssh1','ssh2'], 'node_hosts':{'pve1':'ssh1','pve2':'ssh2'}, 'zones':fixture_zones, 'desired_sources':network_snat_plan_input.desired_sources, 'new_zones':network_snat_plan_input.new_zones, 'known_subnets':fixture_subnets, 'policy':network_snat_snapshot.reviewed_policy} | to_json }}"
+        stdin: "{{ {'primary_node':'pve1', 'status':[{'type':'node','name':'pve1','online':1},{'type':'node','name':'pve2','online':1},{'type':'cluster','name':'fixture','nodes':2,'quorate':1}], 'cli_hosts':['ssh1','ssh2'], 'node_hosts':{'pve1':'ssh1','pve2':'ssh2'}, 'zones':fixture_zones, 'desired_sources':network_snat_plan_input.desired_sources, 'new_zones':network_snat_plan_input.new_zones, 'known_subnets':fixture_subnets, 'policy':network_snat_snapshot.reviewed_policy} | to_json }}"
       register: planned
       changed_when: false
     - ansible.builtin.set_fact:
