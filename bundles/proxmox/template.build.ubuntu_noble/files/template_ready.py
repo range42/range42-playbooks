@@ -2,14 +2,20 @@
 """Wait for a current owned template's successful upgrade; print fixed proof only."""
 
 import argparse
+import base64
+import hashlib
 import json
 import os
 from pathlib import Path
+import pwd
 import re
 import selectors
+import shlex
 import signal
+import stat
 import subprocess
 import time
+import uuid
 
 
 USER_DEPRECATION = (
@@ -20,6 +26,224 @@ USER_DEPRECATION = (
 
 class ReadinessRejected(RuntimeError):
     """A fixed public reason for a terminal outcome that cannot become ready."""
+
+
+def without_builder_key(data, fingerprint):
+    """Remove exact key blobs, preserving every other line byte-for-byte."""
+    if (
+        len(data) > 65536
+        or b"\0" in data
+        or not re.fullmatch(r"[0-9a-f]{64}", fingerprint)
+    ):
+        raise ValueError("unsupported_authorization")
+    lines = data.splitlines(keepends=True)
+    if len(lines) > 1024:
+        raise ValueError("unsupported_authorization")
+    output, removed = [], 0
+    for line in lines:
+        if not line.strip() or line.lstrip().startswith(b"#"):
+            output.append(line)
+            continue
+        try:
+            fields = shlex.split(line.decode("utf-8"), comments=False)
+            position = next(
+                (
+                    i
+                    for i in range(min(2, len(fields)))
+                    if re.fullmatch(r"(?:ssh-|ecdsa-|sk-)[A-Za-z0-9@._+-]+", fields[i])
+                ),
+                None,
+            )
+            if position is None or len(fields) <= position + 1:
+                raise ValueError("unsupported_authorization")
+            blob = base64.b64decode(fields[position + 1], validate=True)
+            if not blob:
+                raise ValueError("unsupported_authorization")
+        except (UnicodeError, ValueError) as error:
+            raise ValueError("unsupported_authorization") from error
+        if hashlib.sha256(blob).hexdigest() == fingerprint:
+            removed += 1
+        else:
+            output.append(line)
+    return b"".join(output), removed
+
+
+def keyfile_parent(path, root):
+    parts = path.relative_to(root).parts
+    if not parts or any(part in (".", "..") for part in parts):
+        raise ValueError("unsupported_authorization_path")
+    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for part in parts[:-1]:
+            following = os.open(
+                part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd
+            )
+            os.close(fd)
+            fd = following
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def read_keyfile(path, root, uid):
+    directory = keyfile_parent(path, root)
+    try:
+        parent = os.fstat(directory)
+        if parent.st_mode & 0o022 or parent.st_uid not in (0, uid):
+            raise ValueError("unsafe_authorization_directory")
+        parent_identity = (parent.st_dev, parent.st_ino)
+        try:
+            fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)
+        except FileNotFoundError:
+            return None, None, parent_identity
+        with os.fdopen(fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_nlink != 1
+                or info.st_size > 65536
+                or info.st_uid not in (0, uid)
+                or info.st_mode & 0o022
+            ):
+                raise ValueError("unsafe_authorization_file")
+            data = stream.read(65537)
+            if len(data) > 65536:
+                raise ValueError("unsafe_authorization_file")
+            identity = (
+                info.st_dev,
+                info.st_ino,
+                info.st_size,
+                info.st_mtime_ns,
+                info.st_ctime_ns,
+                info.st_uid,
+                info.st_gid,
+                stat.S_IMODE(info.st_mode),
+            )
+            return data, identity, parent_identity
+    finally:
+        os.close(directory)
+
+
+def authorization_plan(username, fingerprint, deadline, root=Path("/")):
+    """Validate both cloud-init credential destinations before cleaning anything."""
+    if (
+        not isinstance(username, str)
+        or not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", username)
+        or not isinstance(fingerprint, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", fingerprint)
+    ):
+        raise ValueError("invalid_builder_authorization")
+    plan = []
+    for account in dict.fromkeys((username, "root")):
+        entry = pwd.getpwnam(account)
+        home = Path(entry.pw_dir)
+        if not home.is_absolute() or ".." in home.parts:
+            raise ValueError("unsupported_authorization_path")
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise ValueError("authorization_verification_unavailable")
+        effective = command(
+            [
+                "/usr/sbin/sshd",
+                "-T",
+                "-C",
+                f"user={account},host=localhost,addr=127.0.0.1",
+            ],
+            min(3, left),
+            32768,
+        )
+        if effective is None or effective[0] != 0:
+            raise ValueError("authorization_verification_unavailable")
+        settings = {}
+        for line in effective[1].decode("utf-8").splitlines():
+            key, _, value = line.partition(" ")
+            if key in ("authorizedkeysfile", "authorizedkeyscommand"):
+                if key in settings:
+                    raise ValueError("unsupported_authorization_layout")
+                settings[key] = value
+        supported = {".ssh/authorized_keys", ".ssh/authorized_keys2"}
+        paths = settings.get("authorizedkeysfile", "").split()
+        if (
+            not paths
+            or not set(paths) <= supported
+            or settings.get("authorizedkeyscommand") != "none"
+        ):
+            raise ValueError("unsupported_authorization_layout")
+        count = 0
+        for name in ("authorized_keys", "authorized_keys2"):
+            path = root / home.relative_to("/") / ".ssh" / name
+            snapshot = read_keyfile(path, root, entry.pw_uid)
+            data = snapshot[0]
+            cleaned, removed = (
+                without_builder_key(data, fingerprint)
+                if data is not None
+                else (None, 0)
+            )
+            count += removed
+            plan.append(
+                {
+                    "path": path,
+                    "root": root,
+                    "uid": entry.pw_uid,
+                    "snapshot": snapshot,
+                    "cleaned": cleaned,
+                    "removed": removed,
+                }
+            )
+        if count == 0:
+            raise ValueError("builder_authorization_not_found")
+    return plan
+
+
+def remove_authorizations(plan, fingerprint):
+    # Validate every snapshot before the first write, including missing files.
+    for item in plan:
+        if read_keyfile(item["path"], item["root"], item["uid"]) != item["snapshot"]:
+            raise ValueError("authorization_changed")
+    for item in plan:
+        if not item["removed"]:
+            continue
+        path, root, snapshot = item["path"], item["root"], item["snapshot"]
+        directory = keyfile_parent(path, root)
+        temporary = ".range42-clean-" + uuid.uuid4().hex
+        try:
+            info = os.fstat(directory)
+            if (info.st_dev, info.st_ino) != snapshot[2] or read_keyfile(
+                path, root, item["uid"]
+            ) != snapshot:
+                raise ValueError("authorization_changed")
+            fd = os.open(
+                temporary,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600,
+                dir_fd=directory,
+            )
+            with os.fdopen(fd, "wb") as stream:
+                os.fchown(stream.fileno(), snapshot[1][5], snapshot[1][6])
+                os.fchmod(stream.fileno(), snapshot[1][7])
+                stream.write(item["cleaned"])
+                stream.flush()
+                os.fsync(stream.fileno())
+            if read_keyfile(path, root, item["uid"]) != snapshot:
+                raise ValueError("authorization_changed")
+            os.replace(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory)
+            os.fsync(directory)
+        finally:
+            try:
+                os.unlink(temporary, dir_fd=directory)
+            except FileNotFoundError:
+                pass
+            os.close(directory)
+    for item in plan:
+        current, _, parent = read_keyfile(item["path"], item["root"], item["uid"])
+        if (
+            current != item["cleaned"]
+            or parent != item["snapshot"][2]
+            or (current is not None and without_builder_key(current, fingerprint)[1])
+        ):
+            raise ValueError("authorization_removal_not_verified")
+    return True
 
 
 def known_warning_count(warnings):
@@ -179,8 +403,14 @@ def observe(expected, deadline):
         return None
 
 
-def clean_identity(expected, deadline, root=Path("/")):
+def clean_identity(
+    expected, deadline, root=Path("/"), *, ssh_user=None, key_sha256=None
+):
     if not observe(expected, deadline):
+        return None
+    try:
+        authorizations = authorization_plan(ssh_user, key_sha256, deadline, root)
+    except (OSError, ValueError, KeyError):
         return None
     left = deadline - time.monotonic()
     if left <= 0:
@@ -199,8 +429,18 @@ def clean_identity(expected, deadline, root=Path("/")):
             or instance.is_symlink()
         ):
             return None
-        return {"version": 1, **expected, "clone_identity": "reset"}
-    except OSError:
+        if time.monotonic() >= deadline or not remove_authorizations(
+            authorizations, key_sha256
+        ):
+            return None
+        return {
+            "version": 1,
+            **expected,
+            "clone_identity": "reset",
+            "builder_authorization": "removed",
+            "builder_key_sha256": key_sha256,
+        }
+    except (OSError, ValueError):
         return None
 
 
@@ -210,18 +450,34 @@ def main():
     parser.add_argument("--plan-sha256", required=True)
     parser.add_argument("--wait-seconds", type=int, default=1800)
     parser.add_argument("--clean", action="store_true")
+    parser.add_argument("--ssh-user")
+    parser.add_argument("--ssh-key-sha256")
     args = parser.parse_args()
     if (
         not re.fullmatch(r"[0-9a-f]{32}", args.build_id)
         or not re.fullmatch(r"[0-9a-f]{64}", args.plan_sha256)
         or not 1 <= args.wait_seconds <= 1800
+        or (
+            args.clean
+            and (
+                not args.ssh_user
+                or not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", args.ssh_user)
+                or not args.ssh_key_sha256
+                or not re.fullmatch(r"[0-9a-f]{64}", args.ssh_key_sha256)
+            )
+        )
     ):
         print('{"template_readiness":"invalid_request"}')
         return 1
     expected = {"build_id": args.build_id, "plan_sha256": args.plan_sha256}
     try:
         if args.clean:
-            proof = clean_identity(expected, time.monotonic() + 30)
+            proof = clean_identity(
+                expected,
+                time.monotonic() + 30,
+                ssh_user=args.ssh_user,
+                key_sha256=args.ssh_key_sha256,
+            )
             print(
                 json.dumps(
                     proof or {"template_cleanup": "not_verified"}, sort_keys=True

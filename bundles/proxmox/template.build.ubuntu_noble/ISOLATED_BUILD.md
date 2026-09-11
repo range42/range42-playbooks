@@ -151,17 +151,51 @@ automatic poweroff. Within the separate existing30-minute preparation budget,
 the guest helper requires the current build/plan marker, error-free terminal
 cloud-init state, a completed package-module semaphore and an empty successful
 `dpkg --audit`. It never exports raw status, audit text, package names, argv,
-environment or logs. Missing, malformed, degraded or incomplete evidence cannot
-permit conversion. Captured subprocess output and time are bounded; child
+environment or logs. Missing, malformed, unsupported degraded or incomplete
+evidence cannot permit conversion. Captured subprocess output and time are bounded; child
 process groups are cleaned safely on timeout.
 
-After success is independently rechecked, the helper runs
-`cloud-init clean --machine-id`, retains any custom-clean output privately and
-verifies reset machine identity and removed instance cache. Only then does the
-controller shut down and convert the VM. This occurs after cloud-init has
+After success is independently rechecked, the helper validates the temporary
+builder authorization in both the selected user's and root's standard
+`.ssh/authorized_keys` / `.ssh/authorized_keys2` files. Cloud-init copies its
+datasource key to both accounts, using a restricted root-login option when
+appropriate. Custom effective key-file paths or an AuthorizedKeysCommand,
+missing expected key, malformed records, unsafe permissions, symlinks, hardlinks
+or changed files are refused before cleanup. The fingerprint identifies the
+decoded key blob; quoted key options and comments cannot turn unrelated entries
+into matching authorizations.
+
+The effective sshd check uses each selected account with a localhost connection
+context. This is intended for the reviewed official image's default SSH layout;
+it does not prove every arbitrary `Match Address` configuration or external
+authorization provider. Such image customization needs separate review before
+using this isolated builder.
+
+In that same guest SSH operation, the helper runs
+`cloud-init clean --machine-id`, retains custom-clean output privately, verifies
+reset machine identity and removed instance cache, then removes only matching
+builder key lines. Unrelated lines, line endings, ownership and permissions are
+preserved. Files are validated together before writes and replaced atomically
+one at a time; this is not a transaction across multiple files. Changed state or
+an interrupted cleanup cannot produce a success proof. The fixed proof adds
+`builder_authorization: removed` and `builder_key_sha256` to the current
+build/plan and clone-identity fields. No subsequent guest login is required.
+
+The controller requires its matching single reviewed Proxmox SSH key before
+guest cleanup. After shutdown it removes that exact configuration authorization,
+regenerates this VM's cloud-init disk and checks the resulting config and user
+seed before conversion. Missing, multiple or different config keys are refused;
+unknown authorization is never deleted to make a check pass. Only then does the
+controller convert the VM. This occurs after cloud-init has
 finished, unlike cleaning inside an earlier boot module. The documented purpose
 is a fresh machine identity/cloud-init run for each clone, not a policy bypass.
 [Cloud-init clean](https://docs.cloud-init.io/en/latest/reference/cli.html#clean)
+
+This cleanup is necessary because [cloud-init merges existing authorized keys](https://github.com/canonical/cloud-init/blob/24.1/cloudinit/ssh_util.py)
+when applying a clone's new key; [its clean command](https://github.com/canonical/cloud-init/blob/24.1/cloudinit/cmd/clean.py)
+does not remove those authorizations. The check concerns the fresh key installed
+by this owned build, not a general audit or removal of an image's unrelated SSH
+authorizations. External guest/config writers still require coordination.
 
 If a proxy was configured, the selected template keeps its own snippet containing
 only `#cloud-config` plus that apt proxy setting. Otherwise its bootstrap snippet
@@ -178,14 +212,31 @@ shared/source-image references or ambiguous unfinished imports are refused
 before another storage write. No automatic adoption or repair of such states is
 claimed. A completed template is also refused rather than re-prepared.
 
+Before reconfiguring a stopped build, an existing Proxmox SSH authorization must
+match the reviewed single key and guest user. An absent key is accepted only for
+an otherwise unconfigured VM with no prior cloud-init user, password, address,
+DNS or vendor-data bindings. A configured or cleaned build whose key is missing
+requires explicit owned recovery; resume cannot replace an unknown key or
+silently restore an authorization that cleanup already removed.
+
 A failure after clone-identity cleanup but before final conversion may need
-explicit owned recovery: cached guest readiness has deliberately been cleared,
-so a blind rerun cannot reuse that success proof. Retain the build/plan record
+explicit owned recovery: cached guest readiness has deliberately been cleared
+and the temporary guest SSH authorization may already be removed, so a blind
+rerun cannot reuse the success proof or assume the old key still logs in. Retain the build/plan record
 and inspect ownership/state before any recovery or cleanup. Remove only this
 owned VM and its known volumes/snippet when cleanup is authorized; preserve the
 original template, image and unrelated networks/guests.
 
 ## Validation and remaining limits
+
+The builder-authorization follow-up passed59 guest helper/file tests, then69
+controller contract/actual local Ansible cases. A stopped-resume overwrite
+reproduced two failures before the additional guard; its focused follow-up
+passed51 cases, including all45 filter contracts, unknown/multiple/missing-key
+refusals, running resume and fresh seed acceptance/refusal. These runs overlap;
+their counts are not a combined unique test total. Scoped Ruff/format and diff
+checks passed. The guest finalizer itself has not yet run on the retained owned
+Ubuntu build; that remains an explicit acceptance requirement.
 
 Focused local validation passed59checks in119.31seconds:27plan/ownership cases,
 20readiness/bounds/cleanup cases and12actual Ansible orchestration cases using
@@ -202,8 +253,9 @@ was created or changed during these tests. This is not real Ubuntu acceptance.
 
 The operator invocation and report remain native Ansible: named validation,
 readiness, clone-cleanup and conversion tasks end with the standard play recap.
-The guest helper returns a fixed proof under `no_log`; no raw cloud-init or
-package report is exposed. The local orchestration tests execute that same
+The guest helper returns a fixed proof under `no_log`; a subsequent native
+Ansible task reports only the fully validated completion/category/count fields.
+No raw cloud-init or package report is exposed. The local orchestration tests execute that same
 Ansible entrypoint with an isolated TLS API and local command fixtures.
 
 Regressions reproduced false adoption/missing markers, active-resume forced

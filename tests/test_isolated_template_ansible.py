@@ -11,6 +11,8 @@ import sys
 import pytest
 import yaml
 
+from test_isolated_template_contract import KEY
+
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = ROOT / "bundles/proxmox/template.build.ubuntu_noble"
 CONTROLLER = Path(
@@ -86,6 +88,12 @@ elif exe=='pvesh' and '/storage/' in a[1]:
  kind=os.environ.get('TEMPLATE_TEST_DISK_TYPE','lvmthin') if '/local-lvm/' in a[1] else 'dir'
  print(json.dumps({{'type':kind,'active':1,'enabled':1,'avail':100000000000,'content':'images,snippets'}}))
 elif exe=='pvesh' and a[1].endswith('/config'):
+ if s.get('ready') and os.environ.get('TEMPLATE_TEST_KEY_FAULT') and (os.environ['TEMPLATE_TEST_KEY_FAULT']!='after_cleanup' or ['guest-clean'] in s['commands']):
+  fault=os.environ['TEMPLATE_TEST_KEY_FAULT']
+  if fault=='missing':s['config'].pop('sshkeys',None)
+  elif fault=='multiple':s['config']['sshkeys']='ssh-ed25519 unknown%0Assh-ed25519 other'
+  elif fault in ('mismatch','after_cleanup'):s['config']['sshkeys']='ssh-ed25519 unknown'
+  p.write_text(json.dumps(s))
  print(json.dumps(s['config']))
 elif exe=='pvesh' and a[1].endswith('/status/current'):
  print(json.dumps({{'status':s.get('status','stopped')}}))
@@ -101,6 +109,12 @@ elif exe=='qm':
    else:s['config'][a[i][2:]]=a[i+1]
  elif a[0]=='start':s['status']='running'
  elif a[0]=='shutdown':s['status']='stopped'
+ elif a[:2]==['cloudinit','update']:
+  assert s.get('status')=='stopped' and not s['config'].get('sshkeys')
+  s['seed_regenerated']=True
+ elif a[:2]==['cloudinit','dump']:
+  assert s.get('seed_regenerated')
+  print('user: alice\\nssh_authorized_keys: '+('[unknown-key]' if os.environ.get('TEMPLATE_TEST_SEED_KEY')=='1' else '[]'))
  elif a[0]=='template':
   assert s.get('ready'), 'Conversion must follow successful guest proof'
   if os.environ.get('TEMPLATE_TEST_CONVERT_FAIL')!='1':s['config']['template']=1
@@ -128,6 +142,9 @@ if len(sys.argv)>1 and 'template_ready.py' in sys.argv[1]:
  proof={{'version':1,'build_id':marker[0].split(':')[1],'plan_sha256':marker[1].split(':')[1]}}
  count=s.get('warning_count',0)
  proof.update({{'clone_identity':'reset'}} if clean else {{'cloud_init':'done' if good else 'running','package_audit':'clean','package_module':'completed','cloud_init_warning_category':'proxmox_scalar_user_deprecation' if count else 'none','cloud_init_warning_count':count}})
+ if clean and '--ssh-key-sha256' in sys.argv:
+  assert sys.argv[sys.argv.index('--ssh-user')+1]=='alice'
+  proof.update(builder_authorization='removed',builder_key_sha256=sys.argv[sys.argv.index('--ssh-key-sha256')+1])
  print(json.dumps(proof))
  sys.exit(0 if good else 1)
 os.execv({sys.executable!r},[{sys.executable!r}]+sys.argv[1:])
@@ -187,7 +204,7 @@ os.execv({sys.executable!r},[{sys.executable!r}]+sys.argv[1:])
             "proxmox_api_token_id": "test",
             "proxmox_api_token_secret": "test",
             "default_admin_vm_ci_user": "alice",
-            "default_admin_vm_ci_ssh_key": "ssh-ed25519 AAAATEST",
+            "default_admin_vm_ci_ssh_key": KEY,
         }
         environment = {
             **os.environ,
@@ -201,6 +218,41 @@ os.execv({sys.executable!r},[{sys.executable!r}]+sys.argv[1:])
             "ANSIBLE_ROLES_PATH": str(CONTROLLER / "roles"),
         }
         yield variables, environment, inventory, calls, state
+
+
+@pytest.mark.parametrize("key_state", ["unknown", "multiple", "missing"])
+def test_stopped_resume_never_overwrites_unreviewed_existing_authorization(
+    tmp_path, key_state
+):
+    with fixture(tmp_path) as (variables, environment, inventory, calls, state):
+        environment["TEMPLATE_TEST_READY"] = "failed"
+        first = invoke(tmp_path, variables, environment, inventory)
+        assert first.returncode != 0
+        current = json.loads(state.read_text())
+        assert current.get("ready") is False
+        current["status"] = "stopped"
+        if key_state == "missing":
+            current["config"].pop("sshkeys")
+        else:
+            current["config"]["sshkeys"] = (
+                KEY + "\n" + KEY if key_state == "multiple" else "unknown-key"
+            )
+        original = current["config"].get("sshkeys")
+        offset = len(current["commands"])
+        state.write_text(json.dumps(current))
+        environment["TEMPLATE_TEST_READY"] = "success"
+        variables["template_build_resume"] = True
+        result = invoke(tmp_path, variables, environment, inventory)
+        observed = json.loads(state.read_text())
+        assert result.returncode != 0, result.stdout[-5000:]
+        assert observed["config"].get("sshkeys") == original
+        assert observed["config"].get("template", 0) == 0
+        commands = observed["commands"][offset:]
+        assert not any(
+            command[:2] == ["API", "PUT"] and command[-1].endswith("/config")
+            for command in commands
+        )
+        assert ["guest-clean"] not in commands
 
 
 def invoke(tmp_path, variables, environment, inventory):
@@ -225,6 +277,52 @@ def invoke(tmp_path, variables, environment, inventory):
     )
 
 
+@pytest.mark.parametrize("fault", ["missing", "multiple", "mismatch", "after_cleanup"])
+def test_guest_cleanup_requires_one_exact_owned_pve_authorization(tmp_path, fault):
+    with fixture(tmp_path) as (variables, environment, inventory, calls, state):
+        environment["TEMPLATE_TEST_KEY_FAULT"] = fault
+        result = invoke(tmp_path, variables, environment, inventory)
+        current = json.loads(state.read_text())
+        assert current.get("ready") is True, result.stdout[-5000:]
+        assert result.returncode != 0
+        assert (["guest-clean"] in current["commands"]) == (fault == "after_cleanup")
+        assert (
+            ["qm", "shutdown", "62000", "--timeout", "120"] in current["commands"]
+        ) == (fault == "after_cleanup")
+        assert ["qm", "set", "62000", "--delete", "sshkeys"] not in current["commands"]
+        if fault == "after_cleanup":
+            assert current["config"]["sshkeys"] == "ssh-ed25519 unknown"
+        assert current["config"].get("template", 0) == 0
+
+
+@pytest.mark.parametrize("seed_key", [False, True])
+def test_conversion_requires_controller_key_removal_and_clean_regenerated_seed(
+    tmp_path, seed_key
+):
+    with fixture(tmp_path) as (variables, environment, inventory, calls, state):
+        environment["TEMPLATE_TEST_SEED_KEY"] = "1" if seed_key else "0"
+        result = invoke(tmp_path, variables, environment, inventory)
+        current = json.loads(state.read_text())
+        assert (result.returncode == 0) == (not seed_key), result.stdout[-5000:]
+        commands = current["commands"]
+        remove = ["qm", "set", "62000", "--delete", "sshkeys"]
+        regenerate = ["qm", "cloudinit", "update", "62000"]
+        dump = ["qm", "cloudinit", "dump", "62000", "user"]
+        assert (
+            commands.index(["guest-clean"])
+            < commands.index(remove)
+            < commands.index(regenerate)
+            < commands.index(dump)
+        )
+        assert "sshkeys" not in current["config"]
+        assert '"builder_authorization": "removed"' in result.stdout
+        assert '"builder_key_sha256":' in result.stdout
+        assert KEY not in result.stdout
+        assert current["config"].get("template", 0) == (0 if seed_key else 1)
+        if not seed_key:
+            assert commands.index(dump) < commands.index(["qm", "template", "62000"])
+
+
 @pytest.mark.parametrize(
     "problem",
     [
@@ -233,6 +331,7 @@ def invoke(tmp_path, variables, environment, inventory):
         "wrong_hash",
         "wrong_node",
         "wrong_guest",
+        "malformed_user",
         "legacy_disk",
         "wrong_cluster",
         "unsupported_storage",
@@ -254,6 +353,8 @@ def test_invalid_ownership_or_input_cannot_touch_any_template(tmp_path, problem)
             variables["template_build"]["node"] = "different"
         elif problem == "wrong_guest":
             variables["template_build"]["address"] = "10.42.70.31/24"
+        elif problem == "malformed_user":
+            variables["default_admin_vm_ci_user"] = "alice; unexpected-command"
         elif problem == "legacy_disk":
             variables["vm_disk_size"] = "10"
         elif problem == "wrong_cluster":

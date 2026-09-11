@@ -313,6 +313,8 @@ def test_clone_cleanup_requires_success_then_resets_identity_without_exporting_o
     instance = tmp_path / "var/lib/cloud/instance"
     instance.mkdir(parents=True)
     monkeypatch.setattr(helper, "observe", lambda *_args: {"verified": True})
+    monkeypatch.setattr(helper, "authorization_plan", lambda *_args: ["validated"])
+    monkeypatch.setattr(helper, "remove_authorizations", lambda *_args: True)
 
     def clean(argv, *_args):
         calls.append(argv)
@@ -321,10 +323,14 @@ def test_clone_cleanup_requires_success_then_resets_identity_without_exporting_o
         return 0, b"private output from a custom clean hook"
 
     monkeypatch.setattr(helper, "command", clean)
-    assert helper.clean_identity(EXPECTED, time.monotonic() + 30, tmp_path) == {
+    assert helper.clean_identity(
+        EXPECTED, time.monotonic() + 30, tmp_path, ssh_user="alice", key_sha256="c" * 64
+    ) == {
         "version": 1,
         **EXPECTED,
         "clone_identity": "reset",
+        "builder_authorization": "removed",
+        "builder_key_sha256": "c" * 64,
     }
     assert calls == [["cloud-init", "clean", "--machine-id"]]
 
@@ -338,5 +344,6 @@ def test_cleanup_failure_or_unverified_upgrade_cannot_allow_conversion(
     assert helper.clean_identity(EXPECTED, time.monotonic() + 30, tmp_path) is None
     assert not calls
     monkeypatch.setattr(helper, "observe", lambda *_args: {"verified": True})
+    monkeypatch.setattr(helper, "authorization_plan", lambda *_args: ["validated"])
     monkeypatch.setattr(helper, "command", lambda *_args: (1, b"private failure"))
     assert helper.clean_identity(EXPECTED, time.monotonic() + 30, tmp_path) is None

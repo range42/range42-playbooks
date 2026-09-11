@@ -1,10 +1,15 @@
 """Ownership and success proofs for an isolated Noble template build."""
 
 import copy
+import base64
+import hashlib
 import importlib.util
 from pathlib import Path
 
 import pytest
+
+KEY_BLOB = b"\x00\x00\x00\x0bssh-ed25519\x00\x00\x00\x20" + bytes(range(32))
+KEY = "ssh-ed25519 " + base64.b64encode(KEY_BLOB).decode() + " reviewed-builder"
 
 ROOT = Path(__file__).resolve().parents[1]
 FILTER = (
@@ -44,6 +49,98 @@ def plan():
         "dns": ["1.1.1.1"],
         "guest_host": "r42-template-test",
     }
+
+
+def test_builder_key_requires_one_exact_reviewed_config_record(contract):
+    from urllib.parse import quote
+
+    expected = hashlib.sha256(KEY_BLOB).hexdigest()
+    assert contract.template_key_sha256(KEY) == expected
+    assert (
+        contract.template_builder_key(
+            {"ciuser": "alice", "sshkeys": quote(KEY, safe="")}, KEY, "alice"
+        )
+        == expected
+    )
+    for config in (
+        {"ciuser": "alice"},
+        {"ciuser": "bob", "sshkeys": KEY},
+        {"ciuser": "alice", "sshkeys": KEY + "\n" + KEY},
+        {"ciuser": "alice", "sshkeys": KEY.replace("reviewed-builder", "changed")},
+        {"ciuser": "alice", "sshkeys": quote(quote(KEY, safe=""), safe="")},
+    ):
+        with pytest.raises(ValueError):
+            contract.template_builder_key(config, KEY, "alice")
+
+
+@pytest.mark.parametrize("user", ["alice; true", "alice --unexpected", "", None])
+def test_builder_key_binding_requires_a_literal_guest_user(contract, user):
+    with pytest.raises(ValueError):
+        contract.template_builder_key({"ciuser": user, "sshkeys": KEY}, KEY, user)
+
+
+def test_key_provisioning_preserves_existing_keys_and_only_allows_unconfigured_absence(
+    contract,
+):
+    assert contract.template_key_provisionable({}, KEY, "alice")
+    assert contract.template_key_provisionable(
+        {"ciuser": "alice", "sshkeys": KEY}, KEY, "alice"
+    )
+    for config in (
+        {"ciuser": "alice"},
+        {"ipconfig0": "ip=10.42.70.30/24"},
+        {"cicustom": "vendor=local:snippets/owned.yaml"},
+        {"nameserver": "1.1.1.1"},
+        {"ciuser": "alice", "sshkeys": "unknown-key"},
+        {"ciuser": "alice", "sshkeys": KEY + "\n" + KEY},
+    ):
+        with pytest.raises(ValueError):
+            contract.template_key_provisionable(config, KEY, "alice")
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "ssh-ed25519 AAAATEST",
+        "ssh-ed25519 %%%",
+        KEY + "\n" + KEY,
+        'command="x" ' + KEY,
+        "",
+        None,
+    ],
+)
+def test_builder_key_rejects_unreadable_multiple_or_option_bearing_records(
+    contract, key
+):
+    with pytest.raises(ValueError):
+        contract.template_key_sha256(key)
+
+
+def test_final_cloudinit_seed_has_no_builder_or_unreviewed_authorization(contract):
+    clean = "#cloud-config\nuser: alice\nssh_authorized_keys: []\n"
+    assert contract.template_seed_clean({"ciuser": "alice"}, clean, KEY)
+    for config, seed in (
+        ({"sshkeys": KEY}, clean),
+        ({}, "ssh_authorized_keys:\n  - " + KEY + "\n"),
+        ({}, "users:\n  - name: alice\n    ssh_authorized_keys: [unknown-key]\n"),
+        ({}, "ssh_import_id: [gh:unknown]\n"),
+        ({}, "message: " + KEY + "\n"),
+        ({}, "[]\n"),
+    ):
+        with pytest.raises(ValueError):
+            contract.template_seed_clean(config, seed, KEY)
+
+
+@pytest.mark.parametrize(
+    "seed",
+    [
+        "ssh_authorized_keys: [" + KEY + "]\nssh_authorized_keys: []\n",
+        "'" + KEY + "': ignored\n",
+    ],
+)
+def test_seed_cannot_hide_authorization_in_duplicate_or_mapping_keys(contract, seed):
+    with pytest.raises(ValueError):
+        contract.template_seed_clean({}, seed, KEY)
 
 
 def test_plan_is_literal_and_binds_every_mutable_field(contract, plan):
