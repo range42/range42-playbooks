@@ -1,0 +1,98 @@
+---
+- name: VM BOOTSTRAP - Validate disk growth request
+  ansible.builtin.assert:
+    that:
+      - global_vm_disk.disk | default('') is match('^(scsi|virtio|sata)[0-9]+$')
+      - global_vm_disk.size_gb is defined
+      - global_vm_disk.size_gb is integer
+      - global_vm_disk.size_gb > 0
+    fail_msg: Disk growth requires a VM disk slot and a positive integer size_gb
+
+- name: VM BOOTSTRAP - Refresh disk configuration and digest
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ global_vm_id | int }}/config"
+    method: GET
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+    validate_certs: "{{ proxmox_api_validate_certs | default(true) }}"
+    ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+  register: vm_bootstrap_disk_config
+  no_log: true
+
+- name: VM BOOTSTRAP - Verify writable VM disk ownership
+  ansible.builtin.assert:
+    that:
+      - vm_bootstrap_disk_config.json.data.template | default(0) | int == 0
+      - vm_bootstrap_disk_config.json.data.digest | default('') | length > 0
+      - global_vm_disk.disk in vm_bootstrap_disk_config.json.data
+      - >-
+        r42_deployment_id is not defined or
+        ('range42-deployment:' ~ r42_deployment_id) in
+        (vm_bootstrap_disk_config.json.data.description | default('')).splitlines()
+      - "'media=cdrom' not in vm_bootstrap_disk_config.json.data[global_vm_disk.disk]"
+      - >-
+        vm_bootstrap_disk_config.json.data[global_vm_disk.disk] is match(
+        '^[^:]+:(' ~ (global_vm_id | string) ~ '/)?vm-' ~ (global_vm_id | string) ~ '-disk-[0-9]+([.,]|$)')
+    fail_msg: Refusing to resize a template, ISO, cloud-init image, missing disk or another VM's volume
+
+- name: VM BOOTSTRAP - Parse existing disk size
+  ansible.builtin.set_fact:
+    vm_bootstrap_disk_size_parts: >-
+      {{ vm_bootstrap_disk_config.json.data[global_vm_disk.disk] |
+         regex_findall('(?:^|,)size=([0-9]+(?:\.[0-9]+)?)([KMGT]?)(?:,|$)') | first | default([]) }}
+
+- name: VM BOOTSTRAP - Require a known disk size
+  ansible.builtin.assert:
+    that:
+      - vm_bootstrap_disk_size_parts | length == 2
+    fail_msg: Cannot determine current disk size; refusing an unsafe resize
+
+- name: VM BOOTSTRAP - Calculate existing disk capacity
+  ansible.builtin.set_fact:
+    vm_bootstrap_disk_bytes: >-
+      {{ (vm_bootstrap_disk_size_parts[0] | float) *
+         {'': 1, 'K': 1024, 'M': 1048576, 'G': 1073741824, 'T': 1099511627776}[vm_bootstrap_disk_size_parts[1]] }}
+
+- name: VM BOOTSTRAP - Reject disk shrink
+  ansible.builtin.assert:
+    that:
+      - global_vm_disk.size_gb * 1073741824 >= vm_bootstrap_disk_bytes | float
+    fail_msg: Disk shrinking is not supported; choose the current size or a larger size
+
+- name: VM BOOTSTRAP - Resize the cloned VM disk using the latest digest
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ global_vm_id | int }}/resize"
+    method: PUT
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+    validate_certs: "{{ proxmox_api_validate_certs | default(true) }}"
+    ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+    body_format: form-urlencoded
+    body:
+      disk: "{{ global_vm_disk.disk }}"
+      size: "{{ global_vm_disk.size_gb }}G"
+      digest: "{{ vm_bootstrap_disk_config.json.data.digest }}"
+  register: vm_bootstrap_resize
+  when: global_vm_disk.size_gb * 1073741824 > vm_bootstrap_disk_bytes | float
+  no_log: true
+
+- name: VM BOOTSTRAP - Wait for the disk resize task
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/tasks/{{ vm_bootstrap_resize.json.data | urlencode }}/status"
+    method: GET
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+    validate_certs: "{{ proxmox_api_validate_certs | default(true) }}"
+    ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+  register: vm_bootstrap_resize_status
+  until: vm_bootstrap_resize_status.json.data.status == 'stopped'
+  failed_when: >-
+    vm_bootstrap_resize_status.json.data.status == 'stopped' and
+    vm_bootstrap_resize_status.json.data.exitstatus | default('ERROR') != 'OK'
+  retries: 60
+  delay: 2
+  when: >-
+    vm_bootstrap_resize is not skipped and
+    vm_bootstrap_resize.json.data is string and
+    vm_bootstrap_resize.json.data | length > 0
+  no_log: true

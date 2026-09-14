@@ -1,0 +1,84 @@
+---
+- name: VM BOOTSTRAP - Validate optional resource mappings
+  ansible.builtin.assert:
+    that:
+      - global_vm_extra_config | default({}) is mapping
+      - global_vm_disk | default({}) is mapping
+    fail_msg: Additional VM configuration and disk settings must be mappings
+
+- name: VM BOOTSTRAP - Validate permitted resource fields
+  ansible.builtin.assert:
+    that:
+      - >-
+        global_vm_extra_config | default({}) | list |
+        reject('match', '^(cores|memory|net([1-9]|[12][0-9]|3[01])|ipconfig([1-9]|[12][0-9]|3[01]))$') | list | length == 0
+      - global_vm_disk | default({}) | list | difference(['disk', 'size_gb']) | length == 0
+      - global_vm_id | int != global_template_vm_id | int
+    fail_msg: Only cores, memory, secondary NICs and a VM disk growth request are supported
+
+- name: VM BOOTSTRAP - Validate CPU and memory values
+  ansible.builtin.assert:
+    that:
+      - item.value is integer
+      - item.value > 0
+    fail_msg: CPU and memory settings must be positive integers
+  loop: "{{ global_vm_extra_config | default({}) | dict2items | selectattr('key', 'in', ['cores', 'memory']) | list }}"
+
+- name: VM BOOTSTRAP - Validate secondary NIC values
+  ansible.builtin.assert:
+    that:
+      - item.value is string
+      - item.value | length > 0
+      - item.value | length <= 1024
+    fail_msg: Secondary NIC settings must be nonempty configuration strings
+  loop: "{{ global_vm_extra_config | default({}) | dict2items | rejectattr('key', 'in', ['cores', 'memory']) | list }}"
+
+- name: VM BOOTSTRAP - Read current configuration and digest
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ global_vm_id | int }}/config"
+    method: GET
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+    validate_certs: "{{ proxmox_api_validate_certs | default(true) }}"
+    ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+  register: vm_bootstrap_current_config
+  no_log: true
+
+- name: VM BOOTSTRAP - Validate mutable VM and concurrency digest
+  ansible.builtin.assert:
+    that:
+      - vm_bootstrap_current_config.json.data.template | default(0) | int == 0
+      - vm_bootstrap_current_config.json.data.digest | default('') | length > 0
+      - >-
+        r42_deployment_id is not defined or
+        ('range42-deployment:' ~ r42_deployment_id) in
+        (vm_bootstrap_current_config.json.data.description | default('')).splitlines()
+    fail_msg: The target must be an owned VM with a current configuration digest
+
+- name: VM BOOTSTRAP - Apply optional CPU, memory and secondary NIC settings
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ global_vm_id | int }}/config"
+    method: PUT
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+    validate_certs: "{{ proxmox_api_validate_certs | default(true) }}"
+    ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+    body_format: form-urlencoded
+    body: "{{ global_vm_extra_config | combine({'digest': vm_bootstrap_current_config.json.data.digest}) }}"
+  when: global_vm_extra_config | default({}) | length > 0
+  no_log: true
+
+- name: VM BOOTSTRAP - Grow only the selected VM disk
+  ansible.builtin.include_tasks: grow_disk.yml
+  when: global_vm_disk | default({}) | length > 0
+
+- name: VM BOOTSTRAP - Regenerate cloud-init after secondary NIC changes
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ global_vm_id | int }}/cloudinit"
+    method: PUT
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+    validate_certs: "{{ proxmox_api_validate_certs | default(true) }}"
+    ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+  when: global_vm_extra_config | default({}) | list | select('match', '^(net|ipconfig)') | list | length > 0
+  no_log: true

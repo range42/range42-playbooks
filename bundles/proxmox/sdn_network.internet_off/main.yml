@@ -1,244 +1,94 @@
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#
-# sdn_network.internet_off - cut the outbound internet of one subnet
-#
-# A COMPOSITE, in three steps, because one is never enough :
-#     1. update_sdn_subnet   snat=off        the DECLARATION changes
-#     2. apply_sdn                              the change reaches the running config
-#     3. reconcile snat rules                   the LIVE iptables rules are brought in line,
-#                                                ON EVERY DECLARED SUBNET of the host
-#
-# Step 3 is not belt-and-braces. `ifreload -a`, which the apply runs, REPLAYS the post-up hook of
-# EVERY active subnet, so each one gains a duplicate rule per apply - not only ours. And the reverse
-# is worse : snat=0 removes the post-down hook before it ever runs, orphaning the live rule. Neither
-# is visible through the API.
-#
-# HENCE THE SCOPE OF STEP 3, and it is deliberately asymmetric. The subnet we were asked for is
-# brought to the TARGET STATE. Every other subnet of the host is cleaned of the SURPLUS THIS APPLY
-# JUST CREATED and nothing more : its last rule is kept whatever its declaration says. So this
-# gesture changes the outgoing nat of ONE subnet, the one it was aimed at, and leaves every other
-# scope exactly as it found it. Reconciling nothing but the target is what grows a neighbour to 152
-# rules (measured 2026-08-25) ; reconciling neighbours against their declaration would close a
-# subnet on behalf of a scenario that did not ask for it. A neighbour declared closed that still
-# carries a live rule is NAMED in the output and left alone.
-#
-# This is the direction that ORPHANS a rule if step 3 is skipped : setting snat=0 removes the
-# post-down hook from the configuration BEFORE that hook ever runs, so the live MASQUERADE rule
-# survives its own declaration. The declaration says no NAT and the kernel still NATs.
-#
-# ONE INPUT ONLY : THE SUBNET ID
-# The vnet, the CIDR, the node and the current snat are READ from list_sdn_subnets. That read is also
-# what proves the subnet exists before anything is written - so a wrong id fails with a clear message
-# instead of a bare API 500. Same contract as the tested devkit
-# proxmox__inc.sdn_outgoing_nat.to.jsons.sh, whose sequence this mirrors.
-#
-# THE PUT DOES NOT REPASS THE GATEWAY, ON PURPOSE
-# Proxmox preserves the fields a PUT does not carry. Sending the gateway back would be a second way to
-# get it wrong. Verified on real hardware in SDN plan T-08.
-#
-# Required : BUNDLE_SDN_SUBNET_ID. From the vault : proxmox_node.
-#
-# NOTE FOR THE NEXT EDITOR : internet_on, internet_off and internet_toggle carry the SAME sequence and
-# differ by ONE line, the `_sdn_want` fact below. They were produced from a single template so they
-# could not drift. A change to the sequence must be made in all three.
-#
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-- name: "sdn_network.internet_off"
+# Scoped internet state: change the selected subnet, preserve every other rule.
+# Snapshot before writes; apply only for declaration drift or a missing enabled
+# rule. Target cleanup still runs when no global apply is needed.
+- name: sdn_network.internet_off
   hosts: proxmox
   gather_facts: false
   vars_files:
     - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
-
   tasks:
-
-    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
-    - name: SDN INTERNET OFF - WHAT WAS ASKED
-      ansible.builtin.debug:
-        msg:
-          - "proxmox node : {{ proxmox_node }}"
-          - "subnet id    : {{ BUNDLE_SDN_SUBNET_ID }}"
-          - "mode         : off"
-
-    #### #### ####
-    #
-    # 1. READ. Everything but the id comes from here, and the read doubles as the existence proof.
-    #
-    - name: SDN INTERNET OFF - READ THE LIVE SUBNETS
-      include_role:
+    - name: SDN INTERNET - READ SUBNETS
+      ansible.builtin.include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
-        proxmox_vm_action: "network_list_sdn_subnets"
+        proxmox_vm_action: network_list_sdn_subnets
 
-    - name: SDN INTERNET OFF - PICK THE ONE WE WERE ASKED FOR
+    - name: SDN INTERNET - SELECT THE REQUESTED SUBNET
       ansible.builtin.set_fact:
-        _sdn_entry: >-
-          {%- set m = (network_list_sdn_subnets | default([]))
-                       | selectattr('subnet', 'equalto', BUNDLE_SDN_SUBNET_ID) | list -%}
-          {{ m[0] if (m | length) > 0 else {} }}
+        _sdn_matches: "{{ network_list_sdn_subnets | selectattr('subnet', 'equalto', BUNDLE_SDN_SUBNET_ID) | list }}"
 
-    ## Two refusals rather than one. An absent subnet would make the update fail with a bare API 500,
-    ## and a subnet with no cidr would make step 3 reconcile against nothing - which either does
-    ## nothing or, with a looser match, everything. Neither is a state to write through.
-    - name: SDN INTERNET OFF - REFUSE TO GUESS
+    - name: SDN INTERNET - REQUIRE ONE CONCRETE TARGET
       ansible.builtin.assert:
         that:
-          - (_sdn_entry | length) > 0
-          - ((_sdn_entry.subnet_cidr | default('')) | length) > 0
-        fail_msg: >-
-          subnet "{{ BUNDLE_SDN_SUBNET_ID }}" was not found on the cluster, or carries no cidr.
-          List the real ids with the sdn_network.list.sdn_subnets bundle, or the devkit
-          proxmox_network.datacenter.list_sdn_subnets.to.jsons.sh | jq -r .subnet
-        success_msg: >-
-          subnet found - vnet={{ _sdn_entry.subnet_vnet }} cidr={{ _sdn_entry.subnet_cidr }}
-          snat_now={{ _sdn_entry.subnet_snat | default(0) }}
+          - _sdn_matches | length == 1
+          - (_sdn_matches[0].subnet_cidr | default('')) | length > 0
+        fail_msg: The requested subnet must exist exactly once and have a concrete CIDR.
 
-    ## THE ONE LINE THAT DIFFERS BETWEEN internet_on / internet_off / internet_toggle.
-    - name: SDN INTERNET OFF - THE TARGET STATE
+    - name: SDN INTERNET - RETAIN THE TARGET
+      ansible.builtin.set_fact:
+        _sdn_entry: "{{ _sdn_matches[0] }}"
+
+    - name: SDN INTERNET - SELECT THE DESIRED STATE
       ansible.builtin.set_fact:
         _sdn_want: "{{ 0 }}"
 
-    #### #### ####
-    #
-    # 2. WRITE the declaration, then make it live. The gateway and the dhcp fields are NOT resent :
-    #    Proxmox keeps what a PUT does not carry.
-    #
-    - name: SDN INTERNET OFF - SET THE DECLARATION
-      include_role:
+    - name: SDN INTERNET - READ AUTHORITATIVE VNET ZONE BINDINGS
+      ansible.builtin.include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
-        proxmox_vm_action: "network_update_sdn_subnet"
+        proxmox_vm_action: network_list_sdn_vnets
+
+    - name: SDN INTERNET - SELECT THE TARGET VNET BINDING
+      ansible.builtin.set_fact:
+        _sdn_vnet_matches: "{{ network_list_sdn_vnets | selectattr('vnet', 'equalto', _sdn_entry.subnet_vnet) | list }}"
+
+    - name: SDN INTERNET - REQUIRE ONE AUTHORITATIVE TARGET ZONE
+      ansible.builtin.assert:
+        that:
+          - _sdn_vnet_matches | length == 1
+          - (_sdn_vnet_matches[0].vnet_zone | default('')) is string
+          - (_sdn_vnet_matches[0].vnet_zone | default('')) | length > 0
+        fail_msg: The target VNet must have one authoritative zone binding before any network write.
+
+    - name: SDN INTERNET - SNAPSHOT BEFORE ANY WRITE
+      ansible.builtin.include_tasks: ../_shared/sdn_cluster_snapshot.yml
+      vars:
+        _sdn_snapshot_new_zones: {}
+        _sdn_snapshot_desired_sources: "{{ [{'source': _sdn_entry.subnet_cidr, 'vnet': _sdn_entry.subnet_vnet, 'zone': _sdn_vnet_matches[0].vnet_zone, 'want': _sdn_want | int}] }}"
+
+    - name: SDN INTERNET - IDENTIFY NECESSARY WRITES AND APPLY
+      ansible.builtin.set_fact:
+        _sdn_write: "{{ (_sdn_entry.subnet_snat | default(0) | int) != (_sdn_want | int) }}"
+        _sdn_apply: "{{ ((_sdn_entry.subnet_snat | default(0) | int) != (_sdn_want | int)) or ((_sdn_want | int) == 1 and (_sdn_enabled_missing | length) > 0) }}"
+
+    - name: SDN INTERNET - UPDATE ONLY THE TARGET DECLARATION
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: network_update_sdn_subnet
         sdn_vnet: "{{ _sdn_entry.subnet_vnet }}"
         sdn_subnet_id: "{{ BUNDLE_SDN_SUBNET_ID }}"
         sdn_subnet_snat: "{{ _sdn_want | int }}"
+      when: _sdn_write | bool
 
-    ## THE LIVE COUNTS, READ BEFORE THE APPLY. The apply is an ifreload : it replays the post-up hook
-    ## of EVERY active subnet, so it appends one rule to each of them. Knowing what each subnet
-    ## carried BEFORE is what lets this gesture put them back exactly as it found them.
-    - name: SDN INTERNET OFF - THE LIVE RULES BEFORE THE APPLY
-      include_role:
+    - name: SDN INTERNET - APPLY ONLY WHEN NECESSARY
+      ansible.builtin.include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
-        proxmox_vm_action: "network_list_snat_rules"
+        proxmox_vm_action: network_apply_sdn
+      when: _sdn_apply | bool
 
-    ## one record per (source, out iface, target), so a source appearing twice carries rules of
-    ## two different shapes - a legacy MASQUERADE beside an SDN SNAT, or something added by hand
-    - name: SDN INTERNET OFF - THE SOURCE NETWORKS THAT CARRY A LIVE RULE
-      ansible.builtin.set_fact:
-        _sdn_srcs: >-
-          {{ (network_list_snat_rules | default([])) | map(attribute='snat_source') | unique | list }}
-        _sdn_before: {}
-        _sdn_mixed: []
-
-    ## Plain accumulation, on purpose : one pass per source network, summing its records. A source
-    ## with more than one record carries rules of two different SHAPES, and the deletion primitive
-    ## matches by source network only - so it could remove the wrong one. Those are listed apart.
-    - name: SDN INTERNET OFF - THE COUNT OF EACH, AND THE ONES OF MIXED SHAPE
-      ansible.builtin.set_fact:
-        _sdn_before: >-
-          {{ _sdn_before | combine({ _sdn_src_it:
-               ( (network_list_snat_rules | default([]))
-                 | selectattr('snat_source', 'equalto', _sdn_src_it)
-                 | map(attribute='snat_count') | sum ) }) }}
-        _sdn_mixed: >-
-          {{ _sdn_mixed + ( [ _sdn_src_it ]
-               if ( ( (network_list_snat_rules | default([]))
-                      | selectattr('snat_source', 'equalto', _sdn_src_it) | list | length ) > 1 )
-               else [] ) }}
-      loop: "{{ _sdn_srcs }}"
-      loop_control:
-        loop_var: _sdn_src_it
-        label: "{{ _sdn_src_it }}"
-
-    - name: SDN INTERNET OFF - APPLY
-      include_role:
+    - name: SDN INTERNET - RECONCILE ONLY THE SELECTED SOURCE
+      ansible.builtin.include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
-        proxmox_vm_action: "network_apply_sdn"
+        proxmox_vm_action: network_reconcile_snat_sources
 
-    #### #### ####
-    #
-    # 3. RECONCILE the live rules, on EVERY DECLARED SUBNET and not only the one we were asked for.
-    #    Runs unconditionally - see the header for why skipping it is how a rule outlives its
-    #    declaration, and why the scope has to be the whole host.
-    #
-    ## The subnets come from the read of step 1, so nothing is guessed and nothing is read twice.
-    ## A subnet with no cidr is skipped : there is nothing to match a live rule against.
-    - name: SDN INTERNET OFF - THE SUBNETS TO RECONCILE
-      ansible.builtin.set_fact:
-        _sdn_recon: >-
-          {{ (network_list_sdn_subnets | default([]))
-             | selectattr('subnet_cidr', 'defined')
-             | rejectattr('subnet_cidr', 'equalto', '')
-             | list }}
-
-    - name: SDN INTERNET OFF - THE ONES DECLARED CLOSED OUTSIDE THIS SCOPE
-      ansible.builtin.set_fact:
-        _sdn_closed_others: >-
-          {{ _sdn_recon
-             | rejectattr('subnet', 'equalto', BUNDLE_SDN_SUBNET_ID)
-             | selectattr('subnet_snat', 'defined')
-             | rejectattr('subnet_snat', 'truthy')
-             | map(attribute='subnet_cidr') | list }}
-
-    - name: SDN INTERNET OFF - WHAT WILL BE RECONCILED
-      ansible.builtin.debug:
-        msg:
-          - "asked for : {{ BUNDLE_SDN_SUBNET_ID }} -> want {{ _sdn_want | int }}   (the only subnet whose state changes)"
-          - "the apply above replays the post-up hook of EVERY active subnet, so it just added one rule"
-          - "to each of them. Those {{ (_sdn_recon | length) - 1 }} subnets are cleaned of that SURPLUS ONLY : their last rule"
-          - "is kept whatever their declaration says, so no other scope changes behaviour."
-          - "cleaned of surplus : {{ _sdn_recon
-                | rejectattr('subnet', 'equalto', BUNDLE_SDN_SUBNET_ID)
-                | map(attribute='subnet_cidr') | list | join(', ') }}"
-
-    ## Named, not touched. A subnet declared closed that still carries a live rule is a gap between
-    ## the declaration and the wire, born of a post-down hook removed before it ever ran. Closing it
-    ## belongs to a gesture aimed AT IT : this one would be reaching outside its scope.
-    ## Named, not touched. The deletion primitive matches by SOURCE NETWORK, so on a subnet whose
-    ## live rules have two different shapes it could remove the wrong one. Left alone, and said.
-    - name: SDN INTERNET OFF - MIXED SHAPES, LEFT UNTOUCHED
-      ansible.builtin.debug:
-        msg:
-          - "these source networks carry live rules of MORE THAN ONE shape :"
-          - "  {{ _sdn_mixed | join(', ') }}"
-          - "a legacy MASQUERADE beside an SDN SNAT, or a rule added by hand. This gesture does not"
-          - "touch them : it deletes by source network, so it could remove the wrong rule. Read them"
-          - "with proxmox_network.datacenter.list_snat_rules.to.jsons.sh"
-      when: (_sdn_mixed | length) > 0 and (BUNDLE_SDN_SUBNET_ID not in (_sdn_mixed | default([])))
-
-    - name: SDN INTERNET OFF - DECLARED CLOSED, OUT OF THIS SCOPE
-      ansible.builtin.debug:
-        msg:
-          - "these subnets are declared closed and are not the target of this gesture :"
-          - "  {{ _sdn_closed_others | join(', ') }}"
-          - "if one of them still carries a live rule, this gesture does NOT remove it - that would"
-          - "change a scope it was not asked about. Aim a gesture at that subnet to close it for real."
-      when: (_sdn_closed_others | length) > 0
-
-    - name: SDN INTERNET OFF - RECONCILE THE LIVE SNAT RULES
-      include_role:
+    - name: SDN INTERNET - PRESERVE NON-TARGET RULE IDENTITIES AND ORDER
+      ansible.builtin.include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
-        proxmox_vm_action: "network_delete_extra_snat_rules"
-        sdn_subnet_cidr: "{{ _sdn_it.subnet_cidr }}"
-        ## The subnet we were asked for takes the TARGET STATE. Every other one is put back to the
-        ## COUNT IT CARRIED BEFORE this gesture, which is the only number that leaves it exactly as
-        ## it was found : the primitive only deletes, so it removes the one rule our own apply just
-        ## appended, and nothing else. Not its declaration - that would close a subnet on behalf of
-        ## a scenario that did not ask for it, measured on this bench the 2026-09-10 : a gesture on
-        ## net143 took net150 from three rules down to one.
-        sdn_snat_want: >-
-          {{ (_sdn_want | int)
-             if (_sdn_it.subnet == BUNDLE_SDN_SUBNET_ID)
-             else (_sdn_before[_sdn_it.subnet_cidr] | default(0) | int) }}
-      ## a source of mixed shapes is LEFT ALONE : the primitive deletes by source network, so on such
-      ## a subnet it could remove the wrong rule. The target is always reconciled, mixed or not - it
-      ## is what this gesture was aimed at.
-      when: (_sdn_it.subnet == BUNDLE_SDN_SUBNET_ID) or (_sdn_it.subnet_cidr not in _sdn_mixed)
-      loop: "{{ _sdn_recon }}"
-      ## loop_var is EXPLICIT, and it is not style : the called action loops on `item` in turn, and
-      ## a rebound `item` would resolve these vars against the INNER element (measured 2026-09-03).
-      loop_control:
-        loop_var: _sdn_it
-        label: "{{ _sdn_it.subnet }} ({{ _sdn_it.subnet_cidr }})"
+        proxmox_vm_action: network_restore_snat_snapshot
+        sdn_snat_excluded_sources: "{{ [_sdn_entry.subnet_cidr] }}"
+        sdn_snat_allow_new_rules: false
+      when: _sdn_apply | bool

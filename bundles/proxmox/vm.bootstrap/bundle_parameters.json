@@ -124,6 +124,22 @@
       "default_where": "bundle-inline",
       "default": "24",
       "description": "Cloud-init netmask (CIDR bits)."
+    },
+    {
+      "name": "global_vm_extra_config",
+      "type": "dict",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": {},
+      "description": "Optional cores, memory and secondary net1..net31/ipconfig1..ipconfig31 settings applied after cloud-init, before startup."
+    },
+    {
+      "name": "global_vm_disk",
+      "type": "dict",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": {},
+      "description": "Optional cloned VM disk growth request with disk slot and positive integer size_gb; shrinking and source images are rejected."
     }
   ]
 }

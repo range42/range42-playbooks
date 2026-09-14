@@ -54,6 +54,10 @@
       changed_when: false
       delegate_to: "{{ inventory_hostname }}-cli"
 
+    - name: VM BOOTSTRAP - Verify deployment ownership after cloning
+      ansible.builtin.include_tasks: ownership.yml
+      when: r42_deployment_id is defined
+
     - name: VM BOOTSTRAP - "{{ global_vm_name }}" - SET PROXMOX TAG
       include_role:
         name: range42-ansible_roles-proxmox_controller
@@ -76,6 +80,10 @@
         vm_ci_netmask: "{{ global_vm_ci_netmask | default('24') }}"
         vm_ci_ip_gw: "{{ global_vm_ci_ip_gw }}"
         vm_net_virtio_bridge: "{{ global_vm_net_virtio_bridge }}"
+
+    - name: VM BOOTSTRAP - Apply optional VM configuration
+      ansible.builtin.include_tasks: configure.yml
+      when: global_vm_extra_config | default({}) | length > 0 or global_vm_disk | default({}) | length > 0
 
     - name: VM BOOTSTRAP - "{{ global_vm_name }}" - START VM
       include_role:

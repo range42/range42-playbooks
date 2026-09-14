@@ -1,0 +1,26 @@
+---
+- name: VM BOOTSTRAP - Validate deployment ownership inputs
+  ansible.builtin.assert:
+    that:
+      - r42_deployment_id is string
+      - r42_deployment_id | length > 0
+      - global_vm_id | int != global_template_vm_id | int
+    fail_msg: Invalid deployment ownership or source/destination VM identifiers
+
+- name: VM BOOTSTRAP - Read ownership before any VM mutation
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ global_vm_id | int }}/config"
+    method: GET
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+    validate_certs: "{{ proxmox_api_validate_certs | default(true) }}"
+    ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+  register: vm_bootstrap_owned_config
+  no_log: true
+
+- name: VM BOOTSTRAP - Require exact deployment ownership
+  ansible.builtin.assert:
+    that:
+      - vm_bootstrap_owned_config.json.data.template | default(0) | int == 0
+      - "('range42-deployment:' ~ r42_deployment_id) in (vm_bootstrap_owned_config.json.data.description | default('')).splitlines()"
+    fail_msg: VM ownership does not match this deployment; refusing tag, cloud-init and startup changes

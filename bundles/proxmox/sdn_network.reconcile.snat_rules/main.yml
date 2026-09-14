@@ -1,35 +1,126 @@
-####
-# sdn_network.reconcile.snat_rules - bring the LIVE SNAT rules of one subnet down to a declared count.
-# The only action that reads the RUNNING state. Why it exists, and the counter trick : see README.md.
-#
-# TWO THINGS NOT TO BREAK HERE :
-#   the role delegates iptables to groups['proxmox_cli'] | first, and it must. The host carrying the API
-#   address is connection: local, so an undelegated shell would prune the DEPLOYER's nat table.
-#
-#   BUNDLE_SDN_SNAT_WANT is REQUIRED though the role defaults it to 1 - reconciling to a target nobody
-#   stated is how a wanted rule gets deleted, and `| default(omit)` would break that role default anyway.
-####
-
-- name: "sdn_network.reconcile.snat_rules"
+---
+# 0/1 reconciles a currently declared source; 99 only inspects every node.
+- name: sdn_network.reconcile.snat_rules
   hosts: proxmox
   gather_facts: false
   vars_files:
     - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
-
   tasks:
+    - name: SDN RECONCILE - VALIDATE THE EXPLICIT REQUEST
+      ansible.builtin.assert:
+        that:
+          - BUNDLE_SDN_SNAT_WANT is integer
+          - BUNDLE_SDN_SNAT_WANT in [0, 1, 99]
+          - BUNDLE_SDN_SUBNET_CIDR is string
+          - BUNDLE_SDN_SUBNET_CIDR | length <= 18
+        fail_msg: Supply a canonical IPv4 CIDR and integer WANT 0/1 for reconciliation or 99 for read-only counts.
 
-    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
-    - name: SDN RECONCILE SNAT - WHAT THIS RUN WILL DO
-      ansible.builtin.debug:
-        msg:
-          - "proxmox node : {{ proxmox_node }}"
-          - "subnet cidr  : {{ BUNDLE_SDN_SUBNET_CIDR }}"
-          - "rules wanted : {{ BUNDLE_SDN_SNAT_WANT }}"
+    - name: SDN RECONCILE - CLEAR PRIOR INTENT AND COUNT RESULTS
+      ansible.builtin.set_fact:
+        _sdn_reconcile_intent: []
+        network_count_snat_source: null
+        network_delete_extra_snat_rules: null
 
-    - name: SDN RECONCILE SNAT - DELETE THE LIVE RULES IN EXCESS
-      include_role:
+    - name: SDN RECONCILE - RESOLVE AUTHORITATIVE MUTATION SCOPE
+      when: BUNDLE_SDN_SNAT_WANT != 99
+      block:
+        - name: SDN RECONCILE - READ DECLARED SUBNETS
+          ansible.builtin.include_role:
+            name: range42-ansible_roles-proxmox_controller
+          vars:
+            proxmox_vm_action: network_list_sdn_subnets
+
+        - name: SDN RECONCILE - SELECT THE EXACT SOURCE
+          ansible.builtin.set_fact:
+            _sdn_source_matches: "{{ network_list_sdn_subnets | selectattr('subnet_cidr', 'defined') | selectattr('subnet_cidr', 'equalto', BUNDLE_SDN_SUBNET_CIDR) | list }}"
+
+        - name: SDN RECONCILE - REQUIRE ONE MATCHING DECLARED STATE
+          ansible.builtin.assert:
+            that:
+              - _sdn_source_matches | length == 1
+              - (_sdn_source_matches[0].subnet_vnet | default('')) is string
+              - (_sdn_source_matches[0].subnet_vnet | default('')) | length > 0
+              - (_sdn_source_matches[0].subnet_snat | default(0)) is integer or (_sdn_source_matches[0].subnet_snat | default(0)) is boolean
+              - (_sdn_source_matches[0].subnet_snat | default(0)) == BUNDLE_SDN_SNAT_WANT
+            fail_msg: Reconciliation requires one authoritative source whose declared SNAT already matches WANT; orphaned or ambiguous sources need a retained pre-delete scope.
+
+        - name: SDN RECONCILE - READ AUTHORITATIVE VNET BINDINGS
+          ansible.builtin.include_role:
+            name: range42-ansible_roles-proxmox_controller
+          vars:
+            proxmox_vm_action: network_list_sdn_vnets
+
+        - name: SDN RECONCILE - SELECT THE SOURCE VNET
+          ansible.builtin.set_fact:
+            _sdn_source_vnets: "{{ network_list_sdn_vnets | selectattr('vnet', 'equalto', _sdn_source_matches[0].subnet_vnet) | list }}"
+
+        - name: SDN RECONCILE - REQUIRE ONE AUTHORITATIVE ZONE
+          ansible.builtin.assert:
+            that:
+              - _sdn_source_vnets | length == 1
+              - (_sdn_source_vnets[0].vnet_zone | default('')) is string
+              - (_sdn_source_vnets[0].vnet_zone | default('')) | length > 0
+            fail_msg: The selected source must have one authoritative VNet-to-zone binding before any rule write.
+
+        - name: SDN RECONCILE - RETAIN THE EXACT MUTATION INTENT
+          ansible.builtin.set_fact:
+            _sdn_reconcile_intent: "{{ [{'source': BUNDLE_SDN_SUBNET_CIDR, 'vnet': _sdn_source_matches[0].subnet_vnet, 'zone': _sdn_source_vnets[0].vnet_zone, 'want': BUNDLE_SDN_SNAT_WANT}] }}"
+
+    - name: SDN RECONCILE - VERIFY FRESH COMPLETE CLUSTER SNAPSHOTS
+      ansible.builtin.include_tasks: ../_shared/sdn_cluster_snapshot.yml
+      vars:
+        _sdn_snapshot_desired_sources: "{{ _sdn_reconcile_intent }}"
+        _sdn_snapshot_new_zones: {}
+
+    - name: SDN RECONCILE - REFUSE MISSING ENABLED RULES BEFORE ANY CLEANUP
+      ansible.builtin.assert:
+        that: _sdn_enabled_missing | length == 0
+        fail_msg: An enabled source lacks a rule on an applicable node; reconcile cannot create it. Use the reviewed internet/bootstrap flow.
+      when: BUNDLE_SDN_SNAT_WANT == 1
+
+    - name: SDN RECONCILE - APPLY THE VERIFIED STABLE SOURCE INTENT
+      ansible.builtin.include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
-        proxmox_vm_action: "network_delete_extra_snat_rules"
+        proxmox_vm_action: network_reconcile_snat_sources
+      when: BUNDLE_SDN_SNAT_WANT != 99
+
+    - name: SDN RECONCILE - INSPECT SOURCE COUNTS WITHOUT RULE ACTIONS
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: network_count_snat_source
         sdn_subnet_cidr: "{{ BUNDLE_SDN_SUBNET_CIDR }}"
-        sdn_snat_want: "{{ BUNDLE_SDN_SNAT_WANT }}"
+      when: BUNDLE_SDN_SNAT_WANT == 99
+
+    - name: SDN RECONCILE - REQUIRE CURRENT READ-ONLY COUNT OUTPUT
+      ansible.builtin.assert:
+        that:
+          - network_count_snat_source is mapping
+          - network_count_snat_source.read_only is sameas true
+          - network_count_snat_source.source == BUNDLE_SDN_SUBNET_CIDR
+          - (network_count_snat_source.nodes | map(attribute='node') | sort) == (network_snat_plan.nodes | map(attribute='node') | sort)
+        fail_msg: The matching controller must return counts for the current source on every covered node.
+      when: BUNDLE_SDN_SNAT_WANT == 99
+
+    - name: SDN RECONCILE - RETAIN THE LAB COUNTER COMPATIBILITY RESULT
+      ansible.builtin.set_fact:
+        network_delete_extra_snat_rules:
+          action: network_delete_extra_snat_rules
+          source: proxmox
+          proxmox_node: "{{ network_count_snat_source.primary_node }}"
+          subnet_cidr: "{{ BUNDLE_SDN_SUBNET_CIDR }}"
+          snat_want: 99
+          snat_before: "{{ (network_count_snat_source.nodes | selectattr('node', 'equalto', network_count_snat_source.primary_node) | first).count }}"
+          snat_after: "{{ (network_count_snat_source.nodes | selectattr('node', 'equalto', network_count_snat_source.primary_node) | first).count }}"
+          snat_deleted: 0
+          snat_rule_matching: exact_source_nat_target_v1
+          read_only: true
+          observation: per_node_snapshot
+          nodes: "{{ network_count_snat_source.nodes }}"
+      when: BUNDLE_SDN_SNAT_WANT == 99
+
+    - name: SDN RECONCILE - REPORT EVERY NODE'S READ-ONLY COUNTS
+      ansible.builtin.debug:
+        var: network_count_snat_source
+      when: BUNDLE_SDN_SNAT_WANT == 99

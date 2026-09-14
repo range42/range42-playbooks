@@ -1,61 +1,69 @@
 # sdn_network.reconcile.snat_rules
 
-Bring the **live** iptables SNAT rules of one subnet down to a declared count. One action.
+Reconcile a declared subnet's live SNAT rules on every applicable zone member,
+or inspect its counts on every cluster node without changing rules.
 
-This is the only bundle of the family that looks at the **running** state rather than the declared one.
-It reads the nat table on the hypervisor and deletes only what is in excess.
+## Inputs
 
-## Contract
+| Variable | Required value |
+|---|---|
+| `BUNDLE_SDN_SUBNET_CIDR` | Canonical IPv4 CIDR, for example `192.168.199.0/24`; this is not the Proxmox subnet ID. |
+| `BUNDLE_SDN_SNAT_WANT` | Integer `0`, `1`, or `99`, with the distinct behavior below. Strings, booleans and other numbers are refused. |
+| `proxmox_node` | API coordinator node, read from the scenario vault. It does not limit cluster coverage. |
 
-| var | required | role var | shape |
-|---|---|---|---|
-| `BUNDLE_SDN_SUBNET_CIDR` | yes | `sdn_subnet_cidr` | the CIDR **with** its mask, as iptables renders it - `192.168.199.0/24` |
-| `BUNDLE_SDN_SNAT_WANT` | yes | `sdn_snat_want` | how many rules must remain - `1` for snat=1, `0` for snat=0 |
-| `proxmox_node` | yes | - | read from the scenario vault, not passed at the call-site |
+The matching controller requires a complete online cluster inventory, quorum
+proof for multiple nodes, readable per-node task history, and a unique SSH
+mapping from each node into `proxmox_cli`. A legitimate standalone node can use
+the controller's single-node mapping default. Only supported simple zones and
+legacy iptables are accepted. All-node snapshot coverage is required even when
+the selected zone has fewer members.
 
-`BUNDLE_SDN_SUBNET_CIDR` is the **CIDR**, not the Proxmox subnet id. The role asserts the shape and
-refuses anything else, because that value is what anchors the rule match.
+## Reconcile: WANT 0 or 1
 
-## Why this bundle exists
+The CIDR must occur exactly once in the current declared subnets, with one
+unambiguous VNet-to-zone binding. Its declared SNAT value must already equal
+WANT. The bundle takes fresh cluster snapshots and uses the controller's stable
+reconciliation guard to recheck membership, permissions and intervening
+networking reloads before cleanup. Stale or incomplete proof cannot authorize
+rule writes.
 
-A subnet declared `snat=1` gets its MASQUERADE rule from the subnet's post-up hook. Two ways that goes
-wrong, neither visible through the Proxmox API:
+On applicable zone members, `0` removes exact-source SNAT/MASQUERADE rules and
+`1` retains one. Unrelated rules, same-source non-NAT rules and all rules on
+nonmember nodes are preserved. If any applicable node lacks an enabled rule,
+the bundle refuses before cleanup: it cannot create the missing rule. Use the
+reviewed bootstrap or internet-on flow to reconcile that declaration and apply
+it. This bundle performs no declaration updates or SDN apply itself.
 
-- **`ifreload -a` replays the hook**, and every apply runs it. Duplicates accumulate, one per apply per
-  NAT-enabled bridge - `936 -> 960` over 2 applies with 12 bridges, measured.
-- **Flipping `snat` to 0 removes the post-DOWN hook before it ever runs**, so the existing rule is
-  orphaned: the declaration says no NAT, the kernel still NATs.
+A deleted or ambiguous source cannot authorize cleanup. In particular, old
+debug calls requesting WANT0 after deleting a subnet/VNet/zone now refuse;
+orphan cleanup requires a retained, reviewed pre-delete source and node scope.
+The separate `delete.all` entrypoint still needs that integration.
 
-This action closes both. It is why `sdn_network.internet_on` / `.internet_off` run it after their
-write, and why `sdn_network.bootstrap` runs it unconditionally at the end of every pass.
+## Inspect: WANT 99
 
-## It runs on the hypervisor, not on the deployer
+`99` is an explicit read-only mode, not a deletion threshold. It takes a fresh
+complete cluster snapshot with no desired mutation sources and reports the
+selected CIDR on every node, including when its SDN declaration has already
+been deleted. No rule reconciliation, declaration write or apply is invoked,
+regardless of the number of matching rules.
 
-The role delegates the iptables work to `groups['proxmox_cli'] | first` and **asserts the group is not
-empty**. That delegation is load-bearing: the host carrying the API address is
-`ansible_connection: local`, so an undelegated shell would count the deployer's own nat table and
-cheerfully report zero. **The inventory must define a `proxmox_cli` group.**
+`network_count_snat_source` contains `source`, `primary_node`, `read_only: true`
+and `nodes`, whose entries contain `node`, `count` and `captured_at`. These are
+separate node observations, not an atomic cluster-wide measurement. Raw rules
+are not included in the public count result.
 
-## Two uses, one of them non-obvious
+For existing debug callers, `network_delete_extra_snat_rules.snat_before` and
+`snat_after` remain aliases for the explicitly identified primary node's count.
+That compatibility fact also includes the complete `nodes` list,
+`snat_deleted: 0`, and `read_only: true`; it is not a cluster aggregate. Previous
+metadata advertised arbitrary high WANT values as counters, but the matched
+legacy helper accepts only 0/1. Only this explicit 99 path provides the
+supported read-only counter contract.
 
-**Converge**: `want: 1` on a subnet declared `snat=1` leaves exactly one rule, however many had piled
-up. `want: 0` on a subnet declared `snat=0` leaves none, including an orphan the API cannot see.
+## Operational limits
 
-**Count without touching**: a `want` HIGHER than the live count makes this a pure counter - nothing is
-in excess, so nothing is deleted, and the output still reports `snat_before`. That is how the SDN chain
-test counts rules without perturbing them.
-
-## Why `BUNDLE_SDN_SNAT_WANT` is required
-
-The role defaults it to `1`, but this bundle demands it. Two reasons: reconciling to a target the caller
-never stated is how a rule someone meant to keep gets deleted; and declaring it optional would mean
-bridging it with `| default(omit)`, which **breaks** the role's default instead of preserving it - an
-`include_role` var set to `default(omit)` arrives DEFINED-but-empty, so `| default(1)` never fires and
-`want` lands empty. Verified against ansible-core.
-
-## Related
-
-- `sdn_network.internet_on` / `.internet_off` / `.internet_toggle` - flip the declaration AND
-  reconcile, which is what you usually want.
-- `sdn_network.apply` - the thing whose side effect makes this bundle necessary.
-- the devkit equivalent: `proxmox_network.sdn_subnet_cidr.delete_extra_snat_rules.to.jsons.sh`
+Use matching immutable playbooks and controller dependencies, including the
+shared snapshot helper. External configuration writers must remain coordinated;
+there is no cluster-wide transaction or atomic rollback. Counts are observations
+at their per-node timestamps. This source checkpoint has local paired Ansible
+coverage; matched live acceptance and the remaining deletion flow are pending.

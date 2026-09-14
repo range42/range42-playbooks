@@ -1,0 +1,446 @@
+---
+# Explicit single-template preparation. This entrypoint never imports the fixed
+# family/proxy updater and never changes the normal vm.bootstrap 500s deadline.
+- name: Build one explicitly owned Noble template
+  hosts: proxmox
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    _template: "{{ template_build | range42_template_plan }}"
+    _template_cli: "{{ inventory_hostname }}-cli"
+  tasks:
+    - name: ISOLATED TEMPLATE - Require controller support before any write
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+        tasks_from: include/vm/vm_create_capabilities.yaml
+
+    - name: ISOLATED TEMPLATE - Validate literal scope and guest inventory binding
+      ansible.builtin.assert:
+        that:
+          - ansible_play_hosts_all | length == 1
+          - groups.get('proxmox_cli', []) == [_template_cli]
+          - _template.node == proxmox_node
+          - proxmox_api_validate_certs | default(false) | bool
+          - vm_disk_size is not defined
+          - vm_iso_file is not defined
+          - _template.guest_host in hostvars
+          - hostvars[_template.guest_host].ansible_host | default('') == _template.ip
+          - default_admin_vm_ci_user is match('^[a-z_][a-z0-9_-]{0,31}$')
+          - default_admin_vm_ci_ssh_key is string
+          - default_admin_vm_ci_ssh_key | length > 16
+        fail_msg: "Use one matching Proxmox API/SSH node and an explicit guest address with SSH credentials."
+
+    - name: ISOLATED TEMPLATE - Bind one reviewed builder public key before writes
+      ansible.builtin.set_fact:
+        _template_builder_key_sha256: "{{ default_admin_vm_ci_ssh_key | range42_template_key_sha256 }}"
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Confirm the SSH node identity
+      ansible.builtin.command:
+        argv: [hostname, -s]
+      delegate_to: "{{ _template_cli }}"
+      register: _template_hostname
+      changed_when: false
+
+    - name: ISOLATED TEMPLATE - Reject a mismatched SSH node
+      ansible.builtin.assert:
+        that: _template_hostname.stdout | trim == _template.node
+
+    - name: ISOLATED TEMPLATE - Read the authenticated API cluster identity
+      ansible.builtin.uri:
+        url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ _template.node }}/certificates/info"
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+        validate_certs: true
+        ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+        timeout: 10
+      register: _template_api_ca
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Read the SSH cluster identity
+      ansible.builtin.command:
+        argv: [pvesh, get, "/nodes/{{ _template.node }}/certificates/info", --output-format, json]
+      delegate_to: "{{ _template_cli }}"
+      register: _template_ssh_ca
+      changed_when: false
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Require the API and SSH to target the same cluster
+      ansible.builtin.assert:
+        that: (_template_api_ca.json.data | range42_template_cluster_identity) == ((_template_ssh_ca.stdout | from_json) | range42_template_cluster_identity)
+        fail_msg: "The API and SSH cluster identities are missing, ambiguous or different."
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Verify the immutable source image
+      ansible.builtin.stat:
+        path: "{{ _template.image_path }}"
+        checksum_algorithm: sha256
+        get_checksum: true
+        follow: false
+      delegate_to: "{{ _template_cli }}"
+      register: _template_image
+
+    - name: ISOLATED TEMPLATE - Require the reviewed image checksum
+      ansible.builtin.assert:
+        that:
+          - _template_image.stat.isreg | default(false)
+          - not (_template_image.stat.islnk | default(false))
+          - _template_image.stat.checksum | default('') == _template.image_sha256
+        fail_msg: "The selected image is missing, nonregular or differs from the reviewed checksum."
+
+    - name: ISOLATED TEMPLATE - Read global VM occupancy through privileged node SSH
+      ansible.builtin.command:
+        argv: [pvesh, get, /cluster/resources, --type, vm, --output-format, json]
+      delegate_to: "{{ _template_cli }}"
+      register: _template_cluster
+      changed_when: false
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Select only the explicit VM ID
+      ansible.builtin.set_fact:
+        _template_existing: "{{ (_template_cluster.stdout | from_json) | selectattr('vmid', 'eq', _template.vm_id) | list }}"
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Require a fresh ID or an explicit owned resume
+      ansible.builtin.assert:
+        that:
+          - _template_existing | length == 0 or (template_build_resume | default(false) | bool)
+          - _template_existing | length <= 1
+          - _template_existing | length == 0 or (_template_existing[0].type == 'qemu' and _template_existing[0].node == _template.node)
+        fail_msg: "The selected VM ID is occupied or belongs to another node; no template was changed."
+
+    - name: ISOLATED TEMPLATE - Read selected storage capacity
+      ansible.builtin.command:
+        argv: [pvesh, get, "/nodes/{{ _template.node }}/storage/{{ item }}/status", --output-format, json]
+      delegate_to: "{{ _template_cli }}"
+      loop: "{{ [_template.disk_storage, _template.snippet_storage] }}"
+      register: _template_storage
+      changed_when: false
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Require active disk and snippet storage with known capacity
+      ansible.builtin.assert:
+        that: (_template_storage.results[0].stdout | from_json) | range42_template_storage((_template_storage.results[1].stdout | from_json), _template)
+        fail_msg: "The selected storage is unavailable, has incompatible content types or insufficient measured space."
+
+    - name: ISOLATED TEMPLATE - Verify an existing resumed VM before any write
+      ansible.builtin.include_tasks: isolated_owned.yml
+      when: _template_existing | length > 0
+
+    - name: ISOLATED TEMPLATE - Read selected storage volumes for this VM ID
+      ansible.builtin.command:
+        argv: [pvesh, get, "/nodes/{{ _template.node }}/storage/{{ _template.disk_storage }}/content", --content, images, --vmid, "{{ _template.vm_id }}", --output-format, json]
+      delegate_to: "{{ _template_cli }}"
+      register: _template_storage_volumes
+      changed_when: false
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Refuse orphan or ambiguous storage volumes before writes
+      ansible.builtin.assert:
+        that: >-
+          (_template_storage_volumes.stdout | from_json) | range42_template_volumes((_template_config.stdout | from_json) if _template_existing | length > 0 else {}, _template)
+        fail_msg: "The selected VM ID has unreferenced, duplicate or unexpected storage volumes."
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Resolve the build-specific snippet path
+      ansible.builtin.command:
+        argv: [pvesm, path, "{{ _template.snippet_storage }}:snippets/{{ _template.snippet_name }}"]
+      delegate_to: "{{ _template_cli }}"
+      register: _template_snippet
+      changed_when: false
+
+    - name: ISOLATED TEMPLATE - Inspect the build-specific snippet
+      ansible.builtin.stat:
+        path: "{{ _template_snippet.stdout | trim }}"
+        follow: false
+      delegate_to: "{{ _template_cli }}"
+      register: _template_snippet_stat
+
+    - name: ISOLATED TEMPLATE - Refuse unowned or nonregular snippet replacement
+      ansible.builtin.assert:
+        that:
+          - not _template_snippet_stat.stat.exists or _template_existing | length > 0
+          - not _template_snippet_stat.stat.exists or (_template_snippet_stat.stat.isreg | default(false) and not _template_snippet_stat.stat.islnk | default(false))
+        fail_msg: "The selected build snippet already exists without matching VM ownership."
+
+    - name: ISOLATED TEMPLATE - Create the fresh VM with its atomic ownership marker
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+        apply:
+          no_log: true
+      vars:
+        proxmox_vm_action: vm_create
+        vm_create_require_absent: true
+        vm_id: "{{ _template.vm_id }}"
+        vm_name: "{{ _template.name }}"
+        vm_description: "{{ _template.description }}"
+        vm_cpu: host
+        vm_cores: "{{ _template.cores }}"
+        vm_sockets: 1
+        vm_memory: "{{ _template.memory_mb }}"
+        vm_net_virtio_bridge: "{{ _template.bridge }}"
+      when: _template_existing | length == 0
+
+    - name: ISOLATED TEMPLATE - Verify the exact asynchronous create task
+      ansible.builtin.assert:
+        that:
+          - >-
+            vm_create.raw_data.data | default('') is match('^UPID:' ~ (_template.node | regex_escape) ~ ':[0-9A-Fa-f]+:[0-9A-Fa-f]+:[0-9A-Fa-f]+:qmcreate:' ~ (_template.vm_id | string) ~ ':[A-Za-z0-9_.@!+-]+:$')
+        fail_msg: "The create response did not identify the selected VM's worker."
+      when: _template_existing | length == 0
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Wait for the exact create worker to finish
+      ansible.builtin.uri:
+        url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ _template.node }}/tasks/{{ vm_create.raw_data.data | urlencode }}/status"
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+        validate_certs: true
+        ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+        timeout: 10
+      register: _template_create_task
+      until: _template_create_task.json.data.status | default('') == 'stopped'
+      retries: 60
+      delay: 5
+      when: _template_existing | length == 0
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Require successful creation before disk preparation
+      ansible.builtin.assert:
+        that: _template_create_task.json.data.exitstatus | default('') == 'OK'
+        fail_msg: "The selected VM's create worker did not succeed; no disk was imported."
+      when: _template_existing | length == 0
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Guard disk preparation
+      ansible.builtin.include_tasks: isolated_owned.yml
+
+    - name: ISOLATED TEMPLATE - Preserve a running owned build during resume
+      ansible.builtin.set_fact:
+        _template_resume_running: "{{ (_template_vm_status.stdout | from_json).status == 'running' }}"
+
+    - name: ISOLATED TEMPLATE - Refuse shared disks or ambiguous partial imports
+      ansible.builtin.assert:
+        that: (_template_config.stdout | from_json) | range42_template_partial_config(_template)
+        fail_msg: "The owned VM has an unexpected disk or unfinished import; no storage was changed."
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Require unchanged configuration for a running resume
+      ansible.builtin.assert:
+        that: (_template_config.stdout | from_json) | range42_template_configured(_template)
+      when: _template_resume_running
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Import the verified image using the existing disk role
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+        apply:
+          delegate_to: "{{ _template_cli }}"
+          no_log: true
+      vars:
+        proxmox_vm_action: template_cloudinit_import_disk
+        vm_id: "{{ _template.vm_id }}"
+        cloudinit_image_full_path: "{{ _template.image_path }}"
+        proxmox_dest_vm_storage_name: "{{ _template.disk_storage }}"
+        vm_disk_size: "{{ _template.disk_gb }}G"
+      when: not _template_resume_running
+
+    - name: ISOLATED TEMPLATE - Guard cloud-init configuration
+      ansible.builtin.include_tasks: isolated_owned.yml
+
+    - name: ISOLATED TEMPLATE - Refuse to overwrite unreviewed cloud-init authorization
+      ansible.builtin.assert:
+        that: >-
+          (_template_config.stdout | from_json) | range42_template_key_provisionable(default_admin_vm_ci_ssh_key,
+          default_admin_vm_ci_user)
+      when: not _template_resume_running
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Configure only the selected owned guest
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+        apply:
+          no_log: true
+      vars:
+        proxmox_vm_action: cloudinit_set_variables
+        vm_id: "{{ _template.vm_id }}"
+        vm_ci_user: "{{ default_admin_vm_ci_user }}"
+        vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key }}"
+        vm_ci_dns_ips: "{{ _template.dns | join(' ') }}"
+        vm_ci_ip: "{{ _template.ip }}"
+        vm_ci_netmask: "{{ _template.prefix }}"
+        vm_ci_ip_gw: "{{ _template.gateway }}"
+      when: not _template_resume_running
+
+    - name: ISOLATED TEMPLATE - Render the private per-build bootstrap snippet
+      ansible.builtin.template:
+        src: isolated-bootstrap.yaml.j2
+        dest: "{{ _template_snippet.stdout | trim }}"
+        mode: '0600'
+      delegate_to: "{{ _template_cli }}"
+      no_log: true
+      when: not _template_resume_running
+
+    - name: ISOLATED TEMPLATE - Guard bootstrap attachment and start
+      ansible.builtin.include_tasks: isolated_owned.yml
+
+    - name: ISOLATED TEMPLATE - Attach only this build's cloud-init vendor data
+      ansible.builtin.command:
+        argv: [qm, set, "{{ _template.vm_id }}", --cicustom, "vendor={{ _template.snippet_storage }}:snippets/{{ _template.snippet_name }}"]
+      delegate_to: "{{ _template_cli }}"
+      when: not _template_resume_running
+
+    - name: ISOLATED TEMPLATE - Start the owned build VM
+      ansible.builtin.command:
+        argv: [qm, start, "{{ _template.vm_id }}"]
+      delegate_to: "{{ _template_cli }}"
+      when: not _template_resume_running
+
+    - name: ISOLATED TEMPLATE - Wait for the explicit guest SSH channel
+      ansible.builtin.wait_for_connection:
+        timeout: 120
+        connect_timeout: 5
+      delegate_to: "{{ _template.guest_host }}"
+
+    - name: ISOLATED TEMPLATE - Require guest upgrade success
+      ansible.builtin.include_tasks: isolated_ready.yml
+
+    - name: ISOLATED TEMPLATE - Guard controlled shutdown
+      ansible.builtin.include_tasks: isolated_owned.yml
+
+    - name: ISOLATED TEMPLATE - Require the exact configured builder authorization before guest cleanup
+      ansible.builtin.assert:
+        that: >-
+          ((_template_config.stdout | from_json) | range42_template_builder_key(default_admin_vm_ci_ssh_key,
+          default_admin_vm_ci_user)) == _template_builder_key_sha256
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Prepare unique clone identity after successful upgrade
+      ansible.builtin.script:
+        cmd: "files/template_ready.py --build-id {{ _template.build_id }} --plan-sha256 {{ _template.plan_sha256 }} --clean --ssh-user {{ default_admin_vm_ci_user | quote }} --ssh-key-sha256 {{ _template_builder_key_sha256 }}"
+        executable: "{{ hostvars[_template.guest_host].ansible_python_interpreter | default('/usr/bin/python3') }}"
+      become: true
+      delegate_to: "{{ _template.guest_host }}"
+      register: _template_clean
+      timeout: 45
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Require verified clone identity reset
+      ansible.builtin.assert:
+        that: >-
+          (_template_clean.stdout | from_json) == {'version': 1, 'build_id': _template.build_id,
+          'plan_sha256': _template.plan_sha256, 'clone_identity': 'reset',
+          'builder_authorization': 'removed', 'builder_key_sha256': _template_builder_key_sha256}
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Report verified guest identity and builder authorization removal
+      ansible.builtin.debug:
+        msg: "{{ _template_clean.stdout | from_json }}"
+
+    - name: ISOLATED TEMPLATE - Shut down only after successful guest verification
+      ansible.builtin.command:
+        argv: [qm, shutdown, "{{ _template.vm_id }}", --timeout, '120']
+      delegate_to: "{{ _template_cli }}"
+
+    - name: ISOLATED TEMPLATE - Confirm stopped state after verified completion
+      ansible.builtin.command:
+        argv: [qm, status, "{{ _template.vm_id }}"]
+      delegate_to: "{{ _template_cli }}"
+      register: _template_stopped
+      until: "_template_stopped.stdout | trim == 'status: stopped'"
+      retries: 24
+      delay: 5
+      changed_when: false
+
+    - name: ISOLATED TEMPLATE - Guard final template conversion
+      ansible.builtin.include_tasks: isolated_owned.yml
+
+    - name: ISOLATED TEMPLATE - Require the same builder key after controlled shutdown
+      ansible.builtin.assert:
+        that:
+          - (_template_vm_status.stdout | from_json).status == 'stopped'
+          - >-
+            ((_template_config.stdout | from_json) | range42_template_builder_key(default_admin_vm_ci_ssh_key,
+            default_admin_vm_ci_user)) == _template_builder_key_sha256
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Remove only the reviewed builder key from the stopped VM
+      ansible.builtin.command:
+        argv: [qm, set, "{{ _template.vm_id }}", --delete, sshkeys]
+      delegate_to: "{{ _template_cli }}"
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Detach only this build's bootstrap vendor data
+      ansible.builtin.command:
+        argv: [qm, set, "{{ _template.vm_id }}", --delete, cicustom]
+      delegate_to: "{{ _template_cli }}"
+      when: not _template.apt_proxy_url
+
+    - name: ISOLATED TEMPLATE - Retain only the selected proxy settings for clones
+      ansible.builtin.copy:
+        dest: "{{ _template_snippet.stdout | trim }}"
+        content: "#cloud-config\n{{ {'apt': {'http_proxy': _template.apt_proxy_url}} | to_nice_yaml }}"
+        mode: '0600'
+      delegate_to: "{{ _template_cli }}"
+      when: _template.apt_proxy_url | length > 0
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Regenerate the finalized cloud-init seed
+      ansible.builtin.command:
+        argv: [qm, cloudinit, update, "{{ _template.vm_id }}"]
+      delegate_to: "{{ _template_cli }}"
+      timeout: 60
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Recheck ownership after seed generation
+      ansible.builtin.include_tasks: isolated_owned.yml
+
+    - name: ISOLATED TEMPLATE - Inspect the regenerated user seed privately
+      ansible.builtin.command:
+        argv: [qm, cloudinit, dump, "{{ _template.vm_id }}", user]
+      delegate_to: "{{ _template_cli }}"
+      register: _template_user_seed
+      changed_when: false
+      timeout: 30
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Require clean authorization in config and generated seed before conversion
+      ansible.builtin.assert:
+        that:
+          - (_template_vm_status.stdout | from_json).status == 'stopped'
+          - >-
+            (_template_config.stdout | from_json) | range42_template_seed_clean(_template_user_seed.stdout,
+            default_admin_vm_ci_ssh_key)
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Convert only the successfully verified owned VM
+      ansible.builtin.command:
+        argv: [qm, template, "{{ _template.vm_id }}"]
+      delegate_to: "{{ _template_cli }}"
+
+    - name: ISOLATED TEMPLATE - Read back the converted template
+      ansible.builtin.command:
+        argv: [pvesh, get, "/nodes/{{ _template.node }}/qemu/{{ _template.vm_id }}/config", --output-format, json]
+      delegate_to: "{{ _template_cli }}"
+      register: _template_final
+      changed_when: false
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Require matching converted identity and unchanged upgrade policy
+      ansible.builtin.assert:
+        that:
+          - (_template_final.stdout | from_json).template | int == 1
+          - (_template_final.stdout | from_json).name == _template.name
+          - (_template_final.stdout | from_json).description == _template.description
+          - (_template_final.stdout | from_json).ciupgrade | default(1) | int == 1
+        fail_msg: "Template conversion did not produce the expected owned template."
+      no_log: true
+
+    - name: ISOLATED TEMPLATE - Remove only this build's detached bootstrap snippet
+      ansible.builtin.file:
+        path: "{{ _template_snippet.stdout | trim }}"
+        state: absent
+      delegate_to: "{{ _template_cli }}"
+      when: not _template.apt_proxy_url

@@ -2,12 +2,13 @@
 bundle: proxmox/sdn_network.apply
 description: >-
   Flush the pending SDN config into the running one - PUT /cluster/sdn, then poll the UPID to
-  completion. Behind it Proxmox runs ifreload -a on the node.
+  completion. Preserve untouched NAT sources, with explicit review of existing source CIDRs
+  whose rules may change. Apply remains cluster-wide; preservation currently covers one node.
 optional: false
 
 ##
-## NO CALLER-PASSED PARAMETER. The endpoint takes no argument : it applies whatever is pending on the
-## cluster. Scoping an apply is not possible, and that is a property of the API, not of this bundle.
+## The endpoint applies all pending configuration. BUNDLE_SDN_CHANGED_SOURCES scopes only the
+## local preservation policy, never the cluster-wide apply itself.
 ##
 ## The role's two polling knobs (sdn_apply_poll_retries default 60, sdn_apply_poll_delay default 2)
 ## are DELIBERATELY not exposed. Bridging them with `| default(omit)` would BREAK the role's defaults
@@ -18,6 +19,17 @@ optional: false
 ##
 
 params:
+
+  - name: BUNDLE_SDN_CHANGED_SOURCES
+    type: list
+    required: false
+    default: []
+    default_where: bundle-inline
+    description: >-
+      Up to 64 unique canonical IPv4 source CIDRs whose SNAT/MASQUERADE rules may be removed,
+      reordered or replaced by pending configuration. The exact list is validated before apply
+      and bound to its snapshot. Other existing sources and every non-NAT rule remain protected.
+      For a CIDR change, list both the old and new CIDR. This does not scope the global apply.
 
   - name: proxmox_node
     type: string

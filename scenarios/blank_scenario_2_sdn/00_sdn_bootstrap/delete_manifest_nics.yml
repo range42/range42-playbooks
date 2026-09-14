@@ -1,0 +1,41 @@
+---
+# Match the concrete v3 NIC layout emitted by deployer-ui and validated by
+# backend-api. Only explicit bridge names select objects; IPs never infer them.
+- name: SDN DELETE - REQUIRE A COMPLETE CONCRETE NIC LIST
+  ansible.builtin.assert:
+    that:
+      - (_sdnd_vm.nics | type_debug) == 'list'
+      - _sdnd_vm.nics | length > 0
+      - _sdnd_vm.nics | length <= 32
+      - _sdnd_vm.nics | reject('mapping') | length == 0
+    fail_msg: Version 3 VMs require 1–32 explicit NIC records.
+  no_log: true
+
+- name: SDN DELETE - REQUIRE EXPLICIT BRIDGES AND INTEGER NIC INDEXES
+  ansible.builtin.assert:
+    that:
+      - (_sdnd_nic.index | type_debug) == 'int'
+      - _sdnd_nic.index == _sdnd_nic_position
+      - _sdnd_nic.bridge is string
+      - _sdnd_nic.bridge is match('^[A-Za-z][A-Za-z0-9_.-]{0,14}$')
+      - _sdnd_nic.ip is string
+      - _sdnd_nic.ip | length > 0
+    fail_msg: Every NIC needs an explicit bridge and address, with contiguous integer indexes starting at zero.
+  loop: "{{ _sdnd_vm.nics }}"
+  loop_control:
+    loop_var: _sdnd_nic
+    index_var: _sdnd_nic_position
+  no_log: true
+
+- name: SDN DELETE - REQUIRE THE SAME MANAGEMENT NIC IN BOTH REPRESENTATIONS
+  ansible.builtin.assert:
+    that:
+      - _sdnd_vm.bridge == _sdnd_vm.nics[0].bridge
+      - _sdnd_vm.ip == _sdnd_vm.nics[0].ip
+    fail_msg: Top-level bridge and IP must exactly match NIC zero.
+  no_log: true
+
+- name: SDN DELETE - RETAIN ALL VERIFIED CONCRETE NIC BRIDGES
+  ansible.builtin.set_fact:
+    _sdnd_bridges: "{{ _sdnd_bridges + (_sdnd_vm.nics | map(attribute='bridge') | list) }}"
+  no_log: true
