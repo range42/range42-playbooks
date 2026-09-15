@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import ipaddress
+import hashlib
+import os
 from pathlib import Path
 import re
 import stat
@@ -31,6 +33,8 @@ _FIELDS = {
     "workspace_template_container",
     "network_mode",
     "inventory_container",
+    "vault_password_host",
+    "vault_password_container",
 }
 STATE_CONTAINER = Path("/var/lib/range42")
 
@@ -60,6 +64,106 @@ def container_path(value: str) -> Path:
 
 def overlaps(left: Path, right: Path) -> bool:
     return left.is_relative_to(right) or right.is_relative_to(left)
+
+
+def vault_password_digest(plan):
+    """Hash an existing private file without following links or executing it."""
+    if not plan.get("vault_password_host"):
+        return None
+    descriptor = None
+    directory = None
+    try:
+        path = Path(host_path(plan["vault_password_host"]))
+        secrets = Path(host_path(plan["secrets_dir"]))
+        if (
+            not path.is_relative_to(secrets)
+            or path == secrets
+            or path in (secrets / "api-token", secrets / "credential-key")
+        ):
+            raise ValueError("Vault password must be separate from API credentials")
+        directory = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+        for part in path.parts[1:-1]:
+            child = os.open(
+                part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory
+            )
+            os.close(directory)
+            directory = child
+        descriptor = os.open(
+            path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory
+        )
+        before = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+            or stat.S_IMODE(before.st_mode) not in (0o400, 0o600)
+            or (before.st_uid, before.st_gid) != (plan["uid"], plan["gid"])
+            or not 0 < before.st_size <= 4096
+        ):
+            raise ValueError("Vault password must be a private owned regular file")
+        data = os.read(descriptor, 4097)
+        after = os.fstat(descriptor)
+        current = os.stat(path.name, dir_fd=directory, follow_symlinks=False)
+        fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+        if (
+            len(data) != before.st_size
+            or not data.strip()
+            or any(getattr(before, key) != getattr(after, key) for key in fields)
+            or (current.st_dev, current.st_ino) != (before.st_dev, before.st_ino)
+        ):
+            raise ValueError("Vault password changed during verification")
+        return hashlib.sha256(data).hexdigest()
+    except (OSError, ValueError):
+        raise ValueError("Vault password file is missing, unsafe or changed") from None
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if directory is not None:
+            os.close(directory)
+
+
+def vault_layout(raw, secrets_dir, layout, runtime, uid, gid):
+    source = raw.get("vault_password_host", "")
+    target = raw.get("vault_password_container", "")
+    if (
+        not isinstance(source, str)
+        or not isinstance(target, str)
+        or bool(source) != bool(target)
+    ):
+        raise ValueError(
+            "Vault password host and container file bindings must be paired"
+        )
+    if not source:
+        return {"vault_password_host": "", "vault_password_container": ""}
+    try:
+        source = host_path(source)
+        destination = container_path(target)
+    except ValueError:
+        raise ValueError("Vault password file bindings must be canonical") from None
+    if destination.parent not in (
+        Path("/run/secrets"),
+        Path("/etc/range42/secrets"),
+    ) or destination.name in (
+        "api-token",
+        "api_token",
+        "credential-key",
+        "credential_key",
+    ):
+        raise ValueError("Vault password needs a separate dedicated secrets filename")
+    if runtime:
+        protected = [
+            Path(layout["runtime_container"]),
+            Path(layout["workspace_template_container"]),
+            Path(layout["runtime_config_container"]) / "ansible.cfg",
+            Path(layout["runtime_config_container"]) / "bundle-runtime.json",
+            Path(layout["runtime_ca_container"]),
+        ]
+        if any(overlaps(destination, path) for path in protected):
+            raise ValueError("Vault password cannot overlap runtime or template mounts")
+    result = {"vault_password_host": source, "vault_password_container": target}
+    vault_password_digest(
+        {**result, "secrets_dir": secrets_dir, "uid": uid, "gid": gid}
+    )
+    return result
 
 
 def runtime_layout(raw, runtime, template, state, workspace, secrets_dir, inside):
@@ -285,6 +389,7 @@ def validate_config(raw: dict) -> dict:
     layout = runtime_layout(
         raw, runtime, template, state, workspace, secrets_dir, inside
     )
+    vault = vault_layout(raw, secrets_dir, layout, runtime, raw["uid"], raw["gid"])
     return {
         "root": root,
         "name": raw["name"],
@@ -306,6 +411,7 @@ def validate_config(raw: dict) -> dict:
         "network_mode": network_mode,
         "inventory_container": inventory,
         **layout,
+        **vault,
     }
 
 
@@ -340,6 +446,11 @@ def compose_document(plan: dict, release: str) -> dict:
     ]
     if plan.get("inventory_container"):
         environment["API_BACKEND_INVENTORY_DIR"] = plan["inventory_container"]
+    if plan.get("vault_password_host"):
+        environment["VAULT_PASSWORD_FILE"] = plan["vault_password_container"]
+        mounts.append(
+            bind(plan["vault_password_host"], plan["vault_password_container"], True)
+        )
     if plan["runtime_dir"]:
         runtime = Path(plan.get("runtime_container", "/runtime"))
         configuration = Path(plan.get("runtime_config_container", str(runtime)))

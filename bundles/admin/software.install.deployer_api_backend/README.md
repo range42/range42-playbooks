@@ -125,6 +125,28 @@ wrong-owner or changed credential bytes refuse installation. State mounts remain
 writable; the container root, credential mounts and execution runtime are read-only.
 The operator's whole SSH home is never mounted.
 
+For an existing file-backed Ansible vault password, explicitly set both
+`BACKEND_VAULT_PASSWORD_HOST` and `BACKEND_VAULT_PASSWORD_CONTAINER`. Both are
+empty by default. The first is the existing target-host file; the second is its
+absolute read-only container mount and `VAULT_PASSWORD_FILE` value. The native
+layout uses `/etc/range42/secrets/vault-password` on both sides. No password is
+transported in an Ansible variable, generated, or rotated. The planner and
+consumer validate the private file binding and retain its credential hash;
+unsupported inline or environment password policies remain refused. Preserve
+the original file rather than copying a new password into place.
+
+The host file must be below `BACKEND_SECRETS_DIR`, owned by the configured API
+UID/GID, and have mode `0400` or `0600`. Only a nonempty regular file of at most
+4096 bytes is accepted; links and executable password scripts are refused. Its
+container target must be a distinct filename directly under `/run/secrets` or
+`/etc/range42/secrets`, without overlapping API credentials or runtime mounts.
+Updates cannot add, remove or relocate an existing vault binding. Credential
+hashes include the exact file bytes, including a trailing newline. If those
+bytes change during an update, the candidate is stopped and admission remains
+closed for explicit recovery; the old container is not reopened with changed
+credentials. Existing unmanaged secrets still require the reviewed adoption
+action, and older records without vault fields keep their original behavior.
+
 `BACKEND_WORKSPACE_HOST`, `BACKEND_WORKSPACE_CONTAINER` and
 `BACKEND_DATABASE_CONTAINER` explicitly retain both sides of a historical workspace
 binding. The database may reside within that workspace or the persistent

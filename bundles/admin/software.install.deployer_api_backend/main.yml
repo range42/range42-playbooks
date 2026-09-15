@@ -46,6 +46,8 @@
         - {key: workspace_container, value: "{{ BACKEND_WORKSPACE_CONTAINER | default('') }}"}
         - {key: database_container, value: "{{ BACKEND_DATABASE_CONTAINER | default('') }}"}
         - {key: secrets_dir, value: "{{ BACKEND_SECRETS_DIR | default('') }}"}
+        - {key: vault_password_host, value: "{{ BACKEND_VAULT_PASSWORD_HOST | default('') }}"}
+        - {key: vault_password_container, value: "{{ BACKEND_VAULT_PASSWORD_CONTAINER | default('') }}"}
         - {key: runtime_dir, value: "{{ BACKEND_RUNTIME_DIR | default('') }}"}
         - {key: runtime_container, value: "{{ BACKEND_RUNTIME_CONTAINER | default('') }}"}
         - {key: runtime_config_container, value: "{{ BACKEND_RUNTIME_CONFIG_CONTAINER | default('') }}"}

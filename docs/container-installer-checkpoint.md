@@ -400,3 +400,19 @@ do not themselves establish live migration. Live procedure and results belong
 in the paired deployment repository. Generic legacy-container adoption,
 unsupported legacy policy, interrupted-cutover recovery and pruning remain
 explicit refusals/operator work, not automatic migration claims.
+
+The first live preparation refused before migration because the existing API
+also has a file-backed Ansible Vault password. The follow-up adds the paired
+`vault_password_host`/`vault_password_container` binding and records its exact
+private-file hash alongside the existing API token and encryption key. It
+neither generates nor rotates this file. Changed credentials during a managed
+update now retain stopped recovery state rather than being silently accepted.
+
+Final local qualification with this correction passed **213 cases** in37.28s.
+The three real Docker adoption cases passed again in102.62s with a Vault file;
+the success case decrypts a real Ansible-encrypted fixture inside the candidate
+using the retained read-only file. The other cases prove busy refusal and
+database-writing candidate failure/restoration with that same credential.
+Ruff/format/diff checks pass. The paired deployment preparation adds a verified
+target-host archive input, retaining the first refusal evidence and avoiding a
+second transfer; it has sixteen passing filesystem/actual-Ansible checks.

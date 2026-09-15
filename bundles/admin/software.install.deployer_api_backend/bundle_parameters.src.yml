@@ -151,6 +151,20 @@ params:
   description: Optional absolute inventory directory inside the existing state
     or workspace mount. Sets API_BACKEND_INVENTORY_DIR without adding a mount;
     omitted by default.
+- name: BACKEND_VAULT_PASSWORD_HOST
+  type: string
+  required: false
+  default_where: none
+  description: Optional existing target-host vault password file, paired with
+    BACKEND_VAULT_PASSWORD_CONTAINER. Empty by default. The installer preserves
+    its private bytes and never generates or rotates this secret.
+- name: BACKEND_VAULT_PASSWORD_CONTAINER
+  type: string
+  required: false
+  default_where: none
+  description: Optional absolute container file path for the existing read-only
+    vault password binding; paired with BACKEND_VAULT_PASSWORD_HOST and empty by
+    default. Sets VAULT_PASSWORD_FILE without exposing the password in variables.
 - name: BACKEND_CORS_ORIGINS
   type: list
   items: exact HTTP(S) origin strings

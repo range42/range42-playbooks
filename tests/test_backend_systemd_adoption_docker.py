@@ -64,6 +64,11 @@ def legacy_docker():
     home = fixture / "legacy-home"
     for directory in (state, workspace, home):
         directory.mkdir(mode=0o700)
+    secret_directory = fixture / "secrets"
+    secret_directory.mkdir(mode=0o700)
+    vault_password = secret_directory / "vault-password"
+    vault_password.write_text("fixture-only-vault-password\n")
+    vault_password.chmod(0o600)
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
@@ -82,6 +87,8 @@ def legacy_docker():
         "listen_address": "127.0.0.1",
         "port": port,
         "cors_origins": ["http://127.0.0.1:3000"],
+        "vault_password_host": str(vault_password),
+        "vault_password_container": "/etc/range42/secrets/vault-password",
     }
     plan = module.validate_config(raw)
     from container_install import provision_credentials
@@ -105,6 +112,7 @@ def legacy_docker():
             "PYTHONDONTWRITEBYTECODE": "1",
             "RANGE42_API_TOKEN_FILE": plan["secrets_dir"] + "/api-token",
             "RANGE42_CREDENTIAL_KEY_FILE": plan["secrets_dir"] + "/credential-key",
+            "VAULT_PASSWORD_FILE": str(vault_password),
         }
     )
     log = (fixture / "legacy-private.log").open("xb")
@@ -221,6 +229,20 @@ def legacy_docker():
             db.execute("INSERT INTO adoption_sentinel VALUES ('original')")
         history = workspace / "history.jsonl"
         history.write_text("existing owned history\n")
+        encrypted = workspace / "vault-probe.txt"
+        encrypted.write_text("retained-vault-credential-works\n")
+        subprocess.run(
+            [
+                str(PYTHON.parent / "ansible-vault"),
+                "encrypt",
+                "--vault-password-file",
+                str(vault_password),
+                str(encrypted),
+            ],
+            check=True,
+            capture_output=True,
+            timeout=30,
+        )
         proof = {
             "version": 1,
             "unit": service.unit,
@@ -243,6 +265,7 @@ def legacy_docker():
             "history": history,
             "database": database,
             "original_pid": original_pid,
+            "encrypted": encrypted,
         }
     finally:
         stop_process(service.process)
@@ -317,6 +340,30 @@ def test_real_systemd_adoption_preserves_paths_and_managed_repeat(legacy_docker)
     assert info["State"]["Running"] is True and info["Image"] == IMAGE
     assert info["HostConfig"]["NetworkMode"] == "host"
     assert info["HostConfig"]["PortBindings"] in (None, {})
+    assert (
+        "VAULT_PASSWORD_FILE=" + fixture["plan"]["vault_password_container"]
+        in info["Config"]["Env"]
+    )
+    assert any(
+        m["Source"] == fixture["plan"]["vault_password_host"]
+        and m["Destination"] == fixture["plan"]["vault_password_container"]
+        and not m["RW"]
+        for m in info["Mounts"]
+    )
+    assert (
+        docker._run(
+            [
+                "exec",
+                identifier,
+                "ansible-vault",
+                "view",
+                "--vault-password-file",
+                fixture["plan"]["vault_password_container"],
+                str(fixture["encrypted"]),
+            ]
+        ).strip()
+        == "retained-vault-credential-works"
+    )
     assert record["config"]["workspace_container"] == str(fixture["database"].parent)
     assert record["config"]["database_container"] == str(fixture["database"])
     assert any(

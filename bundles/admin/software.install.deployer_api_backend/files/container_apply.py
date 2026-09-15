@@ -19,7 +19,7 @@ import uuid
 
 from container_install import _secret, provision_credentials
 from container_maintenance import PROTOCOL, DockerCLI, host_admission, stopped_container
-from container_plan import compose_document, validate_config
+from container_plan import compose_document, validate_config, vault_password_digest
 
 
 @contextmanager
@@ -140,6 +140,8 @@ def credentials(plan):
         ) or info.st_mode & 0o077:
             raise ValueError("Original credential permissions changed")
         result[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    if plan.get("vault_password_host"):
+        result["vault-password"] = vault_password_digest(plan)
     return result
 
 
@@ -384,7 +386,10 @@ def managed_update(docker, record, plan):
         "database_host",
         "secrets_dir",
     )
-    if any(plan[key] != original[key] for key in stable):
+    if any(plan[key] != original[key] for key in stable) or any(
+        plan.get(key, "") != original.get(key, "")
+        for key in ("vault_password_host", "vault_password_container")
+    ):
         raise ValueError(
             "Guarded update cannot relocate persistent bindings or credentials"
         )
@@ -427,6 +432,9 @@ def managed_update(docker, record, plan):
             info = docker.inspect(identifier)
             if info["Image"] != image:
                 raise ValueError("Candidate immutable image changed")
+            candidate_credentials = credentials(plan)
+            if candidate_credentials != record["credentials"]:
+                raise ValueError("Original credentials changed during update")
             gate.verify()
             replacement = {
                 "version": 1,
@@ -437,7 +445,7 @@ def managed_update(docker, record, plan):
                 "release_id": release_id,
                 "release_dir": str(release),
                 "release_sha256": tree_hash(release),
-                "credentials": credentials(plan),
+                "credentials": candidate_credentials,
                 "container_snapshot": snapshot(info),
             }
             write_json(root / "installation.json", replacement)
@@ -450,6 +458,10 @@ def managed_update(docker, record, plan):
                     raise ValueError(
                         "Candidate stop failed; retain admission and inspect private recovery state"
                     ) from None
+            if credentials(original) != record["credentials"]:
+                raise ValueError(
+                    "Original credentials changed; retain admission and recover offline"
+                ) from None
             restore_database(backup / "database.sqlite", database, original)
             docker._run(["start", record["container_id"]], timeout=30)
             wait_health(original, docker, record["container_id"])

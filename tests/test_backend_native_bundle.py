@@ -155,6 +155,29 @@ def test_explicit_native_runtime_and_network_bindings_reach_planner(run_bundle):
     assert {key: value["config"].get(key) for key in bindings} == bindings
 
 
+def test_existing_file_backed_vault_bindings_reach_planner_without_reading_secret(
+    run_bundle, tmp_path
+):
+    secret = tmp_path / "vault-password"
+    secret.write_text("synthetic existing vault password\n")
+    secret.chmod(0o600)
+    before = secret.read_bytes()
+    result, value = run_bundle(
+        {
+            "BACKEND_VAULT_PASSWORD_HOST": str(secret),
+            "BACKEND_VAULT_PASSWORD_CONTAINER": "/etc/range42/secrets/vault-password",
+        }
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert value["config"].get("vault_password_host") == str(secret)
+    assert (
+        value["config"].get("vault_password_container")
+        == "/etc/range42/secrets/vault-password"
+    )
+    assert secret.read_bytes() == before
+    assert before.decode().strip() not in result.stdout + result.stderr
+
+
 def test_native_callsite_supplies_exact_lab_and_shared_origins(run_bundle):
     result, value = run_bundle(callsite=True)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -192,6 +215,8 @@ def test_descriptor_exposes_typed_adoption_and_native_bindings():
         "BACKEND_WORKSPACE_TEMPLATE_CONTAINER",
         "BACKEND_INVENTORY_CONTAINER",
         "BACKEND_NETWORK_MODE",
+        "BACKEND_VAULT_PASSWORD_HOST",
+        "BACKEND_VAULT_PASSWORD_CONTAINER",
     ):
         assert params[name]["type"] == "string"
         assert params[name]["required"] is False

@@ -92,6 +92,7 @@ def validate_environment(plan, environment):
         "ANSIBLE_CONFIG",
         "ANSIBLE_COLLECTIONS_PATH",
         "ANSIBLE_ROLES_PATH",
+        "VAULT_PASSWORD_FILE",
     )
     if any(environment.get(key) and key not in expected for key in optional):
         raise ValueError(
@@ -104,6 +105,8 @@ def validate_environment(plan, environment):
             value = plan["secrets_dir"] + "/api-token"
         if key == "RANGE42_CREDENTIAL_KEY_FILE":
             value = plan["secrets_dir"] + "/credential-key"
+        if key == "VAULT_PASSWORD_FILE":
+            value = plan["vault_password_host"]
         actual = environment.get(
             key,
             "github.com,gitlab.com,codeberg.org"
@@ -128,7 +131,6 @@ def validate_environment(plan, environment):
         "RANGE42_CREDENTIAL_KEY",
         "API_BACKEND_VAULT_FILE",
         "VAULT_PASSWORD",
-        "VAULT_PASSWORD_FILE",
         "CORS_ORIGIN_REGEX",
     )
     if any(environment.get(key) for key in unsupported):
