@@ -363,3 +363,40 @@ lost files, or fence privileged external filesystem/Docker writers and independe
 PVE operations. Unknown candidate state must never trigger database restoration;
 operator recovery must verify exact IDs/readiness/bindings before clearing the
 original inode. No automatic partial-install resume or shared migration is claimed.
+
+## Native backend qualification — 15 September 2026
+
+The app-only integration is based on native playbooks `4e5def6`; it carries the
+six installer commits above without merging the separate SDN branch. Changes
+cover this bundle, its `dev-backend.yml` application callsite, documentation and
+tests. Context/setup wrappers, firewall/SDN bundles and controller are unchanged.
+
+The current clean backend source `cc88f178b15be444ff57a79283f6f839e4da7541`
+built image
+`sha256:4d27550d677e9733f4ae9634cbec88997d72a90025cde842cc2fb0effe4c3feb`.
+The native plan retains historical database/inventory/runtime paths, individual
+configuration and CA mounts, and an explicit host listener. Readiness gets a
+45-second deadline, while inexpensive probes retain their short deadline.
+
+Local qualification passed **168 cases** with the paired API virtual environment,
+including real local Ansible input/request checks and four recovery-identity
+cases. **Seven real Docker maintenance/managed-consumer cases passed** against
+this image; an initial normalized-plan failure was corrected and the five
+affected managed cases passed again. Three paired API cases required the API
+virtual environment rather than the workstation's incompatible Python packages.
+
+**Three additional real Docker systemd-adoption cases passed**: adoption plus
+unchanged managed repeat, strict busy-artifact refusal before stop, and a failed
+candidate that committed database writes before restoration. These use the real
+API entrypoint, process/environment inspection, SQLite, idle audit, HTTP and
+Docker; only systemctl transport is simulated. The failed candidate stopped
+before the original database/runtime were verified offline and the original
+service reopened. Owned fixtures were cleaned up and the supplied image retained.
+Ruff and `git diff --check` pass.
+
+Logs remain private under `/tmp/r42-backend-context-20260915` and
+`/tmp/r42-systemd-adoption-docker-final-20260915.log`. These qualification results
+do not themselves establish live migration. Live procedure and results belong
+in the paired deployment repository. Generic legacy-container adoption,
+unsupported legacy policy, interrupted-cutover recovery and pruning remain
+explicit refusals/operator work, not automatic migration claims.

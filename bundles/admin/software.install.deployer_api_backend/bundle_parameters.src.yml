@@ -1,6 +1,7 @@
 bundle: admin/software.install.deployer_api_backend
 description: Manage one authenticated immutable backend container with persistent
-  credentials, verified unchanged repeat and guarded managed updates.
+  credentials, verified unchanged repeat, guarded managed updates and explicit
+  systemd adoption through a reviewed private proof file.
 optional: true
 install_flag: INSTALL_DEPLOYER_API_BACKEND
 params:
@@ -34,8 +35,17 @@ params:
   required: false
   default_where: bundle-inline
   description: apply installs fresh or verifies unchanged; fresh refuses existing;
-    update explicitly requests a guarded managed cutover.
+    update requests a guarded managed cutover; adopt-systemd requires a reviewed
+    private target-host adoption file.
   default: apply
+  allowed: [apply, fresh, update, adopt-systemd]
+- name: BACKEND_SYSTEMD_ADOPTION_FILE
+  type: string
+  required: false
+  default_where: none
+  description: Absolute private target-host migration proof path, required only
+    for adopt-systemd. Contents are validated by the consumer and never included
+    in public Ansible output. Other actions must omit this parameter.
 - name: BACKEND_UID
   type: int
   required: false
@@ -52,7 +62,8 @@ params:
   type: int
   required: false
   default_where: bundle-inline
-  description: Host listener port; does not edit any firewall.
+  description: Published listener port in bridge mode or explicit API port in
+    host mode; does not install or configure firewall services.
   default: 8000
 - name: BACKEND_LISTEN_ADDRESS
   type: string
@@ -80,7 +91,9 @@ params:
   type: string
   required: false
   default_where: none
-  description: Exact SQLite path inside the configured workspace; defaults to <workspace>/.range42.db.
+  description: Exact SQLite path inside the configured workspace or persistent
+    /var/lib/range42 state mount; defaults to <workspace>/.range42.db. Preserve
+    the original absolute path when adopting existing state.
 - name: BACKEND_SECRETS_DIR
   type: string
   required: false
@@ -91,21 +104,63 @@ params:
   required: false
   default_where: none
   description: Complete reviewed runtime export on target host; copied into a private
-    immutable release. Must include its /runtime-bound profile and combined CA.
+    immutable release. Profile, Ansible configuration and CA must match the
+    explicitly configured container paths.
+- name: BACKEND_RUNTIME_CONTAINER
+  type: string
+  required: false
+  default_where: none
+  description: Absolute container runtime directory; planner default is /runtime.
+    Preserve the installed path for an existing runtime profile.
+- name: BACKEND_RUNTIME_CONFIG_CONTAINER
+  type: string
+  required: false
+  default_where: none
+  description: Absolute container DIRECTORY for the read-only ansible.cfg and
+    bundle-runtime.json files; defaults to the runtime container directory.
+- name: BACKEND_RUNTIME_CA_CONTAINER
+  type: string
+  required: false
+  default_where: none
+  description: Absolute container FILE path for the reviewed combined CA;
+    defaults to <runtime container>/proxmox-ca.pem.
 - name: BACKEND_WORKSPACE_TEMPLATE_DIR
   type: string
   required: false
   default_where: none
   description: Dedicated private workspace credential template on target host, copied
     with runtime; never the operator SSH home.
-- name: BACKEND_CORS_ORIGINS
+- name: BACKEND_WORKSPACE_TEMPLATE_CONTAINER
   type: string
+  required: false
+  default_where: none
+  description: Absolute container directory for the read-only private workspace
+    template; planner default is /run/range42-template.
+- name: BACKEND_NETWORK_MODE
+  type: string
+  required: false
+  default_where: none
+  description: bridge uses Docker bridge networking and a published port (default).
+    host shares the host network and starts the API on the explicit address/port
+    without port publication. Requires separately reviewed reachability.
+  allowed: [bridge, host]
+- name: BACKEND_INVENTORY_CONTAINER
+  type: string
+  required: false
+  default_where: none
+  description: Optional absolute inventory directory inside the existing state
+    or workspace mount. Sets API_BACKEND_INVENTORY_DIR without adding a mount;
+    omitted by default.
+- name: BACKEND_CORS_ORIGINS
+  type: list
+  items: exact HTTP(S) origin strings
   required: false
   default_where: none
   description: List of exact allowed HTTP(S) browser origins; defaults to an empty
     list.
 - name: BACKEND_GIT_ALLOWED_HOSTS
-  type: string
+  type: list
+  items: DNS host strings with optional ports
   required: false
   default_where: none
   description: List of allowed Git hosts; defaults to github.com, gitlab.com, codeberg.org.

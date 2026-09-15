@@ -14,6 +14,15 @@
           - not (INSTALL_TAILSCALE | default(false) | bool)
         fail_msg: "Supply an immutable BACKEND_IMAGE and explicit runtime/CORS bindings. Source builds, partial playbooks mounts, CORS regex and network installation are not this consumer's contract."
 
+    - name: BACKEND INSTALL - Validate the explicit action and adoption file binding
+      ansible.builtin.assert:
+        that:
+          - BACKEND_INSTALL_ACTION | default('apply') in ['apply', 'fresh', 'update', 'adopt-systemd']
+          - BACKEND_INSTALL_ACTION | default('apply') == 'adopt-systemd' or BACKEND_SYSTEMD_ADOPTION_FILE is not defined
+          - BACKEND_INSTALL_ACTION | default('apply') != 'adopt-systemd' or (BACKEND_SYSTEMD_ADOPTION_FILE | default(none) is string and (BACKEND_SYSTEMD_ADOPTION_FILE | default('')).startswith('/'))
+        fail_msg: "adopt-systemd requires BACKEND_SYSTEMD_ADOPTION_FILE as an absolute private target-host path. Other actions must omit it."
+      no_log: true
+
     - name: BACKEND INSTALL - Build the explicit installation configuration
       ansible.builtin.set_fact:
         _backend_plan:
@@ -38,8 +47,19 @@
         - {key: database_container, value: "{{ BACKEND_DATABASE_CONTAINER | default('') }}"}
         - {key: secrets_dir, value: "{{ BACKEND_SECRETS_DIR | default('') }}"}
         - {key: runtime_dir, value: "{{ BACKEND_RUNTIME_DIR | default('') }}"}
+        - {key: runtime_container, value: "{{ BACKEND_RUNTIME_CONTAINER | default('') }}"}
+        - {key: runtime_config_container, value: "{{ BACKEND_RUNTIME_CONFIG_CONTAINER | default('') }}"}
+        - {key: runtime_ca_container, value: "{{ BACKEND_RUNTIME_CA_CONTAINER | default('') }}"}
         - {key: workspace_template_dir, value: "{{ BACKEND_WORKSPACE_TEMPLATE_DIR | default('') }}"}
+        - {key: workspace_template_container, value: "{{ BACKEND_WORKSPACE_TEMPLATE_CONTAINER | default('') }}"}
+        - {key: inventory_container, value: "{{ BACKEND_INVENTORY_CONTAINER | default('') }}"}
+        - {key: network_mode, value: "{{ BACKEND_NETWORK_MODE | default('') }}"}
       when: item.value | length > 0
+      no_log: true
+
+    - name: BACKEND INSTALL - Prepare the consumer request without reading private proof contents
+      ansible.builtin.set_fact:
+        _backend_request: "{{ {'config': _backend_plan, 'operation': BACKEND_INSTALL_ACTION | default('apply')} | combine({'adoption_file': BACKEND_SYSTEMD_ADOPTION_FILE} if BACKEND_INSTALL_ACTION | default('apply') == 'adopt-systemd' else {}) }}"
       no_log: true
 
     - name: BACKEND INSTALL - Allocate private helper transport
@@ -60,7 +80,7 @@
         - name: BACKEND INSTALL - Apply immutable container plan
           ansible.builtin.command:
             argv: [python3, "{{ _backend_transport.path }}/container_apply.py"]
-            stdin: "{{ {'config': _backend_plan, 'operation': BACKEND_INSTALL_ACTION | default('apply')} | to_json }}"
+            stdin: "{{ _backend_request | to_json }}"
           register: _backend_apply
           failed_when: false
           changed_when: false

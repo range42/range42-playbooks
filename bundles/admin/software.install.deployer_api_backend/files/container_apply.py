@@ -48,12 +48,14 @@ def installation_lock(root: Path):
         os.close(fd)
 
 
-def tree_hash(root: Path) -> str:
+def tree_hash(root: Path, *, exclude=()) -> str:
     root = root.absolute()
     if root != root.resolve() or not root.is_dir():
         raise ValueError("Release tree must be an ordinary local directory")
     digest = hashlib.sha256()
     for path in sorted(root.rglob("*")):
+        if path in exclude:
+            continue
         info = path.lstat()
         relative = str(path.relative_to(root))
         if stat.S_ISLNK(info.st_mode):
@@ -167,22 +169,46 @@ def request(plan, path, *, authenticated=True):
     req = urllib.request.Request(
         f"http://{address}:{plan['port']}{path}", headers=headers
     )
-    with urllib.request.urlopen(req, timeout=3) as response:
+    # Readiness checks registered hosts sequentially; it can exceed a single host timeout.
+    timeout = 45 if path == "/v1/health/ready" else 3
+    with urllib.request.urlopen(req, timeout=timeout) as response:
         if response.status != 200:
             raise ValueError("Managed API did not return success")
         return json.loads(response.read(1024 * 1024))
 
 
 def verify_image_protocol(docker, reference):
-    image = json.loads(docker._run(['image', 'inspect', reference]))[0]['Id']
-    if not isinstance(image, str) or len(image) != 71 or not image.startswith('sha256:') or any(char not in '0123456789abcdef' for char in image[7:]):
-        raise ValueError('Candidate immutable image identity is invalid')
-    protocol = docker._run(['run', '--rm', '--network', 'none', '--read-only',
-                           '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
-                           '--entrypoint', 'python', image, '-c',
-                           'from app.core.maintenance import PROTOCOL; print(PROTOCOL)'], timeout=30)
+    image = json.loads(docker._run(["image", "inspect", reference]))[0]["Id"]
+    if (
+        not isinstance(image, str)
+        or len(image) != 71
+        or not image.startswith("sha256:")
+        or any(char not in "0123456789abcdef" for char in image[7:])
+    ):
+        raise ValueError("Candidate immutable image identity is invalid")
+    protocol = docker._run(
+        [
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "--read-only",
+            "--cap-drop",
+            "ALL",
+            "--security-opt",
+            "no-new-privileges:true",
+            "--entrypoint",
+            "python",
+            image,
+            "-c",
+            "from app.core.maintenance import PROTOCOL; print(PROTOCOL)",
+        ],
+        timeout=30,
+    )
     if protocol.strip() != PROTOCOL:
-        raise ValueError('Candidate maintenance protocol is unsupported; a durable-intent v2 image is required')
+        raise ValueError(
+            "Candidate maintenance protocol is unsupported; a durable-intent v2 image is required"
+        )
     return image
 
 
@@ -269,9 +295,10 @@ def stage(plan, root):
             )
             bound[field] = str(release / target)
     document = compose_document(bound, release_id)
-    document["networks"] = {
-        "default": {"labels": {"org.range42.installation": plan["root"]}}
-    }
+    if plan.get("network_mode", "bridge") == "bridge":
+        document["networks"] = {
+            "default": {"labels": {"org.range42.installation": plan["root"]}}
+        }
     write_json(release / "compose.json", document)
     return release_id, release, bound
 
@@ -477,7 +504,14 @@ def apply(raw: dict, *, operation="apply"):
                 raise ValueError(
                     "Fresh installation cannot replace a managed container"
                 )
-            changed = record["config"] != plan
+            original_plan = validate_config(
+                {
+                    key: value
+                    for key, value in record["config"].items()
+                    if key != "database_host"
+                }
+            )
+            changed = original_plan != plan
             for field, target in [
                 ("runtime_dir", "runtime"),
                 ("workspace_template_dir", "workspace-template"),
@@ -551,7 +585,9 @@ def apply(raw: dict, *, operation="apply"):
             except Exception:
                 docker.stop(identifier)
                 if docker.inspect(identifier)["State"]["Running"]:
-                    raise ValueError("Candidate remains running; durable maintenance intent retained") from None
+                    raise ValueError(
+                        "Candidate remains running; durable maintenance intent retained"
+                    ) from None
                 raise
         if request(plan, "/v1/health/ready").get("ready") is not True:
             raise ValueError("Installed API readiness failed")
@@ -565,12 +601,26 @@ def main():
         if len(raw) > 65536:
             raise ValueError("Installer request exceeds its bound")
         request_body = json.loads(raw)
-        if not isinstance(request_body, dict) or set(request_body) != {
-            "config",
-            "operation",
-        }:
+        if not isinstance(request_body, dict):
             raise ValueError("Installer needs explicit config and operation")
-        result = apply(request_body["config"], operation=request_body["operation"])
+        adoption = request_body.get("operation") == "adopt-systemd"
+        fields = (
+            {"config", "operation", "adoption_file"}
+            if adoption
+            else {"config", "operation"}
+        )
+        if set(request_body) != fields:
+            raise ValueError(
+                "Installer needs explicit config, operation and adoption-file scope"
+            )
+        if adoption:
+            from container_systemd import adopt, adoption_file
+
+            result = adopt(
+                request_body["config"], adoption_file(request_body["adoption_file"])
+            )
+        else:
+            result = apply(request_body["config"], operation=request_body["operation"])
     except ValueError as exc:
         # ValueError messages are fixed installer validation strings. JSON decoder
         # errors are replaced; raw process stderr and credentials never escape.
