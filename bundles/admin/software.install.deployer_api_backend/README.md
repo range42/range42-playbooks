@@ -1,190 +1,246 @@
-# bundles/admin/software.install.deployer_api_backend
+# Managed backend container installer
 
-Deploys range42-backend-api as a Docker container, following the canonical
-deploy method shipped by the [range42-backend-api repo](../../../range42-backend-api/)
-(multi-stage Dockerfile + docker-compose + Python 3.13 + FastAPI + uvicorn +
-embedded SQLite via SQLAlchemy async + Alembic migrations + ansible-runner
-bundled inside the image).
+`main.yml` now consumes the authenticated backend image contract through
+`files/container_apply.py`. It requires an already installed local Docker Engine
+and Compose plugin, an immutable image already present in that daemon, and
+explicit target-host paths. It creates no Proxmox guests and does not install or
+configure firewall or Tailscale services. Bridge mode uses Docker's normal
+bridge and published-port rules; host mode shares the existing host network.
 
-## Architecture (POC)
-
-```
-UI (r42.admin-deployer-ui:3000)
-   │
-   │ CORS (UI Settings modal points here)
-   ▼
-Backend (r42.admin-deployer-api-backend:8000)
-   ├─ SQLite DB + events.jsonl  (bind-mounted from /home/range42/range42.config on host)
-   ├─ SSH keys                    (bind-mounted RO from ~/.ssh on host)
-   ├─ Per-deployment secrets      (each <C>-<S>/secrets/vault_pass.txt is reachable
-   │                                under /home/range42/range42.config via the same mount)
-   └─ ansible-core 2.19 + runner  (bundled in the image, used by backend to drive Proxmox)
-```
-
-Kong is parallel/not in the UI->backend path for this POC (kong.yml is empty).
-
-## Required vars
-
-| var | meaning |
-|---|---|
-| `global_vm_ssh_name` | inventory hostname for the backend VM (e.g. `r42.admin-deployer-api-backend`) |
-| `global_vm_ci_ip` | IP of the backend VM (informational, not consumed) |
-
-## Optional vars (with defaults)
-
-| var | default |
-|---|---|
-| `LOCAL_CODE_PATH` | `{{ env RANGE42_GITDIR__ROOT_DIR }}/range42-backend-api/` |
-| `REMOTE_PROJECT_DIR` | `/var/www/range42_backend_api` |
-| `API_PORT` | `8000` |
-| `WORKSPACE_DIR_HOST` | `/home/range42/range42.config` |
-| `PLAYBOOKS_DEST_DIR` | `/home/range42/range42-playbooks` |
-| `DEPLOYER_UI_CORS_REGEX` | `^https?://r42\.admin-deployer-ui(:\d+)?$` |
-
-## Call-site example
+Run the native app installer from the selected **range42-context** workspace.
+The existing `dev-backend.install.sh` wrapper and scenario inventory/vault flow
+remain unchanged. The `dev-backend.yml` app callsite supplies exact origins for
+`http://r42.dev-deployer-ui:3000`, `http://192.168.142.190:3000` and the current
+shared `http://100.64.0.14:3002`. Override `BACKEND_CORS_ORIGINS` with an explicit
+list for another UI listener. No CORS regex or wildcard is inferred.
 
 ```yaml
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.deployer_api_backend/main.yml"
   vars:
-    global_vm_ssh_name: "r42.admin-deployer-api-backend"
-    global_vm_ci_ip:    "192.168.142.102"
+    global_vm_ssh_name: backend-host
+    BACKEND_IMAGE: "sha256:<64-character-reviewed-image-id>"
+    BACKEND_INSTALL_ROOT: /var/lib/range42-backend
+    BACKEND_INSTALL_NAME: range42-backend
+    BACKEND_UID: 1000
+    BACKEND_GID: 1000
+    API_PORT: 8000
+    BACKEND_LISTEN_ADDRESS: 127.0.0.1
+    BACKEND_CORS_ORIGINS: ["https://deployer.example.org"]
 ```
 
-## What runs
+The listener defaults to loopback. Configure a reverse proxy separately or
+explicitly select the interface on which the API should be reachable. Browser
+operators enter the private API token through the UI connection flow. The
+installer never returns that token in Ansible output.
 
-The bundle mirrors the upstream README's Quick Start - Option 1 (Docker) :
-`docker compose up` against an image built from local source. The backend-api
-source is baked into the image at build time ; the range42-playbooks repo is
-bind-mounted read-only at runtime (the backend's ansible-runner reads its
-scenarios + bundles tree). Schema is migrated at deploy time via an explicit
-`alembic upgrade head` step (see the Database section below).
+## Actions and managed records
 
-1. **Docker install** : invokes `software.install.warmup.basic_packages` role with `INSTALL_PACKAGES_DOCKER=YES` + `INSTALL_PACKAGES_DOCKER_COMPOSE=YES` (Docker Engine + compose plugin via the project's standard install path)
-2. **Firewall** : applies `software.configure.firewalls` role with rules for ports 22 + API_PORT
-3. **Workspace dir** : creates `/home/range42/range42.config/` on the host owned by UID/GID 1000 (mode 0700) - holds the SQLite DB + events.jsonl + ansible-runner artefacts + per-deployment `<C>-<S>/secrets/vault_pass.txt` ; persists across container restarts
-4. **Sync source (build context)** : rsync's the backend-api repo from the controller to `REMOTE_PROJECT_DIR` (excludes `.git`, `.venv`, `collections`, `__pycache__`, `.pytest_cache`, `.env*`). This is the Docker build context only - the source is BAKED into the image at build time, NOT bind-mounted at runtime
-5. **Record provenance** : captures the controller-side `ref` / short `sha` / dirty-file count of BOTH synced trees (backend-api + playbooks) into `/var/lib/range42/deployer_api_backend.version` and echoes them in the play output
-6. **Render .env** : writes the env file consumed by docker compose (PORT, UID/GID, IMAGE_NAME, SSH_KEY_PATH, VAULT_PASSWORD_FILE empty by default, CORS_ORIGIN_REGEX, RANGE42_WORKSPACE_ROOT, WEB_CONCURRENCY=1, UVICORN_WORKERS=1, DEBUG=false)
-7. **Render docker-compose.override.yml** : two runtime bind-mounts - the workspace dir (RW) and the range42-playbooks repo (RO). The upstream compose's SSH key mount is preserved.
-8. **Compose up** : `docker compose up -d --build` builds the multi-stage image locally on the VM the first time (Python 3.13 builder + slim runtime), then starts the container
-9. **Verify** : waits for the API port + probes `/docs/openapi.json` (same endpoint the container's HEALTHCHECK uses) - expects HTTP 200
+`BACKEND_INSTALL_ACTION` accepts:
 
-## Source provenance
+- `apply` (default): create a fresh managed installation, or verify an unchanged
+  running installation without replacing its container or rewriting its record.
+- `fresh`: require a new installation; refuse an existing managed record.
+- `update`: explicitly replace an existing managed installation after its
+  tracked work is idle. Changes without this action are refused.
+- `adopt-systemd`: request the separately guarded adoption consumer with
+  `BACKEND_SYSTEMD_ADOPTION_FILE`, an absolute private path on the target host.
+  This is the only action that accepts an adoption file; it does not classify
+  existing data as a fresh installation.
 
-This bundle deploys the **controller's working trees**, not git clones — for both `range42-backend-api` (the image build context) and `range42-playbooks` (the tree the in-container ansible-runner reads at deploy time). Branch, local commits and uncommitted edits all ship as-is. That is what makes a dev lab fast, but it means what runs here can exist on no git remote.
+For `apply`, `fresh` and `update`, the bundle retains the consumer request shape
+`{config, operation}`. Only `adopt-systemd` adds `adoption_file`. The bundle passes
+that file reference through private stdin without reading its contents or
+printing the reference. The consumer must validate the private file, its exact
+configuration/ownership proof and the current installed state before acting;
+an arbitrary path or inline object is not authorization.
 
-Step 5 therefore records what was actually shipped :
+The adoption review must preserve the installed database/workspace paths,
+credentials, runtime profile, provider policy and API UID/GID. A disabled HTTP
+maintenance gate cannot prove a running-service drain. Adoption uses an explicit
+offline service boundary, retaining the old service/configuration for recovery
+and preventing concurrent systemd/container ownership. Candidate failure must
+never restore the database before proving the candidate stopped, or after new
+API work has been admitted. Unknown or unsupported existing policy requires
+refusal and review, not substitution of fresh-install defaults.
 
+This adoption action supports the reviewed single-process systemd service with
+`KillMode=process`, no trigger units, explicit enablement and a disabled legacy
+HTTP maintenance gate. Capture uses the installed Python, process environment
+and strict idle audit; execution rechecks process start time, boot ID, unit and
+environment-file hashes before stopping. It also audits after a clean stop.
+An immutable, compatible candidate must preserve every database row and existing
+workspace file before admission. Schema-changing adoption is refused; use an
+explicit managed update after adoption for a separately qualified new version.
+
+Rollback verifies the candidate stopped, restores the SQLite backup, checks the
+original runtime offline, then reopens the original systemd service. That old
+service has no HTTP gate: after reopening, failure is reported without restoring
+data again. `restored_offline` records an interrupted recovery; it does not claim
+that a subsequently started legacy service remains fenced. Unit/environment
+files remain in place and must also be backed up privately by the preparation
+procedure. Existing policy outside the explicit contract is refused.
+
+The private root contains `.installation.lock`, `installation.json`, immutable
+`releases/<id>/`, and consistent database backups under `backups/<id>/`.
+The record binds the exact container/image IDs, configuration and mounts,
+release hashes and original credential-file hashes. Repeats check those facts
+and authenticated readiness. Source runtime edits do not modify installed copies;
+changed source bytes require an explicit update.
+
+Fresh startup and updates hold the persistent HTTP admission inode through
+candidate startup, internal backend readiness/runtime-profile checks and record
+commit. They also write and fsync an intent on that same inode before starting
+a fresh candidate or stopping the old container. The v2 API refuses new finite
+requests while any intent bytes remain, even after installer exit or restart.
+A candidate is created stopped and its full ID is recorded before start.
+Public health stays available while authenticated finite API operations are
+fenced. The image migrates SQLite before it serves; no post-start Alembic command
+is used. Successful update retains the old stopped container and private backup.
+
+A managed update first verifies the current record, credentials, runtime and
+container, then uses the tested continuous host-admission/installed idle-audit
+mechanism. Busy provisioning or unverifiable runner artifacts refuse before stop.
+The configured workspace/database/state/credential paths, installation name and
+UID/GID cannot be relocated by update. After stop, the installer takes a SQLite
+backup; a failed candidate is stopped before restoring that backup and restarting
+the exact prior container. The host admission lock remains held throughout.
+Only verified candidate readiness plus record commit, or verified old-container readiness plus restored
+record, clears and fsyncs the owned intent. Stop/inspect or rollback-readiness
+failures preserve the marker when the flock closes.
+After admitting new requests, a subsequent readiness failure is reported without
+rolling back potentially new user data.
+
+`pending.json` denotes incomplete installation/cutover. It blocks automatic repeat
+and needs explicit operator review. It is not the API admission fence; the
+nonempty original maintenance inode is. A new helper refuses preexisting intent
+without clearing it. Never delete or replace that inode to resume service.
+Failed candidate artifacts and backups remain private. The installer does not prune old releases, containers or backups.
+
+## Persistent credentials and runtime
+
+Defaults are `<root>/state`, `<state>/workspaces` and `<root>/secrets`. New
+installations generate private `api-token` and `credential-key` files once.
+Existing credentials are never rotated automatically. Missing, malformed,
+wrong-owner or changed credential bytes refuse installation. State mounts remain
+writable; the container root, credential mounts and execution runtime are read-only.
+The operator's whole SSH home is never mounted.
+
+For an existing file-backed Ansible vault password, explicitly set both
+`BACKEND_VAULT_PASSWORD_HOST` and `BACKEND_VAULT_PASSWORD_CONTAINER`. Both are
+empty by default. The first is the existing target-host file; the second is its
+absolute read-only container mount and `VAULT_PASSWORD_FILE` value. The native
+layout uses `/etc/range42/secrets/vault-password` on both sides. No password is
+transported in an Ansible variable, generated, or rotated. The planner and
+consumer validate the private file binding and retain its credential hash;
+unsupported inline or environment password policies remain refused. Preserve
+the original file rather than copying a new password into place.
+
+The host file must be below `BACKEND_SECRETS_DIR`, owned by the configured API
+UID/GID, and have mode `0400` or `0600`. Only a nonempty regular file of at most
+4096 bytes is accepted; links and executable password scripts are refused. Its
+container target must be a distinct filename directly under `/run/secrets` or
+`/etc/range42/secrets`, without overlapping API credentials or runtime mounts.
+Updates cannot add, remove or relocate an existing vault binding. Credential
+hashes include the exact file bytes, including a trailing newline. If those
+bytes change during an update, the candidate is stopped and admission remains
+closed for explicit recovery; the old container is not reopened with changed
+credentials. Existing unmanaged secrets still require the reviewed adoption
+action, and older records without vault fields keep their original behavior.
+
+`BACKEND_WORKSPACE_HOST`, `BACKEND_WORKSPACE_CONTAINER` and
+`BACKEND_DATABASE_CONTAINER` explicitly retain both sides of a historical workspace
+binding. The database may reside within that workspace or the persistent
+`/var/lib/range42` state mount, for example `/var/lib/range42/state.db` alongside
+`/var/lib/range42/workspaces`. Preserve the original absolute paths rather than
+rewriting deployment history. `BACKEND_STATE_DIR` and
+`BACKEND_SECRETS_DIR` select the other persistent host paths. Historical data is
+never silently treated as a fresh empty installation.
+
+For execution, set **both** `BACKEND_RUNTIME_DIR` and
+`BACKEND_WORKSPACE_TEMPLATE_DIR` to reviewed, complete target-host exports. The
+installer copies them into a new release, preserving literal symlink targets and
+file bytes, rejecting escaping links/hardlinks/special files. Expected runtime:
+
+```text
+range42-playbooks/                         # including bundles and scenarios
+range42-ansible_roles-proxmox_controller/roles/
+range42-catalog/02_ansible_layer/{admin,trainee}/roles/
+range42-catalog/03_container_layer/docker/_ctf/
+range42/roles/
+collections/
+ansible.cfg
+proxmox-ca.pem                             # public roots plus trusted PVE CA
+bundle-runtime.json                       # generated for the exact container paths
 ```
-# /var/lib/range42/deployer_api_backend.version
-backend_api_source_path=/home/alice/range42-backend-api/
-playbooks_source_path=/home/alice/range42-playbooks/
-backend_api_ref=dev
-backend_api_sha=257e62a
-backend_api_dirty=0
-backend_api_upstream=origin/dev
-backend_api_unpushed=0
-playbooks_ref=fix/dev-deployer-ui-lab-hardening
-playbooks_sha=498b875
-playbooks_dirty=9
-playbooks_upstream=origin/fix/dev-deployer-ui-lab-hardening
-playbooks_unpushed=0
-deployed_at=2026-08-10T09:29:40Z
-```
 
-Reading it: `*_dirty=0` on its own proves nothing about reproducibility — a commit that was never pushed is perfectly clean, and its sha exists on no remote. A tree is recoverable from a remote only when **`*_dirty=0` and `*_unpushed=0` and `*_upstream` is not `none`**. `*_dirty` is the uncommitted-file count, nothing more.
+Generate the backend runtime manifest for the exact container environment shown
+by `container_plan.compose_document`; it must bind the chosen dependency paths and
+its Ansible configuration. Candidate validation runs the image's actual
+`runtime_snapshot()` against the staged read-only export. It cannot bless a new
+or mismatched profile silently. The separate private workspace template supplies
+only the selected vault/SSH files supported by the backend.
 
-The file lives outside `REMOTE_PROJECT_DIR` on purpose — inside, its timestamp would bust the Docker build cache on every no-op re-run.
+The following optional inputs preserve an existing native layout. Their defaults
+remain the fresh-container layout; they do not rewrite a runtime profile.
 
-## CORS configuration
+| Input | Meaning |
+| --- | --- |
+| `BACKEND_RUNTIME_CONTAINER` | Runtime directory inside the container; default `/runtime`. |
+| `BACKEND_RUNTIME_CONFIG_CONTAINER` | **Directory** holding the individual read-only `ansible.cfg` and `bundle-runtime.json` mounts; default is the runtime directory. |
+| `BACKEND_RUNTIME_CA_CONTAINER` | **File** path for the combined CA; default `<runtime directory>/proxmox-ca.pem`. |
+| `BACKEND_WORKSPACE_TEMPLATE_CONTAINER` | Private template directory; default `/run/range42-template`. |
+| `BACKEND_INVENTORY_CONTAINER` | Optional existing inventory directory inside the state/workspace mounts; sets `API_BACKEND_INVENTORY_DIR` without adding a mount. |
+| `BACKEND_NETWORK_MODE` | `bridge` (default) or `host`. Host mode omits port publication and binds the API to `BACKEND_LISTEN_ADDRESS` and `API_PORT`. |
 
-The backend uses Starlette's `CORSMiddleware` with `allow_origin_regex` read
-from the `CORS_ORIGIN_REGEX` env var. The bundle defaults to a regex that
-matches the demo_lab UI hostname (`http(s)://r42.admin-deployer-ui:<any-port>`).
+For a reviewed native layout these may be `/opt/range42`, `/etc/range42`,
+`/etc/range42/proxmox-ca.pem`, `/etc/range42/workspace-template` and
+`/var/lib/range42/inventory`, respectively. The chosen paths must match the
+actual retained profile and satisfy planner mount/overlap validation. Network
+reachability and listener availability require separate acceptance; choosing
+host mode does not install networking or establish Proxmox/Git connectivity.
 
-For other scenarios, override `DEPLOYER_UI_CORS_REGEX` in the call-site :
+Without runtime/template bindings, the installation serves the authenticated
+control-plane API, but it is not ready to execute infrastructure playbooks.
+Register catalog sources and Proxmox hosts through authenticated UI/API flows.
+This installer does not auto-seed provider or Proxmox credentials.
 
-```yaml
-vars:
-  DEPLOYER_UI_CORS_REGEX: '^https?://ui\.lab\.example\.com$'
-```
+## Legacy mapping and remaining limits
 
-The regex must be anchored (`^...$`) and properly escape literal dots. The
-backend disables auth at this layer (Kong's job in a full deployment) - CORS
-is defense-in-depth only.
+`REMOTE_PROJECT_DIR` maps only to `BACKEND_INSTALL_ROOT`, and
+`WORKSPACE_DIR_HOST` maps only to `BACKEND_WORKSPACE_HOST`. Neither alias authorizes
+adoption of an existing directory. Old `LOCAL_CODE_PATH`, `PLAYBOOKS_DEST_DIR`,
+`DEPLOYER_UI_CORS_REGEX` and enabled `INSTALL_TAILSCALE` inputs are refused with
+migration guidance: supply a reviewed image, complete runtime, exact CORS origins
+and separately prepared networking.
 
-## Database (SQLite + Alembic)
+**Offline legacy-container adoption is still pending.** Unknown running or stopped
+legacy containers and unrecorded workspaces are preserved/refused. Systemd
+adoption is explicit through the private proof contract above; ordinary `apply`
+does not convert it. Fresh failures and interrupted cutovers
+also require operator recovery; no automatic partial-install resume is claimed.
 
-Embedded SQLite via SQLAlchemy 2.x async + aiosqlite + Alembic for migrations.
-No separate Postgres / MySQL container. The DB file lives at
-`/home/range42/range42.config/.range42.db` inside the container, which is
-bind-mounted from `WORKSPACE_DIR_HOST` on the host (default
-`/home/range42/range42.config`).
+Installer death releases its flock but retains the fsynced intent, so a v2 API
+keeps finite requests fenced across restart on the same persistent inode. This
+is durable admission, not automatic crash recovery or atomic Docker/database
+rollback. A failed stop/inspection/backup can leave an exact container stopped
+or its state unknown. Prove failed candidates stopped before restoring data;
+verify the recovered container, readiness and managed bindings before any
+explicit recovery clears the original inode. Arbitrarily privileged filesystem
+writers, data loss and independent Proxmox operations remain outside this fence.
 
-Backend invariant : the workspace dir MUST be on a local FS (ext4 / xfs /
-btrfs / zfs / tmpfs). The backend refuses NFS / CIFS / FUSE at deployment-
-create with HTTP 409 / `WORKSPACE_NON_LOCAL_FS`. The bundle uses a host path
-that is local FS by construction (system disk).
+Local Linux inode/UID semantics are required; remote Docker daemons, user-namespace
+remapping and network filesystems are unsupported. The running backend and each
+candidate must implement `flock-http-intent-v2` and compatible internal readiness/
+profile APIs. Before fresh startup or update, the installer probes the immutable
+candidate image in a disposable container with no network, mounts or secrets.
+A v1 image is refused: it ignores intent bytes. Existing v1 installations need a
+reviewed offline migration; automatic online v1-to-v2 upgrade is not implemented.
+An unchanged v1 repeat may still verify readiness without modifying it. Each new
+image requires matched compatibility tests.
 
-Schema is migrated at deploy time. The bundle runs `alembic upgrade head`
-via `docker compose run --rm` right after `docker compose up`, bind-mounting
-`alembic.ini` + `alembic/` from the rsynced source (the upstream image does
-not bake them in). The app does not create tables on startup, so this step is
-required for a fresh DB ; re-running the bundle re-applies it idempotently.
-
-## Vault password file
-
-The backend reads `VAULT_PASSWORD_FILE` at runtime to decrypt ansible-vault-
-encrypted variables in playbooks it executes. The bundle leaves
-`VAULT_PASSWORD_FILE=` empty in `.env` (matches upstream `.env.example`) - no
-global default is set at deploy time.
-
-Each operator-managed workspace already ships its own vault password file at
-`<workspace>/secrets/vault_pass.txt`. Since the bundle bind-mounts the whole
-workspace dir at `/home/range42/range42.config`, every deployment's
-`vault_pass.txt` is reachable inside the container at
-`/home/range42/range42.config/<C>-<S>/secrets/vault_pass.txt`. The backend
-resolves the per-deployment path at runtime via the deployment id ; no
-separate file copy is needed.
-
-## Single-worker invariant
-
-`WEB_CONCURRENCY=1` and `UVICORN_WORKERS=1` are hard-set in `.env`. The
-backend keeps SSE (Server-Sent Events) state in-process ; running multiple
-worker processes silently corrupts that state. The backend logs
-`multi_worker_deploy_invariant_violated` if these env vars are overridden
-to something other than 1.
-
-## Manual verification
-
-From the backend host, after deploy :
-
-```bash
-sudo docker compose -f /var/www/range42_backend_api/docker-compose.yml ps
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/docs/openapi.json   # expect: 200
-curl -s http://127.0.0.1:8000/v1/health | jq                                       # expect: {"status":"ok",...}
-```
-
-From a peer host in the same subnet (e.g. the deployer-ui) :
-
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://r42.admin-deployer-api-backend:8000/docs/openapi.json
-```
-
-From the UI side : open `http://r42.admin-deployer-ui:3000/` in a browser,
-go to Settings, set backend URL to `http://r42.admin-deployer-api-backend:8000`,
-verify connectivity. The browser will send the Origin header
-`http://r42.admin-deployer-ui:3000` which matches the default `CORS_ORIGIN_REGEX`.
-
-## Upgrade path (deferred)
-
-- **Image-based deploys** : build & push `ghcr.io/range42/range42-backend-api:<short-sha>` from CI on the backend repo, then swap this bundle to `docker compose pull && docker compose up -d` against a pinned tag in inventory (eliminates the rsync + local build pattern and the 5-10 min first-build wait on the VM)
-- **Reverse proxy / TLS** : front the backend with Traefik or extend the kong gateway to proxy `/v1`, `/v0`, `/ws` (eliminates the CORS dependency, single origin for the UI)
-- **Backup** : daily `sqlite3 .backup` cron or restic snapshot of the workspace dir
-- **Cross-scenario migration** : same bundle import pattern, swappable into demo_lab, bs2 / bs4 / bs6 later
-
-## Known limitations (POC)
-
-- Vault password file is copied verbatim from controller to host - no rotation, no secret-manager integration. Operator workflow : rotate the file on the controller, re-run the bundle.
-- WEB_CONCURRENCY=1 means single-process throughput. Acceptable for POC ; production scale-out requires backend changes upstream (SSE state would need to move out of process).
-- Backend exposes port 8000 directly to peers in the lab subnet. No TLS. CORS regex protects browser-side. Fine for POC ; production needs TLS + reverse proxy.
+See `docs/container-installer-checkpoint.md` for exact local acceptance evidence.
+The new native bundle/callsite tests execute actual local Ansible against a
+recording consumer, proving validation and exact request transport without
+Docker, service operations or credential access. They do not establish systemd
+adoption, image compatibility or live Proxmox acceptance; those require the
+matched consumer/image tests and a separately reviewed native execution.
