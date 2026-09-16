@@ -5,15 +5,15 @@
 ## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
 ##
 ## Provisions 24 team lab VMs across 6 subnets (4 VMs per subnet) :
-##   - vmbr143 : bs6-team-143-01..04 (VMID 6001-6004, IP 192.168.143.220-223)
-##   - vmbr144 : bs6-team-144-01..04 (VMID 6005-6008, IP 192.168.144.220-223)
-##   - vmbr145 : bs6-team-145-01..04 (VMID 6009-6012, IP 192.168.145.220-223)
-##   - vmbr146 : bs6-team-146-01..04 (VMID 6013-6016, IP 192.168.146.220-223)
-##   - vmbr147 : bs6-team-147-01..04 (VMID 6017-6020, IP 192.168.147.220-223)
-##   - vmbr148 : bs6-team-148-01..04 (VMID 6021-6024, IP 192.168.148.220-223)
+##   - net143 : bs6-team-143-01..04 (VMID 6001-6004, IP 192.168.143.220-223)
+##   - net144 : bs6-team-144-01..04 (VMID 6005-6008, IP 192.168.144.220-223)
+##   - net145 : bs6-team-145-01..04 (VMID 6009-6012, IP 192.168.145.220-223)
+##   - net146 : bs6-team-146-01..04 (VMID 6013-6016, IP 192.168.146.220-223)
+##   - net147 : bs6-team-147-01..04 (VMID 6017-6020, IP 192.168.147.220-223)
+##   - net148 : bs6-team-148-01..04 (VMID 6021-6024, IP 192.168.148.220-223)
 ##
 
-# --- subnet 143 (vmbr143) - VM 01 ---
+# --- subnet 143 (net143) - VM 01 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_143_01.yml
   vars:
@@ -24,14 +24,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.143.220"
     global_vm_ci_ip_gw: "192.168.143.1"
-    global_vm_net_bridge: "vmbr143"
+    global_vm_net_bridge: "net143"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 143 (vmbr143) - VM 02 ---
+# --- subnet 143 (net143) - VM 02 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_143_02.yml
   vars:
@@ -42,14 +42,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.143.221"
     global_vm_ci_ip_gw: "192.168.143.1"
-    global_vm_net_bridge: "vmbr143"
+    global_vm_net_bridge: "net143"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 143 (vmbr143) - VM 03 ---
+# --- subnet 143 (net143) - VM 03 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_143_03.yml
   vars:
@@ -60,14 +60,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.143.222"
     global_vm_ci_ip_gw: "192.168.143.1"
-    global_vm_net_bridge: "vmbr143"
+    global_vm_net_bridge: "net143"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 143 (vmbr143) - VM 04 ---
+# --- subnet 143 (net143) - VM 04 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_143_04.yml
   vars:
@@ -78,14 +78,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.143.223"
     global_vm_ci_ip_gw: "192.168.143.1"
-    global_vm_net_bridge: "vmbr143"
+    global_vm_net_bridge: "net143"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 144 (vmbr144) - VM 01 ---
+# --- subnet 144 (net144) - VM 01 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_144_01.yml
   vars:
@@ -96,14 +96,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.144.220"
     global_vm_ci_ip_gw: "192.168.144.1"
-    global_vm_net_bridge: "vmbr144"
+    global_vm_net_bridge: "net144"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 144 (vmbr144) - VM 02 ---
+# --- subnet 144 (net144) - VM 02 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_144_02.yml
   vars:
@@ -114,14 +114,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.144.221"
     global_vm_ci_ip_gw: "192.168.144.1"
-    global_vm_net_bridge: "vmbr144"
+    global_vm_net_bridge: "net144"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 144 (vmbr144) - VM 03 ---
+# --- subnet 144 (net144) - VM 03 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_144_03.yml
   vars:
@@ -132,14 +132,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.144.222"
     global_vm_ci_ip_gw: "192.168.144.1"
-    global_vm_net_bridge: "vmbr144"
+    global_vm_net_bridge: "net144"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 144 (vmbr144) - VM 04 ---
+# --- subnet 144 (net144) - VM 04 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_144_04.yml
   vars:
@@ -150,14 +150,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.144.223"
     global_vm_ci_ip_gw: "192.168.144.1"
-    global_vm_net_bridge: "vmbr144"
+    global_vm_net_bridge: "net144"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 145 (vmbr145) - VM 01 ---
+# --- subnet 145 (net145) - VM 01 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_145_01.yml
   vars:
@@ -168,14 +168,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.145.220"
     global_vm_ci_ip_gw: "192.168.145.1"
-    global_vm_net_bridge: "vmbr145"
+    global_vm_net_bridge: "net145"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 145 (vmbr145) - VM 02 ---
+# --- subnet 145 (net145) - VM 02 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_145_02.yml
   vars:
@@ -186,14 +186,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.145.221"
     global_vm_ci_ip_gw: "192.168.145.1"
-    global_vm_net_bridge: "vmbr145"
+    global_vm_net_bridge: "net145"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 145 (vmbr145) - VM 03 ---
+# --- subnet 145 (net145) - VM 03 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_145_03.yml
   vars:
@@ -204,14 +204,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.145.222"
     global_vm_ci_ip_gw: "192.168.145.1"
-    global_vm_net_bridge: "vmbr145"
+    global_vm_net_bridge: "net145"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 145 (vmbr145) - VM 04 ---
+# --- subnet 145 (net145) - VM 04 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_145_04.yml
   vars:
@@ -222,14 +222,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.145.223"
     global_vm_ci_ip_gw: "192.168.145.1"
-    global_vm_net_bridge: "vmbr145"
+    global_vm_net_bridge: "net145"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 146 (vmbr146) - VM 01 ---
+# --- subnet 146 (net146) - VM 01 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_146_01.yml
   vars:
@@ -240,14 +240,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.146.220"
     global_vm_ci_ip_gw: "192.168.146.1"
-    global_vm_net_bridge: "vmbr146"
+    global_vm_net_bridge: "net146"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 146 (vmbr146) - VM 02 ---
+# --- subnet 146 (net146) - VM 02 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_146_02.yml
   vars:
@@ -258,14 +258,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.146.221"
     global_vm_ci_ip_gw: "192.168.146.1"
-    global_vm_net_bridge: "vmbr146"
+    global_vm_net_bridge: "net146"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 146 (vmbr146) - VM 03 ---
+# --- subnet 146 (net146) - VM 03 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_146_03.yml
   vars:
@@ -276,14 +276,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.146.222"
     global_vm_ci_ip_gw: "192.168.146.1"
-    global_vm_net_bridge: "vmbr146"
+    global_vm_net_bridge: "net146"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 146 (vmbr146) - VM 04 ---
+# --- subnet 146 (net146) - VM 04 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_146_04.yml
   vars:
@@ -294,14 +294,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.146.223"
     global_vm_ci_ip_gw: "192.168.146.1"
-    global_vm_net_bridge: "vmbr146"
+    global_vm_net_bridge: "net146"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 147 (vmbr147) - VM 01 ---
+# --- subnet 147 (net147) - VM 01 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_147_01.yml
   vars:
@@ -312,14 +312,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.147.220"
     global_vm_ci_ip_gw: "192.168.147.1"
-    global_vm_net_bridge: "vmbr147"
+    global_vm_net_bridge: "net147"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 147 (vmbr147) - VM 02 ---
+# --- subnet 147 (net147) - VM 02 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_147_02.yml
   vars:
@@ -330,14 +330,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.147.221"
     global_vm_ci_ip_gw: "192.168.147.1"
-    global_vm_net_bridge: "vmbr147"
+    global_vm_net_bridge: "net147"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 147 (vmbr147) - VM 03 ---
+# --- subnet 147 (net147) - VM 03 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_147_03.yml
   vars:
@@ -348,14 +348,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.147.222"
     global_vm_ci_ip_gw: "192.168.147.1"
-    global_vm_net_bridge: "vmbr147"
+    global_vm_net_bridge: "net147"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 147 (vmbr147) - VM 04 ---
+# --- subnet 147 (net147) - VM 04 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_147_04.yml
   vars:
@@ -366,14 +366,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.147.223"
     global_vm_ci_ip_gw: "192.168.147.1"
-    global_vm_net_bridge: "vmbr147"
+    global_vm_net_bridge: "net147"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 148 (vmbr148) - VM 01 ---
+# --- subnet 148 (net148) - VM 01 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_148_01.yml
   vars:
@@ -384,14 +384,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.148.220"
     global_vm_ci_ip_gw: "192.168.148.1"
-    global_vm_net_bridge: "vmbr148"
+    global_vm_net_bridge: "net148"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 148 (vmbr148) - VM 02 ---
+# --- subnet 148 (net148) - VM 02 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_148_02.yml
   vars:
@@ -402,14 +402,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.148.221"
     global_vm_ci_ip_gw: "192.168.148.1"
-    global_vm_net_bridge: "vmbr148"
+    global_vm_net_bridge: "net148"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 148 (vmbr148) - VM 03 ---
+# --- subnet 148 (net148) - VM 03 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_148_03.yml
   vars:
@@ -420,14 +420,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.148.222"
     global_vm_ci_ip_gw: "192.168.148.1"
-    global_vm_net_bridge: "vmbr148"
+    global_vm_net_bridge: "net148"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 148 (vmbr148) - VM 04 ---
+# --- subnet 148 (net148) - VM 04 ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs6_team_148_04.yml
   vars:
@@ -438,7 +438,7 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.148.223"
     global_vm_ci_ip_gw: "192.168.148.1"
-    global_vm_net_bridge: "vmbr148"
+    global_vm_net_bridge: "net148"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
