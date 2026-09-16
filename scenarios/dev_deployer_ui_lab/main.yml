@@ -4,7 +4,7 @@
 ##
 ## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
 ##
-## Provisions 3 dev VMs on vmbr142 from the project standard medium template
+## Provisions 3 dev VMs on net142 from the project standard medium template
 ## (VMID 9232 : 2cpu / 8gb / 64gb) hosting the deployer-ui platform stack via
 ## bundles : dev-deployer-ui (frontend), dev-backend (api backend), dev-kong
 ## (api gateway). Each VM application stack is gated by an INSTALL flag
@@ -31,6 +31,20 @@
 ## agent install on dev tier clients reaching the wazuh server on tier 02)
 ## sees ALL target VMs created AND baselined before firing.
 ##
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 00 - SDN BOOTSTRAP #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+##
+## MUST run first : net140 is the templating network and the template build does apt.
+##
+
+## The firewall wiring lives in ./_firewall/, one file per MOMENT - see its README. Arming
+## happens at end_scenario, opt-in: FIREWALL_ARM_VMS=YES (default NO, decision of 2026-09-04).
+- import_playbook: ./_firewall/stage_00-pre_scenario.report_status.yml
+- import_playbook: ./_firewall/stage_01-pre_scenario.management_access.yml
+
+- import_playbook: ./00_sdn_bootstrap/_main.yml
+
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
@@ -45,6 +59,9 @@
 - import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
 - import_playbook: ./02_dev_deployer_ui_lab_infrastructure/_main_stage_00.yml
+
+## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
+- import_playbook: ./_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
@@ -75,3 +92,10 @@
 #
 
 - import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### END SCENARIO  #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+## LAST, so no configure step above gets filtered mid-deploy. Inert unless FIREWALL_ARM_VMS=YES.
+- import_playbook: ./_firewall/stage_03-end_scenario.arm_deployed_vms.yml

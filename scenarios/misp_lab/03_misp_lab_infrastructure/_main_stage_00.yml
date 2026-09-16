@@ -4,7 +4,7 @@
 ##
 ## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
 ##
-## Provisions admin-misp-standalone (Ubuntu Noble medium) on vmbr142.
+## Provisions admin-misp-standalone (Ubuntu Noble medium) on net142.
 ## Single VM, no gating (the lab tier is always created ; admin tier
 ## optionality lives in 02_admin_infrastructure/).
 ##

@@ -4,7 +4,7 @@
 ##
 ## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
 ##
-## Provisions a single Ubuntu LTS VM (admin-misp-standalone) on vmbr142 from
+## Provisions a single Ubuntu LTS VM (admin-misp-standalone) on net142 from
 ## the project standard medium template (VMID 9232 : 2cpu / 8gb / 64gb) and
 ## deploys the misp-standalone docker-compose stack on it via the shared
 ## bundle bundles/admin/software.install.misp_standalone/.
@@ -14,10 +14,10 @@
 ## (default NO per manifest/feature_flags.yml).
 ##
 ## Lab topology :
-##   - admin-misp-standalone (192.168.142.180, VMID 1180, vmbr142)  - MISP host
+##   - admin-misp-standalone (192.168.142.180, VMID 1180, net142)  - MISP host
 ##
 ## Optional admin tier (192.168.142.0/24 admin band) :
-##   - admin-wazuh (192.168.142.187, VMID 1187, vmbr142)            - SIEM server
+##   - admin-wazuh (192.168.142.187, VMID 1187, net142)            - SIEM server
 ##
 ## Global stage discipline (mirror of kunai_lab / demo_lab) :
 ##   1. 01_templates-bootstrap                                create the shared template (9232)
@@ -25,6 +25,20 @@
 ##   3. ALL tiers stage_01 (vm_configure)                     configure every VM after
 ##   4. cross-tier finalize (wazuh-agent on admin-misp-standalone)  when INSTALL_WAZUH=YES
 ##
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 00 - SDN BOOTSTRAP #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+##
+## MUST run first : net140 is the templating network and the template build does apt.
+##
+
+## The firewall wiring lives in ./_firewall/, one file per MOMENT - see its README. Arming
+## happens at end_scenario, opt-in: FIREWALL_ARM_VMS=YES (default NO, decision of 2026-09-04).
+- import_playbook: ./_firewall/stage_00-pre_scenario.report_status.yml
+- import_playbook: ./_firewall/stage_01-pre_scenario.management_access.yml
+
+- import_playbook: ./00_sdn_bootstrap/_main.yml
+
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
@@ -39,6 +53,9 @@
 - import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
 - import_playbook: ./03_misp_lab_infrastructure/_main_stage_00.yml
+
+## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
+- import_playbook: ./_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
@@ -70,3 +87,10 @@
 #
 
 - import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### END SCENARIO  #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+## LAST, so no configure step above gets filtered mid-deploy. Inert unless FIREWALL_ARM_VMS=YES.
+- import_playbook: ./_firewall/stage_03-end_scenario.arm_deployed_vms.yml

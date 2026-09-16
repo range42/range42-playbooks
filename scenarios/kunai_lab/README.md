@@ -2,12 +2,16 @@
 
 Multi-VM training scenario that delivers 6 Ubuntu LTS hosts (1 trainer + 5 students) pre-provisioned with the Docker baseline plus the [kunai-project](https://github.com/kunai-project) ecosystem repositories pre-cloned in the operator home. Designed to run the kunai workshops out of the box.
 
-The 6 VMs are cloned from the project standard medium Ubuntu noble template (VMID 9232 - 2cpu / 8gb RAM / 64gb disk) onto the shared services bridge `vmbr142`. **User model** : `alice` is the deploy/transport user (ansible connects as alice, unchanged) ; on top, each VM gets a **human sudo account** - `trainer` on the trainer VM, `student` on each student VM (per-VM unique credentials). The kunai-project repos + toolchain are installed in the **human user's** home (`/home/trainer/`, `/home/student/`). See the [User model](#user-model-phase-1b) section.
+The 6 VMs are cloned from the project standard medium Ubuntu noble template (VMID 9232 - 2cpu / 8gb RAM / 64gb disk) onto the shared services bridge `net142`. **User model** : `alice` is the deploy/transport user (ansible connects as alice, unchanged) ; on top, each VM gets a **human sudo account** - `trainer` on the trainer VM, `student` on each student VM (per-VM unique credentials). The kunai-project repos + toolchain are installed in the **human user's** home (`/home/trainer/`, `/home/student/`). See the [User model](#user-model-phase-1b) section.
+
+## Read this before deploying
+
+**Any legacy `vmbrXXX` bridge carrying the same `.1` as a vnet must go.** See [Migrating from the bridge-based scenarios](#migrating-from-the-bridge-based-scenarios) - this is not optional, and the failure it causes is silent.
 
 ## Scope
 
 **In scope :**
-- 6 Ubuntu LTS VMs on vmbr142 (1 trainer + 5 students)
+- 6 Ubuntu LTS VMs on net142 (1 trainer + 5 students)
 - Docker engine + Docker Compose plugin on each VM
 - zsh + vim dotfiles
 - Basic utilities : curl, git, jq, vim, network diagnostic tools
@@ -53,7 +57,7 @@ Three roles, cleanly separated :
 ```
          Proxmox Host
               |
-              +-- vmbr142 (shared services bridge - 192.168.142.0/24, gw .1)
+              +-- net142 (shared services bridge - 192.168.142.0/24, gw .1)
                      |
                      +-- admin-trainer-kunai (.104)  ........  VMID 1104
                      +-- student-kunai-01    (.105)  ........  VMID 1105
@@ -63,18 +67,18 @@ Three roles, cleanly separated :
                      +-- student-kunai-05    (.109)  ........  VMID 1109
 ```
 
-No dedicated subnet. The 6 VMs live on `vmbr142`, the shared services bridge. The `.104`-`.109` slots are reserved by kunai_lab.
+No dedicated subnet. The 6 VMs live on `net142`, the shared services bridge. The `.104`-`.109` slots are reserved by kunai_lab.
 
 ## VM details
 
 | VM Name              | VM ID | IP                | Bridge   | In-VM user    | Role     | Template                              |
 |----------------------|-------|-------------------|----------|---------------|----------|---------------------------------------|
-| admin-trainer-kunai  | 1104  | 192.168.142.104   | vmbr142  | alice         | trainer  | template-vm-medium-02-8g-64g (9232)   |
-| student-kunai-01     | 1105  | 192.168.142.105   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
-| student-kunai-02     | 1106  | 192.168.142.106   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
-| student-kunai-03     | 1107  | 192.168.142.107   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
-| student-kunai-04     | 1108  | 192.168.142.108   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
-| student-kunai-05     | 1109  | 192.168.142.109   | vmbr142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
+| admin-trainer-kunai  | 1104  | 192.168.142.104   | net142  | alice         | trainer  | template-vm-medium-02-8g-64g (9232)   |
+| student-kunai-01     | 1105  | 192.168.142.105   | net142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
+| student-kunai-02     | 1106  | 192.168.142.106   | net142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
+| student-kunai-03     | 1107  | 192.168.142.107   | net142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
+| student-kunai-04     | 1108  | 192.168.142.108   | net142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
+| student-kunai-05     | 1109  | 192.168.142.109   | net142  | alice         | student  | template-vm-medium-02-8g-64g (9232)   |
 
 The "In-VM user" column is the SSH transport / deploy user (`alice` on every VM, project convention). Each VM ALSO has a human sudo account - `trainer` on the trainer VM, `student` on each student VM - created by Phase 1B (see the [User model](#user-model-phase-1b) section).
 
@@ -104,6 +108,47 @@ Two inventory groups are declared so stage_01 can apply role-specific tasks (dif
 |------------------------------------|-----------------------------------------------------------|
 | `r42_kunai_lab_trainer_group`      | `r42.admin-trainer-kunai`                                 |
 | `r42_kunai_lab_students_group`     | `r42.student-kunai-01` through `r42.student-kunai-05`     |
+
+## How the SDN networks are created
+
+`00_sdn_bootstrap/` runs **before everything else** and brings up one zone holding the two vnets:
+
+| vnet | subnet | gateway | SNAT | used by |
+|---|---|---|---|---|
+| `net140` | `192.168.140.0/24` | `.1` | yes | the template build |
+| `net142` | `192.168.142.0/24` | `.1` | yes | the admin and kunai-lab tiers |
+
+The vnet name follows the third octet of its subnet: `net143` carries `192.168.143.0/24`. The zone is `simple`, which means it is host-local - the Proxmox holds the `.1` of every subnet and routes between them, and outbound internet comes from the SNAT rule, not from the physical network knowing these ranges exist.
+
+**It creates, it never deletes.** Each object is looked up first and only what is missing is written, so a second run is a no-op and an existing object is left alone. A vnet name is global to the cluster: deleting one here would take away a network other scenarios attach to. The delete scripts of this scenario remove VMs only.
+
+**The order is not a preference.** `net140` is the templating network and the template build runs `apt`. Without a live SNAT rule there, the templates come out empty and out of date - so a template tier that runs first produces broken templates.
+
+## Migrating from the bridge-based scenarios
+
+A `vmbrNNN` bridge and a `netNNN` vnet **cannot both carry the same `.1`**. If they do, the host resolves the route to the bridge, where no VM is attached, and ARPs into the void. Everything looks correct - the zone, the vnet, the subnet, the gateway and the SNAT rule are all there and stay there - but:
+
+- SSH to the VM fails with `No route to host`, which reads like a timeout;
+- the VM cannot reach the internet, because the NATed reply comes back and is lost the same way;
+- cloud-init ends `degraded` after several minutes of network timeouts.
+
+**No API check can see this.** The declaration is valid; the fault is in the host's routing table. The one command that tells you:
+
+```bash
+ip route get <the_vm_ip>      # must answer `dev netXXX`, not `dev vmbrXXX`
+```
+
+**So the switch to SDN is atomic per hypervisor.** Before deploying this scenario, the VMs of every bridge-based scenario using these ranges must be deleted and their `vmbrNNN` bridges freed. There is no gradual coexistence and no partial rollback.
+
+While the bridge-creating tooling is still in place, `00_sdn_bootstrap/` imports the `proxmox/legacy_bridge.workaround.shadowed_subnet` bundle, which removes the duplicate address from the conflicting bridges - the address only, nothing written to disk, so `ifreload -a` puts it back. It refuses to run if a live VM is still attached to one of those bridges, rather than cutting that VM off mid-deployment. Skip it with `-e BUNDLE_LEGACY_SKIP=true` once the bridges are gone for good.
+
+To clear those lines from the disk for good, so no `ifreload` can restore them, run `range42-context networks-legacy-clean` once - a migration step, not routine maintenance.
+
+## Subnet isolation
+
+**Not implemented yet.** Today the subnets reach each other: the host holds a gateway in each and routes between them. That is the expected state of this scenario, not a defect - a VM in `net143` can open a connection to a VM in `net144`.
+
+Isolating them is a firewall matter, not a topology one: putting each vnet in its own zone would change nothing, because the host would still route. The work is in progress and will use per-NIC filtering with address sets, so that team subnets are isolated from each other while the deployer keeps reaching the VMs it manages - without that exception, no deployment could run at all.
 
 ## Usage
 

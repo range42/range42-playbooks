@@ -23,7 +23,7 @@
     global_vm_ci_ip:       "192.168.142.182"
     global_template_vm_id: 9232
     global_template_name:  "template-vm-medium-02-8g-64g - id : 9232"
-    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_net_virtio_bridge:  "net142"
     global_vm_ci_ip_gw:           "192.168.142.1"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
