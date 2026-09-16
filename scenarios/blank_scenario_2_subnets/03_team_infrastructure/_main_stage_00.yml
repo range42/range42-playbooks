@@ -5,11 +5,11 @@
 ## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
 ##
 ## Provisions 4 team lab VMs across 2 subnets :
-##   - subnet 143 (vmbr143) : bs2-team-143-01..02
-##   - subnet 144 (vmbr144) : bs2-team-144-01..02
+##   - subnet 143 (net143) : bs2-team-143-01..02
+##   - subnet 144 (net144) : bs2-team-144-01..02
 ##
 
-# --- subnet 143 (vmbr143) ---
+# --- subnet 143 (net143) ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs2_team_143_01.yml
   vars:
@@ -20,7 +20,7 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.143.200"
     global_vm_ci_ip_gw: "192.168.143.1"
-    global_vm_net_bridge: "vmbr143"
+    global_vm_net_bridge: "net143"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
@@ -36,14 +36,14 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.143.201"
     global_vm_ci_ip_gw: "192.168.143.1"
-    global_vm_net_bridge: "vmbr143"
+    global_vm_net_bridge: "net143"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# --- subnet 144 (vmbr144) ---
+# --- subnet 144 (net144) ---
 
 - import_playbook: ./stage_00-vm_bootstrap/bs2_team_144_01.yml
   vars:
@@ -54,7 +54,7 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.144.200"
     global_vm_ci_ip_gw: "192.168.144.1"
-    global_vm_net_bridge: "vmbr144"
+    global_vm_net_bridge: "net144"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
@@ -70,7 +70,7 @@
     global_vm_tag_name: "blank"
     global_vm_ci_ip: "192.168.144.201"
     global_vm_ci_ip_gw: "192.168.144.1"
-    global_vm_net_bridge: "vmbr144"
+    global_vm_net_bridge: "net144"
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"

@@ -14,13 +14,13 @@
 ## `range42-context networks-internet-list` already reports declared against live.
 ##
 ## Requires RANGE42_ANSIBLE_ROLES__INVENTORY_DIR and RANGE42_VAULT_PASSWORD_FILE to be exported -
-## set by `range42-context use <codename> blank_scenario_2_sdn`.
+## set by `range42-context use <codename> blank_scenario_2_subnets`.
 ##
 ## Any other argument is propagated to ansible-playbook.
 ##
 ## Companions:
-##   - blank_scenario_2_sdn.setup_networks.sh (this)   - create the SDN objects
-##   - blank_scenario_2_sdn.delete_networks.sh         - remove them, keeping the shared zone
+##   - blank_scenario_2_subnets.setup_networks.sh (this)   - create the SDN objects
+##   - blank_scenario_2_subnets.delete_networks.sh         - remove them, keeping the shared zone
 ##
 
 set -u

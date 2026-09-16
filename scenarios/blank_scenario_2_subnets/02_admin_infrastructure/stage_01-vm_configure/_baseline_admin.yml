@@ -1,23 +1,24 @@
 ##
 ## Baseline for r42_admin_active runtime group (blank_scenario_2_subnets) :
 ##   - systems.baseline.default    : packages + dotfiles
-##   - network.baseline.ssh       : firewall opens port 22 (wazuh / misp service
+##   - firewall/in_vm/os_firewall.baseline.ssh : in-VM firewall opens port 22 (wazuh / misp service
 ##                                   ports opened by their respective bundles)
 ##   - network.configure.tailscale_client         : optional tailscale install (gated INSTALL_TAILSCALE,
 ##                                   default NO)
 ##
 ## Targets r42_admin_active (built by ../_build_admin_active_group.yml from the
-## INSTALL_<flag> values at deploy time + always-on admin VMs). Each baseline
-## play only runs on admin VMs that stage_00 actually created. The 3 always-on
-## deployer VMs always get the baseline ; the optional admin-wazuh / admin-misp
-## get it only when their flag is YES.
+## INSTALL_<flag> values at deploy time). Each baseline play only runs on admin
+## VMs that stage_00 actually created - every admin VM is flag-gated, deployer
+## trio included (INSTALL_DEPLOYER_UI).
 ##
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.default/main.yml"
   vars:
     target_group: "r42_admin_active"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
+## PILOT of the firewall migration: the strict mirror of network.baseline.ssh, under its
+## real name - this is the firewall INSIDE the VM, not the Proxmox one. Same body, verified.
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_vm/os_firewall.baseline.ssh/main.yml"
   vars:
     target_group: "r42_admin_active"
 
@@ -31,3 +32,7 @@
       - "bs2-admin-deployer-api-gateway"
       - "bs2-admin-deployer-api-backend"
       - "bs2-admin-deployer-ui"
+      - "bs2-admin-gitea"
+      - "bs2-admin-mattermost"
+      - "bs2-admin-nextcloud"
+      - "bs2-admin-rocketchat"

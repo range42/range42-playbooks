@@ -4,7 +4,7 @@
 ##
 ## Structure : stage_01 unit imported by top-level main.yml ; cross-tier finalize (wazuh-agent on team VMs) lives at main.yml level, not here.
 ##
-## Builds the runtime r42_admin_active group from INSTALL_<flag> + always-on VMs,
+## Builds the runtime r42_admin_active group from the INSTALL_<flag> values -
 ## then applies the baseline + optional wazuh/misp installs on the active
 ## admin VMs. NO cross-tier dependency : every play here targets either
 ## r42_admin_active (runtime, per-host gated) or a single named admin VM.

@@ -1,6 +1,6 @@
 ---
 ##
-## blank_scenario_2_sdn - 00 SDN BOOTSTRAP
+## blank_scenario_2_subnets - 00 SDN BOOTSTRAP
 ##
 ## RUNS BEFORE EVERYTHING ELSE, and the order is not a preference : net140 is the templating
 ## network, the template build runs `apt`, so without a live SNAT rule there the templates come
@@ -16,7 +16,7 @@
 ## state for this scenario, not a defect.
 ##
 
-- name: "blank_scenario_2_sdn - 00 declare the networks, once"
+- name: "blank_scenario_2_subnets - 00 declare the networks, once"
   hosts: proxmox
   gather_facts: false
   tasks:

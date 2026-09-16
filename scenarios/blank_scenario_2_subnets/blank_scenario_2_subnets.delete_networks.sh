@@ -22,8 +22,8 @@
 ## inflate the very rules the last step exists to clear.
 ##
 ## Companions:
-##   - blank_scenario_2_sdn.setup_networks.sh          - create the SDN objects
-##   - blank_scenario_2_sdn.delete_networks.sh (this)  - remove them, keeping the shared zone
+##   - blank_scenario_2_subnets.setup_networks.sh          - create the SDN objects
+##   - blank_scenario_2_subnets.delete_networks.sh (this)  - remove them, keeping the shared zone
 ##
 
 set -u
