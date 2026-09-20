@@ -14,3 +14,14 @@ params:
     default: []
     items: "short code string, e.g. alpine-nano"
     description: If empty build the full alpine set, otherwise only the listed short codes.
+
+  - name: template_net_bridge
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "vmbr140"
+    description: >-
+      Bridge the template VM NIC attaches to while it is being built. Defaults to vmbr140, which is
+      what every caller got when the value was hardcoded - so an existing caller that passes nothing is
+      unaffected. A caller on SDN passes its vnet instead, for instance net140, which is a bridge name
+      as far as qemu is concerned.

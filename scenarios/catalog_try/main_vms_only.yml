@@ -7,6 +7,16 @@
 ## Used by `range42-context deploy-vms`.
 ##
 
+## MUST run first : net140 is the templating network and the template build does apt.
+##
+
+## The firewall wiring lives in ./_firewall/, one file per MOMENT - see its README. Arming
+## happens at end_scenario, opt-in: FIREWALL_ARM_VMS=YES (default NO, decision of 2026-09-04).
+- import_playbook: ./_firewall/stage_00-pre_scenario.report_status.yml
+- import_playbook: ./_firewall/stage_01-pre_scenario.management_access.yml
+
+- import_playbook: ./00_sdn_bootstrap/_main.yml
+
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### 02_catalog-try_infrastructure - STAGE 00 #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -23,6 +33,9 @@
     #
     global_template_vm_id: 9221
     global_template_name: "template-vm-small-01-4g-32g - id : 9221"
+
+## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
+- import_playbook: ./_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### 02_catalog-try_infrastructure - STAGE 01 #### #### ####
@@ -55,3 +68,6 @@
         protocol: "tcp"
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+## LAST, so no configure step above gets filtered mid-deploy. Inert unless FIREWALL_ARM_VMS=YES.
+- import_playbook: ./_firewall/stage_03-end_scenario.arm_deployed_vms.yml

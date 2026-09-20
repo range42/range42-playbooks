@@ -17,6 +17,8 @@
 ##   templates_whitelist     []    # if empty, install the full set ; else
 ##                                 # only the short codes listed :
 ##                                 #   alpine-nano
+##   template_net_bridge     vmbr140  # bridge the template NIC attaches to WHILE BUILDING ; a caller
+##                                    # on SDN passes its vnet, for instance net140.
 ##
 ## Vault loading uses `$RANGE42_ACTIVE_CONFIG_DIR/secrets/default_vault.yml`
 ## (env var exported by `range42-context use`).

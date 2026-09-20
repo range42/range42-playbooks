@@ -2,7 +2,7 @@
 ################################################################################
 # range42 - scenario-specific variables (debug_scenario_a)
 #
-# Minimal debug/dev scenario - 1 VM on vmbr147
+# Minimal debug/dev scenario - 1 VM on net147
 # Designed for fast iteration and multi-scenario testing.
 #
 # For shared variables → group_vars/all/vars.yml

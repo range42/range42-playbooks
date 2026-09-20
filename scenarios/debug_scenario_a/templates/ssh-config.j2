@@ -37,7 +37,7 @@ Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
     Port 22
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      ADMIN BAND (vmbr142, gated by INSTALL_<flag>)
+#                                      ADMIN BAND (net142, gated by INSTALL_<flag>)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 # Both admin entries are emitted UNCONDITIONALLY so the operator can SSH-in
@@ -58,7 +58,7 @@ Host r42.admin-*
     ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      SUBNET 147 (vmbr147)
+#                                      SUBNET 147 (net147)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.dsa-vm-01

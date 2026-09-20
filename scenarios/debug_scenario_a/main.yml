@@ -4,18 +4,18 @@
 ##
 ## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
 ##
-## Provisions 1 lab VM on vmbr147 (Alpine nano - fast debug iteration).
+## Provisions 1 lab VM on net147 (Alpine nano - fast debug iteration).
 ## Optional admin tier (gated by feature flags, default NO per
 ## manifest/feature_flags.yml) :
 ##   - admin-wazuh (INSTALL_WAZUH, default NO) - Wazuh SIEM server
 ##   - admin-misp  (INSTALL_MISP,  default NO) - MISP threat intel stack
 ##
 ## Lab topology :
-##   - dsa-vm-01 (192.168.147.250, VMID 8001, vmbr147) - Alpine debug VM
+##   - dsa-vm-01 (192.168.147.250, VMID 8001, net147) - Alpine debug VM
 ##
 ## Optional admin tier (192.168.142.0/24 admin band) :
-##   - admin-wazuh (192.168.142.150, VMID 8050, vmbr142)
-##   - admin-misp  (192.168.142.151, VMID 8051, vmbr142)
+##   - admin-wazuh (192.168.142.150, VMID 8050, net142)
+##   - admin-misp  (192.168.142.151, VMID 8051, net142)
 ##
 ## Global stage discipline (mirror of kunai_lab / demo_lab) :
 ##   1. 01_templates-bootstrap                          create the shared templates
@@ -28,6 +28,16 @@
 ## agent install on tier 03 client reaching the wazuh server on tier 02)
 ## sees ALL target VMs created AND baselined before firing.
 ##
+
+## MUST run first : net140 is the templating network and the template build does apt.
+##
+
+## The firewall wiring lives in ./_firewall/, one file per MOMENT - see its README. Arming
+## happens at end_scenario, opt-in: FIREWALL_ARM_VMS=YES (default NO, decision of 2026-09-04).
+- import_playbook: ./_firewall/stage_00-pre_scenario.report_status.yml
+- import_playbook: ./_firewall/stage_01-pre_scenario.management_access.yml
+
+- import_playbook: ./00_sdn_bootstrap/_main.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
@@ -48,6 +58,9 @@
 - import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
 - import_playbook: ./03_debug_scenario_a_infrastructure/_main_stage_00.yml
+
+## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
+- import_playbook: ./_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
@@ -79,3 +92,5 @@
 #
 
 - import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
+## LAST, so no configure step above gets filtered mid-deploy. Inert unless FIREWALL_ARM_VMS=YES.
+- import_playbook: ./_firewall/stage_03-end_scenario.arm_deployed_vms.yml
