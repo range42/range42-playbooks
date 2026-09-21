@@ -1,0 +1,156 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### _init_lab - 02_admin_infrastructure - stage_00 - admin group #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Per-VM bootstrap of the admin platform VMs :
+#   - admin-wazuh (gated INSTALL_WAZUH, default NO) : Wazuh SIEM server
+#   - admin-misp  (gated INSTALL_MISP,  default NO) : MISP threat intel stack
+#   - admin-deployer-api-gateway / api-backend / ui (gated INSTALL_DEPLOYER_UI, default NO) : deployer platform
+#
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "init-admin-wazuh"
+    global_vm_ssh_name:    "r42.init-admin-wazuh"
+    global_vm_id:          990
+    global_vm_description: "_init_lab - Wazuh SIEM server (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.90"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_MISP | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "init-admin-misp"
+    global_vm_ssh_name:    "r42.init-admin-misp"
+    global_vm_id:          994
+    global_vm_description: "_init_lab - MISP threat intel stack (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.94"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_GITEA | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "init-admin-gitea"
+    global_vm_ssh_name:    "r42.init-admin-gitea"
+    global_vm_id:          995
+    global_vm_description: "_init_lab - Gitea docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.95"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_MATTERMOST | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "init-admin-mattermost"
+    global_vm_ssh_name:    "r42.init-admin-mattermost"
+    global_vm_id:          996
+    global_vm_description: "_init_lab - Mattermost docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.96"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "init-admin-nextcloud"
+    global_vm_ssh_name:    "r42.init-admin-nextcloud"
+    global_vm_id:          997
+    global_vm_description: "_init_lab - Nextcloud docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.97"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "init-admin-rocketchat"
+    global_vm_ssh_name:    "r42.init-admin-rocketchat"
+    global_vm_id:          998
+    global_vm_description: "_init_lab - Rocket.Chat docker-compose host (optional)"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.98"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "init-admin-deployer-api-gateway"
+    global_vm_ssh_name:    "r42.init-admin-deployer-api-gateway"
+    global_vm_id:          991
+    global_vm_description: "_init_lab - API gateway"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.91"
+    global_template_vm_id: 9221
+    global_template_name:  "template-vm-small-01-4g-32g - id : 9221"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "init-admin-deployer-api-backend"
+    global_vm_ssh_name:    "r42.init-admin-deployer-api-backend"
+    global_vm_id:          992
+    global_vm_description: "_init_lab - backend API"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.92"
+    global_template_vm_id: 9221
+    global_template_name:  "template-vm-small-01-4g-32g - id : 9221"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "init-admin-deployer-ui"
+    global_vm_ssh_name:    "r42.init-admin-deployer-ui"
+    global_vm_id:          993
+    global_vm_description: "_init_lab - deployer UI"
+    global_vm_tag_name:    "admin"
+    global_vm_ci_ip:       "192.168.142.93"
+    global_template_vm_id: 9221
+    global_template_name:  "template-vm-small-01-4g-32g - id : 9221"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

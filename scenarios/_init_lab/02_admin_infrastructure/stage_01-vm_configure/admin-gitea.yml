@@ -1,0 +1,24 @@
+##
+## admin-gitea - Gitea docker-compose stack on r42.init-admin-gitea
+##
+## Delegates to the shared bundle (catalog .env seed + Docker baseline +
+## firewall 22/3000/2222 + docker-compose deploy of gitea : postgres + gitea +
+## provisioner). Server-only here : the gitea_lab vitrine adds the student
+## SSH-cycle tier ; _init_lab offers gitea as an optional admin
+## service.
+##
+## Gated by INSTALL_GITEA (default NO per _init_lab feature_flags.yml).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.gitea/main.yml"
+  when: INSTALL_GITEA | default("NO") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.init-admin-gitea"
+    global_vm_ci_ip:    "192.168.142.95"
+
+## The HYPERVISOR-side declaration of the same ports, on the tap - out of reach of a local
+## root. Idempotent, and inert until the guest is ARMED (firewall.enable.*).
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.gitea/main.yml"
+  when: INSTALL_GITEA | default("NO") | upper == "YES"
+  vars:
+    BUNDLE_VM_ID: 995

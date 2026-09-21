@@ -1,0 +1,102 @@
+---
+##
+## _init_lab - main playbook
+##
+## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
+##
+## Builds EVERY VM template the project declares (the twelve Ubuntu Noble ones and the Alpine
+## nano), then provisions 5 init VMs on 2 subnets (net143 + net144) plus an admin
+## platform of 9 optional admin VMs, every one gated by its INSTALL_<flag>.
+##
+## Lab topology (the init VMs are the team tier of this scenario) :
+##   - init-vm-00 (192.168.143.90, VMID 900, net143)
+##   - init-vm-01 (192.168.143.91, VMID 901, net143)
+##   - init-vm-02 (192.168.143.92, VMID 902, net143)
+##   - init-vm-03 (192.168.144.93, VMID 903, net144)
+##   - init-vm-04 (192.168.144.94, VMID 904, net144)
+##
+## Admin tier (192.168.142.0/24 admin band) :
+##   - init-admin-deployer-api-gateway (192.168.142.91, VMID 991, gated INSTALL_DEPLOYER_UI)
+##   - init-admin-deployer-api-backend (192.168.142.92, VMID 992, gated INSTALL_DEPLOYER_UI)
+##   - init-admin-deployer-ui          (192.168.142.93, VMID 993, gated INSTALL_DEPLOYER_UI)
+##   - init-admin-wazuh                (192.168.142.90, VMID 990, gated INSTALL_WAZUH)
+##   - init-admin-misp                 (192.168.142.94, VMID 994, gated INSTALL_MISP)
+##   - init-admin-gitea                (192.168.142.95, VMID 995, gated INSTALL_GITEA)
+##   - init-admin-mattermost           (192.168.142.96, VMID 996, gated INSTALL_MATTERMOST)
+##   - init-admin-nextcloud            (192.168.142.97, VMID 997, gated INSTALL_NEXTCLOUD)
+##   - init-admin-rocketchat           (192.168.142.98, VMID 998, gated INSTALL_ROCKETCHAT)
+##
+## Global stage discipline (mirror of demo_lab / kunai_lab) :
+##   1. 01_templates-bootstrap                                build every template of the project
+##   2. ALL tiers stage_00 (vm_bootstrap)                     create every VM first
+##   3. ALL tiers stage_01 (vm_configure)                     configure every VM after
+##   4. cross-tier finalize (wazuh-agent on team + admin VMs) when INSTALL_WAZUH=YES
+##
+## This ordering guarantees that any cross-tier configure step sees ALL target
+## VMs created AND baselined before firing.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 00 - SDN BOOTSTRAP #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+##
+## MUST run first : net140 is the templating network and the template build does apt.
+##
+
+## The firewall wiring lives in ./_firewall/, one file per MOMENT - see its README. Arming
+## happens at end_scenario, opt-in: FIREWALL_ARM_VMS=YES (default NO, decision of 2026-09-04).
+- import_playbook: ./_firewall/stage_00-pre_scenario.report_status.yml
+- import_playbook: ./_firewall/stage_01-pre_scenario.management_access.yml
+
+- import_playbook: ./00_sdn_bootstrap/_main.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 01 - TEMPLATES BOOTSTRAP #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./01_templates-bootstrap/_main.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
+
+- import_playbook: ./03_team_infrastructure/_main_stage_00.yml
+
+## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
+- import_playbook: ./_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
+
+- import_playbook: ./03_team_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_init_lab_wazuh_clients_active  ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# wazuh-agent install on the runtime active group : the 5 init VMs always, plus
+# every flag-gated admin VM actually deployed (deployer trio, misp, gitea,
+# mattermost, nextcloud, rocketchat - the wazuh server itself excluded). Runs
+# LAST so the wazuh server is
+# reachable AND all client VMs are created + baselined. Gated by INSTALL_WAZUH.
+#
+
+- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### END SCENARIO  #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+## LAST, so no configure step above gets filtered mid-deploy. Inert unless FIREWALL_ARM_VMS=YES.
+- import_playbook: ./_firewall/stage_03-end_scenario.arm_deployed_vms.yml

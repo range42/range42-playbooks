@@ -1,0 +1,30 @@
+---
+##
+## 01 - template bootstrap
+##
+## The shared init : this scenario builds EVERY VM template the project declares, so that a fresh
+## hypervisor gets its full template set in one deployment, before any lab is deployed on it.
+##   1. Download the cloud-init source files (ubuntu, debian and alpine images).
+##   2. Build the twelve Ubuntu Noble templates of the manifest : NO templates_whitelist here, on purpose.
+##   3. Build the Alpine nano template (VMID 9903), the one the debug scenarios clone.
+##
+## Idempotent : a template already finalized is left as-is. On a host that has never downloaded an
+## image, the download is asynchronous on the Proxmox side and the build that follows may not find
+## the file yet ; deploy again once the image is on the host.
+##
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.all/main.yml"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.ubuntu_noble/main.yml"
+  vars:
+    manifest_path:       "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/scenarios/_init_lab/manifest/scenario_vms.json"
+    template_bundle_dir: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.ubuntu_noble"
+    #### no templates_whitelist : every template of the manifest is built, that is the point of this scenario.
+    #### the templating network is an SDN vnet here, not vmbr140. The bundle defaults to vmbr140,
+    #### so this line is what actually puts the build on SDN - without it the templates are built
+    #### on the legacy bridge and the scenario is only half migrated.
+    template_net_bridge: "net140"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.alpine/main.yml"
+  vars:
+    #### same network for the alpine template : the bundle takes the same variable.
+    template_net_bridge: "net140"

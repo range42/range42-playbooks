@@ -1,0 +1,102 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+#       infrastructure code name : {{ INFRASTRUCTURE_CODENAME }}
+# infrastructure proxmox address : {{ INFRASTRUCTURE_PROXMOX_ADDRESS }}
+#                       scenario : {{ INFRASTRUCTURE_SCENARIO }}
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      PROXMOX WEB UI (port forward)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host px.{{ INFRASTRUCTURE_CODENAME }}.redirect_www.proxmox
+    RequestTTY no
+    RemoteCommand none
+    localforward localhost:18042 {{ INFRASTRUCTURE_PROXMOX_ADDRESS | mandatory }}:8006
+    localcommand sh -c '/usr/bin/chromium-browser --incognito --new-window --disable-translate  https://127.0.0.1:18042 &'
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      PX ROOT USER SSH ACCESS
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host px.{{ INFRASTRUCTURE_CODENAME }}-ssh_cli.root {{ INFRASTRUCTURE_CODENAME }}-cli
+    Hostname {{ INFRASTRUCTURE_PROXMOX_ADDRESS | mandatory }}
+    User root
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_JUMP_DEST_DIR }}/px.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-ssh_cli.root
+    Port 22
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      SSH JUMPER
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+    Hostname {{ INFRASTRUCTURE_PROXMOX_ADDRESS | mandatory }}
+    User jump_user
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_JUMP_DEST_DIR }}/px.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-ssh_cli.jump_user
+    Port 22
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      ADMIN SUBNET 142 (net142)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host r42.init-admin-wazuh
+    Hostname 192.168.142.90
+
+Host r42.init-admin-misp
+    Hostname 192.168.142.94
+
+Host r42.init-admin-deployer-api-gateway
+    Hostname 192.168.142.91
+
+Host r42.init-admin-deployer-api-backend
+    Hostname 192.168.142.92
+
+Host r42.init-admin-deployer-ui
+    Hostname 192.168.142.93
+
+Host r42.init-admin-gitea
+    Hostname 192.168.142.95
+
+Host r42.init-admin-mattermost
+    Hostname 192.168.142.96
+
+Host r42.init-admin-nextcloud
+    Hostname 192.168.142.97
+
+Host r42.init-admin-rocketchat
+    Hostname 192.168.142.98
+
+Host r42.init-admin-*
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
+    Port 22
+    ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      SUBNET 143 (net143)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host r42.init-vm-00
+    Hostname 192.168.143.90
+Host r42.init-vm-01
+    Hostname 192.168.143.91
+Host r42.init-vm-02
+    Hostname 192.168.143.92
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      SUBNET 144 (net144)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host r42.init-vm-03
+    Hostname 192.168.144.93
+Host r42.init-vm-04
+    Hostname 192.168.144.94
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+Host r42.init-vm-*
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
+    Port 22
+    ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper

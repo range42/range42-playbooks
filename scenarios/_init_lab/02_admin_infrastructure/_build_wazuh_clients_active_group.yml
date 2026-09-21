@@ -1,0 +1,119 @@
+---
+##
+## _init_lab - 02_admin_infrastructure - build r42_init_lab_wazuh_clients_active
+##
+## Structure : runtime-only group built via add_host on the proxmox host based
+## on deploy-time state. Mirror of _build_admin_active_group.yml (Option A
+## pattern) applied to the wazuh-agent client list.
+##
+## Used by _finalize-baseline-admin_wazuh_client.yml as wazuh_clients_group.
+## Per-host gating without inventory file modification.
+##
+## Membership map :
+##
+##   client VM                              VM creation gate                add_host condition
+##   ------------------------------------- ------------------------------- ----------------------
+##   r42.init-admin-misp                    INSTALL_MISP (default NO)       INSTALL_MISP=YES
+##   r42.init-admin-gitea                   INSTALL_GITEA (default NO)      INSTALL_GITEA=YES
+##   r42.init-admin-mattermost              INSTALL_MATTERMOST (default NO) INSTALL_MATTERMOST=YES
+##   r42.init-admin-nextcloud               INSTALL_NEXTCLOUD (default NO)  INSTALL_NEXTCLOUD=YES
+##   r42.init-admin-rocketchat              INSTALL_ROCKETCHAT (default NO) INSTALL_ROCKETCHAT=YES
+##   r42.init-admin-deployer-api-gateway    INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
+##   r42.init-admin-deployer-api-backend    INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
+##   r42.init-admin-deployer-ui             INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
+##   r42.init-vm-00..02                     (always created)                always added
+##   r42.init-vm-03..04                     (always created)                always added
+##
+## The wazuh server itself (r42.init-admin-wazuh) is EXCLUDED by design (a server
+## does not run its own agent).
+##
+
+- name: build r42_init_lab_wazuh_clients_active dynamic group from INSTALL flags
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: add r42.init-admin-misp to r42_init_lab_wazuh_clients_active when INSTALL_MISP=YES
+      ansible.builtin.add_host:
+        name: r42.init-admin-misp
+        groups: r42_init_lab_wazuh_clients_active
+      when: INSTALL_MISP | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.init-admin-gitea to r42_init_lab_wazuh_clients_active when INSTALL_GITEA=YES
+      ansible.builtin.add_host:
+        name: r42.init-admin-gitea
+        groups: r42_init_lab_wazuh_clients_active
+      when: INSTALL_GITEA | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.init-admin-mattermost to r42_init_lab_wazuh_clients_active when INSTALL_MATTERMOST=YES
+      ansible.builtin.add_host:
+        name: r42.init-admin-mattermost
+        groups: r42_init_lab_wazuh_clients_active
+      when: INSTALL_MATTERMOST | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.init-admin-nextcloud to r42_init_lab_wazuh_clients_active when INSTALL_NEXTCLOUD=YES
+      ansible.builtin.add_host:
+        name: r42.init-admin-nextcloud
+        groups: r42_init_lab_wazuh_clients_active
+      when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.init-admin-rocketchat to r42_init_lab_wazuh_clients_active when INSTALL_ROCKETCHAT=YES
+      ansible.builtin.add_host:
+        name: r42.init-admin-rocketchat
+        groups: r42_init_lab_wazuh_clients_active
+      when: INSTALL_ROCKETCHAT | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.init-admin-deployer-api-gateway to r42_init_lab_wazuh_clients_active when INSTALL_DEPLOYER_UI=YES
+      ansible.builtin.add_host:
+        name: r42.init-admin-deployer-api-gateway
+        groups: r42_init_lab_wazuh_clients_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.init-admin-deployer-api-backend to r42_init_lab_wazuh_clients_active when INSTALL_DEPLOYER_UI=YES
+      ansible.builtin.add_host:
+        name: r42.init-admin-deployer-api-backend
+        groups: r42_init_lab_wazuh_clients_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.init-admin-deployer-ui to r42_init_lab_wazuh_clients_active when INSTALL_DEPLOYER_UI=YES
+      ansible.builtin.add_host:
+        name: r42.init-admin-deployer-ui
+        groups: r42_init_lab_wazuh_clients_active
+      when: INSTALL_DEPLOYER_UI | default("NO") | upper == "YES"
+      changed_when: false
+
+    - name: add r42.init-vm-00 to r42_init_lab_wazuh_clients_active (team tier, always)
+      ansible.builtin.add_host:
+        name: r42.init-vm-00
+        groups: r42_init_lab_wazuh_clients_active
+      changed_when: false
+
+    - name: add r42.init-vm-01 to r42_init_lab_wazuh_clients_active (team tier, always)
+      ansible.builtin.add_host:
+        name: r42.init-vm-01
+        groups: r42_init_lab_wazuh_clients_active
+      changed_when: false
+
+    - name: add r42.init-vm-02 to r42_init_lab_wazuh_clients_active (team tier, always)
+      ansible.builtin.add_host:
+        name: r42.init-vm-02
+        groups: r42_init_lab_wazuh_clients_active
+      changed_when: false
+
+    - name: add r42.init-vm-03 to r42_init_lab_wazuh_clients_active (team tier, always)
+      ansible.builtin.add_host:
+        name: r42.init-vm-03
+        groups: r42_init_lab_wazuh_clients_active
+      changed_when: false
+
+    - name: add r42.init-vm-04 to r42_init_lab_wazuh_clients_active (team tier, always)
+      ansible.builtin.add_host:
+        name: r42.init-vm-04
+        groups: r42_init_lab_wazuh_clients_active
+      changed_when: false
