@@ -15,6 +15,15 @@
 #
 # Required : nothing. From the vault : proxmox_node.
 #
+# Optional, from the vault too : range42_fw_vm_ssh_sources, a list of IPv4 /32 chosen at
+# `range42-context init`. Empty (the default) : the accept stays open to any source, as before.
+# Non-empty : the accept is restricted, on the PROXMOX guest firewall, to those addresses PLUS every
+# network of the scenario, whole, always added : the deployer reaches the guests through the Proxmox
+# jump host, so a guest sees the host's address on its network, never the deployer's, and the guests
+# reach each other. Without those networks the first arming would cut the deployment from its own
+# guests. The chosen addresses are written to the rule as plain IPs, so a rerun finds the very source
+# it declared. This is the firewall on the guest's card, not the guest's own ufw.
+#
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - name: "firewall.baseline.ssh_all_vms"
@@ -30,6 +39,34 @@
         _fwbsa_manifest: >-
           {{ lookup('file', lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR')
                             ~ '/scenario/manifest/scenario_vms.json') | from_json }}
+
+    ## The optional restriction, chosen at init and carried by the vault. A list, IPv4 /32 only :
+    ## anything else is refused here rather than handed to the firewall api.
+    - name: FIREWALL SSH ALL VMS - THE OPTIONAL SSH SOURCE RESTRICTION, FROM THE VAULT
+      ansible.builtin.set_fact:
+        _fwbsa_sources: "{{ range42_fw_vm_ssh_sources | default([]) }}"
+
+    - name: FIREWALL SSH ALL VMS - A RESTRICTION IS A LIST OF IPv4 /32, NOTHING ELSE
+      ansible.builtin.assert:
+        that:
+          - _fwbsa_sources is not string
+          - _fwbsa_sources is sequence
+          - (_fwbsa_sources | reject('match', '^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])[.]){3}(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])/32$') | list | length) == 0
+        fail_msg: "range42_fw_vm_ssh_sources must be a list of IPv4 /32 such as 203.0.113.7/32, got : {{ _fwbsa_sources }}"
+        quiet: true
+      when: (_fwbsa_sources | length) > 0
+
+    ## Every network of the scenario, whole, from the addresses of its manifest (guests and templates) :
+    ## the deployer's ssh comes through the Proxmox jump host, so a guest sees the host's address on
+    ## its network, and the guests talk to each other. A restriction never cuts the scenario from itself.
+    - name: FIREWALL SSH ALL VMS - THE NETWORKS OF THE SCENARIO, ALWAYS PART OF A RESTRICTION
+      ansible.builtin.set_fact:
+        _fwbsa_nets: >-
+          {{ (((_fwbsa_manifest.vms | default([])) + (_fwbsa_manifest.templates | default([])))
+              | map(attribute='ip')
+              | map('regex_replace', '[.][0-9]+$', '.0/24')
+              | unique | sort) }}
+      when: (_fwbsa_sources | length) > 0
 
     ## Not optional : this fact APPENDS. See vm.list.interfaces.
     - name: FIREWALL SSH ALL VMS - RESET THE ACCUMULATING FACT
@@ -59,13 +96,16 @@
           - "declared  : {{ (_fwbsa_manifest.vms | default([])) | length }}"
           - "deployed and declared : {{ _fwbsa_ids | length }} - {{ _fwbsa_ids | join(', ') }}"
           - "declared, not deployed, skipped : {{ _fwbsa_absents | join(', ') if _fwbsa_absents else 'none' }}"
+          - "ssh source : {{ 'open to any source (default)' if (_fwbsa_sources | length) == 0 else ('restricted to the scenario networks ' ~ (_fwbsa_nets | join(', ')) ~ ' + ' ~ (_fwbsa_sources | join(', '))) }}"
 
     - name: FIREWALL SSH ALL VMS - NOTHING DEPLOYED YET, NOTHING TO DECLARE
       ansible.builtin.meta: end_play
       when: (_fwbsa_ids | length) == 0
 
     ## loop_var is EXPLICIT: an item passed down to an action that loops itself gets rebound - measured.
-    - name: FIREWALL SSH ALL VMS - DECLARE 22 ON EACH, IDEMPOTENTLY
+    ## Two tasks, not one with a conditional source : a role var set to the omit placeholder is a
+    ## string, not an absence, and the role would restrict the accept to that string.
+    - name: FIREWALL SSH ALL VMS - DECLARE 22 ON EACH, OPEN TO ANY SOURCE, IDEMPOTENTLY
       include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
@@ -76,3 +116,18 @@
       loop: "{{ _fwbsa_ids }}"
       loop_control:
         loop_var: _fwbsa_it
+      when: (_fwbsa_sources | length) == 0
+
+    - name: FIREWALL SSH ALL VMS - DECLARE 22 ON EACH, RESTRICTED TO THE SCENARIO NETWORKS AND THE CHOSEN SOURCES, IDEMPOTENTLY
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_declare_iptables_port"
+        vm_id: "{{ _fwbsa_it }}"
+        vm_fw_dport: "22"
+        vm_fw_source: "{{ (_fwbsa_nets + (_fwbsa_sources | map('regex_replace', '/32$', '') | list)) | join(',') }}"
+        vm_fw_comment: "range42 baseline ssh, scenario-wide"
+      loop: "{{ _fwbsa_ids }}"
+      loop_control:
+        loop_var: _fwbsa_it
+      when: (_fwbsa_sources | length) > 0

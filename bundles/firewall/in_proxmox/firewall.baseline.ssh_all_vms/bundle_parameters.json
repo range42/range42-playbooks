@@ -12,6 +12,16 @@
       "from_vault": true,
       "default_where": "none",
       "description": "Proxmox node the guests run on, resolved from the scenario vault. These endpoints are node-scoped."
+    },
+    {
+      "name": "range42_fw_vm_ssh_sources",
+      "type": "list",
+      "items": "string (IPv4 /32, such as 203.0.113.7/32)",
+      "required": false,
+      "from_vault": true,
+      "default_where": "bundle-inline",
+      "default": [],
+      "description": "Optional restriction of the ssh accept, chosen at range42-context init and carried by the workspace vault. Empty keeps the accept open to any source. Non-empty restricts it, on the PROXMOX guest firewall, to these addresses plus every network of the scenario, whole, so the deployer through the Proxmox jump host and the guests among themselves keep their access. Written to the rule as plain IPs."
     }
   ]
 }
