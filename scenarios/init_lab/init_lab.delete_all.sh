@@ -1,18 +1,20 @@
 #!/bin/bash
 
 ##
-## gitea_lab.delete_all.sh - delete VMs + templates declared in this scenario's manifest
+## delete all - VMs + ubuntu_noble templates of THIS scenario
+##
+## VM IDs and IPs are read from the scenario manifest:
+##   manifest/scenario_vms.json
 ##
 ## ⚠ WARNING ⚠
-##   The medium ubuntu_noble template (VMID 9232) declared in gitea_lab's
-##   manifest is also created and used by every other ubuntu_noble-consuming
-##   scenario on the same Proxmox (demo_lab, blank_scenario_2_subnets,
-##   blank_scenario_4_subnets, blank_scenario_6_subnets, init_lab, kunai_lab,
-##   misp_lab, dev_deployer_ui_lab, nextcloud_lab, mattermost_lab,
-##   gitea_registry_lab). Running this script removes 9232 - those
-##   scenarios will need to re-run their 01_templates-bootstrap/ to rebuild it before
-##   re-deploy. Use gitea_lab.delete_vms_only.sh instead to keep the template
-##   intact.
+##   Templates (9xxx) are deleted by this script. They may be shared with other
+##   scenarios deployed on the same Proxmox (every blank_scenario_*_subnets / demo_lab
+##   creates the same template IDs, and the alpine nano 9903 is the debug scenarios' too). Run this only when you're sure no other
+##   scenario relies on them, or run delete_vms_only.sh instead to keep templates.
+##
+## Companions:
+##   - init_lab.delete_vms_only.sh        - VMs only, keep templates
+##   - init_lab.delete_all.sh (this)      - VMs + this scenario's templates
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -23,6 +25,7 @@ if [[ ! -f "$MANIFEST" ]]; then
     exit 1
 fi
 
+# extract VM IDs + template IDs + IPs from the manifest
 mapfile -t SCENARIO_VM_IDS  < <(jq -r '.vms[].vm_id'        "$MANIFEST")
 mapfile -t TEMPLATE_VM_IDS  < <(jq -r '.templates[].vm_id'  "$MANIFEST")
 mapfile -t INFRASTRUCTURE_IP < <(jq -r '.vms[].ip'          "$MANIFEST")
@@ -50,6 +53,6 @@ for ip in "${INFRASTRUCTURE_IP[@]}"; do
 done
 
 echo ""
-echo ":: done - VMs and template removed"
+echo ":: done - VMs and templates removed"
 echo ":: redeploy from scratch with: range42-context deploy"
 echo ""

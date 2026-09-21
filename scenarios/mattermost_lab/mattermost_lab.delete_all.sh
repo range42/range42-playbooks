@@ -10,7 +10,7 @@
 ##   The medium ubuntu_noble template (VMID 9232) declared in mattermost_lab's
 ##   manifest is also created and used by every other ubuntu_noble-consuming
 ##   scenario on the same Proxmox (demo_lab, blank_scenario_2_subnets,
-##   blank_scenario_4_subnets, blank_scenario_6_subnets, _init_lab, kunai_lab,
+##   blank_scenario_4_subnets, blank_scenario_6_subnets, init_lab, kunai_lab,
 ##   misp_lab, nextcloud_lab, dev_deployer_ui_lab). Running this script removes
 ##   9232 - those scenarios will need to re-run their 01_templates-bootstrap/ to rebuild
 ##   it before re-deploy.

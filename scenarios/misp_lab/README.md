@@ -12,7 +12,7 @@ The lab VM (`admin-misp-standalone`, VMID 1180, IP `192.168.142.180` on
 **MISP IS the workload** of this scenario - always deployed via the shared
 bundle `bundles/admin/software.install.misp_standalone/`. There is NO
 `INSTALL_MISP` flag : if you don't want MISP, this is not the right scenario
-(use `_init_lab` or a `blank_scenario_*` instead).
+(use `init_lab` or a `blank_scenario_*` instead).
 
 ## Read this before deploying
 

@@ -106,7 +106,7 @@ cd ~/range42/range42-playbooks/scenarios/demo_lab/
 | Scenario | Status | Description | Details |
 |----------|--------|-------------|---------|
 | `demo_lab` | **functional** | Full cyber range — admin, student, CTF infrastructure | [README](scenarios/demo_lab/README.md) |
-| `_init_lab` | **functional** | Shared init — VM templates + init VMs | [README](scenarios/_init_lab/README.md) |
+| `init_lab` | **functional** | Shared init — every VM template + 5 init VMs | [README](scenarios/init_lab/README.md) |
 | `forensics_lab` | coming soon | Forensics training | |
 | `kunai_lab` | **in progress** | Kunai-based detection lab | [README](scenarios/kunai_lab/README.md) |
 | `misp_lab` | **in progress** | MISP threat intel lab | [README](scenarios/misp_lab/README.md) |
@@ -186,7 +186,7 @@ scenarios/
 ├── kunai_lab/                         # In progress
 ├── misp_lab/                          # In progress
 ├── dev_deployer_ui_lab/               # In progress - deployer-ui integration
-└── _init_lab/                         # Shared init playbooks
+└── init_lab/                          # Shared init : every template + init VMs
 
 bundles/                               # Reusable actions, grammar <tier>/<subject>.<verb>.<object>
 ├── admin/                             # app stacks (docker-compose) on dedicated VMs

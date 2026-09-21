@@ -7,7 +7,7 @@
 ##   The medium ubuntu_noble template (VMID 9232) declared in admin_services_lab's
 ##   manifest is also created and used by every other ubuntu_noble-consuming
 ##   scenario on the same Proxmox (demo_lab, gitea_lab, blank_scenario_2_subnets,
-##   blank_scenario_4_subnets, blank_scenario_6_subnets, _init_lab, kunai_lab,
+##   blank_scenario_4_subnets, blank_scenario_6_subnets, init_lab, kunai_lab,
 ##   misp_lab, dev_deployer_ui_lab, nextcloud_lab, mattermost_lab,
 ##   gitea_registry_lab). Running this script removes 9232 - those
 ##   scenarios will need to re-run their 01_init_proxmox/ to rebuild it before
