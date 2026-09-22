@@ -25,7 +25,15 @@
 ##                                 #   medium-02 | medium-04 | medium-06
 ##                                 #   large-04 | large-06 | large-08
 ##
-##   template_subnet_octet   140   # template network used to apt-update templates before clone-to-vm.
+##   template_subnet_octet   140   # third octet of the template network, used to apt-update the
+##                                 # templates before clone-to-vm.
+##
+##   template_net_bridge     vmbr140  # bridge the template NIC attaches to WHILE BUILDING. The
+##                                 # build runs apt, so this network must reach the internet.
+##                                 # The default is what every caller got when this value was
+##                                 # hardcoded, so passing nothing changes nothing. A caller on
+##                                 # SDN passes its vnet - net140 - which qemu treats as a bridge
+##                                 # name like any other. Pair it with template_subnet_octet.
 ##
 ##   apt_proxy_url           ""    # if non-empty, the bootstrap snippet
 ##                                 # includes apt.http_proxy = <url> so the

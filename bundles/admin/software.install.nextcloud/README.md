@@ -4,14 +4,14 @@ Nextcloud docker-compose stack install bundle - 4 plays :
 
 1. ensure catalog `.env` exists on localhost (cp `.env.example` -> `.env` if absent, force=false)
 2. install Docker + docker-compose on the Nextcloud VM (via `software.install.warmup.basic_packages` role)
-3. open firewall ports 22 + 8080 on the VM (via `software.configure.firewalls` role)
+3. open firewall ports 22 + 8443 on the VM (via `software.configure.firewalls` role)
 4. deploy nextcloud docker-compose stack on the VM (via `software.configure.docker-compose` role : rsync catalog -> VM + `docker compose up -d`)
 
 The catalog source is `range42-catalog/03_container_layer/docker/admin/nextcloud/`
 (postgres + redis + nextcloud + provisioner `build:` = 4 services).
 
 > Note vs `software.install.misp_standalone` (3 plays) : this bundle adds an
-> explicit firewall play (Play 3) to open 8080. A reusable software bundle owns
+> explicit firewall play (Play 3) to open 8443. A reusable software bundle owns
 > its own service port so `INSTALL_NEXTCLOUD=YES` works in any scenario - the
 > scenario baseline only opens 22.
 
@@ -50,7 +50,7 @@ NC_DOMAIN=localhost 192.168.142.250
 
 This does **NOT** include this VM's IP (`192.168.142.181`). Nextcloud's
 `trusted_domains` check rejects access through any host not listed in
-`NC_DOMAIN`, so browsing to `http://192.168.142.181:8080` would fail. Edit the
+`NC_DOMAIN`, so browsing to `https://192.168.142.181:8443` would fail. Edit the
 catalog `.env` and add this VM's IP to `NC_DOMAIN` BEFORE deploying, e.g.:
 
 ```
@@ -82,7 +82,7 @@ sudo docker compose logs -f provisioner    # wait for provisioning complete
 sudo docker exec nextcloud-provisioner cat /tokens/tokens.txt
 ```
 
-Nextcloud web UI : `http://<global_vm_ci_ip>:8080`.
+Nextcloud web UI : `https://<global_vm_ci_ip>:8443`.
 
 ## Operator user + deploy dir
 

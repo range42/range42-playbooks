@@ -1,0 +1,171 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# sdn_network.bootstrap.sdn_vnet - bring up ONE vnet with its subnet, parameters given directly
+#
+# The sibling of sdn_network.bootstrap, and the difference is NOT "all versus one" - it is WHERE THE
+# PARAMETERS COME FROM :
+#   sdn_network.bootstrap            loops over the DECLARED list (BUNDLE_SDN_VNETS, the data model)
+#   sdn_network.bootstrap.sdn_vnet   takes zone / vnet / subnet DIRECTLY - so it needs no data model,
+#                                    and it works today, before the declaration lands in the inventory
+#
+# That makes this the bundle for a fresh Proxmox and for the backend's "on the fly" case : one network,
+# stated on the spot.
+#
+# THE SEQUENCE, AND THE ORDER PROXMOX IMPOSES
+#   zone (if absent) -> vnet (if absent) -> subnet (if absent) -> apply ONCE -> reconcile the live rules
+# A vnet cannot be created before its zone, nor a subnet before its vnet.
+#
+# IDEMPOTENT BY LOOKUP, NOT BY TOLERANCE
+# Each object is looked up before being written. The raw create actions answer 500 "already defined" on a
+# second run ; tolerating that 500 would mean matching an error string, and would also swallow the real
+# failures. So absence is established by a READ, and an already-present object is simply not written.
+#
+# THE APPLY IS GUARDED, AND THAT GUARD IS LOAD-BEARING
+# `ifreload -a`, which the apply runs, replays the legacy post-up MASQUERADE lines : each apply adds one
+# iptables rule per NAT-enabled vmbr. Measured : 936 -> 960 over 2 applies with 12 bridges. So the apply
+# only fires when something was actually written.
+#
+# THE RECONCILIATION IS NOT GUARDED, for the opposite reason : it is the only thing that proves the LIVE
+# rules match the declaration, and a rule that outlived its declaration is invisible to the API.
+#
+# NO BOOLEAN FACT DRIVES ANYTHING HERE
+# A folded `>-` scalar yields a STRING, and the string "False" is truthy. Every step therefore loops over
+# a computed list - empty means zero iterations - and the apply's `when:` is a length comparison.
+#
+# Required : BUNDLE_SDN_ZONE, BUNDLE_SDN_VNET, BUNDLE_SDN_SUBNET_CIDR. From the vault : proxmox_node.
+# Optional : BUNDLE_SDN_SUBNET_GATEWAY, BUNDLE_SDN_SUBNET_SNAT (default 1).
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "sdn_network.bootstrap.sdn_vnet"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: SDN BOOTSTRAP VNET - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "zone         : {{ BUNDLE_SDN_ZONE }}"
+          - "vnet         : {{ BUNDLE_SDN_VNET }}"
+          - "subnet       : {{ BUNDLE_SDN_SUBNET_CIDR }}"
+          - "gateway      : {{ BUNDLE_SDN_SUBNET_GATEWAY | default('(none)') }}"
+          - "snat         : {{ BUNDLE_SDN_SUBNET_SNAT | default(1) }}"
+
+    #### #### ####
+    #
+    # 1. READ. These three list actions REBUILD their fact, they do not append - unlike
+    #    network_list_interfaces_vm.
+    #
+    - name: SDN BOOTSTRAP VNET - READ THE LIVE ZONES
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_sdn_zones"
+
+    - name: SDN BOOTSTRAP VNET - READ THE LIVE VNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_sdn_vnets"
+
+    - name: SDN BOOTSTRAP VNET - READ THE LIVE SUBNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_sdn_subnets"
+
+    #### #### ####
+    #
+    # 2. DIFF. Three lists of zero or one. The subnet id is DERIVED here only to recognise the object in
+    #    the live list ; nothing this bundle writes is addressed by a computed value.
+    #
+    - name: SDN BOOTSTRAP VNET - WHAT IS MISSING
+      ansible.builtin.set_fact:
+        _sdn1_zone_absent: >-
+          {%- set live = network_list_sdn_zones | default([]) | map(attribute='zone') | list -%}
+          {{ [] if (BUNDLE_SDN_ZONE in live) else [ BUNDLE_SDN_ZONE ] }}
+
+        _sdn1_vnet_absent: >-
+          {%- set live = network_list_sdn_vnets | default([]) | map(attribute='vnet') | list -%}
+          {{ [] if (BUNDLE_SDN_VNET in live) else [ BUNDLE_SDN_VNET ] }}
+
+        _sdn1_subnet_absent: >-
+          {%- set live = network_list_sdn_subnets | default([]) | map(attribute='subnet') | list -%}
+          {%- set id = BUNDLE_SDN_ZONE ~ '-' ~ (BUNDLE_SDN_SUBNET_CIDR | replace('/', '-')) -%}
+          {{ [] if (id in live) else [ BUNDLE_SDN_SUBNET_CIDR ] }}
+
+    - name: SDN BOOTSTRAP VNET - WHAT THIS RUN WILL DO
+      ansible.builtin.debug:
+        msg:
+          - "zone to create   : {{ _sdn1_zone_absent }}"
+          - "vnet to create   : {{ _sdn1_vnet_absent }}"
+          - "subnet to create : {{ _sdn1_subnet_absent }}"
+
+    #### #### ####
+    #
+    # 3. WRITE, in the order Proxmox imposes. Everything stays PENDING until step 4.
+    #
+    - name: SDN BOOTSTRAP VNET - CREATE THE ZONE
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_sdn_zone"
+        sdn_zone: "{{ BUNDLE_SDN_ZONE }}"
+      loop: "{{ _sdn1_zone_absent }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: SDN BOOTSTRAP VNET - CREATE THE VNET
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_sdn_vnet"
+        sdn_zone: "{{ BUNDLE_SDN_ZONE }}"
+        sdn_vnet: "{{ BUNDLE_SDN_VNET }}"
+      loop: "{{ _sdn1_vnet_absent }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: SDN BOOTSTRAP VNET - CREATE THE SUBNET
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_sdn_subnet"
+        sdn_vnet: "{{ BUNDLE_SDN_VNET }}"
+        sdn_subnet: "{{ BUNDLE_SDN_SUBNET_CIDR }}"
+        sdn_subnet_gateway: "{{ BUNDLE_SDN_SUBNET_GATEWAY | default(omit) }}"
+        sdn_subnet_snat: "{{ BUNDLE_SDN_SUBNET_SNAT | default(1) }}"
+      loop: "{{ _sdn1_subnet_absent }}"
+      loop_control:
+        label: "{{ item }}"
+
+    #### #### ####
+    #
+    # 4. APPLY, once, and only if step 3 wrote something. See the header for the measurement that makes
+    #    this guard load-bearing rather than decorative.
+    #
+    - name: SDN BOOTSTRAP VNET - APPLY, ONCE, AND ONLY IF SOMETHING WAS WRITTEN
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_apply_sdn"
+      when: >-
+        (_sdn1_zone_absent | length) + (_sdn1_vnet_absent | length)
+        + (_sdn1_subnet_absent | length) > 0
+
+    #### #### ####
+    #
+    # 5. RECONCILE, always. `want` follows the declaration : 1 keeps exactly one live rule, 0 keeps none.
+    #
+    - name: SDN BOOTSTRAP VNET - RECONCILE THE LIVE SNAT RULES
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_extra_snat_rules"
+        sdn_subnet_cidr: "{{ BUNDLE_SDN_SUBNET_CIDR }}"
+        sdn_snat_want: "{{ BUNDLE_SDN_SUBNET_SNAT | default(1) | int }}"

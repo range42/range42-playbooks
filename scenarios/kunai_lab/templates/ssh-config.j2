@@ -39,7 +39,7 @@ Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
     Port 22
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      ADMIN - WAZUH (vmbr142, gated INSTALL_WAZUH)
+#                                      ADMIN - WAZUH (net142, gated INSTALL_WAZUH)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.admin-wazuh
@@ -52,7 +52,7 @@ Host r42.admin-wazuh
     ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      ADMIN - MISP (vmbr142, gated INSTALL_MISP)
+#                                      ADMIN - MISP (net142, gated INSTALL_MISP)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.admin-misp
@@ -65,7 +65,7 @@ Host r42.admin-misp
     ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      KUNAI-LAB - TRAINER (vmbr142)
+#                                      KUNAI-LAB - TRAINER (net142)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.admin-trainer-kunai
@@ -78,7 +78,7 @@ Host r42.admin-trainer-kunai
     ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      KUNAI-LAB - STUDENTS (vmbr142)
+#                                      KUNAI-LAB - STUDENTS (net142)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.student-kunai-01

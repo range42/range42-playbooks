@@ -1,0 +1,17 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.sh",
+  "tier": "firewall",
+  "bundle": "firewall/in_proxmox/firewall.report.status",
+  "description": "Read and print the arming state of the three levels - datacenter switch, node switch, and for every deployed guest of the active scenario its own switch and its per-card flags. Strictly read-only : every call is a GET, nothing is modified. Meant to run very early in a scenario, so the operator sees what the firewall already enforces before the deploy touches anything.",
+  "optional": false,
+  "params": [
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node to report on, resolved from the scenario vault. These endpoints are node-scoped."
+    }
+  ]
+}

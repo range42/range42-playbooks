@@ -1,0 +1,38 @@
+---
+bundle: proxmox/sdn_network.internet_off
+description: >-
+  Turn outbound internet OFF for one subnet. Composite : sets the declaration, applies it, then brings the live iptables rules in line.
+  Takes only the subnet id - the vnet, the CIDR and the current state are read from the cluster.
+optional: false
+
+##
+## Caller-passed inputs carry the BUNDLE_ prefix : the backend will generate call-sites and inject its
+## own variables into a play whose variable space is FLAT, so a generator needs a mechanical rule for
+## which names it owns. proxmox_node is NOT prefixed - it is read from the scenario vault, not passed.
+## Full reasoning in ______TODO_bundle-parameters-declaration_v6.md section 9.
+##
+## Only ONE input is declared on purpose. The vnet and the CIDR could have been parameters ; reading
+## them from list_sdn_subnets instead means the caller cannot pass a pair that does not exist, and the
+## read doubles as the subnet's existence proof.
+##
+
+params:
+
+  - name: BUNDLE_SDN_SUBNET_ID
+    renamed_to: [sdn_subnet_id]
+    type: string
+    required: true
+    default_where: none
+    description: >-
+      The subnet id Proxmox built, `<zone>-<network>-<mask>` - for instance r42-192.168.199.0-24. NOT
+      the CIDR. List the real ids with the sdn_network.list.sdn_subnets bundle rather than deriving
+      them, since a zone name may itself contain dashes.
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: >-
+      Proxmox node the API calls go through, resolved from the scenario vault. The reconciliation step
+      is delegated by the role to groups['proxmox_cli'] | first, which must exist in the inventory.

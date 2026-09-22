@@ -1,0 +1,33 @@
+####
+# sdn_network.create.sdn_subnet - create a subnet on a vnet. One raw API call. Contract and usage : see README.md.
+#
+# TWO THINGS NOT TO BREAK HERE : it is NOT idempotent - a second run answers 500 (already defined, or does
+# not exist), so look the object up first or use a composite. And it does NOT apply : what it writes stays
+# PENDING until sdn_network.apply runs.
+#
+# BUNDLE_SDN_SUBNET_CIDR is the NETWORK, not the id - that is the API's own `subnet` parameter.
+# The action reads the real id back rather than trusting a derivation.
+####
+
+- name: "sdn_network.create.sdn_subnet"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: CREATE SDN_SUBNET - WHAT THIS RUN WILL DO
+      ansible.builtin.debug:
+        msg: "proxmox node : {{ proxmox_node }}"
+
+    - name: CREATE SDN_SUBNET - CREATE IT
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_sdn_subnet"
+        sdn_vnet: "{{ BUNDLE_SDN_VNET }}"
+        sdn_subnet: "{{ BUNDLE_SDN_SUBNET_CIDR }}"
+        sdn_subnet_gateway: "{{ BUNDLE_SDN_SUBNET_GATEWAY | default(omit) }}"
+        sdn_subnet_snat: "{{ BUNDLE_SDN_SUBNET_SNAT | default(omit) }}"

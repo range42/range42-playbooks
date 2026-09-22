@@ -64,7 +64,7 @@
         vm_cores: 2
         vm_sockets: 1
         vm_memory: 8192
-        vm_net_virtio_bridge: "vmbr140"
+        vm_net_virtio_bridge: "{{ template_net_bridge | default('vmbr140') }}"
       when:
         - tpl_9232_is_template.rc != 0
         - tpl_9232_exists.rc != 0

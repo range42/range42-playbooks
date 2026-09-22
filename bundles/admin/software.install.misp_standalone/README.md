@@ -1,10 +1,11 @@
 # bundles/admin/software.install.misp_standalone
 
-MISP standalone docker-compose stack install bundle - 3 plays :
+MISP standalone docker-compose stack install bundle - 4 plays :
 
 1. ensure catalog `.env` exists on localhost (cp `.env.example` -> `.env` if absent, force=false)
 2. install Docker + docker-compose on the MISP VM (via `software.install.warmup.basic_packages` role)
-3. deploy misp-standalone docker-compose stack on the VM (via `software.configure.docker-compose` role : rsync catalog -> VM + `docker compose up -d`)
+3. open firewall ports 22 + 80 + 443 on the VM (via `software.configure.firewalls` role - the compose publishes 80 and 443, and the role default-denies incoming, so this play was missing)
+4. deploy misp-standalone docker-compose stack on the VM (via `software.configure.docker-compose` role : rsync catalog -> VM + `docker compose up -d`)
 
 The catalog source is `range42-catalog/03_container_layer/docker/admin/misp-standalone/`
 (MariaDB + Redis + misp-modules + misp + provisioner = 5 services).

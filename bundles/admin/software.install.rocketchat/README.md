@@ -4,14 +4,14 @@ Rocket.Chat docker-compose stack install bundle - 4 plays :
 
 1. ensure catalog `.env` exists on localhost (cp `.env.example` -> `.env` if absent, force=false)
 2. install Docker + docker-compose on the Rocket.Chat VM (via `software.install.warmup.basic_packages` role)
-3. open firewall ports 22 + 3000 on the VM (via `software.configure.firewalls` role)
+3. open firewall ports 22 + 3500 on the VM (via `software.configure.firewalls` role)
 4. deploy rocketchat docker-compose stack on the VM (via `software.configure.docker-compose` role : rsync catalog -> VM + `docker compose up -d`)
 
 The catalog source is `range42-catalog/03_container_layer/docker/admin/rocketchat/`
 (mongodb:6.0 + mongo-init-replica + rocketchat/rocket.chat:latest + provisioner `build:` = 4 services).
 
 > Note vs `software.install.misp_standalone` (3 plays) : this bundle adds an
-> explicit firewall play (Play 3) to open 3000. A reusable software bundle owns
+> explicit firewall play (Play 3) to open 3500. A reusable software bundle owns
 > its own service port so `INSTALL_ROCKETCHAT=YES` works in any scenario - the
 > scenario baseline only opens 22.
 
@@ -37,7 +37,7 @@ stronger creds :
 cd $RANGE42_INVENTORY/03_container_layer/docker/admin/rocketchat/
 cp .env.example .env
 $EDITOR .env       # set RC_ADMIN_USER/PASS, RC_ADMIN_EMAIL, RC_BASE_URL,
-                   # HTTP_PORT (must match the firewall port 3000)
+                   # HTTP_PORT (must match the firewall port 3500)
 ```
 
 The catalog `.env` is gitignored (`**/.env`) so customizations stay local.
@@ -84,7 +84,7 @@ sudo docker compose logs -f provisioner    # wait for provisioning complete
 sudo docker exec rocketchat-provisioner cat /tokens/tokens.txt
 ```
 
-Rocket.Chat web UI : `http://<global_vm_ci_ip>:3000`.
+Rocket.Chat web UI : `https://<global_vm_ci_ip>:3500`.
 Default admin credentials : `rc-admin` / `Admin1234!` (change via the catalog `.env`).
 
 ## Naming

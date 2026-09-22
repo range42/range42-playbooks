@@ -2,7 +2,7 @@
 ## Baseline for r42_admin_active runtime group (rocketchat_lab) :
 ##   - systems.baseline.default    : packages + dotfiles
 ##   - network.baseline.ssh       : firewall opens port 22 (the rocketchat
-##                                   service port 3000 is opened by the
+##                                   service port 3500 is opened by the
 ##                                   software.install.rocketchat bundle itself)
 ##   - network.configure.tailscale_client         : optional tailscale install (gated INSTALL_TAILSCALE,
 ##                                   default NO)

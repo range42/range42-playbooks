@@ -1,0 +1,17 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/sdn_network.apply",
+  "description": "Flush the pending SDN config into the running one - PUT /cluster/sdn, then poll the UPID to completion. Behind it Proxmox runs ifreload -a on the node.",
+  "optional": false,
+  "params": [
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the apply request goes through, resolved from the scenario vault. The apply itself is cluster-wide - the node decides where the request lands, not what it reloads."
+    }
+  ]
+}

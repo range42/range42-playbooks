@@ -10,7 +10,23 @@
 ##
 ## Same global stage discipline as main.yml : ALL tiers stage_00 first, then
 ## ALL tiers stage_01, then build wazuh_clients_active group, then finalize.
+## EVERYTHING ELSE IS THE SAME AS main.yml, THE FIREWALL STAGES INCLUDED. A VM recreated by
+## deploy-vms must carry the same hypervisor-side accepts as one created by the full deploy :
+## same four imports, same anchors, same opt-in on the last one.
 ##
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### 00 - SDN BOOTSTRAP #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+##
+## MUST run first : the VMs below are created directly on these vnets.
+##
+## The firewall wiring lives in ./_firewall/, one file per MOMENT - see its README. Arming
+## happens at end_scenario, opt-in: FIREWALL_ARM_VMS=YES (default NO, decision of 2026-09-04).
+- import_playbook: ./_firewall/stage_00-pre_scenario.report_status.yml
+- import_playbook: ./_firewall/stage_01-pre_scenario.management_access.yml
+
+- import_playbook: ./00_sdn_bootstrap/_main.yml
+
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
@@ -19,6 +35,9 @@
 - import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
 - import_playbook: ./03_misp_lab_infrastructure/_main_stage_00.yml
+
+## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
+- import_playbook: ./_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
@@ -39,3 +58,10 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### END SCENARIO  #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+## LAST, so no configure step above gets filtered mid-deploy. Inert unless FIREWALL_ARM_VMS=YES.
+- import_playbook: ./_firewall/stage_03-end_scenario.arm_deployed_vms.yml

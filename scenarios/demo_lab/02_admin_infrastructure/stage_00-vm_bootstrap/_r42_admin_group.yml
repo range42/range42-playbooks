@@ -35,7 +35,7 @@
     global_vm_ci_ip:       "192.168.142.100"
     global_template_vm_id: 9232
     global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
-    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_net_virtio_bridge:  "net142"
     global_vm_ci_ip_gw:           "192.168.142.1"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -51,7 +51,7 @@
     global_vm_ci_ip:       "192.168.142.112"
     global_template_vm_id: 9232
     global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
-    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_net_virtio_bridge:  "net142"
     global_vm_ci_ip_gw:           "192.168.142.1"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -67,7 +67,7 @@
     global_vm_ci_ip:       "192.168.142.113"
     global_template_vm_id: 9232
     global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
-    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_net_virtio_bridge:  "net142"
     global_vm_ci_ip_gw:           "192.168.142.1"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -83,7 +83,7 @@
     global_vm_ci_ip:       "192.168.142.114"
     global_template_vm_id: 9232
     global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
-    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_net_virtio_bridge:  "net142"
     global_vm_ci_ip_gw:           "192.168.142.1"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -99,7 +99,7 @@
     global_vm_ci_ip:       "192.168.142.115"
     global_template_vm_id: 9232
     global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
-    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_net_virtio_bridge:  "net142"
     global_vm_ci_ip_gw:           "192.168.142.1"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -115,7 +115,7 @@
     global_vm_ci_ip:       "192.168.142.116"
     global_template_vm_id: 9232
     global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
-    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_net_virtio_bridge:  "net142"
     global_vm_ci_ip_gw:           "192.168.142.1"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -166,7 +166,7 @@
     global_vm_ci_ip:       "192.168.142.101"
     global_template_vm_id: 9221
     global_template_name:  "template-vm-small-01-4g-32g - 9221"
-    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_net_virtio_bridge:  "net142"
     global_vm_ci_ip_gw:           "192.168.142.1"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -182,7 +182,7 @@
     global_vm_ci_ip:       "192.168.142.102"
     global_template_vm_id: 9221
     global_template_name:  "template-vm-small-01-4g-32g - 9221"
-    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_net_virtio_bridge:  "net142"
     global_vm_ci_ip_gw:           "192.168.142.1"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -200,5 +200,5 @@
     global_vm_ci_ip:       "192.168.142.103"
     global_template_vm_id: 9221
     global_template_name:  "template-vm-small-01-4g-32g - 9221"
-    global_vm_net_virtio_bridge:  "vmbr142"
+    global_vm_net_virtio_bridge:  "net142"
     global_vm_ci_ip_gw:           "192.168.142.1"

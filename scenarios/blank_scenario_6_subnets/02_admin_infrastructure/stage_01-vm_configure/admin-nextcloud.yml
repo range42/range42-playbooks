@@ -2,7 +2,7 @@
 ## admin-nextcloud - Nextcloud docker-compose stack on r42.bs6-admin-nextcloud
 ##
 ## Delegates to the shared bundle (catalog .env seed + Docker baseline +
-## firewall 22/8080 + docker-compose deploy of nextcloud : postgres + redis +
+## firewall 22/8443 + docker-compose deploy of nextcloud : postgres + redis +
 ## nextcloud + provisioner). Optional admin service.
 ##
 ## NOTE : align NC_DOMAIN in the catalog .env to include this VM IP

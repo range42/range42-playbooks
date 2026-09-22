@@ -1,0 +1,30 @@
+####
+# sdn_network.delete.sdn_subnet - delete one subnet of a vnet. One raw API call. Contract and usage : see README.md.
+#
+# TWO THINGS NOT TO BREAK HERE : it is NOT idempotent - a second run answers 500 (already defined, or does
+# not exist), so look the object up first or use a composite. And it does NOT apply : what it writes stays
+# PENDING until sdn_network.apply runs.
+#
+# Order is imposed : subnet, then vnet, then zone. And a deleted subnet leaves its live rule behind - see reconcile.snat_rules.
+####
+
+- name: "sdn_network.delete.sdn_subnet"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: DELETE SDN_SUBNET - WHAT THIS RUN WILL DO
+      ansible.builtin.debug:
+        msg: "proxmox node : {{ proxmox_node }}"
+
+    - name: DELETE SDN_SUBNET - DELETE IT
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_sdn_subnet"
+        sdn_vnet: "{{ BUNDLE_SDN_VNET }}"
+        sdn_subnet_id: "{{ BUNDLE_SDN_SUBNET_ID }}"

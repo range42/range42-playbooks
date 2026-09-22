@@ -2,7 +2,7 @@
 
 Wazuh server stack install bundle - 7 plays on the wazuh server host :
 
-1. configure firewall (ports 22, 443, 1515, 1514)
+1. configure firewall (ports 22, 443, 1515, 1514, 55000 - the agents call the manager api on 55000)
 2. install wazuh-indexer + JVM tuning + cluster bootstrap
 3. wait for indexer API on port 9200
 4. install wazuh-dashboard

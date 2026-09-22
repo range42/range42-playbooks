@@ -8,12 +8,12 @@
 #   ram      : 4g
 #   disk     : 32g
 #   ip       : 192.168.142.250
-#   bridge   : vmbr142
+#   bridge   : net142
 #
 #   template : template-vm-small-01-4g-32g - id : 9221 (same as vuln_box)
 #
 # Lifted from demo_lab/04_ctf_infrastructure/stage_00/vuln_box_00.yml shape,
-# with bridge/gateway adjusted for vmbr142.
+# with bridge/gateway adjusted for net142.
 #
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -85,7 +85,7 @@
         vm_ci_ip: "{{ global_vm_ci_ip }}"
         vm_ci_netmask: "24"
         vm_ci_ip_gw: "192.168.142.1"
-        vm_net_virtio_bridge: "vmbr142"
+        vm_net_virtio_bridge: "net142"
 
     #
     - name: CATALOG-TRY INFRASTRUCTURE INIT - "{{ global_vm_name }}" - CLONE TEMPLATE - START VM

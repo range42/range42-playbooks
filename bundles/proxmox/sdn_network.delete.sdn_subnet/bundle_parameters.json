@@ -1,0 +1,37 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/sdn_network.delete.sdn_subnet",
+  "description": "Delete one subnet of a vnet. Raw single API call - not idempotent, and what it writes stays pending until sdn_network.apply runs.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_SDN_VNET",
+      "renamed_to": [
+        "sdn_vnet"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Name of the vnet. Guests attach to it by using it as their bridge name."
+    },
+    {
+      "name": "BUNDLE_SDN_SUBNET_ID",
+      "renamed_to": [
+        "sdn_subnet_id"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "The subnet id Proxmox built, `<zone>-<network>-<mask>` - e.g. r42-192.168.142.0-24. NOT the CIDR : read it back from sdn_network.list.sdn_subnets rather than assuming it."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the API call goes through, resolved from the scenario vault. The SDN endpoints are cluster-level, so the node decides where the request lands, not what it affects."
+    }
+  ]
+}

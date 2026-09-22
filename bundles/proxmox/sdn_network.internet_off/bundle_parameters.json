@@ -1,0 +1,27 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/sdn_network.internet_off",
+  "description": "Turn outbound internet OFF for one subnet. Composite : sets the declaration, applies it, then brings the live iptables rules in line. Takes only the subnet id - the vnet, the CIDR and the current state are read from the cluster.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_SDN_SUBNET_ID",
+      "renamed_to": [
+        "sdn_subnet_id"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "The subnet id Proxmox built, `<zone>-<network>-<mask>` - for instance r42-192.168.199.0-24. NOT the CIDR. List the real ids with the sdn_network.list.sdn_subnets bundle rather than deriving them, since a zone name may itself contain dashes."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the API calls go through, resolved from the scenario vault. The reconciliation step is delegated by the role to groups['proxmox_cli'] | first, which must exist in the inventory."
+    }
+  ]
+}

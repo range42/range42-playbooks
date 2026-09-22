@@ -4,7 +4,7 @@
 ##
 ## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
 ##
-## Provisions dsb-vm-01 (Alpine debug VM) on vmbr148. Single VM, no gating
+## Provisions dsb-vm-01 (Alpine debug VM) on net148. Single VM, no gating
 ## (the lab tier is always created ; admin tier optionality lives in
 ## 02_admin_infrastructure/).
 ##
@@ -12,7 +12,7 @@
 ## (ALL tiers stage_00 run before ANY tier stage_01). See main.yml.
 ##
 
-# --- subnet 148 (vmbr148) ---
+# --- subnet 148 (net148) ---
 
 - import_playbook: ./stage_00-vm_bootstrap/dsb_vm_01.yml
   vars:
@@ -23,7 +23,7 @@
     global_vm_tag_name: "debug"
     global_vm_ci_ip: "192.168.148.250"
     global_vm_ci_ip_gw: "192.168.148.1"
-    global_vm_net_bridge: "vmbr148"
+    global_vm_net_bridge: "net148"
     #
     global_template_vm_id: 9903
     global_template_name: "template-vm-alpine-nano - id : 9903"

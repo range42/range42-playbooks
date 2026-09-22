@@ -1,0 +1,37 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/vm.detach.sdn_vnet",
+  "description": "Remove one network card from a VM, addressed by its slot netN. Reads the cards first so a wrong slot is refused with the real list rather than silently doing nothing.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_VM_ID",
+      "renamed_to": [
+        "vm_id"
+      ],
+      "type": "int",
+      "required": true,
+      "default_where": "none",
+      "description": "Proxmox VM id the card is removed from."
+    },
+    {
+      "name": "BUNDLE_VM_VMNET_ID",
+      "renamed_to": [
+        "vm_vmnet_id"
+      ],
+      "type": "int",
+      "required": true,
+      "default_where": "none",
+      "description": "The card slot to remove, the N of netN. Read it from vm.list.interfaces rather than assuming it - a VM's cards are not necessarily numbered without holes."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node holding the VM, resolved from the scenario vault. This endpoint is node-scoped."
+    }
+  ]
+}

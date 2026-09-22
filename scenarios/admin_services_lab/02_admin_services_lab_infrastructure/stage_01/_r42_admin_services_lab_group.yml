@@ -3,7 +3,7 @@
 ##
 ## Docker baseline + zsh dotfiles + firewall.
 ## Firewall opens port 22 (SSH), port 2222 (Gitea SSH), port 3000 (Gitea HTTP),
-## port 3500 (Rocket.Chat), port 8065 (Mattermost), port 8080 (Nextcloud).
+## port 3500 (Rocket.Chat), port 8065 (Mattermost), port 8443 (Nextcloud).
 ## Targets the r42_admin_services_lab_group inventory group (defined in
 ## templates/ansible-inventory.j2), currently containing a single host:
 ## r42.admin-all-services-lab.

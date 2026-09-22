@@ -1,0 +1,37 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/sdn_network.create.sdn_vnet",
+  "description": "Create an SDN vnet in a zone. Raw single API call - not idempotent, and what it writes stays pending until sdn_network.apply runs.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_SDN_ZONE",
+      "renamed_to": [
+        "sdn_zone"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Name of the SDN zone. Its type is pinned to `simple` by the role - host-local, no VLAN, no VXLAN."
+    },
+    {
+      "name": "BUNDLE_SDN_VNET",
+      "renamed_to": [
+        "sdn_vnet"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Name of the vnet. Guests attach to it by using it as their bridge name."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the API call goes through, resolved from the scenario vault. The SDN endpoints are cluster-level, so the node decides where the request lands, not what it affects."
+    }
+  ]
+}

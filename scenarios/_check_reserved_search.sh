@@ -69,7 +69,7 @@ ${BOLD}Examples:${RESET}
   ${GREEN}echo "admin-wazuh"         | ./_check_reserved_search.sh${RESET}
 
   ${DIM}# find all entries of a scenario${RESET}
-  ${GREEN}echo "_init_lab"           | ./_check_reserved_search.sh${RESET}
+  ${GREEN}echo "init_lab"            | ./_check_reserved_search.sh${RESET}
 
   ${DIM}# multiple terms in one call${RESET}
   ${GREEN}printf '1000\\n5100\\n9221\\n' | ./_check_reserved_search.sh${RESET}

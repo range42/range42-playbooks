@@ -14,6 +14,10 @@
 ##   client VM                              VM creation gate                add_host condition
 ##   ------------------------------------- ------------------------------- ----------------------
 ##   r42.bs2-admin-misp                    INSTALL_MISP (default NO)       INSTALL_MISP=YES
+##   r42.bs2-admin-gitea                   INSTALL_GITEA (default NO)      INSTALL_GITEA=YES
+##   r42.bs2-admin-mattermost              INSTALL_MATTERMOST (default NO) INSTALL_MATTERMOST=YES
+##   r42.bs2-admin-nextcloud               INSTALL_NEXTCLOUD (default NO)  INSTALL_NEXTCLOUD=YES
+##   r42.bs2-admin-rocketchat              INSTALL_ROCKETCHAT (default NO) INSTALL_ROCKETCHAT=YES
 ##   r42.bs2-admin-deployer-api-gateway    INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
 ##   r42.bs2-admin-deployer-api-backend    INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES
 ##   r42.bs2-admin-deployer-ui             INSTALL_DEPLOYER_UI (default NO) INSTALL_DEPLOYER_UI=YES

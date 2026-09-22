@@ -15,6 +15,9 @@
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/cloud_init_image.download.all/main.yml"
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.alpine/main.yml"
+  vars:
+    #### same network for the alpine template : the bundle takes the same variable.
+    template_net_bridge: "net140"
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.ubuntu_noble/main.yml"
   when: (INSTALL_WAZUH | default("NO") | upper == "YES") or (INSTALL_MISP | default("NO") | upper == "YES")
@@ -22,3 +25,7 @@
     manifest_path:       "{{ lookup('env', 'RANGE42_GITDIR__ROOT_DIR') }}/range42-playbooks/scenarios/debug_scenario_a/manifest/scenario_vms.json"
     template_bundle_dir: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.ubuntu_noble"
     templates_whitelist: ["medium-02"]
+    #### the templating network is an SDN vnet here, not vmbr140. The bundle defaults to vmbr140,
+    #### so this line is what actually puts the build on SDN - without it the templates are built
+    #### on the legacy bridge and the scenario is only half migrated.
+    template_net_bridge: "net140"

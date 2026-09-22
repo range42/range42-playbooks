@@ -56,6 +56,25 @@
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
+##
+## Service ports : the catalog compose publishes ${MISP_HTTP_PORT:-80}:80 and
+## ${MISP_HTTPS_PORT:-443}:443. This play was MISSING : the role sets ufw to
+## default-deny incoming, so without it the web ui was blocked on a fresh VM.
+##
+- name: misp - open firewall ports (22 SSH + 80 HTTP + 443 HTTPS)
+  hosts: "{{ global_vm_ssh_name }}"
+  become: true
+  gather_facts: false
+  roles:
+    - software.configure.firewalls
+  vars:
+    firewall_rules:
+      - { ip: "all", port: 22,  protocol: "tcp" }
+      - { ip: "all", port: 80,  protocol: "tcp" }
+      - { ip: "all", port: 443, protocol: "tcp" }
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
 - name: misp - deploy misp-standalone docker-compose stack from catalog
   hosts: "{{ global_vm_ssh_name }}"
   become: true

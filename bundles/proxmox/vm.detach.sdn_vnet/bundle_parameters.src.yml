@@ -1,0 +1,41 @@
+---
+bundle: proxmox/vm.detach.sdn_vnet
+description: >-
+  Remove one network card from a VM, addressed by its slot netN. Reads the cards first so a wrong slot
+  is refused with the real list rather than silently doing nothing.
+optional: false
+
+##
+## Caller-passed inputs carry the BUNDLE_ prefix : the backend will generate call-sites and inject its
+## own variables into a play whose variable space is FLAT, so a generator needs a mechanical rule for
+## which names it owns. proxmox_node is NOT prefixed - it is read from the scenario vault, not passed.
+## Full reasoning in ______TODO_bundle-parameters-declaration_v6.md section 9.
+##
+## No bridge parameter, and it is not an omission : the API addresses a card by its SLOT, not by what it
+## is attached to.
+##
+
+params:
+
+  - name: BUNDLE_VM_ID
+    renamed_to: [vm_id]
+    type: int
+    required: true
+    default_where: none
+    description: Proxmox VM id the card is removed from.
+
+  - name: BUNDLE_VM_VMNET_ID
+    renamed_to: [vm_vmnet_id]
+    type: int
+    required: true
+    default_where: none
+    description: >-
+      The card slot to remove, the N of netN. Read it from vm.list.interfaces rather than assuming it -
+      a VM's cards are not necessarily numbered without holes.
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: Proxmox node holding the VM, resolved from the scenario vault. This endpoint is node-scoped.

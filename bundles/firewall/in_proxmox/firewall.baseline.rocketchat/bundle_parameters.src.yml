@@ -1,0 +1,23 @@
+---
+bundle: firewall/in_proxmox/firewall.baseline.rocketchat
+description: >-
+  Declare this profile's open ports (22, 3500) on one guest at the hypervisor level : one inbound
+  ACCEPT per port on the guest's own chain, posted only when nothing already grants it, verified by
+  read-back. Mirror of the rocketchat install rules. Declaring does not arm - nothing filters until the three switches are on.
+optional: false
+
+params:
+
+  - name: BUNDLE_VM_ID
+    renamed_to: [vm_id]
+    type: int
+    required: true
+    default_where: none
+    description: Proxmox VM id whose ports are declared.
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: Proxmox node the guest runs on, resolved from the scenario vault. These endpoints are node-scoped.

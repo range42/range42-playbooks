@@ -2,7 +2,7 @@
 ## admin-nextcloud - Nextcloud docker-compose stack on r42.admin-nextcloud-standalone
 ##
 ## Delegates to the shared bundle which provides the full pipeline (catalog .env
-## seed + Docker baseline + firewall 22/8080 + docker compose up of the
+## seed + Docker baseline + firewall 22/8443 + docker compose up of the
 ## nextcloud stack from range42-catalog).
 ##
 ## Gated by INSTALL_NEXTCLOUD (default YES per nextcloud_lab feature_flags.yml -

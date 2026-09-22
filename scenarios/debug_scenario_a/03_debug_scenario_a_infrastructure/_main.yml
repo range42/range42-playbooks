@@ -6,7 +6,7 @@
 ## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
 ##
 ## Hosts the single lab VM for the debug_scenario_a scenario :
-##   - dsa-vm-01 (VMID 8001, IP 192.168.147.250, vmbr147) : Alpine debug VM
+##   - dsa-vm-01 (VMID 8001, IP 192.168.147.250, net147) : Alpine debug VM
 ##
 ## This tier is split into stage_00 + stage_01 sibling files so the top-level
 ## main.yml can interleave them with the admin tier's stages :

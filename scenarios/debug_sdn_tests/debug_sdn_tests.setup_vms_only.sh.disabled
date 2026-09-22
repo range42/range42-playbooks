@@ -1,0 +1,15 @@
+#!/bin/bash
+
+##
+## debug_sdn_tests.setup_vms_only.sh - run main_vms_only.yml (skip template creation)
+##
+## For THIS scenario the two entry points are equivalent : it builds no template and creates no VM, so
+## skipping 01_templates-bootstrap skips a documented no-op. The script exists so
+## `range42-context deploy-vms` behaves here as on every other scenario, and so it keeps working
+## unchanged the day this scenario creates its own VM.
+##
+
+ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \
+	-l "all" \
+	"./main_vms_only.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set - run: range42-context use <codename> <scenario>}" \
+	"$@"

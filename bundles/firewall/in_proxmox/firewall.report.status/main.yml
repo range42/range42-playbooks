@@ -1,0 +1,115 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# firewall.report.status - the arming state of the three levels, READ AND NOTHING ELSE
+#
+# Meant to run VERY EARLY in a scenario : an operator sees what the firewall already enforces
+# BEFORE the deploy touches anything - datacenter switch, node switch, and for every guest of
+# the active scenario already deployed, its switch and its per-card flags. Whether a scenario
+# should ARM at its start or its end is a decision this bundle deliberately does not take :
+# it reads, prints, and ends. Every action it calls is a GET - it cannot change a state, so
+# the worst a bug here could produce is a wrong report, never a changed firewall.
+#
+# Remember the three-switch rule, measured : a guest filters only when the DATACENTER switch,
+# ITS switch and the CARD flag are all on. dc off = nothing filters anywhere.
+#
+# The guest scope is the active scenario's manifest INTERSECTED with what the node really
+# runs - same rule as the sweeps. On a fresh deploy nothing is deployed yet : the report says
+# zero and that is a normal reading, not a failure.
+#
+# Required : nothing. From the vault : proxmox_node.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "firewall.report.status"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    - name: FIREWALL REPORT - WHAT THIS IS
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "read-only    : every call below is a GET, nothing is modified"
+
+    #### the datacenter switch - the master belt : off, nothing filters anywhere
+    - name: FIREWALL REPORT - THE DATACENTER SWITCH
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_dc_list_options"
+
+    #### the node switch - informational for guests, decisive for the host chain
+    - name: FIREWALL REPORT - THE NODE SWITCH
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_node_list_options"
+
+    #### the guests : manifest of the ACTIVE scenario, intersected with what really runs
+    - name: FIREWALL REPORT - READ THE SCENARIO MANIFEST
+      ansible.builtin.set_fact:
+        _fwrst_manifest: >-
+          {{ lookup('file', lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR')
+                            ~ '/scenario/manifest/scenario_vms.json') | from_json }}
+
+    ## Not optional : this fact APPENDS. See vm.list.interfaces.
+    - name: FIREWALL REPORT - RESET THE ACCUMULATING FACTS
+      ansible.builtin.set_fact:
+        vm_list: []
+        network_list_interfaces_vm: []
+
+    - name: FIREWALL REPORT - WHAT THE NODE REALLY RUNS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "vm_list"
+
+    - name: FIREWALL REPORT - THE SCENARIO GUESTS THAT ARE DEPLOYED
+      ansible.builtin.set_fact:
+        _fwrst_ids: >-
+          {{ ((_fwrst_manifest.vms | default([])) | map(attribute='vm_id') | map('int') | list)
+             | intersect((vm_list | default([]))
+                         | rejectattr('vm_template', 'in', [1, '1', true])
+                         | map(attribute='vm_id') | map('int') | list) }}
+
+    - name: FIREWALL REPORT - A FRESH SCENARIO HAS NOTHING DEPLOYED, AND THAT IS A READING
+      ansible.builtin.debug:
+        msg: "no guest of this scenario is deployed yet - datacenter and node states above are the whole report"
+      when: (_fwrst_ids | length) == 0
+
+    ## Each guest prints its own switch. The *_list_options facts OVERWRITE - a collective
+    ## table is impossible by role design - so the per-guest print IS the record.
+    ## loop_var is EXPLICIT: an item passed down to an action that loops itself gets rebound - measured.
+    - name: FIREWALL REPORT - EACH DEPLOYED GUEST SWITCH
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_list_options"
+        vm_id: "{{ _fwrst_it }}"
+      loop: "{{ _fwrst_ids }}"
+      loop_control:
+        loop_var: _fwrst_it
+
+    ## The card flags DO accumulate, so one collective summary is possible here.
+    - name: FIREWALL REPORT - EACH DEPLOYED GUEST CARDS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_interfaces_vm"
+        vm_id: "{{ _fwrst_it }}"
+      loop: "{{ _fwrst_ids }}"
+      loop_control:
+        loop_var: _fwrst_it
+
+    - name: FIREWALL REPORT - THE CARD FLAGS, ONE LINE PER CARD
+      ansible.builtin.debug:
+        msg: >-
+          {{ (network_list_interfaces_vm | default([]))
+             | map('combine', {})
+             | map('dict2items') | map('selectattr', 'key', 'in',
+                 ['vm_id', 'vm_network_device', 'vm_network_bridge', 'vm_network_firewall'])
+             | map('items2dict') | list }}
+      when: (_fwrst_ids | length) > 0

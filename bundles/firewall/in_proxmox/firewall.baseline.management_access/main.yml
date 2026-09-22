@@ -1,0 +1,43 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# firewall.baseline.management_access - the operator's own path, protected BEFORE any arming
+#
+# Posts the ssh (22) and api (8006) accepts on the DATACENTER chain and on the NODE chain -
+# rules only, NEVER the switches : both actions write /firewall/rules and nothing else, so
+# this bundle cannot arm anything. Inert while the datacenter switch is off, and the moment
+# someone arms, the path this role itself uses to talk to the api is already protected.
+#
+# Idempotent by the actions themselves : each one posts only when no ACTIVE accept already
+# sits ABOVE the first covering deny - an accept below a covering deny never runs, so it does
+# not count. Measured on a live cluster : replaying never stacks a second 22 or 8006.
+#
+# Required : nothing. From the vault : proxmox_node.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "firewall.baseline.management_access"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    - name: FIREWALL MGMT ACCESS - WHAT THIS DOES
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "posts        : accept 22 + 8006 on the datacenter chain AND the node chain, if not already granted"
+          - "never        : a switch - this bundle cannot arm anything"
+
+    - name: FIREWALL MGMT ACCESS - THE DATACENTER CHAIN
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_dc_enable_management_access"
+
+    - name: FIREWALL MGMT ACCESS - THE NODE CHAIN
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_node_enable_management_access"

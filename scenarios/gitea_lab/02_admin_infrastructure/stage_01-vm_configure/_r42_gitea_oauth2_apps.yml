@@ -54,7 +54,7 @@
     #   - name: mattermost
     #     redirect_uri: "http://{{ mattermost_ip }}:8065/oauth/gitea/complete"
     #   - name: rocketchat
-    #     redirect_uri: "http://{{ rocketchat_ip }}:3000/_oauth/gitea"
+    #     redirect_uri: "https://{{ rocketchat_ip }}:3500/_oauth/gitea"
     #   - name: nextcloud
     #     redirect_uri: "http://{{ nextcloud_ip }}/index.php/apps/sociallogin/custom_oauth2/gitea"
     gitea_oauth2_apps_to_register: []

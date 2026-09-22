@@ -1,0 +1,27 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.sh",
+  "tier": "firewall",
+  "bundle": "firewall/in_proxmox/firewall.baseline.ssh_all_vms",
+  "description": "Declare the ssh accept on every deployed guest of the active scenario - manifest intersected with what the node really runs, absentees skipped and named. Adds readiness, not safety : the arming family protects ssh by itself and refuses to arm without it. Idempotent per guest, inert until armed, and must run after the vm bootstrap stages since the guest firewall api refuses a vmid that does not run.",
+  "optional": false,
+  "params": [
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the guests run on, resolved from the scenario vault. These endpoints are node-scoped."
+    },
+    {
+      "name": "range42_fw_vm_ssh_sources",
+      "type": "list",
+      "items": "string (IPv4 /32, such as 203.0.113.7/32)",
+      "required": false,
+      "from_vault": true,
+      "default_where": "bundle-inline",
+      "default": [],
+      "description": "Optional restriction of the ssh accept, chosen at range42-context init and carried by the workspace vault. Empty keeps the accept open to any source. Non-empty restricts it, on the PROXMOX guest firewall, to these addresses plus every network of the scenario, whole, so the deployer through the Proxmox jump host and the guests among themselves keep their access. Written to the rule as plain IPs."
+    }
+  ]
+}
