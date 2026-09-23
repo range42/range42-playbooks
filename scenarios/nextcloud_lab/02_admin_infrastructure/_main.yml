@@ -1,0 +1,16 @@
+---
+##
+## 02 - admin infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the admin platform VM :
+##   - admin-nextcloud-standalone (VMID 1181, IP 192.168.142.181) : Nextcloud
+##     docker-compose stack (gated by INSTALL_NEXTCLOUD, default YES per
+##     manifest/feature_flags.yml - this is the Nextcloud showcase scenario).
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

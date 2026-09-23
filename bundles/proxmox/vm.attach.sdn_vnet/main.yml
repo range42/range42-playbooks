@@ -1,0 +1,90 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# vm.attach.sdn_vnet - add a network card to a VM, on a vnet or on any bridge
+#
+# ADDITIVE. It leaves every existing card alone. To MOVE a card, use vm.replace.sdn_vnet - which deletes
+# and recreates it, and changes its MAC.
+#
+# Subject `vm` and not `sdn_network` : BUNDLE_VM_IFACE_BRIDGE takes a vnet name (net142) exactly as
+# readily as a legacy bridge (vmbr0). The bundle does not check which, and does not care.
+#
+# THE INTERFACE ID IS EXPLICIT, AND THE BUNDLE NEVER GUESSES IT
+# BUNDLE_VM_VMNET_ID is REQUIRED. Deriving it - from the card count, or from the lowest free slot - is
+# wrong for a reason that has nothing to do with correctness of the arithmetic : the caller's numbering
+# may CARRY MEANING, for instance a netN chosen to match the subnet the card belongs to. A bundle that
+# picks a "free" id would silently break that convention. So the caller states the slot, always.
+#
+# WHAT IS STILL CHECKED, AND WHY IT IS NOT GUESSING
+# The cards are read and the requested slot is REFUSED if it is already taken. The API would otherwise
+# OVERWRITE that card - `POST config` with net5 replaces net5 whatever it was. That is a destructive
+# silent success, and the only way to catch it is to look first.
+#
+# WHY iface_firewall AND iface_link_down ARE NOT PARAMETERS HERE
+# The role emits their segment on `if iface_firewall is defined`, which is the right idiom for building a
+# string. But a bundle CANNOT leave a `vars:` key undefined, and bridging with `| default(omit)` makes the
+# var arrive DEFINED-but-placeholder : the role then emits `firewall=0`, silently disabling the firewall
+# of a card whose caller said nothing. Tested. `include_role` also refuses a templated dict for `vars:`
+# ("Vars in a IncludeRole must be specified as a dictionary"), so there is no conditional-key way out.
+# Not exposing them keeps Proxmox's own defaults, which is what the devkit does too. A card that needs
+# those flags is best created then adjusted, or moved with vm.replace.sdn_vnet, which PRESERVES the
+# firewall flag it read.
+#
+# Required : BUNDLE_VM_ID, BUNDLE_VM_VMNET_ID, BUNDLE_VM_IFACE_BRIDGE. From the vault : proxmox_node.
+# Optional : BUNDLE_VM_IFACE_MODEL (virtio).
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "vm.attach.sdn_vnet"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: VM ATTACH - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "vm id        : {{ BUNDLE_VM_ID }}"
+          - "card         : net{{ BUNDLE_VM_VMNET_ID }}"
+          - "bridge       : {{ BUNDLE_VM_IFACE_BRIDGE }}"
+
+    ## The fact APPENDS, so it is reset before the read - see vm.list.interfaces.
+    - name: VM ATTACH - RESET THE ACCUMULATING FACT
+      ansible.builtin.set_fact:
+        network_list_interfaces_vm: []
+
+    - name: VM ATTACH - READ THE CARDS THE VM ALREADY HAS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_interfaces_vm"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    ## Not a guess, a guard : `POST config` with net5 REPLACES net5 whatever it held. Without this the
+    ## bundle would report a cheerful success while destroying a card nobody mentioned.
+    - name: VM ATTACH - REFUSE IF THE SLOT IS ALREADY TAKEN
+      ansible.builtin.assert:
+        that:
+          - ((network_list_interfaces_vm | default([])) | selectattr('vm_vmnet_id', 'equalto',
+             (BUNDLE_VM_VMNET_ID | int)) | list | length) == 0
+        fail_msg: >-
+          vm {{ BUNDLE_VM_ID }} already has a card net{{ BUNDLE_VM_VMNET_ID }}, on
+          {{ ((network_list_interfaces_vm | selectattr('vm_vmnet_id', 'equalto',
+              (BUNDLE_VM_VMNET_ID | int)) | list | first).vm_network_bridge) | default('?') }}.
+          Adding it again would OVERWRITE that card. Use vm.replace.sdn_vnet to move it, or pass a free
+          slot. Cards in use :
+          {{ (network_list_interfaces_vm | default([])) | map(attribute='vm_network_device') | list }}
+        success_msg: "net{{ BUNDLE_VM_VMNET_ID }} is free, adding it on {{ BUNDLE_VM_IFACE_BRIDGE }}"
+
+    - name: VM ATTACH - ADD THE CARD
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_add_interfaces_vm"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+        vm_vmnet_id: "{{ BUNDLE_VM_VMNET_ID | int }}"
+        iface_bridge: "{{ BUNDLE_VM_IFACE_BRIDGE }}"
+        iface_model: "{{ BUNDLE_VM_IFACE_MODEL | default('virtio') }}"

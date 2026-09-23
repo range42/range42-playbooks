@@ -1,0 +1,17 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.sh",
+  "tier": "firewall",
+  "bundle": "firewall/in_vm/os_firewall.baseline.kong",
+  "description": "Network baseline policy that opens 22/tcp plus Kong proxy ports 8000/tcp and 8443/tcp on the target group",
+  "optional": false,
+  "params": [
+    {
+      "name": "target_group",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Inventory group the Kong firewall policy is applied to (VMs hosting the Kong API gateway proxy)"
+    }
+  ]
+}

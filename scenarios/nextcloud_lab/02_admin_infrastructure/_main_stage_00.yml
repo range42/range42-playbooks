@@ -1,0 +1,13 @@
+---
+##
+## 02 - admin infrastructure - stage_00 (vm_bootstrap)
+##
+## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
+##
+## Per-VM bootstrap of the admin platform VM :
+##   - admin-nextcloud-standalone (gated INSTALL_NEXTCLOUD, default YES)
+##
+## Per-VM gating handled inside stage_00-vm_bootstrap/_r42_admin_group.yml.
+##
+
+- import_playbook: ./stage_00-vm_bootstrap/_r42_admin_group.yml

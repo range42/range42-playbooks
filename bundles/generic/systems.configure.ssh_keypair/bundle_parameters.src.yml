@@ -1,0 +1,38 @@
+---
+bundle: generic/systems.configure.ssh_keypair
+
+description: Deploy an SSH keypair (private + optional public) into a user's ~/.ssh via the catalog role.
+
+optional: false
+
+params:
+  - name: TARGET_GROUP
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Ansible inventory group whose hosts receive the keypair.
+
+  - name: TARGET_USER
+    type: string
+    required: true
+    default_where: role-defaults
+    description: User whose ~/.ssh receives the keypair.
+
+  - name: SSH_KEYPAIR_PRIVATE_SRC
+    type: string
+    required: true
+    default_where: role-defaults
+    description: Path on the controller to the private key to deploy.
+
+  - name: SSH_KEYPAIR_PUBLIC_SRC
+    type: string
+    required: false
+    default_where: role-defaults
+    description: Path on the controller to the public key (optional).
+
+  - name: SSH_KEYPAIR_NAME
+    type: string
+    required: false
+    default_where: role-defaults
+    description: Destination filename in the user's ~/.ssh directory.

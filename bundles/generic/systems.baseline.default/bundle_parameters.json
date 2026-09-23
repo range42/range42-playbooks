@@ -1,0 +1,148 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "generic",
+  "bundle": "generic/systems.baseline.default",
+  "description": "Group-level baseline - basic packages plus vim/zsh dotfiles for the operator user",
+  "optional": false,
+  "params": [
+    {
+      "name": "target_group",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Inventory group the two baseline plays run against (hosts of both plays)"
+    },
+    {
+      "name": "BASELINE_INSTALL_BASICS",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "YES",
+      "renamed_to": [
+        "INSTALL_PACKAGES_BASICS"
+      ],
+      "bool_style": "yesno",
+      "description": "Install the basic package set on the target group"
+    },
+    {
+      "name": "BASELINE_INSTALL_FIREWALLS",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "YES",
+      "renamed_to": [
+        "INSTALL_PACKAGES_FIREWALLS"
+      ],
+      "bool_style": "yesno",
+      "description": "Install firewall packages on the target group"
+    },
+    {
+      "name": "BASELINE_INSTALL_DOCKER",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "NO",
+      "renamed_to": [
+        "INSTALL_PACKAGES_DOCKER"
+      ],
+      "bool_style": "yesno",
+      "description": "Install Docker engine on the target group"
+    },
+    {
+      "name": "BASELINE_INSTALL_DOCKER_COMPOSE",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "NO",
+      "renamed_to": [
+        "INSTALL_PACKAGES_DOCKER_COMPOSE"
+      ],
+      "bool_style": "yesno",
+      "description": "Install Docker Compose on the target group"
+    },
+    {
+      "name": "BASELINE_INSTALL_UTILS_JSON",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "NO",
+      "renamed_to": [
+        "INSTALL_PACKAGES_UTILS_JSON"
+      ],
+      "bool_style": "yesno",
+      "description": "Install JSON utility packages such as jq on the target group"
+    },
+    {
+      "name": "BASELINE_INSTALL_UTILS_NETWORK",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "YES",
+      "renamed_to": [
+        "INSTALL_PACKAGES_UTILS_NETWORK"
+      ],
+      "bool_style": "yesno",
+      "description": "Install network utility packages on the target group"
+    },
+    {
+      "name": "BASELINE_INSTALL_NTP",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "YES",
+      "renamed_to": [
+        "INSTALL_PACKAGES_NTP_AND_UPDATE_TIME"
+      ],
+      "bool_style": "yesno",
+      "description": "Install NTP and synchronize time on the target group"
+    },
+    {
+      "name": "BASELINE_CLEANING",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "NO",
+      "renamed_to": [
+        "SPECIFIC_PACKAGES_CLEANING"
+      ],
+      "bool_style": "yesno",
+      "description": "Run the package cleaning step on the target group"
+    },
+    {
+      "name": "BASELINE_OPERATOR_USER",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "alice",
+      "renamed_to": [
+        "OPERATOR_USER"
+      ],
+      "description": "User account that receives the vim and zsh dotfiles"
+    },
+    {
+      "name": "BASELINE_INSTALL_VIM_DOTFILES",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "YES",
+      "renamed_to": [
+        "INSTALL_VIM_DOTFILES"
+      ],
+      "bool_style": "yesno",
+      "description": "Install vim dotfiles for the operator user"
+    },
+    {
+      "name": "BASELINE_INSTALL_ZSH_DOTFILES",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "YES",
+      "renamed_to": [
+        "INSTALL_ZSH_DOTFILES"
+      ],
+      "bool_style": "yesno",
+      "description": "Install zsh dotfiles for the operator user"
+    }
+  ]
+}

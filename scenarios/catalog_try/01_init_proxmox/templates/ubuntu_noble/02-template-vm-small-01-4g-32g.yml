@@ -32,7 +32,7 @@
         vm_cores: 1
         vm_sockets: 1
         vm_memory: 4096
-        vm_net_virtio_bridge: "vmbr140"
+        vm_net_virtio_bridge: "net140"
 
     #
     - name: PROMOX INIT - TEMPLATES - CONVERT VM TO TEMPLATE - template-vm-small-01-4g-32g

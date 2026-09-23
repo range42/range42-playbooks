@@ -1,14 +1,14 @@
 #!/bin/bash
 
 ##
-## delete VMs only — scenario VMs (filter by vm_id), keep templates
+## delete VMs only - scenario VMs (filter by vm_id), keep templates
 ##
 ## VM IDs and IPs are read from the scenario manifest:
 ##   manifest/scenario_vms.json
 ##
 ## Companions:
-##   - blank_scenario_2_subnets.delete_vms_only.sh (this) — VMs only, keep templates
-##   - blank_scenario_2_subnets.delete_all.sh             — VMs + this scenario's templates
+##   - blank_scenario_2_subnets.delete_vms_only.sh (this) - VMs only, keep templates
+##   - blank_scenario_2_subnets.delete_all.sh             - VMs + this scenario's templates
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -31,7 +31,7 @@ echo ""
 
 VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
 if [ -z "$VM_LIST_JSON" ]; then
-    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) — aborting" >&2
+    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) - aborting" >&2
     printf "output: %.200s\n" "$VM_LIST_JSON" >&2
     exit 1
 fi
@@ -44,6 +44,6 @@ for ip in "${INFRASTRUCTURE_IP[@]}"; do
 done
 
 echo ""
-echo ":: done — templates preserved"
+echo ":: done - templates preserved"
 echo ":: redeploy with: range42-context deploy"
 echo ""

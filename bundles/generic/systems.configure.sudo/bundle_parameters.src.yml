@@ -1,0 +1,33 @@
+---
+bundle: generic/systems.configure.sudo
+description: Grant or revoke sudo for a user on a target group, via a validated /etc/sudoers.d drop-in.
+optional: false
+
+params:
+
+  - name: TARGET_GROUP
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Ansible group or host(s) this bundle runs against (the play hosts value). Canonical name Phase 2 = TARGET_ANSIBLE_HOSTS.
+
+  - name: TARGET_USER
+    type: string
+    required: true
+    default_where: role-defaults
+    description: User to grant or revoke sudo for.
+
+  - name: SUDO_STATE
+    type: string
+    required: false
+    default_where: role-defaults
+    allowed: [present, absent]
+    description: Grant (present) or revoke (absent) sudo.
+
+  - name: SUDO_NOPASSWD
+    type: bool
+    bool_style: yaml
+    required: false
+    default_where: role-defaults
+    description: If true, NOPASSWD ALL; else password-required sudo.

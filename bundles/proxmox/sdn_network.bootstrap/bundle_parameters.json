@@ -1,0 +1,35 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/sdn_network.bootstrap",
+  "description": "Bring the declared SDN networks up on a Proxmox cluster - read the live state, create what is missing, update what has drifted, apply once, then reconcile the live SNAT rules. This is the single bundle a scenario imports for its networks.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_SDN_ZONE",
+      "renamed_to": [
+        "sdn_zone"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Name of the SDN zone that holds every vnet of the list below. Created if absent. Its type is pinned to `simple` by the role (host-local, no VLAN, no VXLAN), so it is not a parameter here. The zone name is also the prefix Proxmox uses to build each subnet id, `<zone>-<network>-<mask>`."
+    },
+    {
+      "name": "BUNDLE_SDN_VNETS",
+      "type": "list",
+      "items": "{ vnet: string, subnet: string (CIDR), gateway: string (optional), snat: bool (optional, default true) }",
+      "required": true,
+      "default_where": "none",
+      "description": "The networks to bring up. One call per entry ; each entry's fields feed the role vars sdn_vnet / sdn_subnet / sdn_subnet_gateway / sdn_subnet_snat. `snat: true` is what gives the guests outbound internet ; omitted, it defaults to true. `gateway` is optional - a subnet without one is legal and gets no gateway. A single-entry list is the \"on the fly\" case the backend uses, and works exactly the same."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the SDN objects are read and written through, resolved from the scenario vault. Read directly by the role from default_vault.yml, not passed at the call-site - hence no BUNDLE_ prefix and no bridge in main.yml."
+    }
+  ]
+}

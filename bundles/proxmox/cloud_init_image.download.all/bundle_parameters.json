@@ -1,0 +1,8 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/cloud_init_image.download.all",
+  "description": "Aggregator that downloads all base cloud images by importing the 4 per-image download bundles",
+  "optional": false,
+  "params": []
+}

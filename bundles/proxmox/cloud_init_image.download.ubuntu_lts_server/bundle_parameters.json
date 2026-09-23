@@ -1,0 +1,8 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/cloud_init_image.download.ubuntu_lts_server",
+  "description": "Downloads the Ubuntu Noble LTS server cloud image onto the Proxmox local storage",
+  "optional": false,
+  "params": []
+}

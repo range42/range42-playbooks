@@ -1,0 +1,58 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/vm.attach.sdn_vnet",
+  "description": "Add a network card to a VM, on an SDN vnet or on any bridge. Additive - every existing card is left alone. The interface id is computed as the lowest free slot unless the caller forces one.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_VM_ID",
+      "renamed_to": [
+        "vm_id"
+      ],
+      "type": "int",
+      "required": true,
+      "default_where": "none",
+      "description": "Proxmox VM id the card is added to."
+    },
+    {
+      "name": "BUNDLE_VM_IFACE_BRIDGE",
+      "renamed_to": [
+        "iface_bridge"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Bridge the card attaches to. An SDN vnet name (net142) or a legacy Linux bridge (vmbr0) - the bundle does not check which and does not care."
+    },
+    {
+      "name": "BUNDLE_VM_IFACE_MODEL",
+      "renamed_to": [
+        "iface_model"
+      ],
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "virtio",
+      "description": "NIC model. The default is carried by the bundle and not by the role, because the role uses this value unconditionally - so it can never be left undefined."
+    },
+    {
+      "name": "BUNDLE_VM_VMNET_ID",
+      "renamed_to": [
+        "vm_vmnet_id"
+      ],
+      "type": "int",
+      "required": true,
+      "default_where": "none",
+      "description": "The interface slot, the N of netN. REQUIRED - the bundle never derives it. Deriving it (from the card count, or from the lowest free slot) is wrong because the caller's numbering may CARRY MEANING, for instance a netN chosen to match the subnet the card belongs to. A slot already in use is REFUSED rather than overwritten."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node holding the VM, resolved from the scenario vault. This endpoint is node-scoped."
+    }
+  ]
+}

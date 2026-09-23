@@ -1,0 +1,52 @@
+---
+bundle: proxmox/template.build.ubuntu_noble
+
+description: Creates the Ubuntu Noble VM template family on a Proxmox hypervisor (create, apt-update, convert)
+
+optional: false
+
+params:
+  - name: manifest_path
+    type: string
+    required: true
+    default_where: none
+    description: Absolute path to the scenario manifest scenario_vms.json enumerating template VM IDs
+
+  - name: template_bundle_dir
+    type: string
+    required: true
+    default_where: none
+    description: Absolute path to this bundle ubuntu_noble dir used to render the bootstrap snippet
+
+  - name: templates_whitelist
+    type: list
+    required: false
+    default_where: bundle-inline
+    default: "[]"
+    items: "short code string such as nano, micro-01, small-02, medium-04, large-08"
+    description: Subset of template short codes to build - empty means build the whole family
+
+  - name: template_subnet_octet
+    type: int
+    required: false
+    default_where: bundle-inline
+    default: 140
+    description: Third octet of the template subnet used for the apt-update pass - pair it with template_net_bridge
+
+  - name: template_net_bridge
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "vmbr140"
+    description: >-
+      Bridge the template VM NIC attaches to while it is being built. The build runs apt, so this
+      network MUST reach the internet. Defaults to vmbr140, which is what every caller got when the
+      value was hardcoded - so an existing caller that passes nothing is unaffected. A caller on SDN
+      passes its vnet instead, for instance net140, which is a bridge name as far as qemu is concerned.
+
+  - name: apt_proxy_url
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: ""
+    description: If set, apt update runs through this proxy and a persistent cicustom is attached for clones

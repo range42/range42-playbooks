@@ -1,0 +1,8 @@
+---
+bundle: proxmox/cloud_init_image.download.all
+
+description: Aggregator that downloads all base cloud images by importing the 4 per-image download bundles
+
+optional: false
+
+params: []

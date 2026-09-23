@@ -1,0 +1,36 @@
+# ============================================================================
+# bundles/generic/network.configure.ufw_rules/main.yml
+# ============================================================================
+# Generic UFW firewall bundle : applies a CALLER-PROVIDED list of allow rules
+# on the target group. Thin wrapper around the `software.configure.firewalls`
+# role (ufw path on Ubuntu). Unlike the fixed `network.baseline.*` profiles
+# (which hardcode a specific rule set), the rules are passed in by the caller.
+#
+# !!! NOT YET TESTED - never run in a live deploy. Structure mirrors the proven
+#     network.baseline.ssh bundle ; behaviour with a real rule set is unverified.
+#
+# REQUIRED caller vars (via import_playbook vars:) :
+#   target_group  : ansible group name (e.g. r42_admin_active)
+#   UFW_RULES     : list of {ip, port, protocol} dicts. Example :
+#                     - { ip: "all",        port: 22,  protocol: "tcp" }
+#                     - { ip: "10.0.0.0/8", port: 443, protocol: "tcp" }
+#                   (ip "all" -> ufw "any". The role resets existing rules,
+#                    sets default-deny incoming, then allows each entry, so the
+#                    caller MUST include SSH (22) or the group locks itself out.)
+#
+# Example call-site :
+#
+# - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.ufw_rules/main.yml"
+#   vars:
+#     target_group: "r42_admin_active"
+#     UFW_RULES:
+#       - { ip: "all", port: 22, protocol: "tcp" }
+# ============================================================================
+
+- name: network.configure.ufw_rules - apply caller-provided ufw rules
+  hosts: "{{ target_group }}"
+  become: true
+  roles:
+    - software.configure.firewalls
+  vars:
+    firewall_rules: "{{ UFW_RULES }}"

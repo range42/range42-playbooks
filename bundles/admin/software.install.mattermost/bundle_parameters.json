@@ -1,0 +1,25 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "admin",
+  "bundle": "admin/software.install.mattermost",
+  "description": "Mattermost docker-compose stack (postgres + mattermost + provisioner) installed on a dedicated VM via the catalog element",
+  "optional": true,
+  "install_flag": "INSTALL_MATTERMOST",
+  "params": [
+    {
+      "name": "global_vm_ssh_name",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Inventory hostname of the Mattermost VM, used as the play hosts target for the install, firewall and deploy plays"
+    },
+    {
+      "name": "global_vm_ci_ip",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "IP of the Mattermost server, informational only (documented at the call-site, not consumed by any executable task in this bundle)"
+    }
+  ]
+}

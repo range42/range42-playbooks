@@ -1,0 +1,48 @@
+---
+# Feature flags for dev_deployer_ui_lab - toggleable components at deploy time
+# via `-e INSTALL_<NAME>=YES|NO` (aligned with the existing INSTALL_TAILSCALE
+# convention used elsewhere in the project).
+#
+# This file is the single source of truth :
+#   - the deploy TUI (range42-context --tui) reads `features` to render the
+#     checkbox modal before invoking `range42-context deploy`
+#   - the playbooks read the `INSTALL_<NAME>` variables via
+#     `when: INSTALL_<NAME> | default("YES"|"NO") | upper == "YES"` on the
+#     relevant `import_playbook` / `block:` entries
+#
+# Convention :
+#   - `id` is UPPERCASE (matches the variable name : `id: WAZUH` -> `INSTALL_WAZUH`)
+#   - `default: true|false` is the checkbox initial state in the TUI
+#   - the playbook `default("YES"|"NO")` fallback should align with this
+#   - `| upper` makes the check case-insensitive : YES / yes / Yes all match
+
+features:
+  - id: DEPLOYER_UI
+    label: "deployer-ui (frontend SPA)"
+    description: "Deploys the range42-deployer-ui frontend (Node 24 multi-stage build, nginx on container port 80 published on host UI_PORT default 3000) on the dev-deployer-ui VM via the canonical Docker bundle. Skipping leaves the VM as a bare Docker host."
+    default: true
+
+  - id: DEPLOYER_API_BACKEND
+    label: "deployer-api-backend (FastAPI)"
+    description: "Deploys the range42-backend-api (Python 3.13 / FastAPI / uvicorn / SQLite + Alembic / ansible-runner) on the dev-backend VM via the canonical Docker bundle. Skipping leaves the VM as a bare Docker host."
+    default: true
+
+  - id: KONG
+    label: "Kong (API gateway)"
+    description: "Deploys Kong gateway on the dev-kong VM via the shared bundle. Skipping leaves the VM as a bare Docker host."
+    default: true
+
+  - id: WAZUH
+    label: "Wazuh stack - SIEM server + agents"
+    description: "Deploys the admin-wazuh VM (1193/.193) with the wazuh server stack + installs the wazuh-agent on the 3 dev VMs (and admin-misp if INSTALL_MISP=YES). Skipping leaves admin-wazuh uncreated and removes the agent install."
+    default: false
+
+  - id: MISP
+    label: "MISP - threat intel services"
+    description: "Deploys the admin-misp VM (1194/.194) with the misp-standalone docker-compose stack (MariaDB + Redis + misp-modules + misp + provisioner). Enrolls admin-misp into the wazuh clients group when INSTALL_WAZUH=YES."
+    default: false
+
+  - id: TAILSCALE
+    label: "Tailscale VPN client"
+    description: "Per-group install (off by default). Checking forces YES on all groups via -e INSTALL_TAILSCALE=YES ; unchecking forces NO everywhere."
+    default: false

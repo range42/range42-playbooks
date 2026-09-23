@@ -1,0 +1,6 @@
+---
+bundle: generic/systems.checks.ping
+description: Ansible ping against the targeted hosts/group (reachability check). Takes no caller parameters.
+optional: false
+
+params: []

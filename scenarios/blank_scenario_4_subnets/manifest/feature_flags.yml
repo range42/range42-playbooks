@@ -1,0 +1,53 @@
+---
+# Feature flags for blank_scenario_4_subnets - optional components that
+# can be toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
+#
+# Convention :
+#   - `id` is UPPERCASE (matches the variable name : `id: WAZUH` -> `INSTALL_WAZUH`)
+#   - `default: true|false` is the checkbox initial state in the TUI
+#   - the playbook `default("YES"|"NO")` fallback should align with this
+#   - `| upper` makes the check case-insensitive : YES / yes / Yes all match
+
+features:
+  - id: WAZUH
+    label: "Wazuh stack - SIEM + agents services"
+    description: "Deploys an admin-wazuh VM (vm_id 4130, IP 192.168.142.130) under 02_admin_infrastructure/ + agent install on the 3 deployer-* VMs + 16 team VMs. Off by default for blank_scenario_4_subnets (minimal lab scenario, monitoring opt-in)."
+    default: false
+
+  - id: MISP
+    label: "MISP - threat intel services"
+    description: "Deploys an admin-misp VM (vm_id 4134, IP 192.168.142.134) and runs the misp-standalone docker-compose stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/. Operator must populate the catalog's .env file with secrets BEFORE deploying with INSTALL_MISP=YES."
+    default: false
+
+  - id: DEPLOYER_UI
+    label: "Deployer platform - range42 management UI + API + Kong gateway"
+    description: "Deploys the 3 deployer admin VMs (vm_ids 4131/4132/4133: api-gateway/Kong, api-backend, ui) and installs the deployer platform via the shared bundles. Off by default for blank_scenario_4_subnets (opt-in management stack)."
+    default: false
+
+  - id: TAILSCALE
+    label: "Tailscale VPN client"
+    description: "Per-group install. Off by default."
+    default: false
+
+  #
+  # optional admin docker-compose services (no devkit)
+  #
+  - id: GITEA
+    label: "Gitea - code services"
+    description: "Deploys an admin-gitea VM (vm_id 4135, IP 192.168.142.135) and runs the gitea docker-compose stack (postgres + gitea + provisioner) from the shared admin bundle. Off by default."
+    default: false
+
+  - id: MATTERMOST
+    label: "Mattermost - chat services"
+    description: "Deploys an admin-mattermost VM (vm_id 4136, IP 192.168.142.136) and runs the mattermost docker-compose stack (postgres + mattermost + provisioner) from the shared admin bundle. Off by default."
+    default: false
+
+  - id: NEXTCLOUD
+    label: "Nextcloud - files storage services"
+    description: "Deploys an admin-nextcloud VM (vm_id 4137, IP 192.168.142.137) and runs the nextcloud docker-compose stack (postgres + redis + nextcloud + provisioner) from the shared admin bundle. Align NC_DOMAIN in the catalog .env to the VM IP before deploy. Off by default."
+    default: false
+
+  - id: ROCKETCHAT
+    label: "RocketChat - chat services"
+    description: "Deploys an admin-rocketchat VM (vm_id 4138, IP 192.168.142.138) and runs the rocketchat docker-compose stack (mongodb + mongo-init-replica + rocketchat + provisioner) from the shared admin bundle. MongoDB replica-set cold-start takes ~90-180s on first deploy. Off by default."
+    default: false

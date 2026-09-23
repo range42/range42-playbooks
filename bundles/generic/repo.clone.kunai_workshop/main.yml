@@ -1,0 +1,46 @@
+# ============================================================================
+# bundles/generic/repo.clone.kunai_workshop/main.yml
+# ============================================================================
+# Static-URLs wrapper around `bundles/generic/repo.clone/`. Clones the 5
+# kunai-project ecosystem repositories into <operator_home>/kunai-project/
+# on the target group.
+#
+#   - workshops              https://github.com/kunai-project/workshops.git
+#   - kunai-doc              https://github.com/kunai-project/kunai-doc.git
+#   - kunai-build-docker     https://github.com/kunai-project/kunai-build-docker.git
+#   - community-rules        https://github.com/kunai-project/community-rules.git
+#   - pykunai                https://github.com/kunai-project/pykunai.git
+#
+# REQUIRED caller vars :
+#   GITCLONE_KUNAI_TARGET_GROUP   : ansible group name (e.g. r42_kunai_lab_trainer_group)
+#
+# OPTIONAL caller vars :
+#   GITCLONE_KUNAI_OPERATOR_USER  : (default 'alice') - operator that owns the repos
+#   GITCLONE_KUNAI_REPOS_DIR      : (default '/home/<operator>/kunai-project') - parent dir
+#
+# Example call-site :
+#
+#   - import_playbook: ".../bundles/generic/repo.clone.kunai_workshop/main.yml"
+#     vars:
+#       GITCLONE_KUNAI_TARGET_GROUP: "r42_kunai_lab_students_group"
+#
+# ----------------------------------------------------------------------------
+# Naming convention : the wrapper-facing names use the GITCLONE_KUNAI_* prefix
+# (including TARGET_GROUP) to break the 2-cycle that would arise if both this
+# wrapper AND the inner repo.clone bundle used the same `target_group` name.
+# The wrapper's import_playbook vars: maps GITCLONE_KUNAI_* (caller-side)
+# to GITCLONE_* + target_group (inner-bundle-side). Different LHS/RHS names
+# at each layer = no cycle in the reference graph.
+# ============================================================================
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/repo.clone/main.yml"
+  vars:
+    target_group:           "{{ GITCLONE_KUNAI_TARGET_GROUP }}"
+    GITCLONE_OPERATOR_USER: "{{ GITCLONE_KUNAI_OPERATOR_USER | default('alice') }}"
+    GITCLONE_REPOS_DIR:     "{{ GITCLONE_KUNAI_REPOS_DIR | default('/home/' + (GITCLONE_KUNAI_OPERATOR_USER | default('alice')) + '/kunai-project') }}"
+    GITCLONE_REPOS:
+      - { name: "workshops",          url: "https://github.com/kunai-project/workshops.git" }
+      - { name: "kunai-doc",          url: "https://github.com/kunai-project/kunai-doc.git" }
+      - { name: "kunai-build-docker", url: "https://github.com/kunai-project/kunai-build-docker.git" }
+      - { name: "community-rules",    url: "https://github.com/kunai-project/community-rules.git" }
+      - { name: "pykunai",            url: "https://github.com/kunai-project/pykunai.git" }

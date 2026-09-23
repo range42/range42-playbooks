@@ -1,95 +1,169 @@
 # blank_scenario_2_subnets
 
-Minimal network lab — 2 team subnets (2 VMs each) + admin subnet (wazuh + deployer platform). Total: 8 VMs.
+Multi-subnet lab with 4 team VMs on 2 subnets (net143 + net144) plus an admin platform of 9 admin VMs, every one gated by its feature flag. Bundle-driven shape (mirror of `kunai_lab` / `demo_lab`).
 
-> Admin subnet uses dense IPs `.120-.123` on `192.168.142.0/24`. bs2 / bs4 / bs6 use
-> non-overlapping admin IP ranges (`.120-.123`, `.130-.133`, `.140-.143`), and `demo_lab`
-> admin sits on `.100-.103`, so all four scenarios can be deployed **in parallel** on
-> the same Proxmox host without collision.
+**Formerly `blank_scenario_2_sdn`**, the SDN pilot : it replaced the bridge-based scenario of the same name when the lab networks moved to SDN vnets, with the same 13 VMs, vm_ids, IPs and VM names.
 
-## How to deploy
+## Read this before deploying
 
-On a fresh Linux machine that will become the operator's deployer-cli :
-
-```bash
-sudo apt-get update && sudo apt-get upgrade -y
-sudo apt-get install -y python3-venv git
-
-mkdir -p $HOME/range42 && cd $HOME/range42
-git clone https://github.com/range42/range42.git
-cd range42
-./range42-init.py
-```
-
-Follow the wizard prompts (Proxmox address, jump user, scenario, optional apt proxy).
-Once the deployer-cli is configured, switch to the new context and deploy :
-
-```bash
-range42-context use <codename> blank_scenario_2_subnets
-range42-context deploy
-```
+**Any legacy `vmbrXXX` bridge carrying the same `.1` as a vnet must go.** See [Migrating from the bridge-based scenarios](#migrating-from-the-bridge-based-scenarios) - this is not optional, and the failure it causes is silent.
 
 ## Network architecture
 
 ```
-                              ┌───────────────────────────┐
-                              │       Proxmox Host        │
-                              │      (ip_forward=1)       │
-                              └──┬──────────┬─────────┬───┘
-                                 │          │         │
-                           vmbr142     vmbr143     vmbr144
-                           (admin)     (team A)    (team B)
-                                 │          │         │
-    ┌────────────────────────────┘          │         └────────────────────────────┐
-    │                          ┌────────────┘                                      │
-    │                          │                                                   │
-┌───┴──────────────────┐  ┌───┴──────────────────┐  ┌─────────────────────────────┴┐
-│ Admin                │  │ Team A               │  │ Team B                       │
-│ 192.168.142.0/24     │  │ 192.168.143.0/24     │  │ 192.168.144.0/24             │
-│                      │  │                      │  │                              │
-│ wazuh          .120  │  │ team-143-01    .200  │  │ team-144-01           .200   │
-│ api-gateway    .121  │  │ team-143-02    .201  │  │ team-144-02           .201   │
-│ api-backend    .122  │  │                      │  │                              │
-│ deployer-ui    .123  │  │                      │  │                              │
-└──────────────────────┘  └──────────────────────┘  └──────────────────────────────┘
+                              +-----------------------+
+                              |     Proxmox Host      |
+                              +-----------+-----------+
+                                          |
+              +---------------+-----------+-----------+
+              |               |                       |
+           net142          net143                net144
+        (admin band)     (team subnet 1)        (team subnet 2)
+              |               |                       |
+   +----------+-------+   +---+---+               +---+---+
+   |        admin     |   |  team |               |  team |
+   | wazuh   .120 *   |   | 143.200|              | 144.200|
+   | misp    .124 *   |   | 143.201|              | 144.201|
+   | deployer-* .121  |   +-------+               +-------+
+   | deployer-* .122  |
+   | deployer-* .123  |
+   +------------------+
+       * optional (INSTALL_WAZUH / INSTALL_MISP, default NO)
 ```
 
-## Team VMs
+## VM details
 
-| VM | VM ID | IP | Bridge |
-|----|-------|----|--------|
-| bs2-team-143-01 | 2001 | 192.168.143.200 | vmbr143 |
-| bs2-team-143-02 | 2002 | 192.168.143.201 | vmbr143 |
-| bs2-team-144-01 | 2003 | 192.168.144.200 | vmbr144 |
-| bs2-team-144-02 | 2004 | 192.168.144.201 | vmbr144 |
+| VM Name                              | VM ID | IP              | Bridge  | Template                            | Gated by         |
+|--------------------------------------|-------|-----------------|---------|-------------------------------------|------------------|
+| bs2-team-143-01                      | 2001  | 192.168.143.200 | net143 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-team-143-02                      | 2002  | 192.168.143.201 | net143 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-team-144-01                      | 2003  | 192.168.144.200 | net144 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-team-144-02                      | 2004  | 192.168.144.201 | net144 | template-vm-small-01-4g-32g (9221)  | always created   |
+| bs2-admin-deployer-api-gateway       | 2121  | 192.168.142.121 | net142 | template-vm-small-01-4g-32g (9221)  | `INSTALL_DEPLOYER_UI` |
+| bs2-admin-deployer-api-backend       | 2122  | 192.168.142.122 | net142 | template-vm-small-01-4g-32g (9221)  | `INSTALL_DEPLOYER_UI` |
+| bs2-admin-deployer-ui                | 2123  | 192.168.142.123 | net142 | template-vm-small-01-4g-32g (9221)  | `INSTALL_DEPLOYER_UI` |
+| bs2-admin-wazuh                      | 2120  | 192.168.142.120 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_WAZUH`  |
+| bs2-admin-misp                       | 2124  | 192.168.142.124 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_MISP`   |
+| bs2-admin-gitea                      | 2125  | 192.168.142.125 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_GITEA`  |
+| bs2-admin-mattermost                 | 2126  | 192.168.142.126 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_MATTERMOST` |
+| bs2-admin-nextcloud                  | 2127  | 192.168.142.127 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_NEXTCLOUD` |
+| bs2-admin-rocketchat                 | 2128  | 192.168.142.128 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_ROCKETCHAT` |
 
-## Admin VMs
+Source of truth : `manifest/scenario_vms.json`.
 
-| VM | VM ID | IP | Bridge |
-|----|-------|----|--------|
-| bs2-admin-wazuh | 2120 | 192.168.142.120 | vmbr142 |
-| bs2-admin-deployer-api-gateway | 2121 | 192.168.142.121 | vmbr142 |
-| bs2-admin-deployer-api-backend | 2122 | 192.168.142.122 | vmbr142 |
-| bs2-admin-deployer-ui | 2123 | 192.168.142.123 | vmbr142 |
+## Feature flags
 
-Source of truth for VM IDs/IPs/bridges : [`manifest/scenario_vms.json`](manifest/scenario_vms.json).
+See `manifest/feature_flags.yml`. All flags default to `NO`.
 
-## Stages
+| Flag                | Effect                                                          | Default |
+|---------------------|-----------------------------------------------------------------|---------|
+| `INSTALL_WAZUH`      | Deploy admin-wazuh SIEM + wazuh-agent on every deployed client VM (12 potential) | NO |
+| `INSTALL_MISP`       | Deploy admin-misp (docker-compose stack)                       | NO      |
+| `INSTALL_DEPLOYER_UI`| Deploy the deployer trio (api-gateway, api-backend, ui)        | NO      |
+| `INSTALL_GITEA`      | Deploy admin-gitea (docker-compose stack)                      | NO      |
+| `INSTALL_MATTERMOST` | Deploy admin-mattermost (docker-compose stack)                 | NO      |
+| `INSTALL_NEXTCLOUD`  | Deploy admin-nextcloud (docker-compose stack)                  | NO      |
+| `INSTALL_ROCKETCHAT` | Deploy admin-rocketchat (docker-compose stack)                 | NO      |
+| `INSTALL_TAILSCALE`  | Tailscale VPN client on admin tier                             | NO      |
 
-- **stage_00** — VM creation (clone template + cloud-init + start)
-- **stage_01** — Per-VM software install :
-  - team VMs   : basic packages, dotfiles, firewall (SSH only)
-  - admin VMs  : wazuh-indexer/server/dashboard install + deployer api-gateway/api-backend/ui
+## How the SDN networks are created
 
-## Scripts
+`00_sdn_bootstrap/` runs **before everything else** and brings up one zone holding the four vnets:
 
-| Script | What it does |
-|--------|-------------|
-| `blank_scenario_2_subnets.setup.sh` | Full deploy (templates + VMs + software) |
-| `blank_scenario_2_subnets.setup_vms_only.sh` | Fast redeploy (VMs only, skip templates) |
-| `blank_scenario_2_subnets.delete_all.sh` | Destroy everything (VMs + templates) + clean SSH known_hosts |
-| `blank_scenario_2_subnets.delete_vms_only.sh` | Destroy VMs only (keep templates) |
-| `blank_scenario_2_subnets.reset.setup.sh` | Delete all + redeploy from scratch |
+| vnet | subnet | gateway | SNAT | used by |
+|---|---|---|---|---|
+| `net140` | `192.168.140.0/24` | `.1` | yes | the template build |
+| `net142` | `192.168.142.0/24` | `.1` | yes | the admin tier |
+| `net143` | `192.168.143.0/24` | `.1` | yes | team subnet 1 |
+| `net144` | `192.168.144.0/24` | `.1` | yes | team subnet 2 |
 
-`range42-context` exposes the same operations plus VM lifecycle (`start`/`stop`/`pause`/`resume`),
-`snapshot`/`revert`, and `delete-everything` (cross-scenario cleanup). See `range42-context --help`.
+The vnet name follows the third octet of its subnet: `net143` carries `192.168.143.0/24`. The zone is `simple`, which means it is host-local - the Proxmox holds the `.1` of every subnet and routes between them, and outbound internet comes from the SNAT rule, not from the physical network knowing these ranges exist.
+
+**It creates, it never deletes.** Each object is looked up first and only what is missing is written, so a second run is a no-op and an existing object is left alone. A vnet name is global to the cluster: deleting one here would take away a network other scenarios attach to. The delete scripts of this scenario remove VMs only.
+
+**The order is not a preference.** `net140` is the templating network and the template build runs `apt`. Without a live SNAT rule there, the templates come out empty and out of date - so a template tier that runs first produces broken templates.
+
+## Migrating from the bridge-based scenarios
+
+A `vmbrNNN` bridge and a `netNNN` vnet **cannot both carry the same `.1`**. If they do, the host resolves the route to the bridge, where no VM is attached, and ARPs into the void. Everything looks correct - the zone, the vnet, the subnet, the gateway and the SNAT rule are all there and stay there - but:
+
+- SSH to the VM fails with `No route to host`, which reads like a timeout;
+- the VM cannot reach the internet, because the NATed reply comes back and is lost the same way;
+- cloud-init ends `degraded` after several minutes of network timeouts.
+
+**No API check can see this.** The declaration is valid; the fault is in the host's routing table. The one command that tells you:
+
+```bash
+ip route get <the_vm_ip>      # must answer `dev netXXX`, not `dev vmbrXXX`
+```
+
+**So the switch to SDN is atomic per hypervisor.** Before deploying this scenario, the VMs of every bridge-based scenario using these ranges must be deleted and their `vmbrNNN` bridges freed. There is no gradual coexistence and no partial rollback.
+
+While the bridge-creating tooling is still in place, `00_sdn_bootstrap/` imports the `proxmox/legacy_bridge.workaround.shadowed_subnet` bundle, which removes the duplicate address from the conflicting bridges - the address only, nothing written to disk, so `ifreload -a` puts it back. It refuses to run if a live VM is still attached to one of those bridges, rather than cutting that VM off mid-deployment. Skip it with `-e BUNDLE_LEGACY_SKIP=true` once the bridges are gone for good.
+
+To clear those lines from the disk for good, so no `ifreload` can restore them, run `range42-context networks-legacy-clean` once - a migration step, not routine maintenance.
+
+## Subnet isolation
+
+**Not implemented yet.** Today the subnets reach each other: the host holds a gateway in each and routes between them. That is the expected state of this scenario, not a defect - a VM in `net143` can open a connection to a VM in `net144`.
+
+Isolating them is a firewall matter, not a topology one: putting each vnet in its own zone would change nothing, because the host would still route. The work is in progress and will use per-NIC filtering with address sets, so that team subnets are isolated from each other while the deployer keeps reaching the VMs it manages - without that exception, no deployment could run at all.
+
+## Usage
+
+```bash
+range42-context use <codename> blank_scenario_2_subnets
+range42-context deploy
+
+# enable Wazuh SIEM :
+./blank_scenario_2_subnets.setup.sh -e INSTALL_WAZUH=YES
+
+# enable both Wazuh + MISP (MISP requires .env populated in the catalog
+# before this command - see admin-misp.yml documentation) :
+./blank_scenario_2_subnets.setup.sh -e INSTALL_WAZUH=YES -e INSTALL_MISP=YES
+```
+
+## Wrapper scripts
+
+| Script                                                          | Action                                                              |
+|-----------------------------------------------------------------|---------------------------------------------------------------------|
+| `blank_scenario_2_subnets.setup.sh`                     | Run main playbook (templates + VMs + optional admin)                |
+| `blank_scenario_2_subnets.setup_vms_only.sh`            | Run main_vms_only.yml (skip template creation)                      |
+| `blank_scenario_2_subnets.reset.setup.sh`               | Delete + redeploy VMs                                               |
+| `blank_scenario_2_subnets.reset.ssh_keys.sh`            | Clear ~/.ssh/known_hosts for every IP in manifest                   |
+| `blank_scenario_2_subnets.delete_vms_only.sh`           | Delete VMs only, keep templates                                     |
+| `blank_scenario_2_subnets.delete_all.sh`                | Delete VMs + templates (WARNING - affects other scenarios)          |
+| `blank_scenario_2_subnets.setup_networks.sh`            | Create the SDN zone, vnets and subnets declared in `00_sdn_bootstrap/_main.yml` (`--dry-run` compares without writing) |
+| `blank_scenario_2_subnets.delete_networks.sh`           | Remove those subnets and vnets - the shared zone is kept            |
+
+## Verified on SDN
+
+Full deployment on a Proxmox 8.3 host, with `INSTALL_WAZUH=YES`:
+
+```
+PLAY RECAP *********************************************************************
+px-testing                          : ok=298  changed=0   unreachable=0  failed=0
+px-testing-cli                      : ok=40   changed=19  unreachable=0  failed=0
+r42.bs2-admin-wazuh                 : ok=183  changed=76  unreachable=0  failed=0
+r42.bs2-team-143-01                 : ok=70   changed=22  unreachable=0  failed=0
+r42.bs2-team-143-02                 : ok=70   changed=22  unreachable=0  failed=0
+r42.bs2-team-144-01                 : ok=70   changed=22  unreachable=0  failed=0
+r42.bs2-team-144-02                 : ok=70   changed=22  unreachable=0  failed=0
+```
+
+What that run established, end to end on SDN vnets:
+
+- the two templates of the whitelist were **rebuilt on `net140`**, `apt` included - so the SNAT of the templating subnet works;
+- the 4 team VMs booted on `net143` / `net144`, took their cloud-init static IP, and are reachable over SSH through the Proxmox jump host;
+- `bs2-admin-wazuh` came up on `net142` at `192.168.142.120` with internet, and the **full Wazuh stack installed on it** - 183 tasks, 76 changed.
+
+Reachability measured from `bs2-team-143-01`.
+
+| from `bs2-team-143-01` | to | result |
+|---|---|---|
+| TCP 22 | `192.168.143.201` - peer, same subnet | reachable |
+| TCP 22 | `192.168.144.200` and `.201` - other subnet | reachable (expected today) |
+| TCP 443 | `1.1.1.1` | reachable |
+| DNS | `deb.debian.org` | resolved |
+
+The 8 remaining admin VMs stay behind their feature flags and were not exercised by this run.

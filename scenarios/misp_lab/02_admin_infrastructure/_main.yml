@@ -1,0 +1,23 @@
+---
+##
+## 02 - admin infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the optional admin platform VM for the misp_lab scenario :
+##   - admin-wazuh (VMID 1187, IP 192.168.142.187) : Wazuh SIEM server
+##     (gated by INSTALL_WAZUH, default NO per manifest/feature_flags.yml).
+##
+## Note : no admin-misp here because MISP IS the workload of this scenario,
+## deployed on admin-misp-standalone via 03_misp_lab_infrastructure/.
+##
+## This tier is split into stage_00 + stage_01 sibling files so the top-level
+## main.yml can interleave them with the other tier's stages :
+##   stage_00 (across all tiers) -> stage_01 (across all tiers) -> finalize.
+## See main.yml for the global ordering.
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

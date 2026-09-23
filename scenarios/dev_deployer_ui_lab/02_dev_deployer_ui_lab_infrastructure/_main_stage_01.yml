@@ -1,0 +1,28 @@
+---
+##
+## 02 - dev_deployer_ui_lab infrastructure - stage_01 (vm_configure)
+##
+## Structure : stage_01 unit imported by top-level main.yml ; cross-tier finalize (wazuh-agent on r42_dev_deployer_ui_lab_wazuh_clients) lives at main.yml level, not here.
+##
+## Applies the baseline (docker-host + ssh + tailscale) on the static
+## r42_dev_deployer_ui_lab_group, then the 3 application bundles each gated
+## by an INSTALL_<NAME> flag (default YES per feature_flags.yml). With every
+## INSTALL_DEPLOYER_* flag NO, the 3 VMs stay as bare Docker hosts.
+##
+## Imported from the top-level main.yml during the global stage_01 phase
+## (after ALL tiers stage_00 completed). See main.yml.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 - VM CONFIGURE #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_01-vm_configure/_baseline_dev_deployer_ui_lab.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01-vm_configure/dev-deployer-ui.yml
+
+- import_playbook: ./stage_01-vm_configure/dev-backend.yml
+
+- import_playbook: ./stage_01-vm_configure/dev-kong.yml

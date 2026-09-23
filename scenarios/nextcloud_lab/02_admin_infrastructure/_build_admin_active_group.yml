@@ -1,0 +1,31 @@
+##
+## nextcloud_lab - 02_admin_infrastructure - build r42_admin_active
+##
+## Builds the runtime-only r42_admin_active group from the INSTALL_NEXTCLOUD
+## value. Members are added via ansible.builtin.add_host, so the group is
+## in-memory only ; the workspace inventory_default.yml is NOT modified.
+##
+## Used by _baseline_admin.yml as target_group, so the baseline only runs on
+## the admin VM that stage_00 actually deployed (per the INSTALL flag).
+##
+## Membership map :
+##
+##   admin VM                          creation gate                          add_host condition
+##   --------------------------------- -------------------------------------- ----------------------
+##   r42.admin-nextcloud-standalone    INSTALL_NEXTCLOUD (default YES)        INSTALL_NEXTCLOUD=YES
+##
+## `hosts: proxmox` (not localhost) so the play matches the wrapper's
+## `-l "all"` filter (the proxmox host is in the `all` group and has
+## ansible_connection: local).
+##
+
+- name: build r42_admin_active dynamic group from INSTALL flags
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: add r42.admin-nextcloud-standalone to r42_admin_active when INSTALL_NEXTCLOUD=YES
+      ansible.builtin.add_host:
+        name: r42.admin-nextcloud-standalone
+        groups: r42_admin_active
+      when: INSTALL_NEXTCLOUD | default("YES") | upper == "YES"
+      changed_when: false

@@ -1,0 +1,17 @@
+---
+##
+## 02 - dev_deployer_ui_lab infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the 3 dev VMs (dev-deployer-ui, dev-backend, dev-kong) always-on +
+## their per-VM application stack gated by INSTALL_DEPLOYER_UI /
+## INSTALL_DEPLOYER_API_BACKEND / INSTALL_KONG (each default YES). Split into
+## stage_00 + stage_01 sibling files so the top-level main.yml can interleave
+## them with the other tiers' stages. See main.yml.
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

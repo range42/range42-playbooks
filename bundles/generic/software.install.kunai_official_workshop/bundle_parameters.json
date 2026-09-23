@@ -1,0 +1,102 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "generic",
+  "bundle": "generic/software.install.kunai_official_workshop",
+  "description": "Installs the CIRCL Kunai official workshop toolchain on a target group",
+  "optional": false,
+  "params": [
+    {
+      "name": "KUNAI_TARGET_GROUP",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Ansible group to run the toolchain install against"
+    },
+    {
+      "name": "KUNAI_VERSION",
+      "type": "string",
+      "required": false,
+      "default_where": "role-defaults",
+      "renamed_to": [
+        "kunai_version"
+      ],
+      "description": "Pinned kunai eBPF binary release tag to download and verify",
+      "default": "{{ KUNAI_VERSION | default('v0.6.2') }}",
+      "default_review": true
+    },
+    {
+      "name": "KUNAI_ARCH",
+      "type": "string",
+      "required": false,
+      "default_where": "role-defaults",
+      "renamed_to": [
+        "kunai_arch"
+      ],
+      "description": "CPU architecture suffix for the kunai binary artifact",
+      "default": "{{ KUNAI_ARCH | default('amd64') }}",
+      "default_review": true
+    },
+    {
+      "name": "KUNAI_OPERATOR_USER",
+      "type": "string",
+      "required": false,
+      "default_where": "role-defaults",
+      "renamed_to": [
+        "kunai_operator_user"
+      ],
+      "description": "Local user that owns the toolchain and runs the exercises",
+      "default": "{{ KUNAI_OPERATOR_USER | default('alice') }}",
+      "default_review": true
+    },
+    {
+      "name": "KUNAI_PYKUNAI_VERSION",
+      "type": "string",
+      "required": false,
+      "default_where": "role-defaults",
+      "renamed_to": [
+        "kunai_pykunai_version"
+      ],
+      "description": "pykunai pipx package version to install for the operator user",
+      "default": "{{ KUNAI_PYKUNAI_VERSION | default('0.1.10') }}",
+      "default_review": true
+    },
+    {
+      "name": "KUNAI_MISP_LOCAL_ENABLE",
+      "type": "bool",
+      "required": false,
+      "default_where": "role-defaults",
+      "renamed_to": [
+        "kunai_misp_local_enable"
+      ],
+      "bool_style": "yaml",
+      "description": "Enable the optional local MISP feed block in m2k-config.toml",
+      "default": "{{ KUNAI_MISP_LOCAL_ENABLE | default(false) }}",
+      "default_review": true
+    },
+    {
+      "name": "KUNAI_MISP_URL",
+      "type": "string",
+      "required": false,
+      "default_where": "role-defaults",
+      "renamed_to": [
+        "kunai_misp_url"
+      ],
+      "description": "URL of the local MISP instance when the local feed is enabled",
+      "default": "{{ KUNAI_MISP_URL | default('') }}",
+      "default_review": true
+    },
+    {
+      "name": "KUNAI_MISP_KEY",
+      "type": "string",
+      "required": false,
+      "default_where": "role-defaults",
+      "renamed_to": [
+        "kunai_misp_key"
+      ],
+      "description": "MISP reader API key used when the local feed is enabled",
+      "default": "{{ KUNAI_MISP_KEY | default('') }}",
+      "default_review": true
+    }
+  ]
+}

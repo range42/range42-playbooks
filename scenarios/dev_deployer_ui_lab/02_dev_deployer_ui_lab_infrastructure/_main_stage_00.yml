@@ -1,0 +1,15 @@
+---
+##
+## 02 - dev_deployer_ui_lab infrastructure - stage_00 (vm_bootstrap)
+##
+## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
+##
+## Per-VM bootstrap of the 3 dev VMs (dev-deployer-ui, dev-backend, dev-kong),
+## all always-on (no INSTALL_<flag> gating at VM creation level - the gating
+## happens at stage_01 on the application bundles).
+##
+## Imported from the top-level main.yml during the global stage_00 phase
+## (ALL tiers stage_00 run before ANY tier stage_01). See main.yml.
+##
+
+- import_playbook: ./stage_00-vm_bootstrap/_r42_dev_deployer_ui_lab_group.yml

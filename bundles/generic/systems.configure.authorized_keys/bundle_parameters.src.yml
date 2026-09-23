@@ -1,0 +1,40 @@
+---
+bundle: generic/systems.configure.authorized_keys
+
+description: Manage a public key in a user's authorized_keys on a target group
+
+optional: false
+
+params:
+  - name: TARGET_GROUP
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Ansible group the play targets via hosts
+
+  - name: TARGET_USER
+    type: string
+    required: true
+    default_where: role-defaults
+    description: User whose authorized_keys file is managed
+
+  - name: AUTHORIZED_KEY
+    type: string
+    required: true
+    default_where: role-defaults
+    description: The public key string to add or remove
+
+  - name: AUTHORIZED_KEY_STATE
+    type: string
+    required: false
+    default_where: role-defaults
+    allowed: [present, absent]
+    description: Whether the key should be present or absent
+
+  - name: AUTHORIZED_KEY_EXCLUSIVE
+    type: bool
+    required: false
+    default_where: role-defaults
+    bool_style: yaml
+    description: When true remove all other keys for this user

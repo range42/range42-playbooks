@@ -1,0 +1,35 @@
+####
+# vm.list.interfaces - read the network cards of one VM. Subject `vm` and not `sdn_network` : it reports a
+# legacy vmbr card as readily as a vnet one. Keys and traps : see README.md.
+#
+# THE ONE THING NOT TO BREAK HERE : this fact APPENDS - `(x | default([])) + [..]`. Hence the reset before
+# the read, which is not optional. The three sdn_network.list.* actions rebuild instead. Do not generalise.
+####
+
+- name: "vm.list.interfaces"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: VM LIST INTERFACES - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "vm id        : {{ BUNDLE_VM_ID }}"
+
+    ## Not optional. See the header : this fact APPENDS, so without the reset a second read in the
+    ## same run returns every card twice.
+    - name: VM LIST INTERFACES - RESET THE ACCUMULATING FACT
+      ansible.builtin.set_fact:
+        network_list_interfaces_vm: []
+
+    - name: VM LIST INTERFACES - READ THE CARDS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_interfaces_vm"
+        vm_id: "{{ BUNDLE_VM_ID }}"

@@ -1,0 +1,64 @@
+---
+bundle: proxmox/vm.attach.sdn_vnet
+description: >-
+  Add a network card to a VM, on an SDN vnet or on any bridge. Additive - every existing card is left
+  alone. The interface id is computed as the lowest free slot unless the caller forces one.
+optional: false
+
+##
+## Caller-passed inputs carry the BUNDLE_ prefix : the backend will generate call-sites and inject its
+## own variables into a play whose variable space is FLAT, so a generator needs a mechanical rule for
+## which names it owns. proxmox_node is NOT prefixed - it is read from the scenario vault, not passed.
+## Full reasoning in ______TODO_bundle-parameters-declaration_v6.md section 9.
+##
+## iface_firewall and iface_link_down are DELIBERATELY absent. The role emits their segment on
+## `is defined`, a bundle cannot leave a vars: key undefined, and bridging with `| default(omit)` makes
+## the role emit `firewall=0` - silently disabling the firewall of a card whose caller said nothing.
+## Tested ; see v6 section 11 and this bundle's README.
+##
+
+params:
+
+  - name: BUNDLE_VM_ID
+    renamed_to: [vm_id]
+    type: int
+    required: true
+    default_where: none
+    description: Proxmox VM id the card is added to.
+
+  - name: BUNDLE_VM_IFACE_BRIDGE
+    renamed_to: [iface_bridge]
+    type: string
+    required: true
+    default_where: none
+    description: >-
+      Bridge the card attaches to. An SDN vnet name (net142) or a legacy Linux bridge (vmbr0) - the
+      bundle does not check which and does not care.
+
+  - name: BUNDLE_VM_IFACE_MODEL
+    renamed_to: [iface_model]
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "virtio"
+    description: >-
+      NIC model. The default is carried by the bundle and not by the role, because the role uses this
+      value unconditionally - so it can never be left undefined.
+
+  - name: BUNDLE_VM_VMNET_ID
+    renamed_to: [vm_vmnet_id]
+    type: int
+    required: true
+    default_where: none
+    description: >-
+      The interface slot, the N of netN. REQUIRED - the bundle never derives it. Deriving it (from the
+      card count, or from the lowest free slot) is wrong because the caller's numbering may CARRY
+      MEANING, for instance a netN chosen to match the subnet the card belongs to. A slot already in use
+      is REFUSED rather than overwritten.
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: Proxmox node holding the VM, resolved from the scenario vault. This endpoint is node-scoped.

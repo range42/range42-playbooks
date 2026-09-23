@@ -1,0 +1,34 @@
+---
+##
+## admin_services_lab - student infrastructure
+## Provisions the student client VM and configures end-to-end SSH access to Gitea.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### STAGE 00 #### #### #### #### #### #### #### #### ##
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ##
+
+- import_playbook: ./stage_00/student_gitea_client_01.yml
+
+  vars:
+    global_vm_name: "student-gitea-client-01"
+    global_vm_ssh_name: "r42.student-gitea-client-01"
+    global_vm_id: 1188
+    global_vm_description: "admin_services_lab - Ubuntu LTS client for SSH key cycle with Gitea"
+    global_vm_tag_name: "admin-services-lab"
+    global_vm_ci_ip: "192.168.142.188"
+    #
+    global_template_vm_id: 9232
+    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### #### #### STAGE 01 #### #### #### #### #### #### #### #### ##
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ##
+
+- import_playbook: ./stage_01/_r42_student_gitea_client_group.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01/student_gitea_client_01.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

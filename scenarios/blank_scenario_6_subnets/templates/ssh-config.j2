@@ -37,11 +37,14 @@ Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
     Port 22
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      ADMIN SUBNET 142 (vmbr142)
+#                                      ADMIN SUBNET 142 (net142)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.bs6-admin-wazuh
     Hostname 192.168.142.140
+
+Host r42.bs6-admin-misp
+    Hostname 192.168.142.144
 
 Host r42.bs6-admin-deployer-api-gateway
     Hostname 192.168.142.141
@@ -52,6 +55,18 @@ Host r42.bs6-admin-deployer-api-backend
 Host r42.bs6-admin-deployer-ui
     Hostname 192.168.142.143
 
+Host r42.bs6-admin-gitea
+    Hostname 192.168.142.145
+
+Host r42.bs6-admin-mattermost
+    Hostname 192.168.142.146
+
+Host r42.bs6-admin-nextcloud
+    Hostname 192.168.142.147
+
+Host r42.bs6-admin-rocketchat
+    Hostname 192.168.142.148
+
 Host r42.bs6-admin-*
     User alice
     IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
@@ -59,7 +74,7 @@ Host r42.bs6-admin-*
     ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      SUBNET 143 (vmbr143)
+#                                      SUBNET 143 (net143)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.bs6-team-143-01
@@ -72,7 +87,7 @@ Host r42.bs6-team-143-04
     Hostname 192.168.143.223
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      SUBNET 144 (vmbr144)
+#                                      SUBNET 144 (net144)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.bs6-team-144-01
@@ -85,7 +100,7 @@ Host r42.bs6-team-144-04
     Hostname 192.168.144.223
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      SUBNET 145 (vmbr145)
+#                                      SUBNET 145 (net145)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.bs6-team-145-01
@@ -98,7 +113,7 @@ Host r42.bs6-team-145-04
     Hostname 192.168.145.223
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      SUBNET 146 (vmbr146)
+#                                      SUBNET 146 (net146)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.bs6-team-146-01
@@ -111,7 +126,7 @@ Host r42.bs6-team-146-04
     Hostname 192.168.146.223
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      SUBNET 147 (vmbr147)
+#                                      SUBNET 147 (net147)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.bs6-team-147-01
@@ -124,7 +139,7 @@ Host r42.bs6-team-147-04
     Hostname 192.168.147.223
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      SUBNET 148 (vmbr148)
+#                                      SUBNET 148 (net148)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 Host r42.bs6-team-148-01

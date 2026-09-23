@@ -1,0 +1,121 @@
+##
+## admin_services_lab stage_01 - software install on r42_student_gitea_client_group
+##
+## Baseline for the student client VM: basic packages (includes git),
+## dot-files, and firewall (SSH only). Docker is installed and pre-trusted +
+## logged in against the internal gitea-registry (read-only lab-pull
+## credential) so lab VMs pull images from it instead of docker.io
+## (catalog issue #172).
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: install basics packages
+  hosts: r42_student_gitea_client_group
+  become: true
+  roles:
+    - software.install.warmup.basic_packages
+
+  vars:
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "YES"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "YES"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+
+    SPECIFIC_PACKAGES_CLEANING: "NO"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: install dot files
+  hosts: r42_student_gitea_client_group
+  become: true
+  roles:
+    - software.install.warmup.dot_files
+
+  vars:
+    OPERATOR_USER: alice
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: configure firewall - ssh only
+  become: true
+  hosts: r42_student_gitea_client_group
+  roles:
+    - software.configure.firewalls
+
+  vars:
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+# Trust the internal registry cert and log docker in with the read-only
+# lab-pull credential (catalog issue #172). Runs after the admin stacks:
+# main.yml imports 02_.../stage_02 before 03_student_infrastructure, so the
+# registry provisioner has already written tokens.txt / registry-cert.pem.
+- name: trust internal gitea-registry and docker login (read-only)
+  become: true
+  hosts: r42_student_gitea_client_group
+
+  vars:
+    _registry_host_inv: "r42.admin-all-services-lab"
+    _registry_ip:   "{{ hostvars[_registry_host_inv].ansible_default_ipv4.address }}"
+    _registry_port: "{{ gitea_registry_port | default(3001) }}"
+    _registry:      "{{ _registry_ip }}:{{ _registry_port }}"
+    # tokens volume host path — same access pattern as stage_02's Mattermost
+    # credentials read (volume is mounted only in short-lived containers).
+    _tokens_dir: /var/lib/docker/volumes/gitea-registry_gitea-registry-tokens/_data
+
+  tasks:
+
+    - name: read registry TLS certificate from admin VM tokens volume
+      ansible.builtin.slurp:
+        src: "{{ _tokens_dir }}/registry-cert.pem"
+      delegate_to: "{{ _registry_host_inv }}"
+      register: _reg_cert_raw
+
+    - name: read registry tokens from admin VM tokens volume
+      ansible.builtin.slurp:
+        src: "{{ _tokens_dir }}/tokens.txt"
+      delegate_to: "{{ _registry_host_inv }}"
+      register: _reg_tokens_raw
+      no_log: true
+
+    - name: extract lab-pull token (format username:token:scopes)
+      ansible.builtin.set_fact:
+        _lab_pull_token: >-
+          {{ ((_reg_tokens_raw.content | b64decode).splitlines()
+              | select('match', '^lab-pull:') | first).split(':')[1] }}
+      no_log: true
+
+    - name: create docker cert trust directory for the registry
+      ansible.builtin.file:
+        path: "/etc/docker/certs.d/{{ _registry }}"
+        state: directory
+        mode: '0755'
+
+    - name: install registry CA certificate
+      ansible.builtin.copy:
+        content: "{{ _reg_cert_raw.content | b64decode }}"
+        dest: "/etc/docker/certs.d/{{ _registry }}/ca.crt"
+        mode: '0644'
+
+    - name: docker login to internal registry as lab-pull (read-only)
+      ansible.builtin.command:
+        cmd: docker login {{ _registry }} -u lab-pull --password-stdin
+        stdin: "{{ _lab_pull_token }}"
+      register: _docker_login
+      changed_when: "'Login Succeeded' in _docker_login.stdout"
+      no_log: true
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

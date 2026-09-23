@@ -1,0 +1,129 @@
+##
+## Baseline for r42_kunai_lab_students_group (Phase 1B : human sudo users)
+##
+##   - os_auto_updates               : disable apt-daily + unattended-upgrades FIRST (frees the dpkg lock)
+##   - systems.baseline.docker_host  : packages + dotfiles (alice) + Docker + docker-compose
+##   - network.baseline.ssh         : firewall opens port 22
+##   - network.configure.tailscale_client           : optional (gated INSTALL_TAILSCALE, default NO)
+##   - compute-creds                 : load the vault, set per-host student + trainer creds (facts)
+##   - human user `student`          : add_user + authorized_keys (per-VM unique bob_N) + sudo NOPASSWD + oh-my-zsh
+##   - human user `trainer`          : add_user + sudo NOPASSWD + oh-my-zsh (present here so the trainer can SSH in).
+##                                     Its authorized_keys (the trainer-student-access pubkey) is added by
+##                                     _finalize-trainer_student_access.yml (cross-tier, after key gen).
+##   - repo.clone.kunai_workshop     : clone the 5 kunai repos into the STUDENT home
+##   - software.install.kunai_official_workshop : toolchain for the STUDENT (always installed - core of the lab)
+##
+## alice stays the DEPLOY user (ansible connection) ; student/trainer are the human accounts.
+##
+
+## --- disable OS background auto-updates FIRST (before any apt task frees the dpkg lock) ---
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.os_auto_updates/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_students_group"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.docker_host/main.yml"
+  vars:
+    target_group: "r42_kunai_lab_students_group"
+    BASELINE_INSTALL_UTILS_JSON: "YES"
+    BASELINE_INSTALL_UTILS_NETWORK: "YES"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
+  vars:
+    target_group: "r42_kunai_lab_students_group"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
+  vars:
+    target_group: "r42_kunai_lab_students_group"
+    INSTALL_TAILSCALE: "NO"
+    tailscale_hostnames:
+      - "student-kunai-01"
+      - "student-kunai-02"
+      - "student-kunai-03"
+      - "student-kunai-04"
+      - "student-kunai-05"
+
+## --- Phase 1B : compute per-host human-user creds (loads the vault, sets facts) ---
+- name: kunai_lab - compute human-user creds (student VMs)
+  hosts: r42_kunai_lab_students_group
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - name: assert the per-VM student key is available in the vault
+      ansible.builtin.assert:
+        that:
+          - student_key_index is defined
+          - vars['ssh_key_student_user_extra_' ~ student_key_index ~ '_pub_key'] is defined
+          - (vars['ssh_key_student_user_extra_' ~ student_key_index ~ '_pub_key']) | length > 0
+          - default_trainee_vm_ci_password is defined
+          - default_trainee_vm_ci_password | length > 0
+        fail_msg: "missing vault var (per-VM student key or default_trainee_vm_ci_password) - ensure student_additional_keys_count >= number of student VMs, student_key_index is set per host, and the vault holds the trainee password"
+
+    - name: set per-host student + trainer creds (derived unique password, per-VM key)
+      ansible.builtin.set_fact:
+        _kunai_student_pubkey: "{{ vars['ssh_key_student_user_extra_' ~ student_key_index ~ '_pub_key'] }}"
+        _kunai_student_password: "{{ STUDENT_PASSWORD | default((vars['ssh_key_student_user_extra_' ~ student_key_index ~ '_pub_key'] ~ default_trainee_vm_ci_password) | hash('sha256'), true) }}"
+        _kunai_trainer_password: "{{ TRAINER_PASSWORD | default((ssh_key_student_user_pub_key ~ default_trainee_vm_ci_password) | hash('sha256'), true) }}"
+      no_log: true
+
+## --- human user `student` (per-VM unique key + password, sudo NOPASSWD, oh-my-zsh) ---
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.add_user/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_students_group"
+    TARGET_USER: "student"
+    TARGET_PASSWORD: "{{ _kunai_student_password }}"
+    TARGET_SHELL_PATH: "/usr/bin/zsh"
+    TARGET_UPDATE_PASSWORD: "always"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.authorized_keys/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_students_group"
+    TARGET_USER: "student"
+    AUTHORIZED_KEY: "{{ _kunai_student_pubkey }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.sudo/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_students_group"
+    TARGET_USER: "student"
+    SUDO_NOPASSWD: true
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.dotfiles/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_students_group"
+    TARGET_USER: "student"
+    WARMUP_INSTALL_VIM_DOTFILES: "YES"   # vimrc for student + root
+    WARMUP_APPLY_FOR_ROOT: "YES"         # zsh + oh-my-zsh + vimrc for root too (applied once per VM here)
+
+## --- human user `trainer` on the student VMs (SSH-in from the trainer VM) ---
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.add_user/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_students_group"
+    TARGET_USER: "trainer"
+    TARGET_PASSWORD: "{{ _kunai_trainer_password }}"
+    TARGET_SHELL_PATH: "/usr/bin/zsh"
+    TARGET_UPDATE_PASSWORD: "always"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.sudo/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_students_group"
+    TARGET_USER: "trainer"
+    SUDO_NOPASSWD: true
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.dotfiles/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_students_group"
+    TARGET_USER: "trainer"
+    WARMUP_INSTALL_VIM_DOTFILES: "YES"   # vimrc for the trainer user (root already handled by the student import above)
+# NB: the trainer's authorized_keys on the student VMs (the trainer-student-access pubkey) is added by
+#     _finalize-trainer_student_access.yml (cross-tier), after that key is generated on the trainer VM.
+
+## --- repos + toolchain, repointed to the STUDENT human user ---
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/repo.clone.kunai_workshop/main.yml"
+  vars:
+    GITCLONE_KUNAI_TARGET_GROUP: "r42_kunai_lab_students_group"
+    GITCLONE_KUNAI_OPERATOR_USER: "student"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/software.install.kunai_official_workshop/main.yml"
+  vars:
+    KUNAI_TARGET_GROUP: "r42_kunai_lab_students_group"
+    KUNAI_OPERATOR_USER: "student"

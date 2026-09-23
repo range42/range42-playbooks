@@ -1,0 +1,92 @@
+---
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### SECTION 6 - THE DELETE LEAVES NOTHING, AND REPLAYS CLEANLY
+####
+#### Deleting a subnet removes its post-down hook BEFORE that hook ever runs, so the live rule outlives
+#### the object that declared it. want=0 is what closes that, and it is the count - not the empty
+#### object list - that proves it.
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.all/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ _p_zone }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_zones/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_vnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.list.sdn_subnets/main.yml"
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.reconcile.snat_rules/main.yml"
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: "{{ _p_cidr }}"
+    BUNDLE_SDN_SNAT_WANT: 99
+
+- name: "debug_sdn_tests - 6a check nothing is left"
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    _z: "{{ _p_zone }}"
+    _v: "{{ _p_vnet }}"
+    _c: "{{ _p_cidr }}"
+  tasks:
+    - name: CHECK 6a - ZONE, VNET, SUBNET GONE, AND NO RULE OUTLIVED ITS DECLARATION
+      ansible.builtin.assert:
+        that:
+          - ((network_list_sdn_zones   | default([])) | selectattr('zone', 'equalto', _z) | list | length) == 0
+          - ((network_list_sdn_vnets   | default([])) | selectattr('vnet', 'equalto', _v) | list | length) == 0
+          - ((network_list_sdn_subnets | default([])) | selectattr('subnet_cidr', 'defined')
+             | selectattr('subnet_cidr', 'equalto', _c) | list | length) == 0
+          - (network_delete_extra_snat_rules.snat_before | int) == 0
+        fail_msg: >-
+          the delete left something behind. live rules still matching the CIDR :
+          {{ network_delete_extra_snat_rules.snat_before }} - a rule surviving a deleted subnet is
+          invisible to the API and visible only here
+        success_msg: "PASS - nothing left, and no rule outlived its declaration"
+
+## A second delete must find nothing to remove and still succeed - the property section 1 depends on.
+- name: "debug_sdn_tests - PAUSE everything is GONE"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    ## Observation window. The chain runs faster than a human can follow in the Proxmox UI, so it stops
+    ## here on purpose. Set -e sdn_test_pause=0 to run it flat out, or a bigger number to look longer.
+    - name: "PAUSE - everything is GONE"
+      ansible.builtin.debug:
+        msg:
+          - "==== debug - intentional sleep time - manual check : everything is GONE ===="
+          - "Datacenter -> SDN : the zone, the vnet and the subnet have disappeared"
+          - "and no iptables SNAT rule outlived them - that is what the count above proved"
+          - "pausing {{ _p_pause }}s - override with -e sdn_test_pause=0"
+
+    - name: "PAUSE - hold"
+      ansible.builtin.pause:
+        seconds: "{{ _p_pause }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/sdn_network.delete.all/main.yml"
+  vars:
+    BUNDLE_SDN_ZONE: "{{ _p_zone }}"
+
+- name: "debug_sdn_tests - 6b check the delete replays"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: CHECK 6b - A SECOND DELETE FOUND NOTHING TO REMOVE
+      ansible.builtin.assert:
+        that:
+          - (_sdnw_zone    | length) == 0
+          - (_sdnw_vnets   | length) == 0
+          - (_sdnw_subnets | length) == 0
+        fail_msg: "a second delete still found objects to remove"
+        success_msg: "PASS - the delete replays cleanly, which is what makes this scenario re-runnable"
+
+- name: "debug_sdn_tests - done"
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: ALL SECTIONS PASSED
+      ansible.builtin.debug:
+        msg:
+          - "the SDN chain ran end to end through the BUNDLES"
+          - "zone {{ _p_zone }} was deleted, rebuilt, toggled 4x, and deleted again"
+          - "vm {{ _p_vm_id }} card net{{ _p_netid }} did a round trip"
+          - "and is back on {{ _p_bridge }}"
+          - "NOTE the card's MAC changed twice - a DHCP reservation or a firewall alias keyed on the old one will not follow"
+

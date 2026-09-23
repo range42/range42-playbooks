@@ -1,0 +1,26 @@
+---
+bundle: proxmox/sdn_network.list.sdn_subnets
+description: >-
+  Read the SDN subnets of the cluster and leave them in the fact `network_list_sdn_subnets`, one dict per
+  subnet. Cluster-level read, no write, no apply.
+optional: false
+
+##
+## NO CALLER-PASSED PARAMETER. A read of the whole cluster takes no input : the API endpoint is
+## cluster-level and returns everything. Filtering is the consumer's job, on the resulting fact.
+##
+## proxmox_node is declared but NOT prefixed BUNDLE_ : the prefix marks what the caller PASSES, and
+## this value is read from the scenario vault by the play, not passed. Same treatment as
+## admin/software.install.deployer_api_backend, the first contract that declared it.
+##
+
+params:
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: >-
+      Proxmox node the read goes through, resolved from the scenario vault. It does not scope the
+      result - the endpoint is cluster-level and returns every subnet of the cluster.

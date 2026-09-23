@@ -1,0 +1,102 @@
+##
+## Baseline for r42_kunai_lab_trainer_group (Phase 1B : human sudo user)
+##
+##   - os_auto_updates               : disable apt-daily + unattended-upgrades FIRST (frees the dpkg lock)
+##   - systems.baseline.docker_host  : packages + dotfiles (alice) + Docker + docker-compose
+##   - network.baseline.ssh         : firewall opens port 22
+##   - network.configure.tailscale_client           : optional (gated INSTALL_TAILSCALE, default NO)
+##   - compute-creds                 : load the vault, set trainer creds + private-key path (facts)
+##   - human user `trainer`          : add_user + authorized_keys (bob base, INBOUND access) + sudo NOPASSWD + oh-my-zsh
+##                                     (the OUTBOUND trainer->student key is a passphrase-less
+##                                      trainer-student-access key generated on this VM by
+##                                      _finalize-trainer_ssh_config.yml ; pushed to students by
+##                                      _finalize-trainer_student_access.yml)
+##   - repo.clone.kunai_workshop     : clone the 5 kunai repos into the TRAINER home
+##   - software.install.kunai_official_workshop : toolchain for the TRAINER (always installed - core of the lab)
+##
+## alice stays the DEPLOY user (ansible connection) ; trainer is the human account.
+## The trainer -> student SSH config is deployed by _finalize-trainer_ssh_config.yml.
+##
+
+## --- disable OS background auto-updates FIRST (before any apt task frees the dpkg lock) ---
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.os_auto_updates/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_trainer_group"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.docker_host/main.yml"
+  vars:
+    target_group: "r42_kunai_lab_trainer_group"
+    BASELINE_INSTALL_UTILS_JSON: "YES"
+    BASELINE_INSTALL_UTILS_NETWORK: "YES"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
+  vars:
+    target_group: "r42_kunai_lab_trainer_group"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
+  vars:
+    target_group: "r42_kunai_lab_trainer_group"
+    INSTALL_TAILSCALE: "NO"
+    tailscale_hostnames:
+      - "admin-trainer-kunai"
+
+## --- Phase 1B : compute trainer creds (loads the vault, sets facts) ---
+- name: kunai_lab - compute human-user creds (trainer VM)
+  hosts: r42_kunai_lab_trainer_group
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - name: assert the trainer (bob base) key is available in the vault
+      ansible.builtin.assert:
+        that:
+          - ssh_key_student_user_pub_key is defined
+          - ssh_key_student_user_pub_key | length > 0
+          - default_trainee_vm_ci_password is defined
+          - default_trainee_vm_ci_password | length > 0
+        fail_msg: "missing vault var (ssh_key_student_user_pub_key or default_trainee_vm_ci_password) - the wizard must have generated the bob base key + the trainee password"
+
+    - name: set trainer creds (derived password + bob base pubkey for INBOUND access)
+      ansible.builtin.set_fact:
+        _kunai_trainer_pubkey: "{{ ssh_key_student_user_pub_key }}"
+        _kunai_trainer_password: "{{ TRAINER_PASSWORD | default((ssh_key_student_user_pub_key ~ default_trainee_vm_ci_password) | hash('sha256'), true) }}"
+      no_log: true
+
+## --- human user `trainer` (keypair to SSH out + sudo NOPASSWD + oh-my-zsh) ---
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.add_user/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_trainer_group"
+    TARGET_USER: "trainer"
+    TARGET_PASSWORD: "{{ _kunai_trainer_password }}"
+    TARGET_SHELL_PATH: "/usr/bin/zsh"
+    TARGET_UPDATE_PASSWORD: "always"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.authorized_keys/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_trainer_group"
+    TARGET_USER: "trainer"
+    AUTHORIZED_KEY: "{{ _kunai_trainer_pubkey }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.sudo/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_trainer_group"
+    TARGET_USER: "trainer"
+    SUDO_NOPASSWD: true
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.dotfiles/main.yml"
+  vars:
+    TARGET_GROUP: "r42_kunai_lab_trainer_group"
+    TARGET_USER: "trainer"
+    WARMUP_INSTALL_VIM_DOTFILES: "YES"   # vimrc for trainer + root
+    WARMUP_APPLY_FOR_ROOT: "YES"         # zsh + oh-my-zsh + vimrc for root too
+
+## --- repos + toolchain, repointed to the TRAINER human user ---
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/repo.clone.kunai_workshop/main.yml"
+  vars:
+    GITCLONE_KUNAI_TARGET_GROUP: "r42_kunai_lab_trainer_group"
+    GITCLONE_KUNAI_OPERATOR_USER: "trainer"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/software.install.kunai_official_workshop/main.yml"
+  vars:
+    KUNAI_TARGET_GROUP: "r42_kunai_lab_trainer_group"
+    KUNAI_OPERATOR_USER: "trainer"

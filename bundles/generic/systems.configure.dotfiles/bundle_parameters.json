@@ -1,0 +1,63 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "generic",
+  "bundle": "generic/systems.configure.dotfiles",
+  "description": "Deploy oh-my-zsh + zshrc dotfiles for a user on a target group and set the login shell to zsh",
+  "optional": false,
+  "params": [
+    {
+      "name": "TARGET_GROUP",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Ansible group the play targets (hosts)"
+    },
+    {
+      "name": "TARGET_USER",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "renamed_to": [
+        "OPERATOR_USER"
+      ],
+      "description": "User whose dotfiles are deployed, bridged to the role OPERATOR_USER"
+    },
+    {
+      "name": "WARMUP_INSTALL_ZSH_DOTFILES",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "YES",
+      "bool_style": "yesno",
+      "renamed_to": [
+        "INSTALL_ZSH_DOTFILES"
+      ],
+      "description": "Whether to install the zsh dotfiles (oh-my-zsh + zshrc)"
+    },
+    {
+      "name": "WARMUP_INSTALL_VIM_DOTFILES",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "NO",
+      "bool_style": "yesno",
+      "renamed_to": [
+        "INSTALL_VIM_DOTFILES"
+      ],
+      "description": "Whether to install the vim dotfiles"
+    },
+    {
+      "name": "WARMUP_APPLY_FOR_ROOT",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "NO",
+      "bool_style": "yesno",
+      "renamed_to": [
+        "APPLY_FOR_ROOT"
+      ],
+      "description": "Whether to also apply the dotfiles for the root user"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+---
+##
+## 03 - student infrastructure - stage_00 (vm_bootstrap)
+##
+## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
+##
+## Per-VM bootstrap of the student client VM :
+##   - student-gitea-client-01 (VMID 1184, IP 192.168.142.184) : Ubuntu LTS
+##     client used for the end-to-end SSH-cycle validation against the Gitea
+##     server (admin-gitea-standalone).
+##
+## Clone template 9232 + cloud-init + start + wait-for-SSH.
+##
+
+- import_playbook: ./stage_00-vm_bootstrap/student_gitea_client_01.yml
+
+  vars:
+    global_vm_name: "student-gitea-client-01"
+    global_vm_ssh_name: "r42.student-gitea-client-01"
+    global_vm_id: 1184
+    global_vm_description: "gitea_lab - Ubuntu LTS client for SSH key cycle validation"
+    global_vm_tag_name: "gitea-lab"
+    global_vm_ci_ip: "192.168.142.184"
+    #
+    global_template_vm_id: 9232
+    global_template_name: "template-vm-medium-02-8g-64g - id : 9232"

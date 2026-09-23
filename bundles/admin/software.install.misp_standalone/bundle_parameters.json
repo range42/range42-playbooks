@@ -1,0 +1,25 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "admin",
+  "bundle": "admin/software.install.misp_standalone",
+  "description": "MISP standalone docker-compose stack (MariaDB + Redis + misp-modules + misp + provisioner) deployed on a dedicated VM from the catalog",
+  "optional": true,
+  "install_flag": "INSTALL_MISP",
+  "params": [
+    {
+      "name": "global_vm_ssh_name",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "call-site",
+      "description": "Inventory hostname of the MISP VM, used as the play hosts target for the Docker install and stack deploy (e.g. r42.admin-misp)"
+    },
+    {
+      "name": "global_vm_ci_ip",
+      "type": "string",
+      "required": true,
+      "default_where": "call-site",
+      "description": "IP of the MISP server passed at the call-site for documentation purposes (informational, not consumed by any task)"
+    }
+  ]
+}

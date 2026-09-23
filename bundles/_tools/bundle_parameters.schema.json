@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://range42/bundle_parameters.schema.json",
+  "title": "range42 bundle parameters (source annotation)",
+  "description": "Shape of a hand-authored bundle_parameters.src.yml. The generator validates every source against this and refuses to emit JSON for a malformed one. Descriptive contract: the backend keeps its own input validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bundle", "description", "optional", "params"],
+  "properties": {
+    "bundle": {
+      "type": "string",
+      "pattern": "^[^/]+/.+",
+      "description": "free-form bundle path 'tier/name'; the tier (first segment) is NOT a closed set. ctf may be deeper, e.g. ctf/cve/web/apache/CVE-..."
+    },
+    "description": { "type": "string", "minLength": 1 },
+    "optional": {
+      "type": "boolean",
+      "description": "true if the bundle can be toggled on/off in a scenario (has an INSTALL_ flag at the call-site); false = always runs when imported"
+    },
+    "install_flag": {
+      "type": "string",
+      "pattern": "^INSTALL_[A-Z0-9_]+$",
+      "description": "required iff optional=true; the scenario when: flag that enables it (e.g. INSTALL_WAZUH)"
+    },
+    "params": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/param" }
+    }
+  },
+  "if": {
+    "required": ["optional"],
+    "properties": { "optional": { "const": true } }
+  },
+  "then": { "required": ["install_flag"] },
+  "$defs": {
+    "param": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "required", "description"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "description": "caller-facing name the operator/UI supplies" },
+        "target": {
+          "type": "boolean",
+          "description": "true on the single param that feeds the play `hosts:` (the run target). UI renders a group/host picker, not a value field. Canonical name (Phase 2): TARGET_ANSIBLE_HOSTS. Omit for value params."
+        },
+        "type": { "enum": ["string", "int", "bool", "list", "dict"] },
+        "required": { "type": "boolean" },
+        "description": { "type": "string", "minLength": 1 },
+        "renamed_to": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "internal/role var(s) the caller name maps to; a list because one caller var can fan out"
+        },
+        "default": {
+          "description": "effective default; usually omitted for default_where=role-defaults (the generator resolves it from the role)"
+        },
+        "default_where": { "enum": ["none", "bundle-inline", "role-defaults", "call-site"] },
+        "allowed": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "closed enum of permitted values as STRINGS (present|absent, YES|NO, ...) -> UI renders a dropdown. items:string also rejects unquoted YAML booleans (bare YES/NO parse to true/false)."
+        },
+        "items": {
+          "type": "string",
+          "description": "element shape for list/dict params"
+        },
+        "from_vault": { "type": "boolean", "description": "value is resolved from the scenario vault at runtime (key = vault_key or name); never stored in the json, never rendered by the UI" },
+        "vault_key": { "type": "string", "description": "vault key to read when from_vault=true, if it differs from name" },
+        "bool_style": { "enum": ["yesno", "yaml"] }
+      }
+    }
+  }
+}

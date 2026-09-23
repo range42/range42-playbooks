@@ -1,0 +1,70 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/sdn_network.bootstrap.sdn_vnet",
+  "description": "Bring up ONE vnet with its subnet, parameters given directly - zone if absent, vnet, subnet, one apply, then the live SNAT rules reconciled. Needs no data model, so it works before the declaration lands in the inventory.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_SDN_ZONE",
+      "renamed_to": [
+        "sdn_zone"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "SDN zone that will hold the vnet. Created if absent. Its type is pinned to `simple` by the role - host-local, no VLAN, no VXLAN."
+    },
+    {
+      "name": "BUNDLE_SDN_VNET",
+      "renamed_to": [
+        "sdn_vnet"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Name of the vnet. Created if absent. This is the name a VM uses as its bridge, so it is the name that ends up in a manifest."
+    },
+    {
+      "name": "BUNDLE_SDN_SUBNET_CIDR",
+      "renamed_to": [
+        "sdn_subnet",
+        "sdn_subnet_cidr"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "The subnet as a CIDR, for instance 192.168.142.0/24. Used twice - to create the subnet, and to anchor the live-rule reconciliation, which matches on the source network."
+    },
+    {
+      "name": "BUNDLE_SDN_SUBNET_GATEWAY",
+      "renamed_to": [
+        "sdn_subnet_gateway"
+      ],
+      "type": "string",
+      "required": false,
+      "default_where": "none",
+      "description": "Gateway of the subnet. Optional - a subnet without one is legal and gets none. Safe to bridge with an omit here because the role consumes it into a module-arg dict with its own omit, which drops the key rather than sending an empty value."
+    },
+    {
+      "name": "BUNDLE_SDN_SUBNET_SNAT",
+      "renamed_to": [
+        "sdn_subnet_snat",
+        "sdn_snat_want"
+      ],
+      "type": "int",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": 1,
+      "description": "1 gives the guests outbound internet, 0 does not. Drives the subnet's declaration AND the number of live rules the reconciliation leaves behind, which is why the two always agree."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the API calls go through, resolved from the scenario vault. The reconciliation step is delegated by the role to groups['proxmox_cli'] | first, which must exist in the inventory."
+    }
+  ]
+}

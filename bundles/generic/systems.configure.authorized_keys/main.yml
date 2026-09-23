@@ -1,0 +1,20 @@
+---
+# ============================================================================
+# bundles/generic/systems.configure.authorized_keys/main.yml
+# ============================================================================
+# Thin bundle: manage a public key in a user's authorized_keys via the catalog
+# role `systems.configure.authorized_keys`.
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP     ansible group to target
+#   TARGET_USER      user whose authorized_keys is managed
+#   AUTHORIZED_KEY   the public key string
+# OPTIONAL:
+#   AUTHORIZED_KEY_STATE, AUTHORIZED_KEY_EXCLUSIVE
+# ============================================================================
+
+- name: configure authorized_keys for a user
+  hosts: "{{ TARGET_GROUP }}"
+  become: true
+  roles:
+    - systems.configure.authorized_keys

@@ -1,0 +1,16 @@
+---
+##
+## 02 - admin infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the admin platform VM :
+##   - admin-mattermost-standalone (VMID 1182, IP 192.168.142.182) : Mattermost
+##     docker-compose stack (gated by INSTALL_MATTERMOST, default YES per
+##     manifest/feature_flags.yml - this is the Mattermost showcase scenario).
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

@@ -1,19 +1,20 @@
 #!/bin/bash
 
 ##
-## delete all — VMs + Alpine template of THIS scenario
+## delete all - VMs + templates (alpine-nano 9903 AND medium 9232) of THIS scenario
 ##
 ## VM IDs are read from the scenario manifest:
 ##   manifest/scenario_vms.json
 ##
-## ⚠ WARNING ⚠
-##   The Alpine nano template (9903) is deleted by this script. It may be shared
-##   with debug_scenario_b on the same Proxmox. Run delete_vms_only.sh instead
-##   to keep the template.
+## WARNING
+##   The Alpine nano template (9903) AND medium template (9232) are deleted by
+##   this script. Both may be shared with other scenarios on the same Proxmox
+##   (alpine-nano with debug_scenario_b ; medium with kunai_lab_bundles /
+##   demo_lab_bundles). Run delete_vms_only.sh instead to keep the templates.
 ##
 ## Companions:
-##   - debug_scenario_a.delete_vms_only.sh        — VMs only, keep template
-##   - debug_scenario_a.delete_all.sh (this)      — VMs + this scenario's template
+##   - debug_scenario_a.delete_vms_only.sh        - VMs only, keep templates
+##   - debug_scenario_a.delete_all.sh (this)      - VMs + this scenario's templates
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -39,7 +40,7 @@ echo ""
 
 VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
 if [ -z "$VM_LIST_JSON" ]; then
-    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) — aborting" >&2
+    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) - aborting" >&2
     printf "output: %.200s\n" "$VM_LIST_JSON" >&2
     exit 1
 fi
@@ -52,6 +53,6 @@ for ip in "${INFRASTRUCTURE_IP[@]}"; do
 done
 
 echo ""
-echo ":: done — VMs and template removed"
+echo ":: done - VMs and template removed"
 echo ":: redeploy from scratch with: range42-context deploy"
 echo ""

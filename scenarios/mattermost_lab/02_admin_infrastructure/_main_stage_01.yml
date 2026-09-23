@@ -1,0 +1,30 @@
+---
+##
+## 02 - admin infrastructure - stage_01 (vm_configure)
+##
+## Structure : stage_01 unit imported by top-level main.yml. No cross-tier finalize (single-tier vitrine).
+##
+## Builds the runtime r42_admin_active group from INSTALL_<flag>, then applies
+## the baseline + the mattermost install on the active admin VM. Every play here
+## targets either r42_admin_active (runtime, per-host gated) or a single named
+## admin VM.
+##
+## Imported from the top-level main.yml during the global stage_01 phase
+## (after ALL tiers stage_00 completed). See main.yml.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_admin_active (dynamic group)  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./_build_admin_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 - VM CONFIGURE #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_01-vm_configure/_baseline_admin.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01-vm_configure/admin-mattermost.yml

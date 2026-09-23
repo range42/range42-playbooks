@@ -1,0 +1,14 @@
+---
+##
+## 04 - student infrastructure - stage_00 (vm_bootstrap)
+##
+## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
+##
+## Clones + cloud-inits the 5 student VMs (student-kunai-01..05,
+## 192.168.142.105..109, VMIDs 1105..1109) from template 9232.
+##
+## Imported from the top-level main.yml during the global stage_00 phase
+## (ALL tiers stage_00 run before ANY tier stage_01). See main.yml.
+##
+
+- import_playbook: ./stage_00-vm_bootstrap/_r42_student_group.yml

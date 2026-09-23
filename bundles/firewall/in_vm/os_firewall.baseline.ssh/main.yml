@@ -1,0 +1,23 @@
+# ============================================================================
+# bundles/firewall/in_vm/os_firewall.baseline.ssh/main.yml
+# ============================================================================
+# Network policy : SSH only.
+# Opens 22/tcp on the target group. Minimum baseline for any managed VM.
+#
+# REQUIRED vars : target_group  (e.g. r42_admin, r42_student_box_group, r42_vuln_box_group)
+#
+# Example call-site :
+#
+# - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_vm/os_firewall.baseline.ssh/main.yml"
+#   vars:
+#     target_group: "r42_admin"
+# ============================================================================
+
+- name: os_firewall.baseline.ssh - configure firewall (port 22)
+  hosts: "{{ target_group }}"
+  become: true
+  roles:
+    - software.configure.firewalls
+  vars:
+    firewall_rules:
+      - { ip: "all", port: 22, protocol: "tcp" }

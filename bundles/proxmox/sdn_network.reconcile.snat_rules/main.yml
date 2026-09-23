@@ -1,0 +1,35 @@
+####
+# sdn_network.reconcile.snat_rules - bring the LIVE SNAT rules of one subnet down to a declared count.
+# The only action that reads the RUNNING state. Why it exists, and the counter trick : see README.md.
+#
+# TWO THINGS NOT TO BREAK HERE :
+#   the role delegates iptables to groups['proxmox_cli'] | first, and it must. The host carrying the API
+#   address is connection: local, so an undelegated shell would prune the DEPLOYER's nat table.
+#
+#   BUNDLE_SDN_SNAT_WANT is REQUIRED though the role defaults it to 1 - reconciling to a target nobody
+#   stated is how a wanted rule gets deleted, and `| default(omit)` would break that role default anyway.
+####
+
+- name: "sdn_network.reconcile.snat_rules"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## In a TASK, not the play name : a play name is templated at parse time and would break --syntax-check.
+    - name: SDN RECONCILE SNAT - WHAT THIS RUN WILL DO
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "subnet cidr  : {{ BUNDLE_SDN_SUBNET_CIDR }}"
+          - "rules wanted : {{ BUNDLE_SDN_SNAT_WANT }}"
+
+    - name: SDN RECONCILE SNAT - DELETE THE LIVE RULES IN EXCESS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_delete_extra_snat_rules"
+        sdn_subnet_cidr: "{{ BUNDLE_SDN_SUBNET_CIDR }}"
+        sdn_snat_want: "{{ BUNDLE_SDN_SNAT_WANT }}"

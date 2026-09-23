@@ -10,18 +10,41 @@ all:
             # r42.admin-builder-api-devkit:    # removed
             # r42.admin-builder-docker-registry: # disabled — re-enable when needed
             r42.admin-wazuh:
+            r42.admin-misp:
+            r42.admin-gitea:
+            r42.admin-mattermost:
+            r42.admin-nextcloud:
+            r42.admin-rocketchat:
             r42.admin-deployer-api-gateway:
             r42.admin-deployer-api-backend:
             r42.admin-deployer-ui:
 
-        r42_admin_wazuh_clients:
+        # All potential wazuh-agent clients (every non-server VM in the scenario).
+        # This static group is the POTENTIAL set. At deploy time, the runtime
+        # group r42_demo_lab_wazuh_clients_active is built by
+        # _build_wazuh_clients_active_group.yml based on INSTALL_<flag> values.
+        # The wazuh-agent finalize play targets the runtime active group, not
+        # this static set. Renamed from r42_admin_wazuh_clients (scope was
+        # admin-only, now cross-tier) for symmetry with r42_kunai_lab_wazuh_clients.
+        r42_demo_lab_wazuh_clients:
           hosts:
             # r42.testing-wazuh-client:       # disabled
             # r42.admin-builder-api-devkit:    # removed
             # r42.admin-builder-docker-registry: # disabled — re-enable when needed
+            r42.admin-misp:
+            r42.admin-gitea:
+            r42.admin-mattermost:
+            r42.admin-nextcloud:
+            r42.admin-rocketchat:
             r42.admin-deployer-api-gateway:
             r42.admin-deployer-api-backend:
             r42.admin-deployer-ui:
+            # r42.student-box-01:             # disabled — student tier commented in main.yml ; uncomment + add to _build_wazuh_clients_active_group.yml together
+            r42.vuln-box-00:
+            r42.vuln-box-01:
+            r42.vuln-box-02:
+            r42.vuln-box-03:
+            r42.vuln-box-04:
 
         ####
 

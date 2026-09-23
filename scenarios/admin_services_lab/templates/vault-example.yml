@@ -1,0 +1,14 @@
+---
+# Example vault file for admin_services_lab
+# Copy to secrets/default_vault.yml and encrypt with ansible-vault:
+#   ansible-vault encrypt secrets/default_vault.yml
+
+proxmox_api_token_secret: "REPLACE_ME"
+jump_password: "REPLACE_ME"
+default_admin_vm_ci_password: "REPLACE_ME"
+default_admin_vm_ci_ssh_key: "REPLACE_ME"
+deployer_cli_user_ssh_known_hosts: "REPLACE_ME"
+
+# Gitea admin credentials — used by stage_02 to register OAuth2 apps
+GITEA_ADMIN_USER: "REPLACE_ME"
+GITEA_ADMIN_PASS: "REPLACE_ME"

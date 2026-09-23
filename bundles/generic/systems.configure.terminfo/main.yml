@@ -1,0 +1,52 @@
+##
+## generic/systems.configure.terminfo — install alacritty terminfo on remote hosts
+##
+## Ubuntu 24.04 minimal images do not ship the alacritty terminfo entry.
+## SSH forwards the local TERM value, so connecting from an Alacritty session
+## triggers "'alacritty': unknown terminal type." on the remote.
+##
+## This play copies the alacritty terminfo binary from the Ansible controller
+## (where Alacritty is installed) to /etc/terminfo/a/alacritty on each target,
+## and configures sshd to accept the TERM environment variable from the client.
+##
+## Caller: scenarios import this via `import_playbook` in their stage_01,
+## passing `terminfo_hosts` to scope the play to the relevant inventory group
+## (e.g. `r42_admin_services_lab_group`). Defaults to `all` for backward compat.
+## Relates to: range42/range42#227
+##
+## Import:
+##   - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.terminfo/main.yml"
+##     vars:
+##       terminfo_hosts: <inventory group>
+##
+
+- name: configure sshd and alacritty terminfo
+  hosts: "{{ terminfo_hosts | default('all') }}"
+  become: true
+  tasks:
+    - name: allow SSH client to forward TERM environment variable
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^AcceptEnv TERM'
+        insertafter: '^AcceptEnv LANG LC_\*'
+        line: 'AcceptEnv TERM'
+      notify: reload sshd
+
+    - name: ensure /etc/terminfo/a directory exists
+      ansible.builtin.file:
+        path: /etc/terminfo/a
+        state: directory
+        mode: '0755'
+
+    - name: install alacritty terminfo so TERM=alacritty works over SSH
+      ansible.builtin.copy:
+        src: /usr/share/terminfo/a/alacritty
+        dest: /etc/terminfo/a/alacritty
+        mode: '0644'
+      ignore_errors: true
+
+  handlers:
+    - name: reload sshd
+      ansible.builtin.service:
+        name: ssh
+        state: reloaded

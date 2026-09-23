@@ -1,0 +1,27 @@
+##
+## admin-nextcloud - Nextcloud docker-compose stack on r42.init-admin-nextcloud
+##
+## Delegates to the shared bundle (catalog .env seed + Docker baseline +
+## firewall 22/8443 + docker-compose deploy of nextcloud : postgres + redis +
+## nextcloud + provisioner). init_lab offers Nextcloud as an
+## optional admin service (the nextcloud_lab vitrine is the dedicated showcase).
+##
+## NOTE : align NC_DOMAIN in the catalog .env to include this VM IP
+## (192.168.142.97) before deploy, else Nextcloud rejects access (untrusted
+## domain). See the bundle README.
+##
+## Gated by INSTALL_NEXTCLOUD (default NO per init_lab feature_flags.yml).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.nextcloud/main.yml"
+  when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.init-admin-nextcloud"
+    global_vm_ci_ip:    "192.168.142.97"
+
+## The HYPERVISOR-side declaration of the same ports, on the tap - out of reach of a local
+## root. Idempotent, and inert until the guest is ARMED (firewall.enable.*).
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.nextcloud/main.yml"
+  when: INSTALL_NEXTCLOUD | default("NO") | upper == "YES"
+  vars:
+    BUNDLE_VM_ID: 997

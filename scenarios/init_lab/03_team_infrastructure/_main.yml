@@ -1,0 +1,18 @@
+---
+##
+## 03 - team infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the 5 init VMs on 2 subnets (the init VMs are the team tier of this scenario) :
+##   - init-vm-00 (VMID 900, IP 192.168.143.90, net143)
+##   - init-vm-01 (VMID 901, IP 192.168.143.91, net143)
+##   - init-vm-02 (VMID 902, IP 192.168.143.92, net143)
+##   - init-vm-03 (VMID 903, IP 192.168.144.93, net144)
+##   - init-vm-04 (VMID 904, IP 192.168.144.94, net144)
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

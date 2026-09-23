@@ -1,0 +1,21 @@
+---
+##
+## 03 - misp_lab infrastructure - stage_01 (vm_configure)
+##
+## Structure : stage_01 unit imported by top-level main.yml ; cross-tier finalize (wazuh-agent on misp VM) lives at main.yml level, not here.
+##
+## Sequence :
+##   1. _r42_misp_lab_group.yml : baseline (basics + dotfiles + firewall ports
+##      22/80/443) on r42_misp_lab_group (admin-misp-standalone)
+##   2. misp-standalone.yml      : thin wrapper to the shared misp-standalone
+##      bundle (installs Docker + deploys misp-standalone docker-compose stack)
+##
+## The cross-tier wazuh-agent finalize (targets admin-misp-standalone when
+## INSTALL_WAZUH=YES) lives at the top-level main.yml as the LAST import - not here.
+##
+
+- import_playbook: ./stage_01-vm_configure/_r42_misp_lab_group.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01-vm_configure/misp-standalone.yml

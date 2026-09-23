@@ -1,0 +1,30 @@
+####
+# sdn_network.list.sdn_vnets - read the SDN vnets of the cluster. Cluster-level : the node only decides
+# where the request lands, not what comes back. Details, keys and traps : see README.md.
+#
+# THE ONE THING NOT TO BREAK HERE : this fact is REBUILT on each call, it does not append - so a second
+# read in the same run is safe. network_list_interfaces_vm behaves the OPPOSITE way. Do not generalise.
+####
+
+- name: "sdn_network.list.sdn_vnets"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## The node is echoed rather than folded into the play name : a play `name:` IS templated at
+    ## parse time, so a runtime var there makes `--syntax-check` fail with "'proxmox_node' is
+    ## undefined". Task names are not templated at parse time, so this is safe - and it is also how
+    ## the one declared param stays visible to the annotation checker, which cannot see the role's
+    ## repo (see the params plan v6, section 11).
+    - name: SDN LIST VNETS - THE NODE THIS READ GOES THROUGH
+      ansible.builtin.debug:
+        msg: "proxmox node : {{ proxmox_node }}"
+
+    - name: SDN LIST VNETS - READ THE CLUSTER VNETS
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "network_list_sdn_vnets"

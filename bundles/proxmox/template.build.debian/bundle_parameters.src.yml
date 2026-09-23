@@ -1,0 +1,16 @@
+---
+bundle: proxmox/template.build.debian
+description: >-
+  Create the Debian VM template family on a Proxmox hypervisor (debian-nano, vm_id 9902),
+  converting each VM to a Proxmox template inline. Idempotent.
+optional: false
+
+params:
+
+  - name: templates_whitelist
+    type: list
+    required: false
+    default_where: bundle-inline
+    default: "[]"
+    items: "short code string (e.g. debian-nano); empty list installs the full family"
+    description: Subset of template short codes to build. Empty means build the whole Debian family.

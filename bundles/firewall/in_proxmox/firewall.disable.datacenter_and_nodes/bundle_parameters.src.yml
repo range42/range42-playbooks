@@ -1,0 +1,31 @@
+---
+bundle: firewall/in_proxmox/firewall.disable.datacenter_and_nodes
+description: >-
+  Turn the host firewall off - the datacenter switch first, then the node. The datacenter switch is the
+  master : with it off nothing is installed anywhere, so the first step already does the whole job. The
+  management accepts on 8006 and 22 are deliberately NOT deleted, which keeps any later arming safe.
+  Reads both switches back and fails if either stayed on. Does NOT disarm the guests.
+optional: false
+
+##
+## NO CALLER-PASSED PARAMETER, AND THAT IS THE POINT OF THIS BUNDLE.
+##
+## Switching off takes no tuning : there is nothing to choose. The mirror bundle hides three knobs, this
+## one hides an order - the datacenter before the node, because the datacenter is what actually stops the
+## filtering.
+##
+## NOTHING IS OFFERED TO DELETE THE MANAGEMENT ACCEPTS EITHER. Leaving them costs nothing and keeps the
+## next arming safe ; removing them would build the dangerous asymmetry. Deleting them stays an explicit,
+## separate act rather than a side effect of switching off.
+##
+## proxmox_node is NOT prefixed : it is read from the scenario vault, not passed at the call-site.
+##
+
+params:
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: Proxmox node whose firewall is turned off, resolved from the scenario vault. Both endpoints are node-scoped or cluster-scoped through it.

@@ -1,0 +1,38 @@
+---
+##
+## 02 - admin infrastructure - stage_01 (vm_configure)
+##
+## Structure : stage_01 unit imported by top-level main.yml ; cross-tier finalize (wazuh-agent on lab clients) lives at main.yml level, not here.
+##
+## Builds the runtime r42_admin_active group from INSTALL_<flag> values, then
+## applies the baseline + wazuh server install + misp install on the active
+## admin VMs. NO cross-tier dependency : every play here targets either
+## r42_admin_active (runtime, per-host gated) or a single named admin VM
+## (r42.admin-wazuh / r42.admin-misp).
+##
+## Imported from the top-level main.yml during the global stage_01 phase
+## (after ALL tiers stage_00 completed). See main.yml.
+##
+## The cross-tier wazuh-agent finalize (targets trainer + students, not in this
+## tier) lives at the top-level main.yml as the LAST import - not here.
+##
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### BUILD r42_admin_active (dynamic group)  #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./_build_admin_active_group.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 - VM CONFIGURE #### #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- import_playbook: ./stage_01-vm_configure/_baseline_admin.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01-vm_configure/admin-wazuh.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01-vm_configure/admin-misp.yml

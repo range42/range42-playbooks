@@ -1,0 +1,6 @@
+---
+bundle: proxmox/cloud_init_image.download.debian
+description: Download the Debian 12 (bookworm) genericcloud image onto the Proxmox local storage. Takes no caller parameters.
+optional: false
+
+params: []

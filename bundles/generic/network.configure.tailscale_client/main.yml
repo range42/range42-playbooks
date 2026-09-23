@@ -1,0 +1,72 @@
+# ============================================================================
+# bundles/generic/network.configure.tailscale_client/main.yml
+# ============================================================================
+# Group-level tailscale setup :
+#   - Play 1 : cleanup stale client entries on the wazuh server (so re-joining
+#              VMs don't conflict with their previous identity in the tailnet).
+#   - Play 2 : install tailscale + disable nftables on the target group's VMs.
+#
+# Both plays are gated by `INSTALL_TAILSCALE` (default NO ; default applied
+# inline in the `when:` clause, NOT via set_fact, to avoid poisoning host
+# facts that downstream plays may need to override).
+#
+# Replaces the duplicated 2-play tailscale block that previously lived inline
+# in each scenario's `_baseline_<group>.yml`.
+#
+# REQUIRED vars (passed at call-site via import_playbook vars:) :
+#   target_group        : ansible group name (e.g. r42_admin)
+#   tailscale_hostnames : list of short hostnames for cleanup on wazuh server
+#                         (e.g. ["admin-wazuh", "admin-deployer-api-gateway", ...])
+#
+# OPTIONAL vars :
+#   INSTALL_TAILSCALE        (default NO ; gates BOTH plays)
+#   tailscale_cleanup_host   (default r42.admin-wazuh ; the wazuh server host)
+#
+# REQUIRED env (from `range42-context use <C> <S>`) :
+#   RANGE42_ACTIVE_CONFIG_DIR  : for vault loading
+#                                (infrastructure_tailscale_authkey)
+#
+# Example call-site :
+#
+# - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
+#   vars:
+#     target_group: "r42_admin"
+#     INSTALL_TAILSCALE: "YES"
+#     tailscale_hostnames:
+#       - "admin-wazuh"
+#       - "admin-deployer-api-gateway"
+#       - "admin-deployer-api-backend"
+#       - "admin-deployer-ui"
+# ============================================================================
+
+- name: tailscale - cleanup stale client entries on wazuh server
+  hosts: "{{ tailscale_cleanup_host | default('r42.admin-wazuh') }}"
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    requested_tasks:
+      - delete/tailscale_client.yml
+  tasks:
+    - name: TASK DYNAMIC INCLUDE FROM ansible.utils
+      include_role:
+        name: ansible.utils
+      loop: "{{ tailscale_hostnames }}"
+      loop_control:
+        loop_var: tailscale_hostname
+      when: INSTALL_TAILSCALE | default('NO') | upper == "YES"
+
+- name: tailscale - install + disable nftables on target group
+  hosts: "{{ target_group }}"
+  become: true
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    tailscale_authkey: "{{ infrastructure_tailscale_authkey }}"
+  tasks:
+    - block:
+        - include_role:
+            name: software.install.tailscale
+        - include_role:
+            name: software.configure.tailscale_disable_nftables
+      when: INSTALL_TAILSCALE | default('NO') | upper == "YES"

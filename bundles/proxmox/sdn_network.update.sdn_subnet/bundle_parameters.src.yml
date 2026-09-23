@@ -1,0 +1,58 @@
+---
+bundle: proxmox/sdn_network.update.sdn_subnet
+description: >-
+  Update the gateway or the NAT flag of an existing subnet. Raw single API call - not idempotent, and what it writes stays pending until
+  sdn_network.apply runs.
+optional: false
+
+##
+## Caller-passed inputs carry the BUNDLE_ prefix : the backend will generate call-sites and inject its
+## own variables into a play whose variable space is FLAT, so a generator needs a mechanical rule for
+## which names it owns. proxmox_node is NOT prefixed - it is read from the scenario vault, not passed.
+## Full reasoning in ______TODO_bundle-parameters-declaration_v6.md section 9.
+##
+
+params:
+
+  - name: BUNDLE_SDN_VNET
+    renamed_to: [sdn_vnet]
+    type: string
+    required: true
+    default_where: none
+    description: >-
+      Name of the vnet. Guests attach to it by using it as their bridge name.
+
+  - name: BUNDLE_SDN_SUBNET_ID
+    renamed_to: [sdn_subnet_id]
+    type: string
+    required: true
+    default_where: none
+    description: >-
+      The subnet id Proxmox built, `<zone>-<network>-<mask>` - e.g. r42-192.168.142.0-24. NOT the CIDR :
+      read it back from sdn_network.list.sdn_subnets rather than assuming it.
+
+  - name: BUNDLE_SDN_SUBNET_GATEWAY
+    renamed_to: [sdn_subnet_gateway]
+    type: string
+    required: false
+    default_where: bundle-inline
+    description: >-
+      Gateway of the subnet. Optional - a subnet without one is legal and gets none.
+
+  - name: BUNDLE_SDN_SUBNET_SNAT
+    renamed_to: [sdn_subnet_snat]
+    type: int
+    required: false
+    default_where: bundle-inline
+    description: >-
+      1 gives the guests outbound internet, 0 does not. Optional. Changing it needs an apply AND a rule
+      reconciliation - prefer sdn_network.internet_on / .internet_off, which do the whole sequence.
+
+  - name: proxmox_node
+    type: string
+    required: true
+    from_vault: true
+    default_where: none
+    description: >-
+      Proxmox node the API call goes through, resolved from the scenario vault. The SDN endpoints are
+      cluster-level, so the node decides where the request lands, not what it affects.

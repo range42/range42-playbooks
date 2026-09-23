@@ -1,0 +1,8 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "proxmox",
+  "bundle": "proxmox/cloud_init_image.download.debian",
+  "description": "Download the Debian 12 (bookworm) genericcloud image onto the Proxmox local storage. Takes no caller parameters.",
+  "optional": false,
+  "params": []
+}

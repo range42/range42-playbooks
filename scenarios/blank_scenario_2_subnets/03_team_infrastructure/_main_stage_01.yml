@@ -1,0 +1,35 @@
+---
+##
+## 03 - team infrastructure - stage_01 (vm_configure)
+##
+## Structure : stage_01 unit imported by top-level main.yml ; cross-tier finalize (wazuh-agent on team VMs) lives at main.yml level, not here.
+##
+## Group-level baseline for r42_blank_group (the 4 team VMs) : packages +
+## dotfiles + firewall (port 22 only). Preserves the legacy bs2 team tier
+## behavior - minimal lab VMs without Docker.
+##
+
+- import_playbook: ./stage_01-vm_configure/_r42_blank_group.yml
+  vars:
+    OPERATOR_USER: alice
+
+    INSTALL_VIM_DOTFILES: "YES"
+    INSTALL_ZSH_DOTFILES: "YES"
+
+    INSTALL_PACKAGES_BASICS: "YES"
+    INSTALL_PACKAGES_FIREWALLS: "YES"
+    #
+    INSTALL_PACKAGES_DOCKER: "NO"
+    INSTALL_PACKAGES_DOCKER_COMPOSE: "NO"
+    #
+    INSTALL_PACKAGES_UTILS_JSON: "NO"
+    INSTALL_PACKAGES_UTILS_NETWORK: "YES"
+
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME: "YES"
+
+    INSTALL_TAILSCALE: "NO"
+
+    firewall_rules:
+      - ip: "all"
+        port: 22
+        protocol: "tcp"

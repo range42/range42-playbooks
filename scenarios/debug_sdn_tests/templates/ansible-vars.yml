@@ -1,0 +1,81 @@
+---
+################################################################################
+# range42 - scenario-specific variables (debug_sdn_tests)
+#
+# The SDN chain of the devkit test 07, replayed through the bundles.
+# Creates no VM : it reuses an existing one and drives the SDN objects of one zone.
+#
+# For shared variables -> group_vars/all/vars.yml
+# For secrets -> vault.yml (see vault-example.yml)
+#
+################################################################################
+
+
+#### SCENARIO IDENTIFICATION ####
+
+INFRASTRUCTURE_SCENARIO: "debug_sdn_tests"
+
+
+#### CREDENTIAL GENERATION ####
+
+# auto-generate ssh keys and passwords (YES/NO)
+#
+# Kept YES like every other scenario, although this one creates no VM : the workspace bootstrap
+# generates the keys and the vault that the bundles then read for the Proxmox API token. Setting NO
+# here would leave the vault without proxmox_api_* and every bundle would fail on an undefined var.
+context_auto_generate_ssh_keys: "YES"
+context_auto_generate_vm_passwords: "YES"
+
+# number of additional student ssh keys (bob_1 .. bob_N)
+#
+# 0 : this scenario has no trainee VM and hands out no key.
+student_additionnal_keys_count: 0
+
+
+#### CLOUD-INIT USERNAMES ####
+
+# Carried for workspace-template compatibility. No VM is created here, so no cloud-init user is
+# actually applied - but the shared templates reference these names.
+default_admin_vm_ci_user: "alice"
+default_trainee_vm_ci_user: "bob"
+
+
+#### SDN CHAIN RUN PARAMETERS ####
+#
+# The defaults the chain uses. Every one is overridable at run time with -e, which is how you retarget
+# the chain without editing the workspace :
+#
+#   ./debug_sdn_tests.setup.sh -e sdn_test_vm_id=104
+#
+# They live here as well so a workspace records what its last run was pointed at.
+
+# the zone this scenario OWNS and WIPES - at the start and at the end of every run
+sdn_test_zone: "r42test"
+sdn_test_vnet: "net199"
+sdn_test_subnet: "192.168.199.0/24"
+sdn_test_gateway: "192.168.199.1"
+
+# the VM whose card is moved onto the vnet and back. ITS MAC CHANGES TWICE.
+sdn_test_vm_id: 102
+sdn_test_vm_netid: 0
+sdn_test_vm_bridge: "vmbr0"
+
+# seconds held at each of the six observable state changes, so the run can be followed in the Proxmox
+# UI. This is what makes the scenario a DEBUG tool rather than just a test : without it the chain
+# completes faster than a human can read. 0 runs it flat out, which is what a CI would want.
+sdn_test_pause: 15
+
+#### SECTION 7 - THE THROWAWAY NETWORK ####
+#
+# Section 7 exercises the 11 bundles the six main sections never execute - the three raw creates, the raw
+# update, the three raw deletes, the raw apply, bootstrap on a one-entry list, and vm.attach / vm.detach
+# which the main sections never reach even indirectly.
+#
+# It uses a SECOND network so it cannot disturb anything the earlier sections asserted, and a SECOND card
+# slot on the same VM.
+sdn_test_vnet2: "net200"
+sdn_test_subnet2: "192.168.200.0/24"
+sdn_test_gateway2: "192.168.200.1"
+# the gateway the raw update moves it to - proving update.sdn_subnet touches the gateway and leaves snat alone
+sdn_test_gateway2_new: "192.168.200.254"
+sdn_test_vm_netid2: 1

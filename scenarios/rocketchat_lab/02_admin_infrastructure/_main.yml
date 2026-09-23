@@ -1,0 +1,16 @@
+---
+##
+## 02 - admin infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the admin platform VM :
+##   - admin-rocketchat-standalone (VMID 1185, IP 192.168.142.185) : Rocket.Chat
+##     docker-compose stack (gated by INSTALL_ROCKETCHAT, default YES per
+##     manifest/feature_flags.yml - this is the Rocket.Chat showcase scenario).
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

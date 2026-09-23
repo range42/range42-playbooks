@@ -1,0 +1,17 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.sh",
+  "tier": "firewall",
+  "bundle": "firewall/in_proxmox/firewall.enable.vms",
+  "description": "Arm every guest of the ACTIVE scenario, card flags included, in the same order as the single-guest bundle : all the ssh accepts, then all the card flags, then all the switches. The list comes from the scenario manifest, templates excluded, and an empty scenario stops the run rather than reporting a success over nothing. The cards are read back and counted ; the switches are covered by the guard each arming carries, a failed iteration stopping the whole run.",
+  "optional": false,
+  "params": [
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the guest runs on, resolved from the scenario vault. These endpoints are node-scoped."
+    }
+  ]
+}

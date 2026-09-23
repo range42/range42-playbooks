@@ -1,0 +1,32 @@
+---
+# Feature flags for kunai_lab - optional components that can be
+# toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
+#
+# This file is the single source of truth :
+#   - the deploy TUI (range42-context --tui) reads `features` to render the
+#     checkbox modal before invoking `range42-context deploy`
+#   - the playbooks read the `INSTALL_<NAME>` variables via
+#     `when: INSTALL_<NAME> | default("YES"|"NO") | upper == "YES"` on the
+#     relevant `import_playbook` / `block:` entries
+#
+# Convention :
+#   - `id` is UPPERCASE (matches the variable name : `id: WAZUH` -> `INSTALL_WAZUH`)
+#   - `default: true|false` is the checkbox initial state in the TUI
+#   - the playbook `default("YES"|"NO")` fallback should align with this
+#   - `| upper` makes the check case-insensitive : YES / yes / Yes all match
+
+features:
+  - id: WAZUH
+    label: "Wazuh stack - SIEM + agents services"
+    description: "Deploys an admin-wazuh VM under 02_admin_infrastructure/ + agent install on trainer + student VMs. Off by default for kunai_lab (focused on the kunai detection workshop, not on SIEM)."
+    default: false
+
+  - id: MISP
+    label: "MISP - threat intel services"
+    description: "Deploys an admin-misp VM (vm_id 1111, IP 192.168.142.111) and runs the misp-standalone docker-compose stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/. Operator must populate the catalog's .env file with secrets (MISP_DB_PASSWORD, DB_ROOT_PASSWORD, MISP_ADMIN_PASSWORD, MISP_SALT, etc.) BEFORE deploying with INSTALL_MISP=YES."
+    default: false
+
+  - id: TAILSCALE
+    label: "Tailscale VPN client"
+    description: "Per-group install. Off by default."
+    default: false

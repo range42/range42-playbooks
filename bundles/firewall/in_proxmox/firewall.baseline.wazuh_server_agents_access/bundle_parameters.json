@@ -1,0 +1,37 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.sh",
+  "tier": "firewall",
+  "bundle": "firewall/in_proxmox/firewall.baseline.wazuh_server_agents_access",
+  "description": "Let the agents of the scenario reach their wazuh manager : two inbound accepts on the SERVER guest, 1514 (events) and 55000 (api, enrollment), source-restricted to the scenario's vmnets. The agents themselves need nothing, their outbound passes by default. Idempotent per port and source ; declaring does not arm.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_VM_ID",
+      "renamed_to": [
+        "vm_id"
+      ],
+      "type": "int",
+      "required": true,
+      "default_where": "none",
+      "description": "Proxmox VM id of the wazuh SERVER - the rule lives on the manager, inbound, never on the agents."
+    },
+    {
+      "name": "BUNDLE_FW_SOURCE",
+      "renamed_to": [
+        "vm_fw_source"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Where the agents come from : a cidr, a comma list of cidrs, or a datacenter firewall alias name. REQUIRED with no default - defaulting to everyone would silently widen a restriction, defaulting to nothing would block every agent with a green run."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the guest runs on, resolved from the scenario vault. These endpoints are node-scoped."
+    }
+  ]
+}

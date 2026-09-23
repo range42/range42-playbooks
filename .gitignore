@@ -1,4 +1,5 @@
-**/secrets/
-**/secret/
+**/secrets
+**/secret
 CLAUDE.md
 **/CLAUDE.md
+.claude

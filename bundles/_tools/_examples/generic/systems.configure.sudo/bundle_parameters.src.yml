@@ -1,0 +1,38 @@
+---
+# REFERENCE FIXTURE (role-only bundle: params live in the catalog role defaults).
+bundle: generic/systems.configure.sudo
+description: >-
+  Grant or revoke sudo for a user on a target group, via a validated
+  /etc/sudoers.d drop-in.
+installable: false
+composes: []
+params:
+  - name: TARGET_GROUP
+    scope: orchestration
+    type: string
+    required: true
+    default_where: none
+    description: Ansible inventory group to target.
+  - name: TARGET_USER
+    scope: per-group
+    type: string
+    required: true
+    default_where: role-defaults
+    default: ""
+    description: User to grant or revoke sudo for.
+  - name: SUDO_STATE
+    scope: per-group
+    type: string
+    required: false
+    default_where: role-defaults
+    default: present
+    allowed: [present, absent]
+    description: Grant (present) or revoke (absent) sudo.
+  - name: SUDO_NOPASSWD
+    scope: per-group
+    type: bool
+    bool_style: yaml
+    required: false
+    default_where: role-defaults
+    default: false
+    description: If true, NOPASSWD:ALL; else password-required sudo.

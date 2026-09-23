@@ -1,0 +1,20 @@
+---
+##
+## 03 - student infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Provisions the student client VM and configures end-to-end SSH access to Gitea :
+##   - student-gitea-client-01 (VMID 1184, IP 192.168.142.184) : Ubuntu LTS
+##     client used for the SSH-cycle validation against admin-gitea-standalone.
+##
+## NOTE : when run standalone this wrapper does NOT run the cross-tier FINALIZE
+## (the SSH-cycle glue stage_01-vm_configure/student_gitea_client_01.yml). That
+## glue depends on the Gitea server being up and is imported LAST by the
+## top-level main.yml. Run it by hand against a live server if needed.
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml
