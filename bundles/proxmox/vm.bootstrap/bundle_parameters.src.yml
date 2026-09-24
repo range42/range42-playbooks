@@ -7,6 +7,14 @@ optional: false
 
 params:
 
+  - name: global_vm_extra_config
+    renamed_to: [vm_extra_config]
+    type: dict
+    required: false
+    default_where: bundle-inline
+    default: {}
+    description: Optional cores, memory in MiB, and contiguous secondary netN/ipconfigN pairs with static IPv4 addresses and no additional default gateway.
+
   - name: global_vm_ssh_name
     target: true
     type: string

@@ -34,6 +34,14 @@
 
   tasks:
 
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - VALIDATE OPTIONAL CONFIGURATION
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+        tasks_from: include/vm/vm_bootstrap_validate_template.yaml
+      vars:
+        vm_extra_config: "{{ global_vm_extra_config | default({}) }}"
+        vm_template_id: "{{ global_template_vm_id }}"
+
     - name: VM BOOTSTRAP - "{{ global_vm_name }}" - CLONE TEMPLATE - "{{ global_template_name | default(global_template_vm_id) }}"
       include_role:
         name: range42-ansible_roles-proxmox_controller
@@ -76,6 +84,7 @@
         vm_ci_netmask: "{{ global_vm_ci_netmask | default('24') }}"
         vm_ci_ip_gw: "{{ global_vm_ci_ip_gw }}"
         vm_net_virtio_bridge: "{{ global_vm_net_virtio_bridge }}"
+        vm_extra_config: "{{ global_vm_extra_config | default({}) }}"
 
     - name: VM BOOTSTRAP - "{{ global_vm_name }}" - START VM
       include_role:
