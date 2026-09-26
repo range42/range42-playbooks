@@ -1,0 +1,117 @@
+- name: Claim the instance directory before copying private state
+  hosts: '{{ global_vm_ssh_name }}'
+  gather_facts: false
+  tasks:
+  - name: Inspect existing instance directory
+    ansible.builtin.stat:
+      path: '{{ BUNDLE_INSTANCE_DIR }}'
+    register: instance_root
+  - name: Inspect existing ownership marker
+    ansible.builtin.stat:
+      path: '{{ BUNDLE_INSTANCE_DIR }}/owner.json'
+    register: instance_owner
+  - name: Check whether an interrupted directory creation left an empty directory
+    ansible.builtin.find:
+      paths: '{{ BUNDLE_INSTANCE_DIR }}'
+      hidden: true
+      file_type: any
+      recurse: false
+    register: instance_contents
+    when: instance_root.stat.isdir | default(false) and not instance_owner.stat.exists
+  - name: Require a new directory or a marked installation
+    ansible.builtin.assert:
+      that:
+      - not instance_root.stat.exists or (not instance_root.stat.islnk and
+        (instance_owner.stat.exists or instance_contents.matched | default(-1) == 0))
+      fail_msg: Unclaimed installation directory; refusing to overwrite it
+  - name: Read existing ownership and credential markers
+    ansible.builtin.slurp:
+      src: '{{ BUNDLE_INSTANCE_DIR }}/{{ item }}'
+    loop:
+    - owner.json
+    - private/credentials.json
+    register: instance_markers
+    no_log: true
+    when: instance_owner.stat.exists
+  - name: Refuse foreign ownership or replacement credentials
+    ansible.builtin.assert:
+      that:
+      - (item.content | b64decode | from_json) == (lookup('file', BUNDLE_INSTANCE_SOURCE_DIR
+        ~ '/' ~ item.item) | from_json)
+      fail_msg: Instance ownership or credentials differ; restore the original private
+        staging
+    loop: '{{ instance_markers.results | default([]) }}'
+    when: instance_owner.stat.exists
+    no_log: true
+  - name: Prepare Python dependencies for configuration helpers
+    ansible.builtin.apt:
+      name:
+      - python3-yaml
+      - python3-bcrypt
+      - rsync
+      - nftables
+      state: present
+  - name: Create owned instance directory
+    ansible.builtin.file:
+      path: '{{ BUNDLE_INSTANCE_DIR }}'
+      state: directory
+      mode: '0700'
+      owner: '{{ BUNDLE_OPERATOR_USER }}'
+      group: '{{ BUNDLE_OPERATOR_USER }}'
+  - name: Prepare the private identity directory before transferring the payload
+    ansible.builtin.file:
+      path: '{{ BUNDLE_INSTANCE_DIR }}/private'
+      state: directory
+      mode: '0700'
+      owner: '{{ BUNDLE_OPERATOR_USER }}'
+      group: '{{ BUNDLE_OPERATOR_USER }}'
+  - name: Preserve the reviewed credentials before recording ownership
+    ansible.builtin.copy:
+      src: '{{ BUNDLE_INSTANCE_SOURCE_DIR }}/private/credentials.json'
+      dest: '{{ BUNDLE_INSTANCE_DIR }}/private/credentials.json'
+      mode: '0600'
+      owner: '{{ BUNDLE_OPERATOR_USER }}'
+      group: '{{ BUNDLE_OPERATOR_USER }}'
+    no_log: true
+  - name: Record verified ownership before the payload transfer
+    ansible.builtin.copy:
+      src: '{{ BUNDLE_INSTANCE_SOURCE_DIR }}/owner.json'
+      dest: '{{ BUNDLE_INSTANCE_DIR }}/owner.json'
+      mode: '0600'
+      owner: '{{ BUNDLE_OPERATOR_USER }}'
+      group: '{{ BUNDLE_OPERATOR_USER }}'
+  - name: Copy the instance delivery
+    ansible.posix.synchronize:
+      use_ssh_args: true
+      verify_host: true
+      src: '{{ BUNDLE_INSTANCE_SOURCE_DIR }}/'
+      dest: '{{ BUNDLE_INSTANCE_DIR }}/'
+      archive: true
+      delete: false
+      rsync_opts:
+      - --exclude=runtime/bundle-runtime.json
+    no_log: true
+  - name: Inspect immutable release input directories
+    ansible.builtin.stat:
+      path: '{{ BUNDLE_INSTANCE_SOURCE_DIR }}/{{ item }}'
+    loop:
+    - source
+    - runtime
+    - helper
+    delegate_to: localhost
+    become: false
+    register: instance_release_dirs
+  - name: Remove obsolete code only inside owned release directories
+    ansible.posix.synchronize:
+      use_ssh_args: true
+      verify_host: true
+      src: '{{ BUNDLE_INSTANCE_SOURCE_DIR }}/{{ item.item }}/'
+      dest: '{{ BUNDLE_INSTANCE_DIR }}/{{ item.item }}/'
+      archive: true
+      delete: true
+      rsync_opts:
+      - --exclude=bundle-runtime.json
+    loop: '{{ instance_release_dirs.results }}'
+    when: item.stat.isdir | default(false)
+    no_log: true
+  become: true

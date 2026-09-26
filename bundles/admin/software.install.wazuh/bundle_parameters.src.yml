@@ -26,3 +26,22 @@ params:
     from_vault: true
     default_where: none
     description: Wazuh admin password, resolved from the scenario vault at runtime (never stored, never rendered).
+
+  - name: BUNDLE_WAZUH_VARS_FILE
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: ''
+    description: Dedicated Wazuh credential vars; defaults to the active workspace vault.
+  - name: BUNDLE_WAZUH_CERTS_DIR
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: /tmp/certificates/
+    description: Per-instance controller certificate directory.
+  - name: BUNDLE_WAZUH_API_PASSWORDS
+    type: bool
+    required: false
+    default_where: bundle-inline
+    default: false
+    description: Configure private API admin/dashboard credentials from the dedicated vars file.

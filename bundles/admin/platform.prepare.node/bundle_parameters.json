@@ -1,0 +1,38 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "admin",
+  "bundle": "admin/platform.prepare.node",
+  "description": "Check ownership and preserve credentials before delivering one platform instance to its dedicated VM.",
+  "optional": false,
+  "params": [
+    {
+      "name": "global_vm_ssh_name",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Global vm ssh name",
+      "target": true
+    },
+    {
+      "name": "BUNDLE_INSTANCE_SOURCE_DIR",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Instance source dir"
+    },
+    {
+      "name": "BUNDLE_INSTANCE_DIR",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Instance dir"
+    },
+    {
+      "name": "BUNDLE_OPERATOR_USER",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Operator user"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+---
+bundle: firewall/in_vm/os_firewall.isolate.platform
+description: Supplement the shared firewall stages with private platform ingress and Docker DNAT restrictions.
+optional: false
+params:
+- name: target_group
+  type: string
+  required: true
+  default_where: none
+  description: Target group
+  target: true
+- name: BUNDLE_INSTANCE_DIR
+  type: string
+  required: true
+  default_where: none
+  description: Instance dir
+- name: BUNDLE_SERVICE
+  type: string
+  required: true
+  default_where: none
+  description: Service
+- name: BUNDLE_MANAGEMENT_CIDRS
+  type: list
+  required: true
+  default_where: none
+  description: Management cidrs
+- name: BUNDLE_CLIENT_CIDRS
+  type: list
+  required: true
+  default_where: none
+  description: Client cidrs
+- name: BUNDLE_AGENT_CIDRS
+  type: list
+  required: true
+  default_where: none
+  description: Agent cidrs

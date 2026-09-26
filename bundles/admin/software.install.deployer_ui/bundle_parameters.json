@@ -79,6 +79,14 @@
         "tailscale_authkey"
       ],
       "description": "Tailnet auth key read from the scenario vault; only consumed when INSTALL_TAILSCALE is YES."
+    },
+    {
+      "name": "BUNDLE_COMPOSE_PROJECT",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "",
+      "description": "Compose project name; distinct per platform instance."
     }
   ]
 }

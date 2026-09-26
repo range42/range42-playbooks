@@ -1,0 +1,114 @@
+- name: Check the checkpoint directory on Proxmox
+  ansible.builtin.stat:
+    path: '{{ platform_backup }}'
+  delegate_to: '{{ inventory_hostname }}-cli'
+  register: platform_backup_stat
+- name: Refuse backup overwrite or a missing restore checkpoint
+  ansible.builtin.assert:
+    that:
+    - BUNDLE_ACTION == 'restore' or not platform_backup_stat.stat.exists
+- name: Create a private Proxmox checkpoint directory
+  ansible.builtin.file:
+    path: '{{ platform_backup }}'
+    state: directory
+    mode: '0700'
+  delegate_to: '{{ inventory_hostname }}-cli'
+- name: Upload the saved archives if the Proxmox backup copy is absent
+  ansible.builtin.copy:
+    src: '{{ platform_backup }}/{{ item }}'
+    dest: '{{ platform_backup }}/{{ item }}'
+    mode: '0600'
+    force: false
+  loop: '{{ (platform_plan.vms | map(attribute="vm_id") | map("string") | map("regex_replace", "$", ".vma.zst") | list) + ["SHA256SUMS", "stack.json"] }}'
+  delegate_to: '{{ inventory_hostname }}-cli'
+  when: BUNDLE_ACTION == 'restore' and not platform_backup_stat.stat.exists
+  no_log: true
+- name: Record the exact owner and plan of the VM backup
+  ansible.builtin.copy:
+    content: '{{ platform_plan | to_json }}'
+    dest: '{{ platform_backup }}/stack.json'
+    mode: '0600'
+  delegate_to: '{{ inventory_hostname }}-cli'
+  when: BUNDLE_ACTION == 'backup'
+- name: Read the saved VM backup owner before restore
+  ansible.builtin.slurp:
+    src: '{{ platform_backup }}/stack.json'
+  delegate_to: '{{ inventory_hostname }}-cli'
+  when: BUNDLE_ACTION == 'restore'
+  register: platform_backup_owner
+- name: Require the exact stack plan before restoring VM archives
+  ansible.builtin.assert:
+    that: (platform_backup_owner.content | b64decode | from_json) == platform_plan
+  when: BUNDLE_ACTION == 'restore'
+- name: Back up stopped VM disks with the native Proxmox backup tool
+  ansible.builtin.shell: umask 077; set -o pipefail; vzdump {{ item.vm_id | int }} --mode stop
+    --compress zstd --stdout > {{ (platform_backup ~ '/' ~ item.vm_id ~ '.vma.zst')
+    | quote }}
+  args:
+    executable: /bin/bash
+  loop: '{{ platform_plan.vms }}'
+  delegate_to: '{{ inventory_hostname }}-cli'
+  when: BUNDLE_ACTION == 'backup'
+  no_log: true
+- name: Record or verify all VM archive checksums
+  ansible.builtin.shell: '{{ ''umask 077; sha256sum -- *.vma.zst > SHA256SUMS'' if BUNDLE_ACTION
+    == ''backup'' else ''sha256sum --check SHA256SUMS'' }}'
+  args:
+    chdir: '{{ platform_backup }}'
+  delegate_to: '{{ inventory_hostname }}-cli'
+  changed_when: BUNDLE_ACTION == 'backup'
+- name: Save private controller state beside the off-host VM backup copies
+  ansible.builtin.command:
+    argv:
+    - '{{ ansible_playbook_python }}'
+    - -m
+    - range42_stack.lifecycle
+    - backup-state
+    - --instance
+    - '{{ BUNDLE_STACK_STAGING_DIR }}/{{ platform_plan.id }}'
+    - --archive
+    - '{{ platform_backup }}/state.tar.gz'
+  environment:
+    PYTHONPATH: '{{ lookup(''env'', ''RANGE42_BUNDLE_DIR'') }}/..'
+  when: BUNDLE_ACTION == 'backup'
+  no_log: true
+- name: Fetch full VM archives and checksums to the controller
+  ansible.builtin.fetch:
+    src: '{{ platform_backup }}/{{ item }}'
+    dest: '{{ platform_backup }}/{{ item }}'
+    flat: true
+  loop: '{{ (platform_plan.vms | map(attribute=''vm_id'') | map(''string'') | map(''regex_replace'',
+    ''$'', ''.vma.zst'') | list) + [''SHA256SUMS'', ''stack.json''] }}'
+  delegate_to: '{{ inventory_hostname }}-cli'
+  when: BUNDLE_ACTION == 'backup'
+  no_log: true
+- name: Restore only absent owned VMIDs with the native Proxmox restore tool
+  ansible.builtin.command:
+    argv:
+    - qmrestore
+    - '{{ platform_backup }}/{{ item.vm_id }}.vma.zst'
+    - '{{ item.vm_id | string }}'
+  loop: '{{ platform_plan.vms }}'
+  delegate_to: '{{ inventory_hostname }}-cli'
+  when: BUNDLE_ACTION == 'restore'
+  no_log: true
+- name: Inspect private controller staging before restoring its matching state
+  ansible.builtin.stat:
+    path: '{{ BUNDLE_STACK_STAGING_DIR }}/{{ platform_plan.id }}'
+  register: platform_state_stat
+  when: BUNDLE_ACTION == 'restore'
+- name: Restore the private state that matches the VM archives
+  ansible.builtin.command:
+    argv:
+    - '{{ ansible_playbook_python }}'
+    - -m
+    - range42_stack.lifecycle
+    - '{{ "rollback-state" if platform_state_stat.stat.exists else "restore-state" }}'
+    - --instance
+    - '{{ BUNDLE_STACK_STAGING_DIR }}/{{ platform_plan.id }}'
+    - --archive
+    - '{{ platform_backup }}/state.tar.gz'
+  environment:
+    PYTHONPATH: '{{ lookup("env", "RANGE42_BUNDLE_DIR") }}/..'
+  when: BUNDLE_ACTION == 'restore'
+  no_log: true

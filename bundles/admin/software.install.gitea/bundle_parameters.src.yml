@@ -18,3 +18,29 @@ params:
     required: true
     default_where: none
     description: IP of the Gitea server, e.g. 192.168.142.183 (informational at the call-site; web UI on 3000, git-over-SSH on 2222).
+
+  - name: BUNDLE_CATALOG_SOURCE_DIR
+    type: string
+    required: false
+    default_where: bundle-inline
+    description: Optional controller delivery directory; uses its existing private .env instead of seeding
+      demo defaults.
+    default: ''
+  - name: BUNDLE_CATALOG_REMOTE_DIR
+    type: string
+    required: false
+    default_where: bundle-inline
+    description: Catalog remote dir
+    default: /home/alice/gitea
+  - name: BUNDLE_CATALOG_OPERATOR
+    type: string
+    required: false
+    default_where: bundle-inline
+    description: Catalog operator
+    default: alice
+  - name: BUNDLE_CATALOG_PRIVATE
+    type: bool
+    required: false
+    default_where: bundle-inline
+    description: Catalog private
+    default: false

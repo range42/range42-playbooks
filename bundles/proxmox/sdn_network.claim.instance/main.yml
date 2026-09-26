@@ -1,0 +1,19 @@
+---
+- name: Record instance ownership after shared SDN bootstrap
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+  - name: Mark the validated VNet ownership
+    ansible.builtin.uri:
+      url: '{{ BUNDLE_PROVISIONING_API_URL }}/api2/json/cluster/sdn/vnets/{{ BUNDLE_VNET }}'
+      method: PUT
+      headers:
+        Authorization: PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret
+          }}
+      body_format: form-urlencoded
+      body:
+        alias: range42-stack:{{ BUNDLE_STACK_ID }}
+      ca_path: '{{ BUNDLE_PROXMOX_CA_FILE }}'
+    no_log: true
+  vars_files:
+  - '{{ lookup(''env'', ''RANGE42_ACTIVE_CONFIG_DIR'') }}/secrets/default_vault.yml'

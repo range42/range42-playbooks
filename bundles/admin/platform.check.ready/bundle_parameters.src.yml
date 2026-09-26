@@ -1,0 +1,24 @@
+bundle: admin/platform.check.ready
+description: TLS and authenticated HTTP readiness for every enabled platform endpoint.
+optional: false
+params:
+- name: global_vm_ssh_name
+  type: string
+  required: true
+  default_where: none
+  description: Global vm ssh name
+- name: BUNDLE_INSTANCE_DIR
+  type: string
+  required: true
+  default_where: none
+  description: Bundle instance dir
+- name: BUNDLE_API_TOKEN_FILE
+  type: string
+  required: true
+  default_where: none
+  description: Bundle api token file
+- name: BUNDLE_STACK_ENABLED
+  type: dict
+  required: true
+  default_where: none
+  description: Bundle stack enabled

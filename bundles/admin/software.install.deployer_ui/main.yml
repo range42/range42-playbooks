@@ -154,6 +154,8 @@
 
     - name: Sync deployer-ui source from controller to remote project dir
       ansible.posix.synchronize:
+        use_ssh_args: true
+        verify_host: true
         src: "{{ LOCAL_CODE_PATH_RESOLVED }}"
         dest: "{{ REMOTE_PROJECT_DIR_RESOLVED }}/"
         delete: true
@@ -222,6 +224,9 @@
           # Managed by range42 / bundles/admin/software.install.deployer_ui
           # Host port for the Docker container.
           UI_PORT={{ UI_PORT_RESOLVED }}
+          {% if BUNDLE_COMPOSE_PROJECT | default('') | length > 0 %}
+          COMPOSE_PROJECT_NAME={{ BUNDLE_COMPOSE_PROJECT }}
+          {% endif %}
         owner: root
         group: root
         mode: "0644"

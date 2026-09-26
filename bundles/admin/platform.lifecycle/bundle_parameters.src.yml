@@ -1,0 +1,45 @@
+bundle: admin/platform.lifecycle
+description: Owned VM lifecycle with offline checkpoints and full Proxmox backups.
+  Stop first; network removal remains pending for a reviewed SDN apply.
+optional: false
+params:
+- name: BUNDLE_ACTION
+  type: string
+  required: true
+  default_where: none
+  description: Action
+- name: BUNDLE_STACK_PLAN_FILE
+  type: string
+  required: true
+  default_where: none
+  description: Stack plan file
+- name: BUNDLE_STACK_RUNTIME_DIR
+  type: string
+  required: true
+  default_where: none
+  description: Stack runtime dir
+- name: BUNDLE_STACK_STAGING_DIR
+  type: string
+  required: true
+  default_where: none
+  description: Stack staging dir
+- name: BUNDLE_PROVISIONING_API_URL
+  type: string
+  required: true
+  default_where: none
+  description: Provisioning api url
+- name: BUNDLE_CONFIRM_STACK
+  type: string
+  required: true
+  default_where: none
+  description: Confirm stack
+- name: BUNDLE_BACKUP_DIR
+  type: string
+  required: true
+  default_where: none
+  description: Backup dir
+- name: BUNDLE_CHECKPOINT
+  type: string
+  required: true
+  default_where: none
+  description: Checkpoint

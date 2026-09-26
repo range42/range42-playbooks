@@ -1,0 +1,58 @@
+---
+- name: Validate and prepare the private platform delivery
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+  - name: Validate the dedicated inputs and live resource ownership
+    ansible.builtin.command:
+      argv:
+      - '{{ ansible_playbook_python }}'
+      - -m
+      - range42_stack.scenario
+      - preflight
+      - --plan
+      - '{{ BUNDLE_STACK_PLAN_FILE }}'
+      - --sources
+      - '{{ BUNDLE_STACK_SOURCE_DIR }}'
+      - --runtime
+      - '{{ BUNDLE_STACK_RUNTIME_DIR }}'
+      - --template
+      - '{{ BUNDLE_STACK_TEMPLATE_DIR }}'
+      - --tls
+      - '{{ BUNDLE_STACK_TLS_DIR }}'
+    environment: &id001
+      PYTHONPATH: '{{ lookup(''env'', ''RANGE42_BUNDLE_DIR'') }}/..'
+    args:
+      stdin: >-
+        {{ {'url': BUNDLE_PROVISIONING_API_URL,
+            'token': proxmox_api_user ~ '!' ~ proxmox_api_token_id ~ '=' ~ proxmox_api_token_secret,
+            'node': proxmox_node,
+            'ssh_user': default_admin_vm_ci_user | default('alice'),
+            'enabled': BUNDLE_STACK_ENABLED | default({}),
+            'gateway_addresses': BUNDLE_GATEWAY_ADDRESSES | default([])} | to_json }}
+    no_log: true
+    changed_when: false
+  - name: Prepare configuration for the shared application bundles
+    ansible.builtin.command:
+      argv:
+      - '{{ ansible_playbook_python }}'
+      - -m
+      - range42_stack.stage
+      - --plan
+      - '{{ BUNDLE_STACK_PLAN_FILE }}'
+      - --sources
+      - '{{ BUNDLE_STACK_SOURCE_DIR }}'
+      - --runtime
+      - '{{ BUNDLE_STACK_RUNTIME_DIR }}'
+      - --template
+      - '{{ BUNDLE_STACK_TEMPLATE_DIR }}'
+      - --tls
+      - '{{ BUNDLE_STACK_TLS_DIR }}'
+      - --destination
+      - '{{ BUNDLE_STACK_STAGING_DIR }}'
+    environment: *id001
+    args:
+      stdin: '{{ BUNDLE_STACK_ENABLED | to_json }}'
+    no_log: true
+  vars_files:
+  - '{{ lookup(''env'', ''RANGE42_ACTIVE_CONFIG_DIR'') }}/secrets/default_vault.yml'

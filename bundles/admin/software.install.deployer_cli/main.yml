@@ -1,0 +1,92 @@
+- name: Bootstrap the CLI with the shared Range42 role
+  hosts: '{{ global_vm_ssh_name }}'
+  become: true
+  gather_facts: true
+  roles:
+  - deployer.bootstrap
+  vars:
+    DEPLOYER_CLI_USER: '{{ BUNDLE_OPERATOR_USER }}'
+    proxmox_ca_cert_local_path: '{{ BUNDLE_INSTANCE_SOURCE_DIR }}/runtime/proxmox-ca.pem'
+- name: Initialize the CLI dedicated workspace
+  hosts: '{{ global_vm_ssh_name }}'
+  gather_facts: false
+  tasks:
+  - name: Seed the dedicated CLI workspace
+    ansible.builtin.command:
+      argv:
+      - python3
+      - -m
+      - range42_stack.install
+      - bootstrap-cli
+      - --plan
+      - '{{ BUNDLE_INSTANCE_DIR }}/plan.json'
+      - --root
+      - '{{ BUNDLE_INSTANCE_DIR }}'
+    environment:
+      PYTHONPATH: '{{ BUNDLE_INSTANCE_DIR }}/helper'
+    no_log: true
+  - name: Prepare the private Python runtime
+    ansible.builtin.apt:
+      name:
+      - python3-venv
+      - python3-pip
+      state: present
+  - name: Use the application release dependency versions for CLI Ansible
+    ansible.builtin.pip:
+      requirements: '{{ BUNDLE_INSTANCE_DIR }}/runtime/cli-requirements.txt'
+      virtualenv: '{{ BUNDLE_INSTANCE_DIR }}/state/venv'
+      virtualenv_command: python3 -m venv
+  - name: Give the CLI user ownership of its writable state
+    ansible.builtin.file:
+      path: '{{ BUNDLE_INSTANCE_DIR }}/state'
+      owner: '{{ BUNDLE_OPERATOR_USER }}'
+      group: '{{ BUNDLE_OPERATOR_USER }}'
+      recurse: true
+  - name: Load the CLI instance context
+    ansible.builtin.blockinfile:
+      path: /home/{{ BUNDLE_OPERATOR_USER }}/.zshrc
+      marker: '# {mark} RANGE42 INSTANCE'
+      block: source {{ (DEPLOYER_CLI__DST_CONFIG_DIR ~ "/sourced_range42.sh") | quote
+        }}
+  - name: Connect the CLI workspace using 00_ensure_ssh_base.yml
+    ansible.builtin.include_role:
+      name: workspace.ssh-config
+      tasks_from: 00_ensure_ssh_base.yml
+  - name: Connect the CLI workspace using 02_inject_include_block.yml
+    ansible.builtin.include_role:
+      name: workspace.ssh-config
+      tasks_from: 02_inject_include_block.yml
+  - name: Initialize CLI using shared workspace.credentials
+    ansible.builtin.include_role:
+      name: workspace.credentials
+      tasks_from: 00_deploy_inventory.yml
+  - name: Initialize CLI using shared workspace.ssh-config
+    ansible.builtin.include_role:
+      name: workspace.ssh-config
+      tasks_from: 03_generate_ssh_config.yml
+  - name: Initialize CLI using shared workspace.symlinks
+    ansible.builtin.include_role:
+      name: workspace.symlinks
+      tasks_from: 01_symlink_scenario.yml
+  become: true
+  vars:
+    platform_cli_label: '{{ (lookup(''file'', BUNDLE_INSTANCE_SOURCE_DIR ~ ''/template/cli.json'')
+      | from_json).scenario }}'
+    DEPLOYER_CLI_USER: '{{ BUNDLE_OPERATOR_USER }}'
+    INFRASTRUCTURE_CODENAME: '{{ (lookup(''file'', BUNDLE_INSTANCE_SOURCE_DIR ~ ''/plan.json'')
+      | from_json).id }}'
+    INFRASTRUCTURE_SCENARIO: '{{ platform_cli_label }}'
+    INFRASTRUCTURE_PROXMOX_ADDRESS: '{{ ((lookup(''file'', BUNDLE_INSTANCE_SOURCE_DIR
+      ~ ''/template/target.json'') | from_json).host.api_url | urlsplit).hostname
+      }}'
+    DEPLOYER_CLI__DST_CONFIG_DIR: '{{ BUNDLE_INSTANCE_DIR }}/state/workspaces/{{ INFRASTRUCTURE_CODENAME
+      }}-{{ platform_cli_label }}'
+    DEPLOYER_CLI__DST_GIT_DIR: '{{ BUNDLE_INSTANCE_DIR }}/runtime'
+    DEPLOYER_CLI__DST_SSH_CONFIG_RANGE42_FILE: '{{ DEPLOYER_CLI__DST_CONFIG_DIR }}/config_range42-{{
+      INFRASTRUCTURE_CODENAME }}-{{ platform_cli_label }}'
+    DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR: '{{ DEPLOYER_CLI__DST_CONFIG_DIR
+      }}/ssh_keys/backend_keys'
+    DEPLOYER_CLI__DST_SSH_KEYS_JUMP_DEST_DIR: '{{ DEPLOYER_CLI__DST_CONFIG_DIR }}/ssh_keys/jump_keys'
+    DEPLOYER_CLI__DST_SSH_KEYS_STUDENT_DEST_DIR: '{{ DEPLOYER_CLI__DST_CONFIG_DIR
+      }}/ssh_keys/student_keys'
+    SCENARIO_TEMPLATES_DIR: '{{ BUNDLE_INSTANCE_SOURCE_DIR }}/template/workload/templates'

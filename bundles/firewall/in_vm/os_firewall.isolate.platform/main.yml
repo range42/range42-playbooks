@@ -1,0 +1,67 @@
+---
+- name: Apply private ingress including Docker forwarding
+  hosts: '{{ target_group }}'
+  gather_facts: false
+  tasks:
+  - name: Discover the guest ingress interface
+    ansible.builtin.setup:
+      gather_subset:
+      - network
+  - name: Render the instance ingress policy
+    ansible.builtin.command:
+      argv:
+      - python3
+      - -m
+      - range42_stack.firewall
+      - --plan
+      - '{{ BUNDLE_INSTANCE_DIR }}/plan.json'
+      - --service
+      - '{{ BUNDLE_SERVICE }}'
+      - --interface
+      - '{{ ansible_default_ipv4.interface }}'
+    args:
+      stdin: '{{ {''management'': (BUNDLE_MANAGEMENT_CIDRS | from_json if BUNDLE_MANAGEMENT_CIDRS is string else
+        BUNDLE_MANAGEMENT_CIDRS), ''clients'': (BUNDLE_CLIENT_CIDRS | from_json if BUNDLE_CLIENT_CIDRS is string
+        else BUNDLE_CLIENT_CIDRS), ''agents'': (BUNDLE_AGENT_CIDRS | from_json if BUNDLE_AGENT_CIDRS is string else
+        BUNDLE_AGENT_CIDRS)} | to_json }}'
+    environment:
+      PYTHONPATH: '{{ BUNDLE_INSTANCE_DIR }}/helper'
+    register: instance_firewall
+    changed_when: false
+  - name: Install the instance firewall policy
+    ansible.builtin.copy:
+      content: '{{ instance_firewall.stdout }}'
+      dest: /etc/range42-stack.nft
+      mode: '0600'
+  - name: Install the instance firewall service
+    ansible.builtin.copy:
+      dest: /etc/systemd/system/range42-stack-firewall.service
+      mode: '0644'
+      content: '[Unit]
+
+        Description=Range42 instance ingress including Docker forwarding
+
+        Before=docker.service
+
+        After=network-pre.target
+
+        [Service]
+
+        Type=oneshot
+
+        RemainAfterExit=yes
+
+        ExecStart=/usr/sbin/nft -f /etc/range42-stack.nft
+
+        [Install]
+
+        WantedBy=multi-user.target
+
+        '
+  - name: Apply ingress before application startup
+    ansible.builtin.systemd:
+      name: range42-stack-firewall
+      enabled: true
+      state: restarted
+      daemon_reload: true
+  become: true

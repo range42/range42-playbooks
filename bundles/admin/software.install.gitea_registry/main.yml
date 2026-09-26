@@ -1,0 +1,8 @@
+# Reuse Gitea deployment with the registry payload. Inherited public parameters
+# global_vm_ssh_name, global_vm_ci_ip, BUNDLE_CATALOG_REMOTE_DIR,
+# BUNDLE_CATALOG_OPERATOR and BUNDLE_CATALOG_PRIVATE pass through unchanged.
+---
+- import_playbook: '{{ lookup(''env'', ''RANGE42_BUNDLE_DIR'') }}/admin/software.install.gitea/main.yml'
+  vars:
+    BUNDLE_CATALOG_SOURCE_DIR: '{{ BUNDLE_REGISTRY_SOURCE_DIR | default(lookup(''env'', ''RANGE42_INVENTORY'') ~
+      ''/03_container_layer/docker/admin/gitea-registry'') }}'

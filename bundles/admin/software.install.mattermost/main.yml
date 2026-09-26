@@ -42,10 +42,11 @@
   tasks:
     - name: cp .env.example -> .env if .env absent (force=false respects an existing customized .env)
       ansible.builtin.copy:
-        src:  "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/mattermost/.env.example"
-        dest: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/mattermost/.env"
+        src:  "{{ BUNDLE_CATALOG_SOURCE_DIR | default(lookup('env', 'RANGE42_INVENTORY') ~ '/03_container_layer/docker/admin/mattermost', true) }}/.env.example"
+        dest: "{{ BUNDLE_CATALOG_SOURCE_DIR | default(lookup('env', 'RANGE42_INVENTORY') ~ '/03_container_layer/docker/admin/mattermost', true) }}/.env"
         force: false
         remote_src: true
+      when: BUNDLE_CATALOG_SOURCE_DIR | default('') | length == 0
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -90,27 +91,29 @@
     ##
     - name: ensure REMOTE_PROJECT_DIR exists on the VM (idempotent ; the role's CREATE TMP DIR runs the same op)
       ansible.builtin.file:
-        path: "/home/alice/mattermost"
+        path: "{{ BUNDLE_CATALOG_REMOTE_DIR | default('/home/alice/mattermost', true) }}"
         state: directory
-        owner: "alice"
-        group: "alice"
+        owner: "{{ BUNDLE_CATALOG_OPERATOR | default('alice', true) }}"
+        group: "{{ BUNDLE_CATALOG_OPERATOR | default('alice', true) }}"
         mode: "0700"
 
     - name: push .env on the VM (cp .env.example -> .env if .env absent on the VM)
       ansible.builtin.copy:
-        src:   "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/mattermost/.env.example"
-        dest:  "/home/alice/mattermost/.env"
-        owner: "alice"
-        group: "alice"
+        src:   "{{ BUNDLE_CATALOG_SOURCE_DIR | default(lookup('env', 'RANGE42_INVENTORY') ~ '/03_container_layer/docker/admin/mattermost', true) }}/.env.example"
+        dest:  "{{ BUNDLE_CATALOG_REMOTE_DIR | default('/home/alice/mattermost', true) }}/.env"
+        owner: "{{ BUNDLE_CATALOG_OPERATOR | default('alice', true) }}"
+        group: "{{ BUNDLE_CATALOG_OPERATOR | default('alice', true) }}"
         mode:  "0600"
         force: false
+      when: BUNDLE_CATALOG_SOURCE_DIR | default('') | length == 0
   roles:
     - software.configure.docker-compose
+  no_log: "{{ BUNDLE_CATALOG_PRIVATE | default(false) | bool }}"
   vars:
     LABEL_PROJECT_TYPE:   "admin"
     LABEL_PROJET_NAME:    "mattermost"
-    LOCAL__PROJECT_DIR:   "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/mattermost"
-    REMOTE_PROJECT_DIR:   "/home/alice/mattermost"
-    OPERATOR_USER:        "alice"
+    LOCAL__PROJECT_DIR:   "{{ BUNDLE_CATALOG_SOURCE_DIR | default(lookup('env', 'RANGE42_INVENTORY') ~ '/03_container_layer/docker/admin/mattermost', true) }}"
+    REMOTE_PROJECT_DIR:   "{{ BUNDLE_CATALOG_REMOTE_DIR | default('/home/alice/mattermost', true) }}"
+    OPERATOR_USER:        "{{ BUNDLE_CATALOG_OPERATOR | default('alice', true) }}"
     CLEAN_UP_DEPLOY_DIR:  "NO"
     SEND_POC_DIR:         "NO"

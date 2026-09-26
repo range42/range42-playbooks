@@ -21,3 +21,15 @@ params:
     from_vault: true
     default_where: none
     description: Proxmox node the guest runs on, resolved from the scenario vault. These endpoints are node-scoped.
+
+  - name: BUNDLE_FW_PORTS
+    type: list
+    required: false
+    default_where: bundle-inline
+    default:
+    - '22'
+    - '443'
+    - '1514'
+    - '1515'
+    - '55000'
+    description: TCP service ports to declare; defaults retain the existing profile.

@@ -1,0 +1,13 @@
+{
+  "id": "alpha",
+  "domain": "alpha.example.test",
+  "vmid_start": 31000,
+  "subnet": "10.81.0.0/24",
+  "gateway": "10.81.0.1",
+  "bridge": "r42alpha",
+  "template_vmid": 9221,
+  "node": "pve",
+  "ssh_user": "alice",
+  "dns": "1.1.1.1",
+  "profile": "full"
+}

@@ -1,0 +1,55 @@
+---
+- name: Install reporting using its application-owned production Compose files
+  hosts: '{{ global_vm_ssh_name }}'
+  gather_facts: false
+  tasks:
+  - name: Validate the reporting composition
+    ansible.builtin.command:
+      argv:
+      - docker
+      - compose
+      - --project-directory
+      - '{{ BUNDLE_INSTANCE_DIR }}/source/range42-reporting-tool/deploy'
+      - --env-file
+      - '{{ BUNDLE_INSTANCE_DIR }}/private/compose.env'
+      - --project-name
+      - '{{ BUNDLE_COMPOSE_PROJECT }}'
+      - -f
+      - '{{ BUNDLE_INSTANCE_DIR }}/source/range42-reporting-tool/deploy/docker-compose.yml'
+      - -f
+      - '{{ BUNDLE_INSTANCE_DIR }}/source/range42-reporting-tool/deploy/docker-compose.prod.yml'
+      - -f
+      - '{{ BUNDLE_INSTANCE_DIR }}/reporting.override.yml'
+      - config
+      - --quiet
+    changed_when: false
+    no_log: true
+  - name: Start reporting including migrations and frontend build
+    ansible.builtin.command:
+      argv:
+      - docker
+      - compose
+      - --project-directory
+      - '{{ BUNDLE_INSTANCE_DIR }}/source/range42-reporting-tool/deploy'
+      - --env-file
+      - '{{ BUNDLE_INSTANCE_DIR }}/private/compose.env'
+      - --project-name
+      - '{{ BUNDLE_COMPOSE_PROJECT }}'
+      - -f
+      - '{{ BUNDLE_INSTANCE_DIR }}/source/range42-reporting-tool/deploy/docker-compose.yml'
+      - -f
+      - '{{ BUNDLE_INSTANCE_DIR }}/source/range42-reporting-tool/deploy/docker-compose.prod.yml'
+      - -f
+      - '{{ BUNDLE_INSTANCE_DIR }}/reporting.override.yml'
+      - up
+      - -d
+      - --build
+    no_log: true
+  - name: Wait for reporting HTTP
+    ansible.builtin.uri:
+      url: http://{{ global_vm_ci_ip }}/
+    register: reporting_health
+    until: reporting_health.status == 200
+    retries: 36
+    delay: 5
+  become: true

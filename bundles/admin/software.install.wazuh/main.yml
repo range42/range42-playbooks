@@ -30,10 +30,11 @@
 - name: configure firewall - wazuh server
   become: true
   hosts: "{{ global_vm_ssh_name }}"
+  no_log: "{{ BUNDLE_WAZUH_VARS_FILE | default('') | length > 0 }}"
   roles:
     - software.configure.firewalls
   vars_files:
-    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+    - "{{ BUNDLE_WAZUH_VARS_FILE | default(lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') ~ '/secrets/default_vault.yml', true) }}"
   vars:
     firewall_rules:
       - ip: "all"
@@ -58,16 +59,17 @@
 
 - name: Install wazuh-indexer
   hosts: "{{ global_vm_ssh_name }}"
+  no_log: "{{ BUNDLE_WAZUH_VARS_FILE | default('') | length > 0 }}"
   become: yes
   become_user: root
   roles:
     - role: software.install.wazuh-indexer
 
   vars_files:
-    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+    - "{{ BUNDLE_WAZUH_VARS_FILE | default(lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') ~ '/secrets/default_vault.yml', true) }}"
 
   vars:
-    local_certs_path: "/tmp/certificates/"
+    local_certs_path: "{{ BUNDLE_WAZUH_CERTS_DIR | default('/tmp/certificates/', true) }}"
     WAZUH_SERVER_IP: "{{ global_vm_ci_ip }}"
     single_node: true
     indexer_network_host: "{{ WAZUH_SERVER_IP }}"
@@ -85,6 +87,7 @@
 
 - name: Wait for wazuh-indexer to be ready
   hosts: "{{ global_vm_ssh_name }}"
+  no_log: "{{ BUNDLE_WAZUH_VARS_FILE | default('') | length > 0 }}"
   become: yes
   tasks:
     - name: Wait for wazuh-indexer API on port 9200
@@ -98,16 +101,17 @@
 
 - name: Install wazuh-dashboard
   hosts: "{{ global_vm_ssh_name }}"
+  no_log: "{{ BUNDLE_WAZUH_VARS_FILE | default('') | length > 0 }}"
   become: yes
   become_user: root
   roles:
     - role: software.install.wazuh-dashboard
 
   vars_files:
-    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+    - "{{ BUNDLE_WAZUH_VARS_FILE | default(lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') ~ '/secrets/default_vault.yml', true) }}"
 
   vars:
-    local_certs_path: "/tmp/certificates/"
+    local_certs_path: "{{ BUNDLE_WAZUH_CERTS_DIR | default('/tmp/certificates/', true) }}"
     WAZUH_SERVER_IP: "{{ global_vm_ci_ip }}"
     single_node: true
     indexer_network_host: "{{ WAZUH_SERVER_IP }}"
@@ -123,12 +127,13 @@
 # # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - hosts: "{{ global_vm_ssh_name }}"
+  no_log: "{{ BUNDLE_WAZUH_VARS_FILE | default('') | length > 0 }}"
   become: yes
   vars_files:
-    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+    - "{{ BUNDLE_WAZUH_VARS_FILE | default(lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') ~ '/secrets/default_vault.yml', true) }}"
   vars:
     WAZUH_SERVER_IP: "{{ global_vm_ci_ip }}"
-    local_certs_path: "/tmp/certificates/"
+    local_certs_path: "{{ BUNDLE_WAZUH_CERTS_DIR | default('/tmp/certificates/', true) }}"
 
   roles:
     - role: software.install.wazuh-manager
@@ -141,6 +146,7 @@
 
 - name: Wait for wazuh-manager API before password change
   hosts: "{{ global_vm_ssh_name }}"
+  no_log: "{{ BUNDLE_WAZUH_VARS_FILE | default('') | length > 0 }}"
   become: yes
   tasks:
     - name: Wait for wazuh-manager API on port 55000
@@ -163,10 +169,11 @@
 
 - name: EXEC wazuh-passwords-tool.sh - if CHANGE_WAZUH_PASSWORD is true
   hosts: "{{ global_vm_ssh_name }}"
+  no_log: "{{ BUNDLE_WAZUH_VARS_FILE | default('') | length > 0 }}"
   become: yes
   become_user: root
   vars_files:
-    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+    - "{{ BUNDLE_WAZUH_VARS_FILE | default(lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') ~ '/secrets/default_vault.yml', true) }}"
 
   vars:
     CHANGE_WAZUH_PASSWORD: true
@@ -184,4 +191,76 @@
       retries: 2
       delay: 15
       until: password_output.rc == 0
-      no_log: false
+      no_log: true
+
+- name: Configure private Wazuh API accounts
+  hosts: '{{ global_vm_ssh_name }}'
+  become: true
+  vars_files:
+  - '{{ BUNDLE_WAZUH_VARS_FILE | default(lookup(''env'', ''RANGE42_ACTIVE_CONFIG_DIR'')
+    ~ ''/secrets/default_vault.yml'', true) }}'
+  tasks:
+  - name: Apply private API accounts when explicitly requested
+    block:
+    - name: Find the initial or previously configured Wazuh API credential
+      ansible.builtin.uri:
+        url: https://127.0.0.1:55000/security/user/authenticate?raw=true
+        method: POST
+        url_username: wazuh
+        url_password: '{{ item }}'
+        force_basic_auth: true
+        validate_certs: false
+        status_code:
+        - 200
+        - 401
+      loop:
+      - '{{ infrastructure_wazuh_admin_password }}'
+      - wazuh
+      register: platform_wazuh_auth
+      no_log: true
+    - name: Require a usable local Wazuh administrative credential
+      ansible.builtin.assert:
+        that:
+        - platform_wazuh_auth.results | selectattr('status', 'equalto', 200) | list
+          | length > 0
+      no_log: true
+    - name: Select the current administrative credential
+      ansible.builtin.set_fact:
+        platform_wazuh_current_password: '{{ (platform_wazuh_auth.results | selectattr(''status'',
+          ''equalto'', 200) | first).item }}'
+      no_log: true
+    - name: Set private Wazuh API password for wazuh-wui
+      ansible.builtin.command:
+        argv:
+        - bash
+        - /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh
+        - --api
+        - -u
+        - wazuh-wui
+        - -p
+        - '{{ platform_wazuh_api_password }}'
+        - --admin-user
+        - wazuh
+        - --admin-password
+        - '{{ platform_wazuh_current_password }}'
+      no_log: true
+    - name: Set private Wazuh API password for wazuh
+      ansible.builtin.command:
+        argv:
+        - bash
+        - /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh
+        - --api
+        - -u
+        - wazuh
+        - -p
+        - '{{ infrastructure_wazuh_admin_password }}'
+        - --admin-user
+        - wazuh
+        - --admin-password
+        - '{{ platform_wazuh_current_password }}'
+      no_log: true
+    - name: Reconnect dashboard using its private API credential
+      ansible.builtin.systemd:
+        name: wazuh-dashboard
+        state: restarted
+    when: BUNDLE_WAZUH_API_PASSWORDS | default(false) | bool

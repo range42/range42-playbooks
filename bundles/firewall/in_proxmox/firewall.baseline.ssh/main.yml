@@ -36,7 +36,7 @@
         msg:
           - "proxmox node : {{ proxmox_node }}"
           - "vm id        : {{ BUNDLE_VM_ID }}"
-          - "ports        : 22 (tcp, inbound accepts)"
+          - "ports        : {{ BUNDLE_FW_PORTS | default(['22']) | join(', ') }} (tcp, inbound accepts)"
 
     ## loop_var is EXPLICIT: an item passed down to an action that loops itself gets rebound -
     ## measured, the collision that broke the sweeps. Same rule as the four arming bundles.
@@ -48,6 +48,6 @@
         vm_id: "{{ BUNDLE_VM_ID }}"
         vm_fw_dport: "{{ _fwbl_it }}"
         vm_fw_comment: "range42 baseline ssh"
-      loop: [ "22" ]
+      loop: "{{ BUNDLE_FW_PORTS | default(['22']) }}"
       loop_control:
         loop_var: _fwbl_it
