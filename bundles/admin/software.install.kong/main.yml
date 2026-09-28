@@ -52,7 +52,7 @@
         port: 8000
         protocol: "tcp"
       - ip: "all"
-        port: 8443
+        port: "{{ BUNDLE_KONG_HTTPS_PORT | default(8443) }}"
         protocol: "tcp"
 
 # ============================================================================
@@ -81,6 +81,18 @@
   hosts: "{{ global_vm_ssh_name }}"
   become: true
   tasks:
+    - name: Install this gateway TLS identity
+      ansible.builtin.copy:
+        src: "{{ BUNDLE_KONG_TLS_DIR }}/"
+        dest: /etc/kong/tls/
+        owner: kong
+        group: kong
+        mode: preserve
+        directory_mode: "0700"
+      when: BUNDLE_KONG_TLS_DIR | default('') | length > 0
+      no_log: true
+      notify: restart kong
+
     - name: Write /etc/kong/kong.conf (DB-less mode)
       ansible.builtin.copy:
         dest: /etc/kong/kong.conf
@@ -89,9 +101,13 @@
           # Managed by range42 / bundles/admin/software.install.kong.
           database = off
           declarative_config = /etc/kong/kong.yml
-          proxy_listen = 0.0.0.0:8000, 0.0.0.0:8443 ssl
+          proxy_listen = 0.0.0.0:8000, 0.0.0.0:{{ BUNDLE_KONG_HTTPS_PORT | default(8443) }} ssl
           admin_listen = 127.0.0.1:8001
           log_level = info
+          {% if BUNDLE_KONG_TLS_DIR | default('') | length > 0 %}
+          ssl_cert = /etc/kong/tls/cert.pem
+          ssl_cert_key = /etc/kong/tls/key.pem
+          {% endif %}
         owner: root
         group: root
         mode: "0644"
@@ -111,6 +127,7 @@
         owner: root
         group: root
         mode: "0644"
+      when: BUNDLE_KONG_CONFIG_FILE | default('') | length == 0
       notify: restart kong
 
     - name: Ensure kong.service drop-in directory exists
@@ -128,6 +145,17 @@
         owner: root
         group: root
         mode: "0644"
+      when: BUNDLE_KONG_CONFIG_FILE | default('') | length == 0
+      notify: restart kong
+
+    - name: Install the supplied declarative routes
+      ansible.builtin.copy:
+        src: "{{ BUNDLE_KONG_CONFIG_FILE }}"
+        dest: /etc/kong/kong.yml
+        owner: root
+        group: root
+        mode: "0644"
+      when: BUNDLE_KONG_CONFIG_FILE | default('') | length > 0
       notify: restart kong
 
     - name: Enable + start kong
@@ -136,6 +164,9 @@
         enabled: true
         state: started
         daemon_reload: true
+
+    - name: Apply configuration before readiness checks
+      ansible.builtin.meta: flush_handlers
 
   handlers:
     - name: restart kong

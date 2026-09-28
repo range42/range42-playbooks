@@ -1,0 +1,35 @@
+---
+- name: Use the canonical Proxmox VM lifecycle role
+  ansible.builtin.include_role:
+    name: range42-ansible_roles-proxmox_controller
+    apply:
+      no_log: true
+  vars:
+    proxmox_vm_action: "{{ {'stop': 'vm_stop', 'start': 'vm_start', 'checkpoint': 'snapshot_vm_create', 'rollback': 'snapshot_vm_revert', 'teardown': 'vm_delete'}[BUNDLE_ACTION] }}"
+    vm_id: '{{ platform_vm.vm_id }}'
+    vm_name: '{{ platform_vm.vm_name }}'
+    vm_snapshot_name: '{{ BUNDLE_CHECKPOINT }}'
+    vm_snapshot_description: 'range42-stack:{{ platform_plan.id }}'
+- name: Wait for the canonical asynchronous operation
+  ansible.builtin.uri:
+    url: "{{ BUNDLE_PROVISIONING_API_URL }}/api2/json/nodes/{{ platform_plan.node }}/tasks/{{ proxmox_call.json.data | urlencode }}/status"
+    headers: '{{ platform_headers }}'
+    ca_path: '{{ BUNDLE_STACK_RUNTIME_DIR }}/proxmox-ca.pem'
+  register: platform_task
+  until: platform_task.json.data.status == 'stopped'
+  retries: 180
+  delay: 2
+  failed_when: platform_task.json.data.status == 'stopped' and platform_task.json.data.exitstatus != 'OK'
+  when: proxmox_call.json.data is string and proxmox_call.json.data is match('^UPID:')
+  no_log: true
+- name: Wait for the requested VM power state
+  ansible.builtin.uri:
+    url: '{{ BUNDLE_PROVISIONING_API_URL }}/api2/json/nodes/{{ platform_plan.node }}/qemu/{{ platform_vm.vm_id }}/status/current'
+    headers: '{{ platform_headers }}'
+    ca_path: '{{ BUNDLE_STACK_RUNTIME_DIR }}/proxmox-ca.pem'
+  register: platform_power
+  until: platform_power.json.data.status == ('running' if BUNDLE_ACTION == 'start' else 'stopped')
+  retries: 90
+  delay: 2
+  when: BUNDLE_ACTION in ['stop', 'start']
+  no_log: true

@@ -1,0 +1,28 @@
+---
+- name: Remove each verified subnet through the shared controller
+  ansible.builtin.include_role:
+    name: range42-ansible_roles-proxmox_controller
+    apply:
+      no_log: true
+  vars:
+    proxmox_vm_action: network_delete_sdn_subnet
+    sdn_vnet: '{{ platform_plan.bridge }}'
+    sdn_subnet_id: '{{ item }}'
+  loop: '{{ platform_scope.subnets }}'
+- name: Remove the owned VNet through the shared controller
+  ansible.builtin.include_role:
+    name: range42-ansible_roles-proxmox_controller
+    apply:
+      no_log: true
+  vars:
+    proxmox_vm_action: network_delete_sdn_vnet
+    sdn_vnet: '{{ platform_plan.bridge }}'
+- name: Remove the owned zone through the shared controller
+  ansible.builtin.include_role:
+    name: range42-ansible_roles-proxmox_controller
+    apply:
+      no_log: true
+  vars:
+    proxmox_vm_action: network_delete_sdn_zone
+    sdn_zone: '{{ platform_plan.zone }}'
+# The caller finishes with the shared apply and scoped SNAT reconciliation bundles.

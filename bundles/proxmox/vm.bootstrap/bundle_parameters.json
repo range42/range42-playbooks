@@ -124,6 +124,14 @@
       "default_where": "bundle-inline",
       "default": "24",
       "description": "Cloud-init netmask (CIDR bits)."
+    },
+    {
+      "name": "BUNDLE_REUSE_OWNED_VM",
+      "type": "bool",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": false,
+      "description": "Resume only an existing VM with matching name and Range42 stack ownership description."
     }
   ]
 }

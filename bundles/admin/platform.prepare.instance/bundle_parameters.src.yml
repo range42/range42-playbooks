@@ -1,0 +1,51 @@
+bundle: admin/platform.prepare.instance
+description: Validate stack ownership and scoped credentials, then prepare private
+  per-instance inputs for shared installers.
+optional: false
+params:
+- name: BUNDLE_STACK_PLAN_FILE
+  type: string
+  required: true
+  default_where: none
+  description: Stack plan file
+- name: BUNDLE_STACK_SOURCE_DIR
+  type: string
+  required: true
+  default_where: none
+  description: Stack source dir
+- name: BUNDLE_STACK_RUNTIME_DIR
+  type: string
+  required: true
+  default_where: none
+  description: Stack runtime dir
+- name: BUNDLE_STACK_TEMPLATE_DIR
+  type: string
+  required: true
+  default_where: none
+  description: Stack template dir
+- name: BUNDLE_STACK_TLS_DIR
+  type: string
+  required: true
+  default_where: none
+  description: Stack tls dir
+- name: BUNDLE_STACK_STAGING_DIR
+  type: string
+  required: true
+  default_where: none
+  description: Stack staging dir
+- name: BUNDLE_STACK_ENABLED
+  type: dict
+  required: true
+  default_where: none
+  description: Stack enabled
+- name: BUNDLE_PROVISIONING_API_URL
+  type: string
+  required: true
+  default_where: none
+  description: Provisioning api url
+- name: BUNDLE_GATEWAY_ADDRESSES
+  type: list
+  required: false
+  default_where: bundle-inline
+  default: []
+  description: Expected DNS gateway addresses; defaults to the gateway private address.

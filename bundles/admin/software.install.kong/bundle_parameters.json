@@ -20,6 +20,30 @@
       "required": true,
       "default_where": "none",
       "description": "IP of the kong host - informational only, documented at the call-site but not consumed by the POC plays."
+    },
+    {
+      "name": "BUNDLE_KONG_CONFIG_FILE",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "",
+      "description": "Controller path to a complete DB-less declarative configuration."
+    },
+    {
+      "name": "BUNDLE_KONG_TLS_DIR",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "",
+      "description": "Controller directory containing cert.pem and private key.pem."
+    },
+    {
+      "name": "BUNDLE_KONG_HTTPS_PORT",
+      "type": "int",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": 8443,
+      "description": "Gateway TLS listener; defaults to the existing 8443 endpoint."
     }
   ]
 }

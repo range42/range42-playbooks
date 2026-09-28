@@ -1,0 +1,27 @@
+bundle: admin/software.install.reporting
+description: Install the existing reporting production stack with private instance
+  configuration.
+optional: true
+install_flag: INSTALL_REPORTING
+params:
+- name: global_vm_ssh_name
+  type: string
+  required: true
+  default_where: none
+  description: Global vm ssh name
+  target: true
+- name: global_vm_ci_ip
+  type: string
+  required: true
+  default_where: none
+  description: Global vm ci ip
+- name: BUNDLE_INSTANCE_DIR
+  type: string
+  required: true
+  default_where: none
+  description: Instance dir
+- name: BUNDLE_COMPOSE_PROJECT
+  type: string
+  required: true
+  default_where: none
+  description: Compose project

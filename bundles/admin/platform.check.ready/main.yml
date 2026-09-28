@@ -1,0 +1,29 @@
+---
+- name: Check every enabled platform service through its TLS gateway
+  hosts: '{{ global_vm_ssh_name }}'
+  become: true
+  gather_facts: false
+  tasks:
+  - name: Probe gateway routes and authenticated API readiness
+    ansible.builtin.command:
+      argv: [python3, -m, range42_stack.readiness, --plan, '{{ BUNDLE_INSTANCE_DIR }}/plan.json',
+             --ca-file, '{{ BUNDLE_INSTANCE_DIR }}/tls/cert.pem', --input-stdin]
+      stdin: "{{ {'token': lookup('file', BUNDLE_API_TOKEN_FILE, errors='ignore') | default('', true), 'enabled': BUNDLE_STACK_ENABLED} | to_json }}"
+    environment:
+      PYTHONPATH: '{{ BUNDLE_INSTANCE_DIR }}/helper'
+    register: platform_readiness
+    changed_when: false
+    failed_when: false
+    retries: 12
+    delay: 5
+    until: platform_readiness.rc == 0
+    ignore_errors: true
+    no_log: true
+  - name: Report readiness without disclosing private inputs
+    ansible.builtin.debug:
+      msg: '{{ platform_readiness.stdout | from_json }}'
+    when: platform_readiness.stdout | default('') is match('^{')
+  - name: Require a ready platform
+    ansible.builtin.assert:
+      that: platform_readiness.rc == 0
+      fail_msg: One or more enabled services failed their TLS gateway readiness check

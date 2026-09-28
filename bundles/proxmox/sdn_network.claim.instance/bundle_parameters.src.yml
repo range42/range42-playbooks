@@ -1,0 +1,25 @@
+---
+bundle: proxmox/sdn_network.claim.instance
+description: Claim a preflight-validated platform VNet; network creation remains in sdn_network.bootstrap.
+optional: false
+params:
+- name: BUNDLE_VNET
+  type: string
+  required: true
+  default_where: none
+  description: Vnet
+- name: BUNDLE_STACK_ID
+  type: string
+  required: true
+  default_where: none
+  description: Stack id
+- name: BUNDLE_PROVISIONING_API_URL
+  type: string
+  required: true
+  default_where: none
+  description: Provisioning api url
+- name: BUNDLE_PROXMOX_CA_FILE
+  type: string
+  required: true
+  default_where: none
+  description: Proxmox ca file

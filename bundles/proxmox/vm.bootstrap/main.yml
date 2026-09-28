@@ -34,6 +34,31 @@
 
   tasks:
 
+    - name: VM BOOTSTRAP - inspect an explicitly resumable owned VM
+      ansible.builtin.uri:
+        url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ global_vm_id }}/config"
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+        validate_certs: "{{ proxmox_api_validate_certs | default(true) }}"
+        status_code: [200, 500]
+      register: vm_bootstrap_existing
+      when: BUNDLE_REUSE_OWNED_VM | default(false) | bool
+      no_log: true
+
+    - name: VM BOOTSTRAP - require matching ownership or an absent configuration
+      ansible.builtin.assert:
+        that:
+          - global_vm_description | default('') is match('^range42-stack:[a-z][a-z0-9-]+$')
+          - >-
+            (vm_bootstrap_existing.status == 500 and
+             'does not exist' in (vm_bootstrap_existing.json.message | default(vm_bootstrap_existing.msg))) or
+            (vm_bootstrap_existing.status == 200 and
+             vm_bootstrap_existing.json.data.name == global_vm_name and
+             vm_bootstrap_existing.json.data.description | default('') == global_vm_description and
+             not vm_bootstrap_existing.json.data.template | default(false) | bool)
+      when: BUNDLE_REUSE_OWNED_VM | default(false) | bool
+      no_log: true
+
     - name: VM BOOTSTRAP - "{{ global_vm_name }}" - CLONE TEMPLATE - "{{ global_template_name | default(global_template_vm_id) }}"
       include_role:
         name: range42-ansible_roles-proxmox_controller
@@ -43,6 +68,7 @@
         vm_new_id: "{{ global_vm_id }}"
         vm_name: "{{ global_vm_name }}"
         vm_description: "{{ global_vm_description | default('') }}"
+      when: not (BUNDLE_REUSE_OWNED_VM | default(false) | bool) or vm_bootstrap_existing.status | default(500) != 200
 
     - name: VM BOOTSTRAP - "{{ global_vm_name }}" - WAIT FOR PROXMOX UNLOCK TO CLEAR (post-clone)
       ansible.builtin.shell: qm config {{ global_vm_id }} | grep -q '^lock:'
@@ -76,6 +102,7 @@
         vm_ci_netmask: "{{ global_vm_ci_netmask | default('24') }}"
         vm_ci_ip_gw: "{{ global_vm_ci_ip_gw }}"
         vm_net_virtio_bridge: "{{ global_vm_net_virtio_bridge }}"
+      when: not (BUNDLE_REUSE_OWNED_VM | default(false) | bool) or vm_bootstrap_existing.status | default(500) != 200
 
     - name: VM BOOTSTRAP - "{{ global_vm_name }}" - START VM
       include_role:

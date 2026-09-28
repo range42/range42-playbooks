@@ -1,0 +1,153 @@
+---
+- name: Install the backend using its canonical authenticated runtime
+  hosts: '{{ global_vm_ssh_name }}'
+  gather_facts: false
+  tasks:
+  - name: Check the canonical Compose inputs
+    ansible.builtin.stat:
+      path: '{{ item }}'
+    loop:
+    - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api/docker-compose.yml'
+    - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api/docker-compose.runtime.yml'
+    - '{{ BUNDLE_API_INSTANCE_DIR }}/private/api-token'
+    - '{{ BUNDLE_API_INSTANCE_DIR }}/private/credential-key'
+    register: api_inputs
+  - name: Require all reviewed application and secret files
+    ansible.builtin.assert:
+      that:
+      - item.stat.exists
+    loop: '{{ api_inputs.results }}'
+    no_log: true
+  - name: Allow the application UID to read its private inputs
+    ansible.builtin.file:
+      path: '{{ item }}'
+      owner: '1000'
+      group: '1000'
+      recurse: true
+    loop:
+    - '{{ BUNDLE_API_INSTANCE_DIR }}/private'
+    - '{{ BUNDLE_API_INSTANCE_DIR }}/template'
+    no_log: true
+  - name: Build the canonical backend image
+    ansible.builtin.command:
+      argv:
+      - docker
+      - compose
+      - --project-directory
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api'
+      - --env-file
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/private/backend.env'
+      - --project-name
+      - "{{ BUNDLE_COMPOSE_PROJECT | default('range42-backend-api', true) }}"
+      - -f
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api/docker-compose.yml'
+      - -f
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api/docker-compose.runtime.yml'
+      - build
+  - name: Fingerprint the installed execution runtime
+    ansible.builtin.command:
+      argv:
+      - docker
+      - compose
+      - --project-directory
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api'
+      - --env-file
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/private/backend.env'
+      - --project-name
+      - "{{ BUNDLE_COMPOSE_PROJECT | default('range42-backend-api', true) }}"
+      - -f
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api/docker-compose.yml'
+      - -f
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api/docker-compose.runtime.yml'
+      - run
+      - --rm
+      - --no-deps
+      - --entrypoint
+      - python
+      - api
+      - -c
+      - import json; from pathlib import Path; from app.core.bundle_runtime import build_runtime_manifest; print(json.dumps(build_runtime_manifest({k:Path('/runtime/'+v)
+        for k,v in {'playbooks':'range42-playbooks','controller':'range42-ansible_roles-proxmox_controller','catalog':'range42-catalog','range42':'range42','collections':'collections','ansible_config':'ansible.cfg'}.items()})))
+    register: api_fingerprint
+    changed_when: false
+  - name: Persist the execution runtime fingerprint
+    ansible.builtin.copy:
+      content: '{{ api_fingerprint.stdout }}'
+      dest: '{{ BUNDLE_API_INSTANCE_DIR }}/runtime/bundle-runtime.json'
+      mode: '0644'
+  - name: Start the canonical backend services
+    ansible.builtin.command:
+      argv:
+      - docker
+      - compose
+      - --project-directory
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api'
+      - --env-file
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/private/backend.env'
+      - --project-name
+      - "{{ BUNDLE_COMPOSE_PROJECT | default('range42-backend-api', true) }}"
+      - -f
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api/docker-compose.yml'
+      - -f
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api/docker-compose.runtime.yml'
+      - up
+      - -d
+      - --build
+    no_log: true
+  - name: Wait for API liveness
+    ansible.builtin.uri:
+      url: http://{{ global_vm_ci_ip }}:8000/v1/health
+    register: api_health
+    until: api_health.status == 200
+    retries: 36
+    delay: 5
+  - name: Read the installed platform identity
+    ansible.builtin.slurp:
+      src: '{{ BUNDLE_API_INSTANCE_DIR }}/plan.json'
+    register: api_platform_plan
+  - name: Initialize the API owned native context through the shared context helper
+    ansible.builtin.command:
+      argv:
+      - docker
+      - compose
+      - --project-directory
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api'
+      - --env-file
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/private/backend.env'
+      - --project-name
+      - "{{ BUNDLE_COMPOSE_PROJECT | default('range42-backend-api', true) }}"
+      - -f
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api/docker-compose.yml'
+      - -f
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/source/range42-backend-api/docker-compose.runtime.yml'
+      - exec
+      - -T
+      - -e
+      - PYTHONPATH=/runtime/range42-playbooks
+      - api
+      - python
+      - -m
+      - range42_stack.install
+      - bootstrap-backend
+      - --plan
+      - /dev/stdin
+      - --root
+      - /var/lib/range42
+      stdin: '{{ api_platform_plan.content | b64decode }}'
+    no_log: true
+  - name: Register the dedicated target and catalog sources
+    ansible.builtin.command:
+      argv:
+      - python3
+      - -m
+      - range42_stack.install
+      - seed
+      - --plan
+      - '{{ BUNDLE_API_INSTANCE_DIR }}/plan.json'
+      - --root
+      - '{{ BUNDLE_API_INSTANCE_DIR }}'
+    environment:
+      PYTHONPATH: '{{ BUNDLE_API_INSTANCE_DIR }}/helper'
+    no_log: true
+    changed_when: false
+  become: true

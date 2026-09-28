@@ -62,10 +62,10 @@
     - name: FIREWALL SSH ALL VMS - THE NETWORKS OF THE SCENARIO, ALWAYS PART OF A RESTRICTION
       ansible.builtin.set_fact:
         _fwbsa_nets: >-
-          {{ (((_fwbsa_manifest.vms | default([])) + (_fwbsa_manifest.templates | default([])))
-              | map(attribute='ip')
-              | map('regex_replace', '[.][0-9]+$', '.0/24')
-              | unique | sort) }}
+          {{ BUNDLE_SCENARIO_NETWORKS | default(
+             (((_fwbsa_manifest.vms | default([])) + (_fwbsa_manifest.templates | default([])))
+              | selectattr('ip', 'defined') | map(attribute='ip')
+              | map('regex_replace', '[.][0-9]+$', '.0/24') | unique | sort) }}
       when: (_fwbsa_sources | length) > 0
 
     ## Not optional : this fact APPENDS. See vm.list.interfaces.

@@ -1,0 +1,129 @@
+- name: Operate only the reviewed platform instance
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+  - '{{ lookup(''env'', ''RANGE42_ACTIVE_CONFIG_DIR'') }}/secrets/default_vault.yml'
+  vars:
+    platform_plan: '{{ lookup(''file'', BUNDLE_STACK_PLAN_FILE) | from_json }}'
+    platform_backup: '{{ BUNDLE_BACKUP_DIR }}/{{ platform_plan.id }}/{{ BUNDLE_CHECKPOINT
+      }}'
+    platform_headers:
+      Authorization: PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{
+        proxmox_api_token_secret }}
+  tasks:
+  - name: Validate the explicit lifecycle inputs
+    ansible.builtin.assert:
+      that:
+      - BUNDLE_CONFIRM_STACK == platform_plan.id
+      - BUNDLE_ACTION in ['stop', 'start', 'checkpoint', 'backup', 'rollback', 'restore',
+        'teardown']
+      - BUNDLE_CHECKPOINT is match('^[a-zA-Z][a-zA-Z0-9_-]{0,39}$')
+      - BUNDLE_BACKUP_DIR is match('^/[a-zA-Z0-9_/-]+$')
+      - '''..'' not in BUNDLE_BACKUP_DIR.split(''/'')'
+  - name: Verify live ownership before any lifecycle operation
+    ansible.builtin.command:
+      argv:
+      - '{{ ansible_playbook_python }}'
+      - -m
+      - range42_stack.lifecycle
+      - guard
+      - --plan
+      - '{{ BUNDLE_STACK_PLAN_FILE }}'
+      - --runtime
+      - '{{ BUNDLE_STACK_RUNTIME_DIR }}'
+      - --operation
+      - '{{ BUNDLE_ACTION }}'
+      - --confirm
+      - '{{ BUNDLE_CONFIRM_STACK }}'
+      stdin: >-
+        {{ {'url': BUNDLE_PROVISIONING_API_URL,
+            'api_host': proxmox_api_host,
+            'token': proxmox_api_user ~ '!' ~ proxmox_api_token_id ~ '=' ~ proxmox_api_token_secret} | to_json }}
+    environment:
+      PYTHONPATH: '{{ lookup(''env'', ''RANGE42_BUNDLE_DIR'') }}/..'
+    changed_when: false
+    register: platform_guard
+    no_log: true
+  - name: Preserve verified scope
+    ansible.builtin.set_fact:
+      platform_scope: '{{ platform_guard.stdout | from_json }}'
+- import_playbook: ../../proxmox/sdn_network.bootstrap/main.yml
+  when: BUNDLE_ACTION == 'restore'
+  vars:
+    platform_restore_plan: '{{ (lookup(''file'', BUNDLE_STACK_PLAN_FILE) | from_json)
+      }}'
+    BUNDLE_SDN_ZONE: '{{ platform_restore_plan.zone }}'
+    BUNDLE_SDN_VNETS:
+    - vnet: '{{ platform_restore_plan.bridge }}'
+      subnet: '{{ platform_restore_plan.subnet }}'
+      gateway: '{{ platform_restore_plan.gateway }}'
+      snat: true
+- import_playbook: ../../proxmox/sdn_network.claim.instance/main.yml
+  when: BUNDLE_ACTION == 'restore'
+  vars:
+    platform_restore_plan: '{{ (lookup(''file'', BUNDLE_STACK_PLAN_FILE) | from_json)
+      }}'
+    BUNDLE_VNET: '{{ platform_restore_plan.bridge }}'
+    BUNDLE_STACK_ID: '{{ platform_restore_plan.id }}'
+    BUNDLE_PROXMOX_CA_FILE: '{{ BUNDLE_STACK_RUNTIME_DIR }}/proxmox-ca.pem'
+- name: Run the verified platform lifecycle operation
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+  - '{{ lookup(''env'', ''RANGE42_ACTIVE_CONFIG_DIR'') }}/secrets/default_vault.yml'
+  vars:
+    platform_plan: '{{ lookup(''file'', BUNDLE_STACK_PLAN_FILE) | from_json }}'
+    platform_backup: '{{ BUNDLE_BACKUP_DIR }}/{{ platform_plan.id }}/{{ BUNDLE_CHECKPOINT
+      }}'
+    platform_headers:
+      Authorization: PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{
+        proxmox_api_token_secret }}
+  tasks:
+  - name: Prepare or verify a full VM backup
+    ansible.builtin.include_tasks: backup.yml
+    when: BUNDLE_ACTION in ['backup', 'restore']
+  - name: Run the shared VM operation within this stack
+    ansible.builtin.include_tasks: vm.yml
+    loop: '{{ platform_plan.vms }}'
+    loop_control:
+      loop_var: platform_vm
+      label: '{{ platform_vm.vm_name }}'
+    when: BUNDLE_ACTION not in ['backup', 'restore']
+  - name: Save or restore the matching private staging checkpoint
+    ansible.builtin.command:
+      argv:
+      - '{{ ansible_playbook_python }}'
+      - -m
+      - range42_stack.lifecycle
+      - '{{ ''backup-state'' if BUNDLE_ACTION == ''checkpoint'' else ''rollback-state''
+        }}'
+      - --instance
+      - '{{ BUNDLE_STACK_STAGING_DIR }}/{{ platform_plan.id }}'
+      - --archive
+      - '{{ platform_backup }}/state.tar.gz'
+    environment:
+      PYTHONPATH: '{{ lookup(''env'', ''RANGE42_BUNDLE_DIR'') }}/..'
+    when: BUNDLE_ACTION in ['checkpoint', 'rollback']
+    no_log: true
+  - name: Delete only the verified stack network
+    ansible.builtin.include_tasks: network.yml
+    when: BUNDLE_ACTION == 'teardown' and platform_scope.vnet_exists
+- name: Wait for started platform guests using the shared connection check
+  hosts: platform
+  gather_facts: false
+  vars:
+    requested_tasks:
+    - wait/openssh_server/is_reachable.yml
+  tasks:
+  - name: Wait until the guest accepts its configured SSH connection
+    ansible.builtin.include_role:
+      name: ansible.utils
+    when: BUNDLE_ACTION == 'start'
+- import_playbook: ../../proxmox/sdn_network.apply/main.yml
+  when: BUNDLE_ACTION == 'teardown' and platform_scope.vnet_exists
+- import_playbook: ../../proxmox/sdn_network.reconcile.snat_rules/main.yml
+  when: BUNDLE_ACTION == 'teardown'
+  vars:
+    BUNDLE_SDN_SUBNET_CIDR: '{{ (lookup(''file'', BUNDLE_STACK_PLAN_FILE) | from_json).subnet
+      }}'
+    BUNDLE_SDN_SNAT_WANT: 0

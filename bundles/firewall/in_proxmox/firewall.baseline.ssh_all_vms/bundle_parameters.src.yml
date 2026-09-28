@@ -25,3 +25,10 @@ params:
     default_where: bundle-inline
     default: []
     description: Optional restriction of the ssh accept, chosen at range42-context init and carried by the workspace vault. Empty keeps the accept open to any source. Non-empty restricts it, on the PROXMOX guest firewall, to these addresses plus every network of the scenario, whole, so the deployer through the Proxmox jump host and the guests among themselves keep their access. Written to the rule as plain IPs.
+
+  - name: BUNDLE_SCENARIO_NETWORKS
+    type: list
+    required: false
+    default_where: bundle-inline
+    default: []
+    description: Explicit scenario CIDRs for non-/24 allocations; otherwise derive the legacy manifest networks.

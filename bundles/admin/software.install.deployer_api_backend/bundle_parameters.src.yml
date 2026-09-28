@@ -113,3 +113,17 @@ params:
     from_vault: true
     default_where: none
     description: Proxmox API token secret resolved from the scenario vault; part of the token_ref for backend registration.
+
+  - name: BUNDLE_API_INSTANCE_DIR
+    type: string
+    required: false
+    default_where: bundle-inline
+    description: Prepared private instance directory; selects the current authenticated application Compose
+      runtime.
+    default: ''
+  - name: BUNDLE_COMPOSE_PROJECT
+    type: string
+    required: false
+    default_where: bundle-inline
+    description: Explicit Compose project name for this instance.
+    default: range42-backend-api

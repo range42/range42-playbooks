@@ -20,3 +20,29 @@ params:
     required: true
     default_where: call-site
     description: IP of the Nextcloud server; passed at the call-site as documentation of the web UI endpoint and not otherwise consumed by the plays
+
+  - name: BUNDLE_CATALOG_SOURCE_DIR
+    type: string
+    required: false
+    default_where: bundle-inline
+    description: Optional controller delivery directory; uses its existing private .env instead of seeding
+      demo defaults.
+    default: ''
+  - name: BUNDLE_CATALOG_REMOTE_DIR
+    type: string
+    required: false
+    default_where: bundle-inline
+    description: Catalog remote dir
+    default: /home/alice/nextcloud
+  - name: BUNDLE_CATALOG_OPERATOR
+    type: string
+    required: false
+    default_where: bundle-inline
+    description: Catalog operator
+    default: alice
+  - name: BUNDLE_CATALOG_PRIVATE
+    type: bool
+    required: false
+    default_where: bundle-inline
+    description: Catalog private
+    default: false
