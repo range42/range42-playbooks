@@ -64,6 +64,22 @@ class ScenarioTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compiler.validate_live(plan, [], [], [], [{"cidr": "10.81.0.0/25", "vnet": "foreign"}])
 
+    def test_reusing_owned_vms_requires_every_nic_on_the_stack_network(self):
+        compiler = self.compiler()
+        plan = build_plan(spec())
+        vm = plan['vms'][0]
+        resource = dict(vmid=vm['vm_id'], name=vm['vm_name'], node=plan['node'])
+        marker = {'description': 'range42-stack:' + plan['id']}
+        nic = 'virtio=AA:BB:CC:DD:EE:FF,bridge=' + plan['bridge'] + ',firewall=1'
+        for nics in ({'net0': nic}, {'net0': nic, 'net1': nic}):
+            compiler.validate_live(plan, [dict(resource, config=dict(marker, **nics))], [], [], [])
+        for nics in ({}, {'net0': 'virtio=AA:BB:CC:DD:EE:FF'}, {'net0': 'virtio=AA,bridge=vmbr0'},
+                     {'net0': nic, 'net1': 'virtio=BB,bridge=vmbr0'},
+                     {'net0': nic.replace(plan['bridge'], plan['bridge'] + 'x')},
+                     {'net0': nic + ',bridge=vmbr0'}, {'net0': None}):
+            with self.subTest(nics=nics), self.assertRaisesRegex(ValueError, 'network'):
+                compiler.validate_live(plan, [dict(resource, config=dict(marker, **nics))], [], [], [])
+
     def test_configure_action_cannot_bypass_preflight_or_start_before_firewall(self):
         files = self.compiler().render_scenario(build_plan(spec()))
         self.assertEqual(yaml.safe_load(files["configure.yml"])[0]["import_playbook"], "00_preflight.yml")

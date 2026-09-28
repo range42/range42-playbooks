@@ -90,25 +90,61 @@ class BundleIntegrationTests(unittest.TestCase):
         from range42_stack import scenario
         self.assertTrue(hasattr(scenario, 'validate_provisioning_context'))
         plan = build_plan(spec())
-        scenario.validate_provisioning_context(plan, {'node': 'pve', 'ssh_user': 'alice'})
+        parent = {'node': 'pve', 'ssh_user': 'alice',
+                  'url': 'https://fixture.invalid:8006', 'api_host': 'fixture.invalid:8006'}
+        scenario.validate_provisioning_context(plan, parent)
         for context in ({'node': 'other', 'ssh_user': 'alice'}, {'node': 'pve', 'ssh_user': 'bob'}):
-            with self.assertRaises(ValueError):
-                scenario.validate_provisioning_context(plan, context)
+            with self.assertRaisesRegex(ValueError, 'node and cloud-init user'):
+                scenario.validate_provisioning_context(plan, dict(parent, **context))
 
     def test_actual_preflight_bundle_supplies_the_active_provisioning_context(self):
         from range42_stack.scenario import validate_provisioning_context
-        plays = yaml.safe_load((ROOT / 'bundles/admin/platform.prepare.instance/main.yml').read_text())
-        task = plays[0]['tasks'][0]
         env = Environment(undefined=StrictUndefined)
         env.filters['to_json'] = json.dumps
         values = dict(BUNDLE_PROVISIONING_API_URL='https://fixture.invalid:8006',
+                      proxmox_api_host='fixture.invalid:8006',
                       proxmox_api_user='fixture@pve', proxmox_api_token_id='fixture',
                       proxmox_api_token_secret='fixture', proxmox_node='pve',
                       default_admin_vm_ci_user='alice')
-        parent = json.loads(env.from_string(task['args']['stdin']).render(values))
-        self.assertEqual(parent.get('node'), 'pve', 'Actual bundle must pass the active node')
-        self.assertEqual(parent.get('ssh_user'), 'alice')
-        validate_provisioning_context(build_plan(spec()), parent)
+        from range42_stack.scenario import validate_provisioning_endpoint
+        for bundle, index in [('platform.prepare.instance', 0), ('platform.lifecycle', 1)]:
+            with self.subTest(bundle=bundle):
+                plays = yaml.safe_load((ROOT / f'bundles/admin/{bundle}/main.yml').read_text())
+                task = plays[0]['tasks'][index]
+                stdin = task.get('args', task['ansible.builtin.command'])['stdin']
+                parent = json.loads(env.from_string(stdin).render(values))
+                self.assertEqual(parent.get('api_host'), 'fixture.invalid:8006')
+                if bundle == 'platform.prepare.instance':
+                    self.assertEqual(parent.get('node'), 'pve', 'Actual bundle must pass the active node')
+                    self.assertEqual(parent.get('ssh_user'), 'alice')
+                    validate_provisioning_context(build_plan(spec()), parent)
+                validate_provisioning_endpoint(parent)
+                parent['url'] = 'https://other.invalid:8006'
+                with self.assertRaisesRegex(ValueError, 'endpoint'):
+                    validate_provisioning_endpoint(parent)
+
+    def test_preflight_requires_the_same_https_endpoint_as_the_controller(self):
+        from range42_stack.scenario import preflight, validate_provisioning_context
+        from unittest.mock import patch
+        plan = build_plan(spec())
+        for host, url in [('pve.example:8006', 'https://PVE.example:8006/'),
+                          ('pve.example', 'https://pve.example:443'),
+                          ('[2001:db8::1]:8006', 'https://[2001:db8::1]:8006')]:
+            validate_provisioning_context(plan, dict(node='pve', ssh_user='alice', api_host=host, url=url))
+        for host, url in [('pve.example:8006', 'https://other.example:8006'),
+                          ('pve.example:8006', 'https://pve.example'),
+                          ('pve.example:8006', 'http://pve.example:8006'),
+                          ('pve.example:8006', 'https://user@pve.example:8006'),
+                          ('pve.example:8006', 'https://pve.example:8006/api2/json'),
+                          ('pve.example:8006', 'https://pve.example:8006?x=1'),
+                          ('pve.example:8006', 'https://pve.example:8006#fragment'),
+                          ('pve.example:8006', 'https://pve.example:bad'),
+                          ('', 'https://pve.example:8006')]:
+            with self.subTest(host=host, url=url), patch('range42_stack.scenario.request_json') as request:
+                with self.assertRaisesRegex(ValueError, 'endpoint'):
+                    preflight(plan, Path('/missing-runtime'), Path('/missing-sources'), Path('/missing-private'), Path('/missing-tls'),
+                              dict(node='pve', ssh_user='alice', api_host=host, url=url))
+                request.assert_not_called()
 
     def test_wazuh_agent_ports_survive_hypervisor_firewall_arming(self):
         calls = yaml.safe_load(self.files['nodes/wazuh.yml'])

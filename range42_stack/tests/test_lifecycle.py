@@ -59,7 +59,7 @@ class LifecycleTests(unittest.TestCase):
                 return {'data': value}
             with patch.object(module, 'request_json', side_effect=request), \
                     patch.object(module.ssl, 'create_default_context'):
-                args = (plan, '/runtime', {'url': 'https://pve', 'token': 'fixture'}, 'checkpoint', 'alpha')
+                args = (plan, '/runtime', {'url': 'https://pve', 'api_host': 'pve', 'token': 'fixture'}, 'checkpoint', 'alpha')
                 if current == 'stopped':
                     try:
                         result = module.live_guard(*args)
@@ -69,6 +69,34 @@ class LifecycleTests(unittest.TestCase):
                 else:
                     with self.assertRaisesRegex(ValueError, 'stopped'):
                         module.live_guard(*args)
+
+    def test_lifecycle_rejects_a_different_controller_endpoint_before_live_reads(self):
+        module = self.module()
+        with patch.object(module, 'request_json') as request, patch.object(module.ssl, 'create_default_context'):
+            with self.assertRaisesRegex(ValueError, 'endpoint'):
+                module.live_guard(build_plan(spec()), '/runtime',
+                                  {'url': 'https://other', 'api_host': 'pve', 'token': 'fixture'}, 'stop', 'alpha')
+            request.assert_not_called()
+
+    def test_network_drift_blocks_start_but_allows_owned_vm_recovery(self):
+        module = self.module(); plan = build_plan(dict(spec(), profile='core'))
+        def request(url, *args, **kwargs):
+            path = url.split('/api2/json/')[1]
+            if path == 'cluster/resources?type=vm':
+                value = [dict(vmid=v['vm_id'], name=v['vm_name'], node=plan['node'], type='qemu') for v in plan['vms']]
+            elif path.endswith('/config'):
+                value = {'description': 'range42-stack:alpha', 'net0': 'virtio=AA,bridge=vmbr0'}
+            elif path.endswith('/status/current'):
+                value = {'status': 'stopped'}
+            else:
+                value = []
+            return {'data': value}
+        with patch.object(module, 'request_json', side_effect=request), patch.object(module.ssl, 'create_default_context'):
+            parent = {'url': 'https://pve', 'api_host': 'pve', 'token': 'fixture'}
+            with self.assertRaisesRegex(ValueError, 'network'):
+                module.live_guard(plan, '/runtime', parent, 'start', 'alpha')
+            for action in ('stop', 'teardown', 'rollback'):
+                self.assertEqual(len(module.live_guard(plan, '/runtime', parent, action, 'alpha')['vms']), 5)
 
     def test_state_restore_rejects_traversal_and_links(self):
         import io, tarfile

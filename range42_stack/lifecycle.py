@@ -138,7 +138,8 @@ def validate_action(plan, resources, action, confirmation):
 
 
 def live_guard(plan, runtime, parent, action, confirmation):
-    from .scenario import validate_live
+    from .scenario import validate_live, validate_provisioning_endpoint
+    validate_provisioning_endpoint(parent)
     context = ssl.create_default_context(cafile=str(Path(runtime) / 'proxmox-ca.pem'))
     def get(path):
         return request_json(parent['url'].rstrip('/') + '/api2/json/' + path,
@@ -153,7 +154,9 @@ def live_guard(plan, runtime, parent, action, confirmation):
     validate_action(plan, resources, action, confirmation)
     vnets = get('cluster/sdn/vnets')
     subnets = [{**s, 'vnet': v['vnet']} for v in vnets for s in get(f"cluster/sdn/vnets/{v['vnet']}/subnets")]
-    validate_live(plan, resources, vnets, get('cluster/sdn/zones'), subnets)
+    # Stop, backup and recovery remain available when an owned VM has NIC drift.
+    validate_live(plan, resources, vnets, get('cluster/sdn/zones'), subnets,
+                  require_owned_network=action == 'start')
     return {'vms': plan['vms'], 'subnets': [s['subnet'] for s in subnets if s['vnet'] == plan['bridge']],
             'vnet_exists': any(v['vnet'] == plan['bridge'] for v in vnets)}
 

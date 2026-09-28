@@ -35,9 +35,10 @@
       - '{{ BUNDLE_ACTION }}'
       - --confirm
       - '{{ BUNDLE_CONFIRM_STACK }}'
-      stdin: "{{ {'url': BUNDLE_PROVISIONING_API_URL,\n    'token': proxmox_api_user\
-        \ ~ '!' ~ proxmox_api_token_id ~ '=' ~ proxmox_api_token_secret} | to_json\
-        \ }}"
+      stdin: >-
+        {{ {'url': BUNDLE_PROVISIONING_API_URL,
+            'api_host': proxmox_api_host,
+            'token': proxmox_api_user ~ '!' ~ proxmox_api_token_id ~ '=' ~ proxmox_api_token_secret} | to_json }}
     environment:
       PYTHONPATH: '{{ lookup(''env'', ''RANGE42_BUNDLE_DIR'') }}/..'
     changed_when: false

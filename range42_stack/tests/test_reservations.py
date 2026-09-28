@@ -102,7 +102,7 @@ class ScenarioAllocationTests(unittest.TestCase):
             (runtime / 'range42-playbooks/scenarios/_reserved.json').write_text(json.dumps({'scenario': 'new_lab', 'vm_id': 31000}) + '\n')
             with self.assertRaisesRegex(ValueError, 'new_lab'), patch('range42_stack.scenario.request_json') as request, \
                     patch('range42_stack.release.verify_release', side_effect=ValueError('Allocation was not checked before release inputs')):
-                scenario.preflight(plan, runtime, root / 'sources', root / 'private', root / 'tls', {'node': 'pve', 'ssh_user': 'alice'})
+                scenario.preflight(plan, runtime, root / 'sources', root / 'private', root / 'tls', {'node': 'pve', 'ssh_user': 'alice', 'url': 'https://pve', 'api_host': 'pve'})
             request.assert_not_called()
 
 

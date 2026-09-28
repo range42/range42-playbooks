@@ -10,6 +10,7 @@ import re
 import ssl
 import subprocess
 import sys
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -19,7 +20,7 @@ from .render import node
 from .plan import PORTS, CORE
 
 
-def validate_live(plan, resources, vnets, zones, subnets):
+def validate_live(plan, resources, vnets, zones, subnets, *, require_owned_network=True):
     intended = {vm["vm_id"]: vm for vm in plan["vms"]}
     for resource in resources:
         vmid = int(resource["vmid"])
@@ -28,6 +29,12 @@ def validate_live(plan, resources, vnets, zones, subnets):
             if (resource.get("name") != vm["vm_name"] or resource.get("node") != plan["node"]
                     or resource.get("config", {}).get("description") != f"range42-stack:{plan['id']}"):
                 raise ValueError(f"VMID {vmid} is occupied by a different installation")
+            if require_owned_network:
+                nics = [value for key, value in resource.get('config', {}).items() if re.fullmatch(r'net\d+', key)]
+                bridges = [[field.split('=', 1)[1] for field in str(nic).split(',')
+                            if field.startswith('bridge=')] for nic in nics]
+                if not nics or any(values != [plan['bridge']] for values in bridges):
+                    raise ValueError(f"VMID {vmid} must have every NIC on the stack network before reuse")
         elif any(vm["vm_name"] == resource.get("name") for vm in plan["vms"]):
             raise ValueError("A platform VM name is already in use")
         elif any(re.search(r"(?:^|,)bridge=" + re.escape(plan["bridge"]) + r"(?:,|$)", str(value))
@@ -331,7 +338,30 @@ def validate_bundle_contracts(plan, directory):
                 raise ValueError('Runtime bundle does not support the instance parameters: ' + relative)
 
 
+def validate_provisioning_endpoint(parent):
+    """Bind live checks to the HTTPS authority used by the vault-backed controller."""
+    error = 'The provisioning endpoint must match the active controller API endpoint'
+    def authority(value):
+        if not isinstance(value, str) or any(char.isspace() for char in value):
+            raise ValueError(error)
+        try:
+            url = urlsplit(value)
+            port = url.port
+        except ValueError:
+            raise ValueError(error) from None
+        if (url.scheme != 'https' or not url.hostname or url.username is not None
+                or url.password is not None or url.path not in ('', '/') or url.query or url.fragment):
+            raise ValueError(error)
+        return url.hostname.lower(), 443 if port is None else port
+    host = parent.get('api_host')
+    if not isinstance(host, str) or not host or '/' in host:
+        raise ValueError(error)
+    if authority(parent.get('url')) != authority('https://' + host):
+        raise ValueError(error)
+
+
 def validate_provisioning_context(plan, parent):
+    validate_provisioning_endpoint(parent)
     if parent.get('node') != plan['node'] or parent.get('ssh_user') != plan['ssh_user']:
         raise ValueError('The active provisioning node and cloud-init user must match the stack plan')
 
