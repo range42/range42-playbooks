@@ -387,6 +387,8 @@ def validate_template_capacity(plan, configuration, enabled):
 
 def preflight(plan, runtime, sources, template, tls, parent):
     validate_provisioning_context(plan, parent)
+    from .reservations import validate_reserved_allocations
+    validate_reserved_allocations(plan, runtime / 'range42-playbooks')
     from .release import verify_release, validate_collections
     if sources.parent.resolve() != runtime.parent.resolve():
         raise ValueError('Application and runtime inputs must belong to one locked release')

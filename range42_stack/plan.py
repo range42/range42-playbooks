@@ -1,4 +1,4 @@
-"""Allocate a platform on an explicitly reserved, private IPv4 bridge.
+"""Plan a platform on a private IPv4 bridge outside known scenario allocations.
 
 No infrastructure credentials, environment variables or active workspace are
 consulted. The generated scenario still checks live VM ownership before cloning.
@@ -8,6 +8,9 @@ from __future__ import annotations
 import ipaddress
 import hashlib
 import re
+from pathlib import Path
+
+from .reservations import validate_reserved_allocations
 
 
 CORE = ("gateway", "backend", "ui", "cli", "reporting")
@@ -29,8 +32,8 @@ def _integer(value, label, minimum, maximum):
     return value
 
 
-def build_plan(spec: dict, peers=()) -> dict:
-    """Return a deterministic public plan, rejecting known cross-stack collisions."""
+def build_plan(spec: dict, peers=(), *, source_root=None) -> dict:
+    """Return a deterministic plan checked against scenarios and peer stacks."""
     allowed = {"id", "domain", "vmid_start", "subnet", "gateway", "bridge", "template_vmid",
                "node", "ssh_user", "profile", "dns"}
     if not isinstance(spec, dict) or set(spec) - allowed:
@@ -86,18 +89,18 @@ def build_plan(spec: dict, peers=()) -> dict:
                       or bool({v["vm_id"] for v in vms} & {v["vm_id"] for v in peer["vms"]}))
         if collision:
             raise ValueError(f"Stack resources overlap with {peer['id']}")
+    validate_reserved_allocations(result, source_root if source_root is not None else Path(__file__).resolve().parent.parent)
     return result
 
 
 def project_component(spec, source_root):
     """Package an isolated stack beside a project's existing canvas and files."""
     import json
-    from pathlib import Path
     import tempfile
     from .scenario import export_scenario
 
     source_root = Path(source_root)
-    plan = build_plan(spec)
+    plan = build_plan(spec, source_root=source_root)
     relative = 'platforms/' + plan['id']
     with tempfile.TemporaryDirectory() as directory:
         output = Path(directory) / plan['id']

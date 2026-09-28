@@ -32,8 +32,11 @@ different from the provisioning token, and its effective privileges must stay
 within the declared paths. MISP is unavailable without its catalog payload;
 EMP remains a preview. Neither is silently counted as installed.
 
-Exports refuse to overwrite an existing directory. --peer checks other stack
-plans on the same cluster; deployment checks live ownership again. Application
+Exports refuse to overwrite an existing directory. Allocation reads the existing
+scenarios/_reserved.json, VM manifests and literal SDN declarations without changing
+them. --peer additionally checks other stack plans on the same cluster. Deployment
+rechecks the selected runtime reservations and live ownership; preview does not
+reserve VMIDs or networks. Application
 installation uses the shared bundles; INSTALL_<NAME>=YES|NO flags control software
 installation on the reserved VMs. Changing releases requires an explicit upgrade.
 Both entry points configure applications and firewalls; the source template must
