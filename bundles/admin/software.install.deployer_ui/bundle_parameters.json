@@ -79,6 +79,30 @@
         "tailscale_authkey"
       ],
       "description": "Tailnet auth key read from the scenario vault; only consumed when INSTALL_TAILSCALE is YES."
+    },
+    {
+      "name": "UI_INSTALL_OWNER",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "root",
+      "description": "Owner of application and provenance files on the UI guest."
+    },
+    {
+      "name": "UI_INSTALL_GROUP",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "root",
+      "description": "Group of application and provenance files on the UI guest."
+    },
+    {
+      "name": "UI_PROVENANCE_DIR",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "default": "/var/lib/range42",
+      "description": "Source provenance directory, outside the Docker build context."
     }
   ]
 }

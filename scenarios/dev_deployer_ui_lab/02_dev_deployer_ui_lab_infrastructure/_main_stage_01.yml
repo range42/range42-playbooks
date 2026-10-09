@@ -21,8 +21,8 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-- import_playbook: ./stage_01-vm_configure/dev-deployer-ui.yml
-
 - import_playbook: ./stage_01-vm_configure/dev-backend.yml
+
+- import_playbook: ./stage_01-vm_configure/dev-deployer-ui.yml
 
 - import_playbook: ./stage_01-vm_configure/dev-kong.yml

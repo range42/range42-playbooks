@@ -2,129 +2,227 @@
   "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
   "tier": "admin",
   "bundle": "admin/software.install.deployer_api_backend",
-  "description": "Deploy range42-backend-api as a Docker container (FastAPI + SQLite + ansible-runner) with workspace, playbooks and source sync.",
+  "description": "Build the selected API source or install a pinned authenticated container, preserving managed state and credentials.",
   "optional": true,
   "install_flag": "INSTALL_DEPLOYER_API_BACKEND",
   "params": [
     {
       "name": "global_vm_ssh_name",
-      "target": true,
       "type": "string",
       "required": true,
       "default_where": "none",
-      "description": "Inventory host of the backend VM (the value used in every play hosts line), e.g. r42.admin-deployer-api-backend."
+      "description": "Inventory host of the backend guest.",
+      "target": true
     },
     {
-      "name": "global_vm_ci_ip",
+      "name": "BACKEND_IMAGE",
       "type": "string",
-      "required": true,
+      "required": false,
       "default_where": "none",
-      "description": "IP of the backend VM (defined at the vm.bootstrap call-site, passed here by the scenario)."
+      "description": "Optional immutable image already in the local Docker daemon. Omit to build the selected source automatically."
     },
     {
       "name": "LOCAL_CODE_PATH",
       "type": "string",
       "required": false,
-      "default_where": "bundle-inline",
-      "default": "{{ RANGE42_GITDIR__ROOT_DIR env }}/range42-backend-api/",
-      "description": "Controller path to the range42-backend-api source rsynced as the Docker build context."
+      "default_where": "none",
+      "description": "Controller API checkout used for a source deployment; defaults to the workspace repository root plus range42-backend-api."
     },
     {
-      "name": "REMOTE_PROJECT_DIR",
+      "name": "BACKEND_SOURCE_DIR",
       "type": "string",
       "required": false,
       "default_where": "bundle-inline",
-      "default": "/var/www/range42_backend_api",
-      "description": "Project root on the backend VM where source, .env and compose override are placed."
+      "description": "Target-host source build cache, separate from private installation state.",
+      "default": "/var/cache/range42-backend/source"
+    },
+    {
+      "name": "BACKEND_INSTALL_ROOT",
+      "type": "string",
+      "required": false,
+      "default_where": "bundle-inline",
+      "description": "Managed installation root. Preserve the recorded root when redeploying existing state.",
+      "default": "/var/lib/range42-backend"
+    },
+    {
+      "name": "BACKEND_INSTALL_NAME",
+      "type": "string",
+      "required": false,
+      "default_where": "none",
+      "description": "Managed container installation name. Unspecified values are retained for source redeployments."
+    },
+    {
+      "name": "BACKEND_INSTALL_ACTION",
+      "type": "string",
+      "required": false,
+      "default_where": "none",
+      "description": "Explicit consumer action. Omitted source action is apply for fresh installs and guarded update for existing records.",
+      "allowed": [
+        "apply",
+        "fresh",
+        "update",
+        "adopt-systemd"
+      ]
+    },
+    {
+      "name": "BACKEND_SYSTEMD_ADOPTION_FILE",
+      "type": "string",
+      "required": false,
+      "default_where": "none",
+      "description": "Private absolute target-host proof file, required only for reviewed systemd adoption."
     },
     {
       "name": "API_PORT",
       "type": "int",
       "required": false,
-      "default_where": "bundle-inline",
-      "default": "8000",
-      "description": "Host port the FastAPI service listens on (opened in the firewall and probed for readiness)."
+      "default_where": "none",
+      "description": "Backend listener port. Source redeployments retain it when unspecified."
     },
     {
-      "name": "WORKSPACE_DIR_HOST",
+      "name": "BACKEND_UID",
+      "type": "int",
+      "required": false,
+      "default_where": "none",
+      "description": "API runtime UID. Source redeployments preserve the recorded owner."
+    },
+    {
+      "name": "BACKEND_GID",
+      "type": "int",
+      "required": false,
+      "default_where": "none",
+      "description": "API runtime GID. Source redeployments preserve the recorded group."
+    },
+    {
+      "name": "BACKEND_LISTEN_ADDRESS",
       "type": "string",
       "required": false,
-      "default_where": "bundle-inline",
-      "default": "/home/range42/range42.config",
-      "description": "Host path for the persistent workspace bind-mount (SQLite DB, events.jsonl, per-deployment secrets)."
+      "default_where": "none",
+      "description": "Listener interface; defaults to loopback for fresh generic installs. The dev lab supplies a reachable interface."
     },
     {
-      "name": "PLAYBOOKS_DEST_DIR",
+      "name": "BACKEND_CORS_ORIGINS",
+      "type": "list",
+      "required": false,
+      "default_where": "none",
+      "description": "Exact allowed browser origins; regex patterns are unsupported.",
+      "items": "Origin URL string"
+    },
+    {
+      "name": "BACKEND_GIT_ALLOWED_HOSTS",
+      "type": "list",
+      "required": false,
+      "default_where": "none",
+      "description": "Allowed Git provider hostnames.",
+      "items": "Hostname string"
+    },
+    {
+      "name": "BACKEND_STATE_DIR",
       "type": "string",
       "required": false,
-      "default_where": "bundle-inline",
-      "default": "/home/range42/range42-playbooks",
-      "description": "Host path where range42-playbooks is rsynced and bind-mounted read-only into the container."
+      "default_where": "none",
+      "description": "Persistent state directory on the backend guest."
     },
     {
-      "name": "DEPLOYER_UI_CORS_REGEX",
+      "name": "BACKEND_WORKSPACE_HOST",
       "type": "string",
       "required": false,
-      "default_where": "bundle-inline",
-      "default": "^https?://r42\\.admin-deployer-ui(:\\d+)?$",
-      "description": "Anchored CORS origin regex written to the backend .env so the deployer-ui browser Origin is accepted."
+      "default_where": "none",
+      "description": "Persistent workspace directory on the backend guest."
     },
     {
-      "name": "INSTALL_TAILSCALE",
-      "type": "bool",
-      "required": false,
-      "default_where": "bundle-inline",
-      "default": "NO",
-      "bool_style": "yesno",
-      "description": "Opt-in flag; when YES installs tailscale and disables nftables on the backend VM before compose up."
-    },
-    {
-      "name": "infrastructure_tailscale_authkey",
+      "name": "BACKEND_WORKSPACE_CONTAINER",
       "type": "string",
       "required": false,
-      "from_vault": true,
       "default_where": "none",
-      "description": "Tailscale auth key resolved from the scenario vault; consumed only when INSTALL_TAILSCALE is YES."
+      "description": "Workspace path inside the API container."
     },
     {
-      "name": "proxmox_api_host",
+      "name": "BACKEND_DATABASE_CONTAINER",
       "type": "string",
-      "required": true,
-      "from_vault": true,
+      "required": false,
       "default_where": "none",
-      "description": "Proxmox API host resolved from the scenario vault; used to register the Proxmox host with the backend."
+      "description": "SQLite database path inside the API container."
     },
     {
-      "name": "proxmox_node",
+      "name": "BACKEND_SECRETS_DIR",
       "type": "string",
-      "required": true,
-      "from_vault": true,
+      "required": false,
       "default_where": "none",
-      "description": "Proxmox node name resolved from the scenario vault; sent in the backend proxmox host registration."
+      "description": "Private persistent bearer/encryption-key directory on the backend guest."
     },
     {
-      "name": "proxmox_api_user",
+      "name": "BACKEND_VAULT_PASSWORD_HOST",
       "type": "string",
-      "required": true,
-      "from_vault": true,
+      "required": false,
       "default_where": "none",
-      "description": "Proxmox API user resolved from the scenario vault; part of the token_ref for backend registration."
+      "description": "Private existing vault-password file on the backend guest."
     },
     {
-      "name": "proxmox_api_token_id",
+      "name": "BACKEND_VAULT_PASSWORD_CONTAINER",
       "type": "string",
-      "required": true,
-      "from_vault": true,
+      "required": false,
       "default_where": "none",
-      "description": "Proxmox API token id resolved from the scenario vault; part of the token_ref for backend registration."
+      "description": "Dedicated vault-password file binding inside the API container."
     },
     {
-      "name": "proxmox_api_token_secret",
+      "name": "BACKEND_RUNTIME_DIR",
       "type": "string",
-      "required": true,
-      "from_vault": true,
+      "required": false,
       "default_where": "none",
-      "description": "Proxmox API token secret resolved from the scenario vault; part of the token_ref for backend registration."
+      "description": "Complete reviewed execution runtime export on the backend guest."
+    },
+    {
+      "name": "BACKEND_RUNTIME_CONTAINER",
+      "type": "string",
+      "required": false,
+      "default_where": "none",
+      "description": "Read-only runtime root inside the API container."
+    },
+    {
+      "name": "BACKEND_RUNTIME_CONFIG_CONTAINER",
+      "type": "string",
+      "required": false,
+      "default_where": "none",
+      "description": "Runtime config/profile directory inside the API container."
+    },
+    {
+      "name": "BACKEND_RUNTIME_CA_CONTAINER",
+      "type": "string",
+      "required": false,
+      "default_where": "none",
+      "description": "Trusted runtime CA bundle path inside the API container."
+    },
+    {
+      "name": "BACKEND_WORKSPACE_TEMPLATE_DIR",
+      "type": "string",
+      "required": false,
+      "default_where": "none",
+      "description": "Private workspace credential template on the backend guest."
+    },
+    {
+      "name": "BACKEND_WORKSPACE_TEMPLATE_CONTAINER",
+      "type": "string",
+      "required": false,
+      "default_where": "none",
+      "description": "Read-only credential template path inside the API container."
+    },
+    {
+      "name": "BACKEND_INVENTORY_CONTAINER",
+      "type": "string",
+      "required": false,
+      "default_where": "none",
+      "description": "Optional inventory path in existing writable state."
+    },
+    {
+      "name": "BACKEND_NETWORK_MODE",
+      "type": "string",
+      "required": false,
+      "default_where": "none",
+      "description": "Docker bridge or host networking, preserving existing bindings.",
+      "allowed": [
+        "bridge",
+        "host"
+      ]
     }
   ]
 }

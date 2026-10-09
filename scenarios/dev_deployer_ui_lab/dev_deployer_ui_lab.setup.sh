@@ -22,7 +22,15 @@
 : "${RANGE42_BUNDLE_DIR:?RANGE42_BUNDLE_DIR is not set - your workspace predates the bundle-root export ; regenerate sourced_range42 and re-run: range42-context use <codename> dev_deployer_ui_lab}"
 : "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR:?RANGE42_ANSIBLE_ROLES__INVENTORY_DIR is not set - run: range42-context use <codename> dev_deployer_ui_lab}"
 
+# Optional private bindings belong to this context, never to repository defaults.
+# CLI overrides follow these arguments and retain Ansible's normal precedence.
+deployment_args=()
+if [[ -n "${RANGE42_ACTIVE_CONFIG_DIR:-}" && -f "${RANGE42_ACTIVE_CONFIG_DIR}/deployment.yml" ]]; then
+    deployment_args=(-e "@${RANGE42_ACTIVE_CONFIG_DIR}/deployment.yml")
+fi
+
 ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \
 	-l "all" \
 	"./main.yml" --vault-password-file "${RANGE42_VAULT_PASSWORD_FILE:?RANGE42_VAULT_PASSWORD_FILE is not set - run: range42-context use <codename> <scenario>}" \
+	"${deployment_args[@]}" \
 	"$@"

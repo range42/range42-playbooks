@@ -3,3 +3,7 @@
 CLAUDE.md
 **/CLAUDE.md
 .claude
+
+# Python installer and acceptance-test caches
+__pycache__/
+.pytest_cache/

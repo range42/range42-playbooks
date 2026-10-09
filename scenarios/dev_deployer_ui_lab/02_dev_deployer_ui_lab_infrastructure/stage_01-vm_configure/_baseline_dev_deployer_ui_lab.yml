@@ -7,8 +7,7 @@
 ##
 ## Baseline for r42_dev_deployer_ui_lab_group (static, 3 VMs always-on) :
 ##   - systems.baseline.docker_host : packages + dotfiles + Docker + docker compose
-##   - network.baseline.ssh       : firewall opens port 22 (app ports opened
-##                                   by their respective bundles in stage_01)
+##   - SSH firewall baseline     : allow port 22 and preserve existing app/proxy rules
 ##   - network.configure.tailscale_client         : optional tailscale install (gated by INSTALL_TAILSCALE,
 ##                                   default NO)
 ##
@@ -20,9 +19,27 @@
   vars:
     target_group: "r42_dev_deployer_ui_lab_group"
 
-- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
-  vars:
-    target_group: "r42_dev_deployer_ui_lab_group"
+# Re-deploying an application must preserve showcase reverse-proxy listeners.
+- name: dev lab - preserve firewall rules and allow SSH
+  hosts: r42_dev_deployer_ui_lab_group
+  become: true
+  tasks:
+    - name: Ensure the host firewall is installed
+      ansible.builtin.package:
+        name: ufw
+        state: present
+    - name: Preserve SSH access
+      community.general.ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+    - name: Keep the default inbound policy
+      community.general.ufw:
+        default: deny
+        direction: incoming
+    - name: Enable the firewall without resetting existing listeners
+      community.general.ufw:
+        state: enabled
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.configure.tailscale_client/main.yml"
   vars:

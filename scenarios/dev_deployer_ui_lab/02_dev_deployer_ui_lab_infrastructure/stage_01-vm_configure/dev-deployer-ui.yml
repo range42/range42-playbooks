@@ -24,4 +24,5 @@
     # so a fresh deploy is usable without the operator retyping the URL in the
     # Settings modal. Rendered to public/config.json before the Docker build ;
     # the operator can still add / switch / delete backends from the UI.
-    BACKEND_API_URL: "http://192.168.142.191:8000"
+    BACKEND_API_URL: "http://192.168.142.191:{{ API_PORT | default(8000) }}"
+    PROXMOX_NODE_NAME: "{{ proxmox_node }}"

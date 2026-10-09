@@ -96,19 +96,23 @@
 
 # ============================================================================
 
-- name: install deployer-ui - firewall (open UI port, keep 22)
+- name: install deployer-ui - preserve firewall rules and allow the UI
   hosts: "{{ global_vm_ssh_name }}"
   become: true
-  roles:
-    - software.configure.firewalls
-  vars:
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
-      - ip: "all"
-        port: "{{ UI_PORT | default('3000') }}"
-        protocol: "tcp"
+  tasks:
+    - name: Ensure the host firewall is installed
+      ansible.builtin.package:
+        name: ufw
+        state: present
+    - name: Allow SSH and the UI without removing existing proxy listeners
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop: ['22', "{{ UI_PORT | default('3000') }}"]
+    - name: Enable the firewall without resetting existing listeners
+      community.general.ufw:
+        state: enabled
 
 # ============================================================================
 
@@ -133,6 +137,8 @@
 - name: install deployer-ui - sync source + .env + docker compose up
   hosts: "{{ global_vm_ssh_name }}"
   become: true
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
   vars:
     LOCAL_CODE_PATH_RESOLVED: "{{ LOCAL_CODE_PATH | default(lookup('env', 'RANGE42_GITDIR__ROOT_DIR') + '/range42-deployer-ui/', true) }}"
     REMOTE_PROJECT_DIR_RESOLVED: "{{ REMOTE_PROJECT_DIR | default('/var/www/range42_deployer_ui') }}"
@@ -148,8 +154,8 @@
       ansible.builtin.file:
         path: "{{ REMOTE_PROJECT_DIR_RESOLVED }}"
         state: directory
-        owner: root
-        group: root
+        owner: "{{ UI_INSTALL_OWNER | default('root') }}"
+        group: "{{ UI_INSTALL_GROUP | default('root') }}"
         mode: "0755"
 
     - name: Sync deployer-ui source from controller to remote project dir
@@ -185,15 +191,15 @@
 
     - name: Create /var/lib/range42 (provenance records, outside the build context)
       ansible.builtin.file:
-        path: /var/lib/range42
+        path: "{{ UI_PROVENANCE_DIR | default('/var/lib/range42') }}"
         state: directory
-        owner: root
-        group: root
+        owner: "{{ UI_INSTALL_OWNER | default('root') }}"
+        group: "{{ UI_INSTALL_GROUP | default('root') }}"
         mode: "0755"
 
     - name: Record what was actually deployed (ref + sha + dirty state)
       ansible.builtin.copy:
-        dest: /var/lib/range42/deployer_ui.version
+        dest: "{{ UI_PROVENANCE_DIR | default('/var/lib/range42') }}/deployer_ui.version"
         content: |
           # Managed by range42 / bundles/admin/software.install.deployer_ui
           # Provenance of the source tree rsynced from the controller.
@@ -204,9 +210,9 @@
           {% for line in ui_src_provenance.stdout_lines %}
           {{ line }}
           {% endfor %}
-          deployed_at={{ ansible_facts.date_time.iso8601 }}
-        owner: root
-        group: root
+          deployed_at={{ now(utc=true, fmt='%Y-%m-%dT%H:%M:%SZ') }}
+        owner: "{{ UI_INSTALL_OWNER | default('root') }}"
+        group: "{{ UI_INSTALL_GROUP | default('root') }}"
         mode: "0644"
 
     - name: Show the deployed source provenance
@@ -222,8 +228,8 @@
           # Managed by range42 / bundles/admin/software.install.deployer_ui
           # Host port for the Docker container.
           UI_PORT={{ UI_PORT_RESOLVED }}
-        owner: root
-        group: root
+        owner: "{{ UI_INSTALL_OWNER | default('root') }}"
+        group: "{{ UI_INSTALL_GROUP | default('root') }}"
         mode: "0644"
 
     - name: Render public/config.json (backend the SPA registers on first launch)
@@ -234,8 +240,8 @@
             "defaultBackendUrl": {{ BACKEND_API_URL | to_json }},
             "defaultNodeName": {{ PROXMOX_NODE_NAME | default('pve') | to_json }}
           }
-        owner: root
-        group: root
+        owner: "{{ UI_INSTALL_OWNER | default('root') }}"
+        group: "{{ UI_INSTALL_GROUP | default('root') }}"
         mode: "0644"
       when: BACKEND_API_URL | default('') | length > 0
       # No else-branch needed : config.json is not tracked in the repo, so the
