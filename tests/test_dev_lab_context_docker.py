@@ -20,6 +20,15 @@ pytestmark = pytest.mark.skipif(not os.getenv("RANGE42_CONTEXT_BOOTSTRAP_ACCEPTA
                                 reason="opt-in Docker/native CLI application acceptance")
 
 
+def isolated_devkits(tmp_path, workspace):
+    # Current core checks that devkits belong to the selected workspace. Never
+    # repoint the operator's real secrets link for disposable acceptance tests.
+    devkits = tmp_path / "devkits"
+    devkits.mkdir()
+    (devkits / "secrets").symlink_to(workspace / "secrets", target_is_directory=True)
+    return str(devkits)
+
+
 def test_native_scenario_builds_backend_without_image_input_and_preserves_repeat_state(tmp_path):
     core = Path(os.environ["RANGE42_CLI_TEST_SOURCE"])
     api = Path(os.environ["RANGE42_API_TEST_SOURCE"])
@@ -51,6 +60,7 @@ def test_native_scenario_builds_backend_without_image_input_and_preserves_repeat
                       str(core.parent / "range42-catalog/02_ansible_layer/trainee/roles")])
     env = {**os.environ, "RANGE42_ACTIVE_CONFIG_DIR": str(workspace),
            "RANGE42_ACTIVE_WORKSPACE": workspace.name, "RANGE42_CONFIG_BASE_DIR": str(tmp_path),
+           "RANGE42_ANSIBLE_ROLES__DEVKITS_DIR": isolated_devkits(tmp_path, workspace),
            "RANGE42_ANSIBLE_ROLES__INVENTORY_DIR": str(inventory),
            "RANGE42_VAULT_PASSWORD_FILE": str(workspace / "secrets/vault_pass.txt"),
            "RANGE42_BUNDLE_DIR": str(ROOT / "bundles"), "ANSIBLE_ROLES_PATH": roles,
@@ -129,6 +139,7 @@ def test_native_scenario_builds_ui_with_the_node_selected_during_workspace_setup
                       str(core.parent / "range42-catalog/02_ansible_layer/trainee/roles")])
     env = {**os.environ, "RANGE42_ACTIVE_CONFIG_DIR": str(workspace),
            "RANGE42_ACTIVE_WORKSPACE": workspace.name, "RANGE42_CONFIG_BASE_DIR": str(tmp_path),
+           "RANGE42_ANSIBLE_ROLES__DEVKITS_DIR": isolated_devkits(tmp_path, workspace),
            "RANGE42_ANSIBLE_ROLES__INVENTORY_DIR": str(inventory),
            "RANGE42_VAULT_PASSWORD_FILE": str(workspace / "secrets/vault_pass.txt"),
            "RANGE42_BUNDLE_DIR": str(ROOT / "bundles"), "ANSIBLE_ROLES_PATH": roles,
