@@ -37,7 +37,10 @@
 #                           Unset = no config.json rendered, operator configures
 #                           the backend by hand in the Settings modal.
 #   - PROXMOX_NODE_NAME   : Proxmox node that backend targets, paired with
-#                           BACKEND_API_URL in config.json (default "pve")
+#                           BACKEND_API_URL in config.json. Defaults to
+#                           `proxmox_node` from the workspace vault, so the
+#                           node is right without the call-site restating it ;
+#                           falls back to "pve" only when neither is set.
 #
 # Source provenance (this bundle deploys the controller's WORKING TREE) :
 #   The rsync below copies the controller's checkout as-is - branch, local
@@ -133,10 +136,17 @@
 - name: install deployer-ui - sync source + .env + docker compose up
   hosts: "{{ global_vm_ssh_name }}"
   become: true
+  vars_files:
+    # For `proxmox_node` — the node this workspace actually targets. Without it
+    # config.json would seed the literal "pve" on every deployment and the
+    # operator would still have to fix the node by hand in Settings, which is
+    # the exact retyping this file exists to remove.
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
   vars:
     LOCAL_CODE_PATH_RESOLVED: "{{ LOCAL_CODE_PATH | default(lookup('env', 'RANGE42_GITDIR__ROOT_DIR') + '/range42-deployer-ui/', true) }}"
     REMOTE_PROJECT_DIR_RESOLVED: "{{ REMOTE_PROJECT_DIR | default('/var/www/range42_deployer_ui') }}"
     UI_PORT_RESOLVED: "{{ UI_PORT | default('3000') }}"
+    PROXMOX_NODE_NAME_RESOLVED: "{{ PROXMOX_NODE_NAME | default(proxmox_node | default('pve', true), true) }}"
   tasks:
     - name: Install rsync on remote (required for synchronize)
       ansible.builtin.apt:
@@ -232,7 +242,7 @@
         content: |
           {
             "defaultBackendUrl": {{ BACKEND_API_URL | to_json }},
-            "defaultNodeName": {{ PROXMOX_NODE_NAME | default('pve') | to_json }}
+            "defaultNodeName": {{ PROXMOX_NODE_NAME_RESOLVED | to_json }}
           }
         owner: root
         group: root
