@@ -19,13 +19,14 @@ import uuid
 
 from container_install import _secret, provision_credentials
 from container_maintenance import PROTOCOL, DockerCLI, host_admission, stopped_container
-from container_plan import compose_document, validate_config, vault_password_digest
+from container_plan import compose_document, validate_config, validate_installation_root, vault_password_digest
 
 
 @contextmanager
 def installation_lock(root: Path):
     if root != root.resolve() or not root.is_dir():
         raise ValueError("Installation root must be an ordinary local directory")
+    validate_installation_root(root)
     path = root / ".installation.lock"
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
     try:
@@ -490,6 +491,7 @@ def apply(raw: dict, *, operation="apply"):
         )
     plan = validate_config(raw)
     root = Path(plan["root"])
+    validate_installation_root(root)
     record_path = root / "installation.json"
     # Prove inputs and unknown data before creating any installation state.
     for field in ("runtime_dir", "workspace_template_dir"):

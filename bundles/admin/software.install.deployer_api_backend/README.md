@@ -94,6 +94,10 @@ procedure. Existing policy outside the explicit contract is refused.
 
 The private root contains `.installation.lock`, `installation.json`, immutable
 `releases/<id>/`, and consistent database backups under `backups/<id>/`.
+An existing installation root must be a normal directory owned by the installer
+user (normally root under Ansible `become`) with mode `0700`. The source producer
+and consumer reject unsafe ownership or permissions before trusting its record
+or creating a lock; they do not change an existing directory's permissions.
 The record binds the exact container/image IDs, configuration and mounts,
 release hashes and original credential-file hashes. Repeats check those facts
 and authenticated readiness. Source runtime edits do not modify installed copies;

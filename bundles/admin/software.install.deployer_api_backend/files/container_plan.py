@@ -39,6 +39,19 @@ _FIELDS = {
 STATE_CONTAINER = Path("/var/lib/range42")
 
 
+def validate_installation_root(root: Path) -> None:
+    """An existing installer root must belong to this installer and be private."""
+    if root != root.resolve():
+        raise ValueError("Installation root must be an ordinary local directory")
+    try:
+        info = root.lstat()
+    except FileNotFoundError:
+        return
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid()
+            or stat.S_IMODE(info.st_mode) != 0o700):
+        raise ValueError("Installation root must be private and owned by the installer (mode 0700)")
+
+
 def host_path(value: str) -> str:
     if not isinstance(value, str) or not Path(value).is_absolute():
         raise ValueError("Host bindings must be absolute paths")

@@ -10,11 +10,14 @@ import subprocess
 import sys
 import tempfile
 
+from container_plan import validate_installation_root
+
 
 def prepare_request(overrides: dict, source: str, operation: str | None = None) -> dict:
     root = Path(overrides["root"])
     if not root.is_absolute() or root != root.resolve():
         raise ValueError("Installation root must be a canonical absolute path")
+    validate_installation_root(root)
     record = root / "installation.json"
     config = {"name": "range42-backend", "uid": 1000, "gid": 1000}
     existing = record.exists() or record.is_symlink()

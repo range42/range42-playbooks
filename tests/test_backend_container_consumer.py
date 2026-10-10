@@ -46,7 +46,7 @@ def test_invalid_request_does_not_create_installation(tmp_path):
 def test_unknown_installation_never_adopts_or_rewrites_legacy_data(tmp_path):
     module = consumer()
     root = tmp_path / "installation"
-    root.mkdir()
+    root.mkdir(mode=0o700)
     old = root / "docker-compose.yml"
     old.write_text("legacy: keep\n")
     with pytest.raises(ValueError, match="unmanaged|unknown|legacy"):
@@ -79,10 +79,47 @@ def test_installation_lock_serializes_and_never_replaces_its_inode(tmp_path):
     assert (root / ".installation.lock").stat().st_ino == inode
 
 
+@pytest.mark.parametrize("mode", [0o755, 0o770, 0o777])
+def test_installation_lock_refuses_nonprivate_roots_without_creating_a_lock(tmp_path, mode):
+    module = consumer()
+    root = tmp_path / "installation"
+    root.mkdir(mode=mode)
+    root.chmod(mode)
+    with pytest.raises(ValueError, match="Installation root must be private and owned"):
+        with module.installation_lock(root):
+            pytest.fail("Nonprivate installation root was trusted")
+    assert list(root.iterdir()) == []
+    assert root.stat().st_mode & 0o777 == mode
+
+
+def test_installation_lock_refuses_another_owners_root(tmp_path, monkeypatch):
+    module = consumer()
+    root = tmp_path / "installation"
+    root.mkdir(mode=0o700)
+    monkeypatch.setattr(module.os, "geteuid", lambda: root.stat().st_uid + 1)
+    with pytest.raises(ValueError, match="Installation root must be private and owned"):
+        with module.installation_lock(root):
+            pytest.fail("Another owner's installation root was trusted")
+    assert list(root.iterdir()) == []
+
+
+def test_apply_refuses_nonprivate_roots_before_reading_existing_records(tmp_path):
+    module = consumer()
+    root = tmp_path / "installation"
+    root.mkdir(mode=0o777)
+    root.chmod(0o777)
+    record = root / "installation.json"
+    record.write_text("untrusted malformed record")
+    with pytest.raises(ValueError, match="Installation root must be private and owned"):
+        module.apply(config(tmp_path))
+    assert record.read_text() == "untrusted malformed record"
+    assert list(root.iterdir()) == [record]
+
+
 def test_lock_symlink_is_not_followed(tmp_path):
     module = consumer()
     root = tmp_path / "installation"
-    root.mkdir()
+    root.mkdir(mode=0o700)
     victim = tmp_path / "victim"
     victim.write_text("keep")
     (root / ".installation.lock").symlink_to(victim)

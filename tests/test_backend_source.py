@@ -39,7 +39,7 @@ def test_existing_bindings_are_preserved_when_building_a_new_checkout(tmp_path):
     (source / "Dockerfile").write_text("FROM scratch AS runtime\nCOPY payload /payload\n")
     (source / "payload").write_text("new release")
     root = tmp_path / "installation"
-    root.mkdir()
+    root.mkdir(mode=0o700)
     original = {"root": str(root), "name": "kept", "image": "sha256:" + "a" * 64,
                 "uid": os.getuid(), "gid": os.getgid(), "port": 18391,
                 "listen_address": "0.0.0.0", "state_dir": str(tmp_path / "state"),
@@ -62,7 +62,7 @@ def test_source_failure_keeps_the_previous_record_and_sanitizes_build_output(tmp
     source.mkdir()
     (source / "Dockerfile").write_text("FROM scratch AS runtime\nCOPY confidential-missing-file /payload\n")
     root = tmp_path / "installation"
-    root.mkdir()
+    root.mkdir(mode=0o700)
     record = root / "installation.json"
     record.write_text(json.dumps({"version": 1, "status": "ready", "config": {"root": str(root)}}))
     record.chmod(0o600)
@@ -72,3 +72,16 @@ def test_source_failure_keeps_the_previous_record_and_sanitizes_build_output(tmp
         module.prepare_request({"root": str(root)}, str(source))
     assert "confidential" not in str(error.value)
     assert record.read_bytes() == before
+
+
+def test_source_producer_refuses_nonprivate_root_before_reading_its_record(tmp_path):
+    root = tmp_path / "installation"
+    root.mkdir(mode=0o777)
+    root.chmod(0o777)
+    record = root / "installation.json"
+    record.write_text("untrusted malformed record")
+    record.chmod(0o600)
+    with pytest.raises(ValueError, match="Installation root must be private and owned"):
+        source_module().prepare_request({"root": str(root)}, str(tmp_path / "not-built"))
+    assert record.read_text() == "untrusted malformed record"
+    assert list(root.iterdir()) == [record]

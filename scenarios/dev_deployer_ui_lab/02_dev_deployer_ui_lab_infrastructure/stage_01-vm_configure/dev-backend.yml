@@ -1,4 +1,16 @@
 # The normal context deployment builds the selected API checkout automatically.
+- name: Allow the lab UI to reach the backend API
+  hosts: r42.dev-backend
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Allow the backend API port without resetting existing firewall rules
+      community.general.ufw:
+        rule: allow
+        port: "{{ API_PORT | default(8000) }}"
+        proto: tcp
+      when: INSTALL_DEPLOYER_API_BACKEND | default("YES") | upper == "YES"
+
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.deployer_api_backend/main.yml"
   when: INSTALL_DEPLOYER_API_BACKEND | default("YES") | upper == "YES"
   vars:
