@@ -20,8 +20,11 @@ from .render import node
 from .plan import PORTS, CORE
 
 
-def validate_live(plan, resources, vnets, zones, subnets, *, require_owned_network=True):
+def validate_live(plan, resources, vnets, zones, subnets, *, require_owned_network=True, interfaces=()):
     intended = {vm["vm_id"]: vm for vm in plan["vms"]}
+    borrowed = plan.get('network_mode', 'sdn') == 'existing_bridge'
+    peers = {peer['vm_id']: peer for peer in plan.get('network_peers', [])} if borrowed else {}
+    seen_peers = set()
     for resource in resources:
         vmid = int(resource["vmid"])
         if vmid in intended:
@@ -35,11 +38,33 @@ def validate_live(plan, resources, vnets, zones, subnets, *, require_owned_netwo
                             if field.startswith('bridge=')] for nic in nics]
                 if not nics or any(values != [plan['bridge']] for values in bridges):
                     raise ValueError(f"VMID {vmid} must have every NIC on the stack network before reuse")
+        elif vmid in peers:
+            peer = peers[vmid]
+            settings = resource.get('config', {})
+            if (resource.get('name') != peer['vm_name'] or resource.get('node') != plan['node']
+                    or settings.get('description') != peer['description'] or settings.get('template')):
+                raise ValueError('Operator network peer identity differs from its explicit binding')
+            bindings = [[field.split('=', 1)[1] for field in str(value).split(',') if field.startswith('bridge=')]
+                        for key, value in settings.items() if re.fullmatch(r'net\d+', key)]
+            if [plan['bridge']] not in bindings:
+                raise ValueError('Operator peer is not attached to the selected bridge')
+            seen_peers.add(vmid)
         elif any(vm["vm_name"] == resource.get("name") for vm in plan["vms"]):
             raise ValueError("A platform VM name is already in use")
         elif any(re.search(r"(?:^|,)bridge=" + re.escape(plan["bridge"]) + r"(?:,|$)", str(value))
                  for key, value in resource.get("config", {}).items() if re.fullmatch(r"net\d+", key)):
             raise ValueError("A foreign guest is attached to the platform network")
+    if borrowed:
+        if seen_peers != set(peers):
+            raise ValueError('Cannot observe every explicitly approved operator peer')
+        if require_owned_network:
+            rows = [row for row in interfaces if row.get('iface') == plan['bridge']]
+            if (len(rows) != 1 or rows[0].get('active') != 1 or rows[0].get('type') != 'bridge'
+                    or rows[0].get('bridge_ports', '') not in ('', 'none')
+                    or any(rows[0].get(key) for key in
+                           ['address', 'address6', 'cidr', 'cidr6', 'gateway', 'gateway6'])):
+                raise ValueError('The operator bridge must be active, unaddressed and without physical ports')
+        return
     for zone in zones:
         if zone["zone"] == plan["zone"] and zone.get("type") != "simple":
             raise ValueError("Existing SDN zone is not the expected isolated simple zone")
@@ -151,6 +176,7 @@ def _node_play(plan, service):
 
 def render_scenario(plan):
     files = {}
+    borrowed = plan.get('network_mode', 'sdn') == 'existing_bridge'
     def write(path, data, is_json=False):
         files[path] = (json.dumps(data, indent=2) if is_json else yaml.safe_dump(data, sort_keys=False)) + "\n"
     write("manifest/stack.json", plan, True)
@@ -177,8 +203,10 @@ def render_scenario(plan):
           "description": "Isolated Range42 platform (" + plan["profile"] + ")",
           "vms": [{**vm, "template_vm_id": vm["template_vmid"]} for vm in plan["vms"]],
           "templates": [{"vm_id": plan["vms"][0]["template_vmid"]}]}, True)
-    write("manifest/scenario_networks.json", {"mode": "sdn", "zone": plan["zone"], "vnets": [{
-          "vnet": plan["bridge"], "subnet": plan["subnet"], "gateway": plan["gateway"], "snat": True}]}, True)
+    network_manifest = ({'mode': 'existing_bridge', 'bridges': [plan['bridge']]} if borrowed else
+                        {"mode": "sdn", "zone": plan["zone"], "vnets": [{"vnet": plan["bridge"],
+                         "subnet": plan["subnet"], "gateway": plan["gateway"], "snat": True}]})
+    write("manifest/scenario_networks.json", network_manifest, True)
     write("manifest/feature_flags.yml", {"features": [{"id": SERVICES[v["service"]][1],
           "label": v["service"], "description": "Install " + v["service"] + " on its reserved VM",
           "default": True} for v in plan["vms"]]})
@@ -201,6 +229,8 @@ def render_scenario(plan):
         "00_sdn_bootstrap/_main.yml", "01_vm_bootstrap.yml",
         "_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml", "configure.yml",
         "_firewall/stage_03-end_scenario.arm_deployed_vms.yml")]
+    if borrowed:
+        main = [call for call in main if call['import_playbook'] != '00_sdn_bootstrap/_main.yml']
     write("main.yml", main)
     # This stack uses an operator-selected existing template. Both entry points
     # retain software and firewall configuration, as range42-context expects.
@@ -217,12 +247,13 @@ def render_scenario(plan):
         "BUNDLE_STACK_ENABLED": flags,
         "BUNDLE_GATEWAY_ADDRESSES": "{{ stack_gateway_addresses | default([]) }}",
         "BUNDLE_PROVISIONING_API_URL": "{{ stack_provisioning_api_url }}"})])
-    write("00_sdn_bootstrap/_main.yml", [bundle("proxmox/sdn_network.bootstrap", {
-        "BUNDLE_SDN_ZONE": plan["zone"], "BUNDLE_SDN_VNETS": [{"vnet": plan["bridge"],
-        "subnet": plan["subnet"], "gateway": plan["gateway"], "snat": True}]}),
-        bundle("proxmox/sdn_network.claim.instance", {"BUNDLE_VNET": plan["bridge"], "BUNDLE_STACK_ID": plan["id"],
-            "BUNDLE_PROVISIONING_API_URL": "{{ stack_provisioning_api_url }}",
-            "BUNDLE_PROXMOX_CA_FILE": "{{ stack_runtime_dir }}/proxmox-ca.pem"})])
+    if not borrowed:
+        write("00_sdn_bootstrap/_main.yml", [bundle("proxmox/sdn_network.bootstrap", {
+            "BUNDLE_SDN_ZONE": plan["zone"], "BUNDLE_SDN_VNETS": [{"vnet": plan["bridge"],
+            "subnet": plan["subnet"], "gateway": plan["gateway"], "snat": True}]}),
+            bundle("proxmox/sdn_network.claim.instance", {"BUNDLE_VNET": plan["bridge"], "BUNDLE_STACK_ID": plan["id"],
+                "BUNDLE_PROVISIONING_API_URL": "{{ stack_provisioning_api_url }}",
+                "BUNDLE_PROXMOX_CA_FILE": "{{ stack_runtime_dir }}/proxmox-ca.pem"})])
     write("01_vm_bootstrap.yml", [bundle("proxmox/vm.bootstrap", {
         "BUNDLE_REUSE_OWNED_VM": True,
         "global_vm_id": vm["vm_id"], "global_vm_name": vm["vm_name"], "global_vm_ssh_name": vm["vm_name"],
@@ -381,7 +412,7 @@ def validate_runtime_selection(active, expected):
             raise ValueError('Active bundles/helpers do not match the reviewed runtime release')
 
 
-def validate_controller_actions(directory):
+def validate_controller_actions(directory, network_mode='sdn'):
     required = {
         'network_list_sdn_zones', 'network_list_sdn_vnets', 'network_list_sdn_subnets',
         'network_add_sdn_zone', 'network_add_sdn_vnet', 'network_add_sdn_subnet',
@@ -392,6 +423,8 @@ def validate_controller_actions(directory):
         'firewall_vm_declare_iptables_port', 'snapshot_vm_create', 'snapshot_vm_revert',
         'vm_clone', 'vm_start', 'vm_stop', 'vm_delete',
     }
+    if network_mode == 'existing_bridge':
+        required = {name for name in required if not name.startswith('network_')}
     tasks = Path(directory) / 'roles/range42-ansible_roles-proxmox_controller/tasks'
     text = '\n'.join(p.read_text() for p in tasks.rglob('*') if p.suffix in {'.yml', '.yaml'})
     missing = sorted(name for name in required if name not in text)
@@ -424,7 +457,7 @@ def preflight(plan, runtime, sources, template, tls, parent):
         raise ValueError('Application and runtime inputs must belong to one locked release')
     verify_release(runtime.parent)
     validate_collections(runtime / 'collections')
-    validate_controller_actions(runtime / 'range42-ansible_roles-proxmox_controller')
+    validate_controller_actions(runtime / 'range42-ansible_roles-proxmox_controller', plan.get('network_mode', 'sdn'))
     validate_context_runtime(runtime / 'range42')
     validate_bundle_contracts(plan, runtime / 'range42-playbooks/bundles')
     active_bundles = Path(os.environ.get('RANGE42_BUNDLE_DIR', ''))
@@ -483,10 +516,13 @@ def preflight(plan, runtime, sources, template, tls, parent):
             or int(templates[0]['config'].get('template', 0)) != 1):
         raise ValueError('The selected source template must exist on the planned Proxmox node')
     validate_template_capacity(plan, templates[0]['config'], enabled)
-    vnets = get("cluster/sdn/vnets")
-    subnets = [{**subnet, "vnet": vnet["vnet"]} for vnet in vnets
-               for subnet in get(f"cluster/sdn/vnets/{vnet['vnet']}/subnets")]
-    validate_live(plan, resources, vnets, get("cluster/sdn/zones"), subnets)
+    if plan.get('network_mode', 'sdn') == 'existing_bridge':
+        validate_live(plan, resources, [], [], [], interfaces=get(f"nodes/{plan['node']}/network"))
+    else:
+        vnets = get("cluster/sdn/vnets")
+        subnets = [{**subnet, "vnet": vnet["vnet"]} for vnet in vnets
+                   for subnet in get(f"cluster/sdn/vnets/{vnet['vnet']}/subnets")]
+        validate_live(plan, resources, vnets, get("cluster/sdn/zones"), subnets)
 
 
 def main():

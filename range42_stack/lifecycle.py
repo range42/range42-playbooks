@@ -152,13 +152,19 @@ def live_guard(plan, runtime, parent, action, confirmation):
             # The cluster summary is cached by pvestatd, including power state.
             resource['status'] = get(f"nodes/{resource['node']}/{resource['type']}/{resource['vmid']}/status/current")['status']
     validate_action(plan, resources, action, confirmation)
+    mode = plan.get('network_mode', 'sdn')
+    if mode == 'existing_bridge':
+        interfaces = get(f"nodes/{plan['node']}/network") if action in {'start', 'restore'} else []
+        validate_live(plan, resources, [], [], [], require_owned_network=action in {'start', 'restore'},
+                      interfaces=interfaces)
+        return {'vms': plan['vms'], 'subnets': [], 'vnet_exists': False, 'network_mode': mode}
     vnets = get('cluster/sdn/vnets')
     subnets = [{**s, 'vnet': v['vnet']} for v in vnets for s in get(f"cluster/sdn/vnets/{v['vnet']}/subnets")]
     # Stop, backup and recovery remain available when an owned VM has NIC drift.
     validate_live(plan, resources, vnets, get('cluster/sdn/zones'), subnets,
                   require_owned_network=action == 'start')
     return {'vms': plan['vms'], 'subnets': [s['subnet'] for s in subnets if s['vnet'] == plan['bridge']],
-            'vnet_exists': any(v['vnet'] == plan['bridge'] for v in vnets)}
+            'vnet_exists': any(v['vnet'] == plan['bridge'] for v in vnets), 'network_mode': mode}
 
 
 def main():

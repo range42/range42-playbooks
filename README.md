@@ -3,6 +3,10 @@
 Ansible playbooks and scenarios for deploying cyber range environments on Proxmox.
 Part of the [range42](https://github.com/range42/range42) platform.
 
+Native platform stacks support dedicated SDN networks and operator-prepared
+private bridges. See [platform network modes](range42_stack/README.md) for the
+ownership checks, lifecycle behavior and deployment prerequisites.
+
 ---
 
 ## How it works

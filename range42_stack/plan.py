@@ -35,7 +35,7 @@ def _integer(value, label, minimum, maximum):
 def build_plan(spec: dict, peers=(), *, source_root=None) -> dict:
     """Return a deterministic plan checked against scenarios and peer stacks."""
     allowed = {"id", "domain", "vmid_start", "subnet", "gateway", "bridge", "template_vmid",
-               "node", "ssh_user", "profile", "dns"}
+               "node", "ssh_user", "profile", "dns", "network_mode", "network_peers"}
     if not isinstance(spec, dict) or set(spec) - allowed:
         raise ValueError("Unknown stack parameters; credentials belong in private installation inputs")
     sid = _name(spec.get("id"), "stack id")
@@ -58,8 +58,12 @@ def build_plan(spec: dict, peers=(), *, source_root=None) -> dict:
     gateway = ipaddress.ip_address(spec.get("gateway", ""))
     if gateway not in network or gateway in {network.network_address, network.broadcast_address}:
         raise ValueError("Gateway must be a usable address in the stack subnet")
-    bridge = _name(spec.get("bridge"), "dedicated VNet", r"[a-z][a-z0-9]{1,7}")
-    if re.fullmatch(r"vmbr\d+", bridge):
+    mode = spec.get('network_mode', 'sdn')
+    if mode not in ('sdn', 'existing_bridge'):
+        raise ValueError('Network mode must be sdn or existing_bridge')
+    pattern = r'vmbr[1-9][0-9]{0,8}' if mode == 'existing_bridge' else r'[a-z][a-z0-9]{1,7}'
+    bridge = _name(spec.get("bridge"), "platform network", pattern)
+    if mode == 'sdn' and re.fullmatch(r"vmbr\d+", bridge):
         raise ValueError("Use a dedicated platform bridge, not the host management bridge")
     node = _name(spec.get("node"), "Proxmox node", r"[A-Za-z0-9][A-Za-z0-9_.-]{0,62}")
     user = _name(spec.get("ssh_user"), "SSH user", r"[a-z_][a-z0-9_-]{0,31}")
@@ -81,10 +85,32 @@ def build_plan(spec: dict, peers=(), *, source_root=None) -> dict:
               "zone": "r" + hashlib.sha256(sid.encode()).hexdigest()[:7],
               "endpoints": endpoints, "ownership_tag": f"r42-stack-{sid}",
               "unavailable": {"emp": "preview", "misp": "catalog payload is not present in this release"}}
+    if mode == 'existing_bridge':
+        result['network_mode'] = mode
+        del result['zone']
+        peers_input = spec.get('network_peers', [])
+        if not isinstance(peers_input, list) or len(peers_input) > 32:
+            raise ValueError('Use a bounded explicit operator-peer list')
+        peer_ids = set()
+        for peer in peers_input:
+            if not isinstance(peer, dict) or set(peer) != {'vm_id', 'vm_name', 'description'}:
+                raise ValueError('Each operator peer needs exact VMID, name and description')
+            identifier = _integer(peer['vm_id'], 'Operator peer VMID', 100, 999999999)
+            _name(peer['vm_name'], 'Operator peer name', r'[A-Za-z0-9][A-Za-z0-9_.-]{0,62}')
+            description = peer['description']
+            if (identifier in peer_ids or identifier == template or base <= identifier < base + len(services)
+                    or not isinstance(description, str) or not description.strip() or len(description) > 256
+                    or any(ord(char) < 32 for char in description)):
+                raise ValueError('Operator peers require distinct external identities and explicit ownership')
+            peer_ids.add(identifier)
+        result['network_peers'] = [dict(peer) for peer in peers_input]
+    elif 'network_peers' in spec:
+        raise ValueError('Operator peers are supported only for existing_bridge mode')
     for peer in peers:
         collision = (sid == peer["id"] or domain == peer["domain"]
                      or domain.endswith("." + peer["domain"]) or peer["domain"].endswith("." + domain))
-        collision |= (bridge == peer["bridge"] or result["zone"] == peer["zone"]
+        collision |= (bridge == peer["bridge"]
+                      or (result.get('zone') is not None and result.get('zone') == peer.get('zone'))
                       or network.overlaps(ipaddress.ip_network(peer["subnet"]))
                       or bool({v["vm_id"] for v in vms} & {v["vm_id"] for v in peer["vms"]}))
         if collision:

@@ -48,7 +48,7 @@
     ansible.builtin.set_fact:
       platform_scope: '{{ platform_guard.stdout | from_json }}'
 - import_playbook: ../../proxmox/sdn_network.bootstrap/main.yml
-  when: BUNDLE_ACTION == 'restore'
+  when: BUNDLE_ACTION == 'restore' and platform_scope.network_mode == 'sdn'
   vars:
     platform_restore_plan: '{{ (lookup(''file'', BUNDLE_STACK_PLAN_FILE) | from_json)
       }}'
@@ -59,7 +59,7 @@
       gateway: '{{ platform_restore_plan.gateway }}'
       snat: true
 - import_playbook: ../../proxmox/sdn_network.claim.instance/main.yml
-  when: BUNDLE_ACTION == 'restore'
+  when: BUNDLE_ACTION == 'restore' and platform_scope.network_mode == 'sdn'
   vars:
     platform_restore_plan: '{{ (lookup(''file'', BUNDLE_STACK_PLAN_FILE) | from_json)
       }}'
@@ -107,7 +107,7 @@
     no_log: true
   - name: Delete only the verified stack network
     ansible.builtin.include_tasks: network.yml
-    when: BUNDLE_ACTION == 'teardown' and platform_scope.vnet_exists
+    when: BUNDLE_ACTION == 'teardown' and platform_scope.network_mode == 'sdn' and platform_scope.vnet_exists
 - name: Wait for started platform guests using the shared connection check
   hosts: platform
   gather_facts: false
@@ -120,9 +120,9 @@
       name: ansible.utils
     when: BUNDLE_ACTION == 'start'
 - import_playbook: ../../proxmox/sdn_network.apply/main.yml
-  when: BUNDLE_ACTION == 'teardown' and platform_scope.vnet_exists
+  when: BUNDLE_ACTION == 'teardown' and platform_scope.network_mode == 'sdn' and platform_scope.vnet_exists
 - import_playbook: ../../proxmox/sdn_network.reconcile.snat_rules/main.yml
-  when: BUNDLE_ACTION == 'teardown'
+  when: BUNDLE_ACTION == 'teardown' and platform_scope.network_mode == 'sdn'
   vars:
     BUNDLE_SDN_SUBNET_CIDR: '{{ (lookup(''file'', BUNDLE_STACK_PLAN_FILE) | from_json).subnet
       }}'
