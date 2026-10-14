@@ -232,6 +232,6 @@ finally:agent.close()"""
             assert not command(compose + ["ps", "-q", "api"])
             private_file(token_file, saved)
     finally:
-        subprocess.run(compose + ["down", "-v", "--remove-orphans"], env=env, capture_output=True, timeout=60)
         subprocess.run(["docker", "rm", "-f", fake, scratch], env=env, capture_output=True, timeout=30)
+        subprocess.run(compose + ["down", "-v", "--remove-orphans"], env=env, capture_output=True, timeout=60)
         subprocess.run(["docker", "image", "rm", image], env=env, capture_output=True, timeout=30)
