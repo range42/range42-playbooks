@@ -1,6 +1,7 @@
 """Opt-in native installation acceptance using disposable containers only."""
 import copy
 from datetime import datetime, timedelta, timezone
+import fcntl
 import os
 from pathlib import Path
 import secrets
@@ -219,6 +220,14 @@ try:
 finally:agent.close()"""
             assert "passed" in command(compose + ["exec", "-T", "api", "python", "-c", native_code])
             command(["docker", "stop", first])
+            lock_root = workspaces / ".locks"
+            lock_root.mkdir(mode=0o700, exist_ok=True)
+            with (lock_root / "provisioning.lock").open("a") as held_lock:
+                (lock_root / "provisioning.lock").chmod(0o600)
+                fcntl.flock(held_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                ansible([plays[0], packaging], expect_success=False)
+                assert not command(compose + ["ps", "-q", "api"])
+                assert {p.name: p.read_bytes() for p in credentials.iterdir()} == original_credentials
             ansible([plays[0], packaging, plays[5]])
             second = command(compose + ["ps", "-q", "api"])
             assert client.get("/v1/health/ready", headers=headers).json()["ready"] is True

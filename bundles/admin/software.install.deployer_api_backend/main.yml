@@ -362,7 +362,7 @@
               raise SystemExit('Existing maintenance intent requires explicit recovery')
           database = settings.workspace_root / '.range42.db'
           if database.exists():
-              with ProvisioningLock(settings.workspace_root):
+              with ProvisioningLock(settings.workspace_root / '.locks'):
                   with sqlite3.connect(database) as connection:
                       connection.execute('BEGIN IMMEDIATE')
                       assert_idle(connection, settings.workspace_root)
