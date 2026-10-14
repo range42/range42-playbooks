@@ -1,115 +1,152 @@
----
 bundle: admin/software.install.deployer_api_backend
-
-description: Deploy range42-backend-api as a Docker container (FastAPI + SQLite + ansible-runner) with workspace, playbooks and source sync.
-
+description: Install the packaged API through native Docker/Compose bundles with preprovisioned private credentials,
+  persistent native context and reviewed execution runtime.
 optional: true
-
 install_flag: INSTALL_DEPLOYER_API_BACKEND
-
 params:
-
-  - name: global_vm_ssh_name
-    target: true
-    type: string
-    required: true
-    default_where: none
-    description: Inventory host of the backend VM (the value used in every play hosts line), e.g. r42.admin-deployer-api-backend.
-
-  - name: global_vm_ci_ip
-    type: string
-    required: true
-    default_where: none
-    description: IP of the backend VM (defined at the vm.bootstrap call-site, passed here by the scenario).
-
-  - name: LOCAL_CODE_PATH
-    type: string
-    required: false
-    default_where: bundle-inline
-    default: "{{ RANGE42_GITDIR__ROOT_DIR env }}/range42-backend-api/"
-    description: Controller path to the range42-backend-api source rsynced as the Docker build context.
-
-  - name: REMOTE_PROJECT_DIR
-    type: string
-    required: false
-    default_where: bundle-inline
-    default: /var/www/range42_backend_api
-    description: Project root on the backend VM where source, .env and compose override are placed.
-
-  - name: API_PORT
-    type: int
-    required: false
-    default_where: bundle-inline
-    default: "8000"
-    description: Host port the FastAPI service listens on (opened in the firewall and probed for readiness).
-
-  - name: WORKSPACE_DIR_HOST
-    type: string
-    required: false
-    default_where: bundle-inline
-    default: /home/range42/range42.config
-    description: Host path for the persistent workspace bind-mount (SQLite DB, events.jsonl, per-deployment secrets).
-
-  - name: PLAYBOOKS_DEST_DIR
-    type: string
-    required: false
-    default_where: bundle-inline
-    default: /home/range42/range42-playbooks
-    description: Host path where range42-playbooks is rsynced and bind-mounted read-only into the container.
-
-  - name: DEPLOYER_UI_CORS_REGEX
-    type: string
-    required: false
-    default_where: bundle-inline
-    default: '^https?://r42\.admin-deployer-ui(:\d+)?$'
-    description: Anchored CORS origin regex written to the backend .env so the deployer-ui browser Origin is accepted.
-
-  - name: INSTALL_TAILSCALE
-    type: bool
-    required: false
-    default_where: bundle-inline
-    default: "NO"
-    bool_style: yesno
-    description: Opt-in flag; when YES installs tailscale and disables nftables on the backend VM before compose up.
-
-  - name: infrastructure_tailscale_authkey
-    type: string
-    required: false
-    from_vault: true
-    default_where: none
-    description: Tailscale auth key resolved from the scenario vault; consumed only when INSTALL_TAILSCALE is YES.
-
-  - name: proxmox_api_host
-    type: string
-    required: true
-    from_vault: true
-    default_where: none
-    description: Proxmox API host resolved from the scenario vault; used to register the Proxmox host with the backend.
-
-  - name: proxmox_node
-    type: string
-    required: true
-    from_vault: true
-    default_where: none
-    description: Proxmox node name resolved from the scenario vault; sent in the backend proxmox host registration.
-
-  - name: proxmox_api_user
-    type: string
-    required: true
-    from_vault: true
-    default_where: none
-    description: Proxmox API user resolved from the scenario vault; part of the token_ref for backend registration.
-
-  - name: proxmox_api_token_id
-    type: string
-    required: true
-    from_vault: true
-    default_where: none
-    description: Proxmox API token id resolved from the scenario vault; part of the token_ref for backend registration.
-
-  - name: proxmox_api_token_secret
-    type: string
-    required: true
-    from_vault: true
-    default_where: none
-    description: Proxmox API token secret resolved from the scenario vault; part of the token_ref for backend registration.
+- name: global_vm_ssh_name
+  target: true
+  type: string
+  required: true
+  default_where: none
+  description: Inventory host of the backend VM (the value used in every play hosts line), e.g. r42.admin-deployer-api-backend.
+- name: global_vm_ci_ip
+  type: string
+  required: true
+  default_where: none
+  description: IP of the backend VM (defined at the vm.bootstrap call-site, passed here by the scenario).
+- name: LOCAL_CODE_PATH
+  type: string
+  required: false
+  default_where: bundle-inline
+  default: '{{ RANGE42_GITDIR__ROOT_DIR env }}/range42-backend-api/'
+  description: Controller path to the range42-backend-api source rsynced as the Docker build context.
+- name: REMOTE_PROJECT_DIR
+  type: string
+  required: false
+  default_where: bundle-inline
+  default: /var/www/range42_backend_api
+  description: Project root on the backend VM where source, .env and compose override are placed.
+- name: API_PORT
+  type: int
+  required: false
+  default_where: bundle-inline
+  default: '8000'
+  description: Host port the FastAPI service listens on (opened in the firewall and probed for readiness).
+- name: WORKSPACE_DIR_HOST
+  type: string
+  required: false
+  default_where: bundle-inline
+  default: /home/range42/range42.config
+  description: Existing private native workspaces on the host, mounted at /home/range42/range42.config. Prepare
+    the selected context through the existing workspace workflow.
+- name: DEPLOYER_UI_CORS_REGEX
+  type: string
+  required: false
+  default_where: bundle-inline
+  default: ^https?://r42\.admin-deployer-ui(:\d+)?$
+  description: Existing anchored CORS regex passed explicitly into the API container; exact origins can also be
+    supplied with BACKEND_CORS_ORIGINS.
+- name: INSTALL_TAILSCALE
+  type: bool
+  required: false
+  default_where: bundle-inline
+  default: 'NO'
+  bool_style: yesno
+  description: Opt-in flag; when YES installs tailscale and disables nftables on the backend VM before compose up.
+- name: infrastructure_tailscale_authkey
+  type: string
+  required: false
+  from_vault: true
+  default_where: none
+  description: Tailscale auth key resolved from the scenario vault; consumed only when INSTALL_TAILSCALE is YES.
+- name: proxmox_api_host
+  type: string
+  required: true
+  from_vault: true
+  default_where: none
+  description: Proxmox API host resolved from the scenario vault; used to register the Proxmox host with the backend.
+- name: proxmox_node
+  type: string
+  required: true
+  from_vault: true
+  default_where: none
+  description: Proxmox node name resolved from the scenario vault; sent in the backend proxmox host registration.
+- name: proxmox_api_user
+  type: string
+  required: true
+  from_vault: true
+  default_where: none
+  description: Proxmox API user resolved from the scenario vault; part of the token_ref for backend registration.
+- name: proxmox_api_token_id
+  type: string
+  required: true
+  from_vault: true
+  default_where: none
+  description: Proxmox API token id resolved from the scenario vault; part of the token_ref for backend registration.
+- name: proxmox_api_token_secret
+  type: string
+  required: true
+  from_vault: true
+  default_where: none
+  description: Proxmox API token secret resolved from the scenario vault; part of the token_ref for backend registration.
+- name: API_SECRETS_DIR_HOST
+  type: string
+  required: true
+  default_where: none
+  description: Private host directory containing existing 0600 api-token and credential-key files; credentials are
+    never generated or rotated.
+- name: RUNTIME_DIR_HOST
+  type: string
+  required: true
+  default_where: none
+  description: Reviewed complete runtime export, mounted read-only at /runtime, with bundle-runtime.json generated
+    for the exact Compose environment.
+- name: WORKSPACE_TEMPLATE_DIR_HOST
+  type: string
+  required: true
+  default_where: none
+  description: Private regular-file credential template mounted read-only at /run/range42-template.
+- name: API_STATE_DIR_HOST
+  type: string
+  required: false
+  default_where: bundle-inline
+  description: Persistent local API state including maintenance admission file; outside the source/build directory.
+  default: /var/lib/range42/backend
+- name: API_HOME_DIR_HOST
+  type: string
+  required: false
+  default_where: bundle-inline
+  description: Preprovisioned private container home mounted at /home/range42, with native SSH configuration and
+    .zshrc; do not use an operator personal home.
+  default: /var/lib/range42/backend-home
+- name: BACKEND_LISTEN_ADDRESS
+  type: string
+  required: false
+  default_where: bundle-inline
+  description: Host interface for the packaged API listener; choose explicitly for remote reverse-proxy access.
+  default: 127.0.0.1
+- name: API_CONTAINER_UID
+  type: int
+  required: false
+  default_where: bundle-inline
+  description: Image UID matching ownership of the existing private state, native home, workspace and secret files.
+  default: 1000
+- name: API_CONTAINER_GID
+  type: int
+  required: false
+  default_where: bundle-inline
+  description: Image GID for the private installation.
+  default: 1000
+- name: API_CONTAINER_IMAGE
+  type: string
+  required: false
+  default_where: bundle-inline
+  description: Tag for the API image built from the selected source; independent of runtime/profile updates.
+  default: range42-backend-api:local
+- name: BACKEND_CORS_ORIGINS
+  type: string
+  required: false
+  default_where: bundle-inline
+  description: Comma-separated exact allowed UI origins supplied to application-owned Compose.
+  default: ''
