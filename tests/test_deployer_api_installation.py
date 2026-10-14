@@ -67,7 +67,9 @@ export RANGE42_ANSIBLE_ROLES__DEVKITS_DIR="/runtime/range42-ansible_roles-debug-
     (scenario / "templates").mkdir()
     (scenario / "manifest/scenario_vms.json").write_text('{"version":2,"vms":[]}')
     (scenario / "templates/ansible-inventory.j2").write_text("all:\n  hosts:\n    localhost:\n      ansible_connection: local\n")
-    (scenario / "main.yml").write_text("- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug:\n        msg: native-localhost-only\n")
+    (scenario / "main.yml").write_text("- hosts: localhost\n  gather_facts: false\n  tasks:\n"
+        "    - ansible.builtin.include_tasks: /runtime/range42-catalog/02_ansible_layer/admin/roles/ansible.utils/tasks/wait/openssh_server/is_reachable.yml\n"
+        "    - ansible.builtin.debug:\n        msg: native-localhost-only\n")
     (scenario / "smoke.setup.sh").write_text('ansible-playbook -i "$RANGE42_ANSIBLE_ROLES__INVENTORY_DIR/inventory_default.yml" ./main.yml\n')
     (context / "scenario").symlink_to("/home/range42/native-smoke/scenarios/smoke")
 
