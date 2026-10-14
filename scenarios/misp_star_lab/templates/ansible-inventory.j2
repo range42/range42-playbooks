@@ -10,21 +10,28 @@ all:
 
         ####
 
-        r42_misp_star_lab_group:
+        # The MISP star (always deployed). Static POTENTIAL set ; the bundle
+        # targets the runtime group r42_misp_star_active built by
+        # 03_misp_star_lab_infrastructure/_build_misp_star_active_group.yml.
+        r42_misp_star:
           hosts:
-            r42.admin-misp-standalone:
+            r42.admin-misp-star-hub:
+            r42.misp-star-spoke-01:
+            r42.misp-star-spoke-02:
 
         ####
 
         # All potential wazuh-agent clients (every non-server VM in the scenario).
         # This static group is the POTENTIAL set. At deploy time, the runtime
         # group r42_misp_star_lab_wazuh_clients_active is built by
-        # _build_wazuh_clients_active_group.yml (admin-misp-standalone is the
-        # workload VM, always added). The wazuh-agent finalize play targets
+        # _build_wazuh_clients_active_group.yml (the 3 star VMs are the
+        # workload VMs, always added). The wazuh-agent finalize play targets
         # the runtime active group, not this static set.
         r42_misp_star_lab_wazuh_clients:
           hosts:
-            r42.admin-misp-standalone:
+            r42.admin-misp-star-hub:
+            r42.misp-star-spoke-01:
+            r42.misp-star-spoke-02:
 
         ####
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##
-## misp_star_lab.setup.sh - run the main playbook (template + 1 lab VM + MISP stack [+ optional admin tier])
+## misp_star_lab.setup.sh - run the main playbook (template + 3 MISP star VMs + star stack [+ optional admin tier])
 ##
 ## Same shape as kunai_lab.setup.sh (bundle-driven scenario wrappers).
 ## Requires RANGE42_ANSIBLE_ROLES__INVENTORY_DIR and RANGE42_VAULT_PASSWORD_FILE

@@ -12,8 +12,8 @@
 ##
 ## The vnet list is declared ONCE below and passed to both bundles, so they cannot drift apart.
 ##
-## Isolation between these subnets is NOT set up : they reach each other, the host routes. Expected
-## state for this scenario, not a defect.
+## Isolation between these subnets is NOT set up here : they reach each other, the host routes. The
+## team isolation of the MISP star comes from the per-NIC rules of _firewall/, and only once armed.
 ##
 
 - name: "misp_star_lab - 00 declare the networks, once"
@@ -26,7 +26,10 @@
       ansible.builtin.set_fact:
         _sdn_vnets:
           - { vnet: "net140", subnet: "192.168.140.0/24", gateway: "192.168.140.1", snat: true }   # templating, apt
-          - { vnet: "net142", subnet: "192.168.142.0/24", gateway: "192.168.142.1", snat: true }   # admin, misp-star-lab
+          - { vnet: "net142", subnet: "192.168.142.0/24", gateway: "192.168.142.1", snat: true }   # admin, misp star hub
+          ## One vnet per team. SNAT: each spoke builds its MISP image (apt, docker pulls).
+          - { vnet: "net149", subnet: "192.168.149.0/24", gateway: "192.168.149.1", snat: true }   # misp star, team-01 spoke
+          - { vnet: "net150", subnet: "192.168.150.0/24", gateway: "192.168.150.1", snat: true }   # misp star, team-02 spoke
 
 ## The zone is the infrastructure's, not the scenario's : the init declares it in the range42
 ## inventory (range42_sdn_zone, section NETWORK MODE) and the vault carries it to this workspace,

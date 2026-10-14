@@ -25,3 +25,8 @@ bundles/firewall/, zero local logic.
 The PER-SERVICE declares do not live here: they live in the admin-<service>.yml wrappers,
 gated by the same flag as the install - flag=NO means the VM does not exist, so the api
 would refuse.
+
+One exception: `stage_02-post_vm_bootstrap.misp_star_rules.yml`, the MISP star per-NIC rules
+(not gated: the star is the workload). It must run BEFORE the scenario-wide ssh accept of
+stage_03, so it lives here, as a local play: no firewall bundle declares a source-restricted
+rule list.

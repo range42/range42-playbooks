@@ -1,0 +1,42 @@
+##
+## misp_star_lab - 03_misp_star_lab_infrastructure - build r42_misp_star_active
+##
+## Builds the runtime-only r42_misp_star_active group (add_host, in-memory only ; the workspace
+## inventory is NOT modified). This is the target group of bundles/admin/software.install.misp_star
+## (see its README, "Target group contract") : every member carries misp_star_role, every spoke
+## also carries misp_star_team. No flag : the star is the workload, always created by stage_00.
+##
+##   r42_misp_star_active contains
+##   ---------------------------------------------------------------------------------
+##   r42.admin-misp-star-hub (hub), r42.misp-star-spoke-01 (team-01), r42.misp-star-spoke-02 (team-02)
+##
+## `hosts: proxmox` (not localhost) so the play matches the wrapper's `-l "all"` filter - same
+## reason as 02_admin_infrastructure/_build_admin_active_group.yml.
+##
+
+- name: build r42_misp_star_active dynamic group
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: add r42.admin-misp-star-hub to r42_misp_star_active
+      ansible.builtin.add_host:
+        name: r42.admin-misp-star-hub
+        groups: r42_misp_star_active
+        misp_star_role: hub
+      changed_when: false
+
+    - name: add r42.misp-star-spoke-01 (team-01) to r42_misp_star_active
+      ansible.builtin.add_host:
+        name: r42.misp-star-spoke-01
+        groups: r42_misp_star_active
+        misp_star_role: spoke
+        misp_star_team: team-01
+      changed_when: false
+
+    - name: add r42.misp-star-spoke-02 (team-02) to r42_misp_star_active
+      ansible.builtin.add_host:
+        name: r42.misp-star-spoke-02
+        groups: r42_misp_star_active
+        misp_star_role: spoke
+        misp_star_team: team-02
+      changed_when: false

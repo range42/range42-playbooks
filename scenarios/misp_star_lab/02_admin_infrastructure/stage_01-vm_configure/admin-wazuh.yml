@@ -3,8 +3,8 @@
 ##
 ## Delegates to the shared bundle which provides the full server pipeline
 ## (firewall + indexer + dashboard + manager + filebeat-oss + password
-## rotation). The wazuh-agent install on the client group (admin-misp-standalone,
-## the misp_star_lab workload VM) is a separate group-level finalize step ; see
+## rotation). The wazuh-agent install on the client group (the 3 MISP star VMs,
+## the misp_star_lab workload VMs) is a separate group-level finalize step ; see
 ## _finalize-baseline-admin_wazuh_client.yml.
 ##
 ## Gated by INSTALL_WAZUH (default NO per misp_star_lab feature_flags.yml).
@@ -14,4 +14,4 @@
   when: INSTALL_WAZUH | default("NO") | upper == "YES"
   vars:
     global_vm_ssh_name: "r42.admin-wazuh"
-    global_vm_ci_ip:    "192.168.142.187"
+    global_vm_ci_ip:    "192.168.142.198"

@@ -17,9 +17,9 @@
 ##   NO            | (empty -> baseline plays skip silently)
 ##   YES           | [r42.admin-wazuh]
 ##
-## Note : no admin-misp here. MISP IS the workload of this scenario, deployed
-## on admin-misp-standalone via tier 03. The wazuh-agent finalize installs the
-## agent on admin-misp-standalone (the lab VM), not on a separate admin-misp.
+## Note : no admin-misp here. The MISP star IS the workload of this scenario,
+## deployed via tier 03. The wazuh-agent finalize installs the agent on the 3
+## star VMs (the workload VMs).
 ##
 ## `hosts: proxmox` (not localhost) so the play matches the wrapper's
 ## `-l "all"` filter (the proxmox host is in the `all` group and has

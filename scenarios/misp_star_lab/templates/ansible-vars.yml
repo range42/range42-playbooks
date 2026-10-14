@@ -2,9 +2,8 @@
 ################################################################################
 # range42 - scenario-specific variables (misp_star_lab)
 #
-# These variables are specific to this scenario. misp_star_lab is a single-VM
-# scenario delivering an Ubuntu LTS host pre-provisioned with the Docker
-# baseline, intended to host MISP via docker-compose in a follow-up step.
+# These variables are specific to this scenario. misp_star_lab deploys a MISP
+# star : one instructor hub + one spoke per team, paired by MISP sync.
 #
 # For shared variables -> group_vars/all/vars.yml
 # For secrets -> vault.yml (see vault.yml.example)
@@ -23,7 +22,7 @@ INFRASTRUCTURE_SCENARIO: "misp_star_lab"
 context_auto_generate_ssh_keys: "YES"
 context_auto_generate_vm_passwords: "YES"
 
-# no student extras for misp_star_lab (single-VM host scenario)
+# no student extras for misp_star_lab (the team spokes are MISP instances, no student VMs)
 student_additionnal_keys_count: 0
 
 

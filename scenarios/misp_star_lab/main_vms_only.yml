@@ -37,7 +37,9 @@
 - import_playbook: ./03_misp_star_lab_infrastructure/_main_stage_00.yml
 
 ## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
-- import_playbook: ./_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml
+## The MISP star rules (declare only) go first, then the scenario-wide ssh accept.
+- import_playbook: ./_firewall/stage_02-post_vm_bootstrap.misp_star_rules.yml
+- import_playbook: ./_firewall/stage_03-post_vm_bootstrap.vm_ssh_baseline.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
@@ -64,4 +66,4 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 ## LAST, so no configure step above gets filtered mid-deploy. Inert unless FIREWALL_ARM_VMS=YES.
-- import_playbook: ./_firewall/stage_03-end_scenario.arm_deployed_vms.yml
+- import_playbook: ./_firewall/stage_04-end_scenario.arm_deployed_vms.yml

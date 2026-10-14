@@ -6,7 +6,7 @@
 ##   1. Download the cloud-init source files (the cicustom + apt-proxy snippets
 ##      used by every Ubuntu Noble template at first boot).
 ##   2. Build the Ubuntu Noble medium-02 template (VMID 9232) only - used by
-##      admin-misp-standalone (always) + optional admin-wazuh (INSTALL_WAZUH=YES).
+##      the 3 MISP star VMs (always) + optional admin-wazuh (INSTALL_WAZUH=YES).
 ##
 ## Both imports resolve via `RANGE42_GITDIR__ROOT_DIR` (exported by the workspace's
 ## `sourced_range42.sh`) so the call-site path is invariant.

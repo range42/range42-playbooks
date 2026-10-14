@@ -1,0 +1,54 @@
+##
+## The MISP star per-NIC rules, declared on the guest chains of the 3 star VMs. DECLARES ONLY :
+## arming stays FIREWALL_ARM_VMS / `range42-context networks-firewall-on`.
+## Not gated : the star VMs are the workload, always created by stage_00 - a missing VM makes the
+## api refuse, so the play fails loudly.
+##
+## The rule set :
+##   hub    : 443 from each spoke host (the sync path, /32), 22 + 443 from the node (192.168.142.1)
+##   spokes : 22 + 443 from the .1 of their own vnet (the node, the jump host)
+##
+## Runs BEFORE stage_03 (firewall.baseline.ssh_all_vms), which still declares its own ssh accept on
+## every VM of the manifest, open or restricted to every scenario network. So once armed the teams
+## still reach each other and the hub on 22 - the same state as every other scenario until the
+## shared subnet isolation work. 443, the MISP data path, is isolated once armed.
+##
+## The declare action is additive : changing a source adds a rule and never removes the old one.
+## A VM deployed with older sources keeps them until it is rebuilt or they are deleted by hand.
+##
+## Local play, no bundle : no firewall bundle declares a source-restricted list. Each rule goes
+## through the controller's idempotent declare action - a rerun posts nothing.
+##
+
+- name: "misp_star_lab - misp star per-NIC rules"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    _star_fw_rules:
+      - { vm_id: 1195, port: "443", source: "192.168.149.196",  comment: "misp star - spoke-01 (team-01) to hub" }
+      - { vm_id: 1195, port: "443", source: "192.168.150.197",  comment: "misp star - spoke-02 (team-02) to hub" }
+      - { vm_id: 1195, port: "22",  source: "192.168.142.1",    comment: "misp star - node ssh" }
+      - { vm_id: 1195, port: "443", source: "192.168.142.1",    comment: "misp star - node https" }
+      - { vm_id: 1196, port: "22",  source: "192.168.149.1",    comment: "misp star - node ssh" }
+      - { vm_id: 1196, port: "443", source: "192.168.149.1",    comment: "misp star - node https" }
+      - { vm_id: 1197, port: "22",  source: "192.168.150.1",    comment: "misp star - node ssh" }
+      - { vm_id: 1197, port: "443", source: "192.168.150.1",    comment: "misp star - node https" }
+
+  tasks:
+
+    ## loop_var is EXPLICIT: an item passed down to an action that loops itself gets rebound -
+    ## same rule as the firewall bundles.
+    - name: MISP STAR FIREWALL - DECLARE EACH RULE, IDEMPOTENTLY
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_declare_iptables_port"
+        vm_id: "{{ _star_fw_it.vm_id }}"
+        vm_fw_dport: "{{ _star_fw_it.port }}"
+        vm_fw_source: "{{ _star_fw_it.source }}"
+        vm_fw_comment: "{{ _star_fw_it.comment }}"
+      loop: "{{ _star_fw_rules }}"
+      loop_control:
+        loop_var: _star_fw_it

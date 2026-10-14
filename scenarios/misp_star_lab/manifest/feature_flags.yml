@@ -2,9 +2,10 @@
 # Feature flags for misp_star_lab - optional components that can be
 # toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
 #
-# Note : there is NO INSTALL_MISP flag. MISP IS the workload of this scenario,
-# always deployed on admin-misp-standalone via tier 03_misp_star_lab_infrastructure
-# regardless of any flag. Only the admin-wazuh SIEM is optional.
+# Note : there is NO flag for the MISP star. The star (hub + team spokes) IS
+# the workload of this scenario, always deployed via tier
+# 03_misp_star_lab_infrastructure regardless of any flag. Only the admin-wazuh
+# SIEM is optional.
 #
 # This file is the single source of truth :
 #   - the deploy TUI (range42-context --tui) reads `features` to render the
@@ -22,10 +23,5 @@
 features:
   - id: WAZUH
     label: "Wazuh stack - SIEM + agents services"
-    description: "Deploys an admin-wazuh VM (vm_id 1187, IP 192.168.142.187) under 02_admin_infrastructure/ + agent install on admin-misp-standalone. Off by default for misp_star_lab (focused on the MISP threat intel workload, not on SIEM)."
-    default: false
-
-  - id: TAILSCALE
-    label: "Tailscale VPN client"
-    description: "Per-group install. Off by default."
+    description: "Deploys an admin-wazuh VM (vm_id 1198, IP 192.168.142.198) under 02_admin_infrastructure/ + agent install on the 3 MISP star VMs. Off by default (the scenario focuses on the MISP star, not on SIEM)."
     default: false

@@ -48,18 +48,32 @@ Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 #
 
 Host r42.admin-wazuh
-    Hostname 192.168.142.187
+    Hostname 192.168.142.198
     User alice
     IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
     Port 22
     ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      MISP-LAB VM
+#                                      MISP STAR (hub on net142, one vnet per team)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-Host r42.admin-misp-standalone
-    Hostname 192.168.142.180
+Host r42.admin-misp-star-hub
+    Hostname 192.168.142.195
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
+    Port 22
+    ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+
+Host r42.misp-star-spoke-01
+    Hostname 192.168.149.196
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
+    Port 22
+    ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+
+Host r42.misp-star-spoke-02
+    Hostname 192.168.150.197
     User alice
     IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
     Port 22

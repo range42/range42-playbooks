@@ -4,26 +4,28 @@
 ##
 ## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
 ##
-## Provisions a single Ubuntu LTS VM (admin-misp-standalone) on net142 from
-## the project standard medium template (VMID 9232 : 2cpu / 8gb / 64gb) and
-## deploys the misp-standalone docker-compose stack on it via the shared
-## bundle bundles/admin/software.install.misp_standalone/.
+## Provisions the MISP star - one instructor hub + one spoke per team, one vnet per team - from
+## the project standard medium template (VMID 9232 : 2cpu / 8gb / 64gb), deploys the misp-star
+## stack on each VM and pairs the spokes to the hub, via the shared bundle
+## bundles/admin/software.install.misp_star/.
 ##
-## MISP IS the workload of this scenario - always deployed (no INSTALL_MISP
-## flag). The optional admin tier (admin-wazuh) is gated by INSTALL_WAZUH
-## (default NO per manifest/feature_flags.yml).
+## The star IS the workload of this scenario - always deployed (no INSTALL flag for it). The
+## optional admin tier (admin-wazuh) is gated by INSTALL_WAZUH (default NO per
+## manifest/feature_flags.yml).
 ##
 ## Lab topology :
-##   - admin-misp-standalone (192.168.142.180, VMID 1180, net142)  - MISP host
+##   - admin-misp-star-hub (192.168.142.195, VMID 1195, net142)  - instructor hub
+##   - misp-star-spoke-01  (192.168.149.196, VMID 1196, net149)  - team-01 spoke
+##   - misp-star-spoke-02  (192.168.150.197, VMID 1197, net150)  - team-02 spoke
 ##
 ## Optional admin tier (192.168.142.0/24 admin band) :
-##   - admin-wazuh (192.168.142.187, VMID 1187, net142)            - SIEM server
+##   - admin-wazuh (192.168.142.198, VMID 1198, net142)          - SIEM server
 ##
 ## Global stage discipline (mirror of kunai_lab / demo_lab) :
 ##   1. 01_templates-bootstrap                                create the shared template (9232)
 ##   2. ALL tiers stage_00 (vm_bootstrap)                     create every VM first
 ##   3. ALL tiers stage_01 (vm_configure)                     configure every VM after
-##   4. cross-tier finalize (wazuh-agent on admin-misp-standalone)  when INSTALL_WAZUH=YES
+##   4. cross-tier finalize (wazuh-agent on the 3 star VMs)   when INSTALL_WAZUH=YES
 ##
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### 00 - SDN BOOTSTRAP #### #### #### #### #### #### ####
@@ -55,7 +57,9 @@
 - import_playbook: ./03_misp_star_lab_infrastructure/_main_stage_00.yml
 
 ## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
-- import_playbook: ./_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml
+## The MISP star rules (declare only) go first, then the scenario-wide ssh accept.
+- import_playbook: ./_firewall/stage_02-post_vm_bootstrap.misp_star_rules.yml
+- import_playbook: ./_firewall/stage_03-post_vm_bootstrap.vm_ssh_baseline.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
@@ -79,10 +83,10 @@
 #### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
-# wazuh-agent install on admin-misp-standalone (the misp lab workload VM).
+# wazuh-agent install on the 3 star VMs (the workload VMs).
 # Targets r42_misp_star_lab_wazuh_clients_active (runtime). Runs LAST so the
-# wazuh server (tier 02 stage_01) is reachable AND admin-misp-standalone
-# (tier 03 stage_00 + stage_01) is created + baselined + has docker + misp
+# wazuh server (tier 02 stage_01) is reachable AND the star VMs
+# (tier 03 stage_00 + stage_01) are created + have docker + the misp-star
 # stack deployed. Gated by INSTALL_WAZUH.
 #
 
@@ -93,4 +97,4 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 ## LAST, so no configure step above gets filtered mid-deploy. Inert unless FIREWALL_ARM_VMS=YES.
-- import_playbook: ./_firewall/stage_03-end_scenario.arm_deployed_vms.yml
+- import_playbook: ./_firewall/stage_04-end_scenario.arm_deployed_vms.yml
