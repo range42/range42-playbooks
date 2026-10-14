@@ -130,6 +130,7 @@
         dest: "{{ _star_ns_file }}"
         mode: "0600"
         force: false
+      no_log: true   # --diff would print the namespace
       run_once: true
       delegate_to: localhost
 
