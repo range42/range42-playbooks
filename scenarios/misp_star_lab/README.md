@@ -56,20 +56,39 @@ The star pairing options are bundle parameters, set in `03_misp_star_lab_infrast
 
 ## Team isolation: firewall declared, not armed
 
-**Without an armed firewall, the teams reach each other.** The host routes between `net142`, `net149` and `net150`. Team isolation requires the Proxmox per-NIC firewall **armed**: `-e FIREWALL_ARM_VMS=YES` at deploy, or later `range42-context networks-firewall-on --scope scenario`. This scenario never arms by itself.
+**Without an armed firewall, the teams reach each other.** The host routes between `net142`, `net149` and `net150`. Team isolation requires the Proxmox per-NIC firewall **armed** at all three levels: the datacenter switch, the guest switch and the card flag. `range42-context networks-firewall-on --scope scenario` sets all three. `-e FIREWALL_ARM_VMS=YES` at deploy sets only the guest switches and the card flags: on a node whose datacenter switch is off, it filters nothing until `firewall.enable.datacenter_and_nodes` (or `networks-firewall-on --scope proxmox`) runs. This scenario never arms by itself.
 
 What the deploy declares (`_firewall/stage_02-post_vm_bootstrap.misp_star_rules.yml`, rules only, before the scenario-wide SSH stage):
 
 - hub: IN 443 from `192.168.149.196` and `192.168.150.197` only (the spoke hosts, the sync path), IN 22 + 443 from `192.168.142.1` (the node);
-- each spoke: IN 22 + 443 from the `.1` of its own vnet (the node, the jump host).
+- each spoke: IN 22 + 443 from the `.1` of its own vnet (the node, the jump host);
+- `admin-wazuh` (1198), only with `INSTALL_WAZUH=YES`: IN 1514 (agent events) + 1515 (agent enrollment) from each star host (`192.168.142.195`, `192.168.149.196`, `192.168.150.197`), one `/32` per host;
+- `ipfilter` on the `net0` of the 3 star VMs: the ipset `ipfilter-net0` holds the VM's own address and the option `ipfilter: 1` is set, so each star NIC may only send from its own address.
 
-**Isolation once armed: 443 only.** Armed, a team cannot reach the other team's spoke on 443, and the spoke-to-hub 443 path is the only one open between the vnets. **SSH (22) stays open between teams**: the next stage, `firewall.baseline.ssh_all_vms`, declares its own SSH accept on every VM of the manifest (open, or restricted to every scenario network), as in every other scenario. Narrowing that is the shared subnet isolation work, not this scenario.
+**Isolation once armed: 443 only.** Armed, a team cannot reach the other team's spoke on 443, and the spoke-to-hub 443 path is the only MISP path open between the vnets. **SSH (22) stays open between teams**: the next stage, `firewall.baseline.ssh_all_vms`, declares its own SSH accept on every VM of the manifest (open, or restricted to every scenario network), as in every other scenario. So the node-only SSH rules above add nothing while that baseline accept is there. Narrowing that is the shared subnet isolation work, not this scenario.
 
-The hub 443 sources are the spoke hosts (`/32`), not the team subnets: this is the narrowest source consistent with the design, because the spoke is the only host of a team that syncs. Once armed, this stops another host of a team vnet that uses its own address. It does not stop a hostile one: the rule matches the source address of the packet, which is not authenticated, and no `ipfilter` is configured on the NICs. A team with root on its spoke (or a second VM on its vnet) can send from `192.168.149.196` and reach the hub on 443. The `/32` stops a misplaced VM, not an attacker. The declare action only adds rules: a hub deployed with older, wider sources keeps them until VM 1195 is rebuilt or the old rules are deleted by hand.
+**Measured on the lab (2026-10-14, Proxmox VE 9.2.21, fresh deploy with `INSTALL_WAZUH=YES`, then datacenter + node + the 4 guests armed).** Each probe is a new TCP connection with a 4 s timeout, from the VM itself; "dropped" means no answer at all.
+
+| From \ to (port) | hub 443 | spoke 443 | any other star VM 22 | admin-wazuh 1514 / 1515 | admin-wazuh 443 / 55000 |
+|---|---|---|---|---|---|
+| spoke-01, spoke-02 | open | other spoke: **dropped (I1)** | open | open | dropped |
+| hub | - | dropped | open | open | dropped |
+| admin-wazuh | dropped | dropped | open | - | - |
+| node (`.1` of each vnet) | open | open (from the spoke's own `.1`) | open | dropped | dropped |
+
+- I1: spoke-01 and spoke-02 cannot open 443 on each other. Before arming, the same probes were open: the test detects reachability.
+- I2: armed, both spokes call MISP `servers/testConnection` on their hub entry and get `status=1`.
+- The Wazuh agents of the 3 star VMs were restarted while armed: each opened a new connection to 1198 on 1514 and the manager lists all 3 agents `Active`.
+- SSH: 22 answers with the `sshd` banner between every pair of VMs, teams included, as described above. This matches what this README states.
+- `admin-wazuh` 443 (the dashboard) and 55000 (the API) are dropped once armed, from the VMs and from the node: this scenario declares no rule for them.
+
+The hub 443 sources are the spoke hosts (`/32`), not the team subnets: this is the narrowest source consistent with the design, because the spoke is the only host of a team that syncs. The rule matches the source address of the packet, so the `/32` alone means "a packet that claims this address". `ipfilter` binds each address to its NIC. Measured on the lab (2026-10-14, armed): root on spoke-01 added `192.168.150.197` (spoke-02's address, another vnet) to its interface and opened 443 to the hub from it. Without `ipfilter`, the spoofed SYN reached the hub's NIC (the node's reverse-path filter is loose, `rp_filter=2`); the handshake never completes, because the hub answers the real spoke-02. With `ipfilter`, the spoofed SYN left the guest and was dropped on its own card, while spoke-01 still synced (`testConnection` `status=1`) and its Wazuh agent stayed connected.
+
+Limits of `ipfilter` here: it filters only once armed, like every rule above. It covers the 3 star NICs, not `admin-wazuh` and not a VM that another scenario or an operator attaches to a team vnet later. The deploy only adds: an address already in an `ipfilter-net0` ipset stays there. The declare action only adds rules too: a hub deployed with older, wider sources keeps them until VM 1195 is rebuilt or the old rules are deleted by hand.
 
 **Shared `alice` account.** `vm.bootstrap` gives the `alice` admin account the same SSH public key and the same password on every VM, with `NOPASSWD` sudo. With 22 open between teams even once armed, anyone who holds the `alice` key for a spoke can SSH to the hub as `alice` and become root there. Do not give the `alice` key to a team: team access is the MISP web account of its spoke. No private key is stored on the guests, so root on a spoke cannot use the `alice` key. Root on a spoke can read the salted `sha256crypt` hash of the shared password (in `/etc/shadow` and the cloud-init user-data): treat that password as exposed once a team holds root on a spoke, because the hash can be cracked offline. The cracked password does not open SSH to the hub only as long as the hub `sshd` keeps `PasswordAuthentication` off. Template 9232 sets that, not this scenario or any bundle, so a template change can silently open it. `su`, the Proxmox console and any other host that accepts the password stay exposed.
 
-**Wazuh agents once armed.** With `INSTALL_WAZUH=YES`, this scenario declares no rule on `admin-wazuh` (1198) for the agent ports: armed, 1198 accepts only the baseline 22, so the agents of the 3 star VMs cannot reach the manager. The agent bundle uses 1514 (events, enrollment) and 55000 (API); the server also opens 1515. A future rule must accept the agent ports on 1198 only, from the 3 star hosts only (`192.168.142.195`, `192.168.149.196`, `192.168.150.197`), for example with `bundles/firewall/in_proxmox/firewall.baseline.wazuh_server_agents_access` and a comma list of the 3 `/32`.
+**Wazuh agents once armed.** With `INSTALL_WAZUH=YES`, the deploy declares 1514 and 1515 on `admin-wazuh` (1198) from each star host. These are the ports of the `software.install.wazuh-agent` role as the agent bundle calls it: events on `wazuh_managers[].port` 1514, and registration through the agent's own enrollment (`wazuh_agent_enrollment.enabled: 'yes'`, port 1515). The REST registration on 55000 runs only when enrollment is off, so the agents do not need 55000. `bundles/firewall/in_proxmox/firewall.baseline.wazuh_server_agents_access` declares 1514 + 55000, not 1515, so this scenario does not use it. Re-enrollment of an agent while armed was not tested: 1515 was shown open from the 3 star hosts, the enrollment itself ran before arming.
 
 **SSH source list in restricted mode.** When the init chose `range42_fw_vm_ssh_sources`, `firewall.baseline.ssh_all_vms` restricts the SSH accept of every VM of this scenario to every network the manifest names: `192.168.140.0/24`, `192.168.142.0/24`, `192.168.149.0/24` and `192.168.150.0/24`. So a spoke accepts SSH from the other team's vnet. The manifest drives this list, not a flag. In open mode (the default) the accept is open to any source anyway.
 
@@ -139,7 +158,7 @@ The topology is fixed at 2 teams. The `r42playbooks` generator cannot render thi
 2. a VM entry in `manifest/scenario_vms.json`, then `scenarios/_regenerate_reserved.sh` and `scenarios/_check_reserved.sh`;
 3. a `vm.bootstrap` block in `03_misp_star_lab_infrastructure/stage_00-vm_bootstrap/_misp_star_group.yml`;
 4. an `add_host` with `misp_star_role: spoke` and a unique `misp_star_team` in `03_misp_star_lab_infrastructure/_build_misp_star_active_group.yml`;
-5. the hub 443 rule from the new spoke host (`/32`) and the spoke's own rules in `_firewall/stage_02-post_vm_bootstrap.misp_star_rules.yml`;
+5. in `_firewall/stage_02-post_vm_bootstrap.misp_star_rules.yml`: the hub 443 rule from the new spoke host (`/32`), the spoke's own rules, its two wazuh rules on 1198 (1514, 1515) and its `_star_ipfilter` entry;
 6. the host in `templates/ansible-inventory.j2` (both groups), `templates/ssh-config.j2` and `02_admin_infrastructure/_build_wazuh_clients_active_group.yml`.
 
 ## Wrapper scripts
