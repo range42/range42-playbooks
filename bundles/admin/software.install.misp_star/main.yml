@@ -1,0 +1,292 @@
+# ============================================================================
+# bundles/admin/software.install.misp_star/main.yml
+# ============================================================================
+# MISP star topology install playbook. Deploys the misp-star catalog element
+# (range42-catalog/03_container_layer/docker/admin/misp-star/) on one hub VM
+# and N spoke VMs, each with its own staged .env (identity + secrets), then
+# pairs them with the catalog role software.configure.misp_sync.
+#
+# TARGET GROUP (runtime-only, built by the scenario with add_host - see
+# scenarios/demo_lab/02_admin_infrastructure/_build_admin_active_group.yml
+# for the pattern) :
+#   - default group name : r42_misp_star_active
+#   - every member carries misp_star_role: "hub" | "spoke" (exactly one hub)
+#   - every spoke also carries misp_star_team: "<team>"  ([A-Za-z0-9_-],
+#     unique, becomes MISP_ORG of that spoke)
+#
+# PER-HOST .env (strategy: staged element copy on the controller) :
+#   Play 1 copies the element to $RANGE42_ACTIVE_CONFIG_DIR/misp_star/<host>/
+#   and renders <host>/.env ONCE (skipped when it already exists) : host
+#   identity (mode, org, baseurl = the VM IP) plus per-host generated secrets.
+#   The shared uuid5 namespace is generated once per star into
+#   $RANGE42_ACTIVE_CONFIG_DIR/secrets/misp_star/org_uuid_namespace.
+#   The docker-compose role then rsyncs the staged copy, so the FIRST boot
+#   already uses the right identity (no down -v, no wasted first boot).
+#   Do NOT delete a staged .env while its stack lives : the database was
+#   initialised with those secrets. Rebuild = VM `docker compose down -v`
+#   + delete the staged .env + re-run.
+#
+# CALLER PARAMETERS (see bundle_parameters.src.yml) :
+#   misp_star_target_group            : group to run on (default r42_misp_star_active)
+#   MISP_STAR_INTER_TEAM_SHARING      : bool, default false - 'all teams' sharing group
+#   MISP_STAR_SIGHTINGS_SYNC          : push|both, default push
+#   MISP_STAR_GALAXY_CLUSTERS_SYNC    : push|both, default push
+#   MISP_STAR_TEAM_USERS_CAN_PUBLISH  : bool, default true
+#   MISP_STAR_HTTP_PORT / MISP_STAR_HTTPS_PORT : published ports, default 80/443
+#   MISP_STAR_SYNC_NO_LOG             : bool, default true (false = debug, keys in output)
+#
+# Example call-site (in scenarios/<scenario>/...) :
+#
+#   - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.misp_star/main.yml"
+#     when: INSTALL_MISP_STAR | default("NO") | upper == "YES"
+#
+# The guest ufw opened below is NOT an isolation control between teams (a
+# student root on a spoke can disable it). Team isolation needs the Proxmox
+# per-NIC firewall - see the misp star tracking issue, "Network needs".
+#
+# ============================================================================
+
+
+- name: misp star - stage the per-host element copy and .env on the controller
+  hosts: "{{ misp_star_target_group | default('r42_misp_star_active') }}"
+  become: false
+  gather_facts: true   # ansible_default_ipv4 of each VM feeds MISP_BASEURL
+  vars:
+    _star_catalog_src: "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-star"
+    _star_ws_dir:      "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}"
+    _star_stage_dir:   "{{ _star_ws_dir }}/misp_star/{{ inventory_hostname }}"
+    _star_ns_file:     "{{ _star_ws_dir }}/secrets/misp_star/org_uuid_namespace"
+    _star_white_cell:  "instructors"
+    _star_hex:         "0123456789abcdef"
+    _star_https_port:  "{{ MISP_STAR_HTTPS_PORT | default(443) | int }}"
+    _star_hubs: "{{ ansible_play_hosts_all | map('extract', hostvars)
+                    | selectattr('misp_star_role', 'defined')
+                    | selectattr('misp_star_role', 'eq', 'hub') | list }}"
+    _star_teams: "{{ ansible_play_hosts_all | map('extract', hostvars)
+                     | selectattr('misp_star_role', 'defined')
+                     | selectattr('misp_star_role', 'eq', 'spoke')
+                     | map(attribute='misp_star_team', default='') | select() | list }}"
+  tasks:
+    - name: misp star - validate the star group and the workspace environment
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'RANGE42_INVENTORY') | length > 0
+          - lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') | length > 0
+          - misp_star_role | default('') in ['hub', 'spoke']
+          - misp_star_role == 'hub' or (misp_star_team | default('') is match('^[A-Za-z0-9_-]+\Z'))
+          - _star_hubs | length == 1
+          - _star_teams | length > 0
+          - _star_teams | map('lower') | unique | length == _star_teams | length
+        fail_msg: >-
+          misp_star: RANGE42_INVENTORY and RANGE42_ACTIVE_CONFIG_DIR must be exported
+          (active workspace); every host of the star group needs misp_star_role
+          (hub|spoke) with exactly one hub; every spoke needs a unique misp_star_team
+          ([A-Za-z0-9_-]).
+        quiet: true
+
+    ##
+    ## The element must NOT carry a shared .env (the misp-standalone
+    ## convention) : it would overwrite the per-host staged .env on every
+    ## element re-sync and give every star VM the same identity and secrets.
+    ##
+    - name: misp star - check for a shared .env in the catalog element
+      ansible.builtin.stat:
+        path: "{{ _star_catalog_src }}/.env"
+      register: _star_cat_env
+      run_once: true
+      delegate_to: localhost
+
+    - name: misp star - refuse a shared .env in the catalog element
+      ansible.builtin.assert:
+        that: not _star_cat_env.stat.exists
+        fail_msg: >-
+          misp_star: {{ _star_catalog_src }}/.env exists. misp_star renders one .env
+          per host in the workspace staging directory ; remove the catalog-level .env.
+        quiet: true
+      run_once: true
+
+    - name: misp star - create the workspace staging and secrets directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0700"
+      loop:
+        - "{{ _star_ws_dir }}/misp_star"
+        - "{{ _star_ws_dir }}/secrets/misp_star"
+      run_once: true
+      delegate_to: localhost
+
+    ##
+    ## uuid5(namespace, org name) must be identical on every instance of one
+    ## star, and the namespace must stay unpredictable (a student who knows
+    ## it can compute the sharing-group UUIDs). Generated once, kept across
+    ## runs (force: false).
+    ##
+    - name: misp star - generate the star org uuid namespace once (kept across runs)
+      vars:
+        _star_ns_hex: "{{ lookup('community.general.random_string', length=32, override_all=_star_hex) }}"
+      ansible.builtin.copy:
+        content: "{{ _star_ns_hex | regex_replace('^(.{8})(.{4})(.{4})(.{4})(.{12})$', '\\1-\\2-\\3-\\4-\\5') }}\n"
+        dest: "{{ _star_ns_file }}"
+        mode: "0600"
+        force: false
+      run_once: true
+      delegate_to: localhost
+
+    - name: misp star - create this host's staging directory
+      ansible.builtin.file:
+        path: "{{ _star_stage_dir }}"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+
+    ##
+    ## Controller-side copy (catalog -> workspace staging). mode: preserve
+    ## keeps the provisioning scripts executable for the rsync to the VM.
+    ## Element updates propagate on re-runs ; .env is not in the catalog
+    ## (asserted above), so the staged .env is never overwritten.
+    ##
+    - name: misp star - copy the element into this host's staging directory
+      ansible.builtin.copy:
+        src: "{{ _star_catalog_src }}/"
+        dest: "{{ _star_stage_dir }}/"
+        remote_src: true
+        mode: preserve
+      delegate_to: localhost
+
+    - name: misp star - check whether this host's .env already exists
+      ansible.builtin.stat:
+        path: "{{ _star_stage_dir }}/.env"
+      register: _star_env_stat
+      delegate_to: localhost
+
+    ##
+    ## Generate-once : a re-run never rewrites an existing .env. The database
+    ## is initialised from these secrets at first boot ; regenerating them on
+    ## a live stack would break it.
+    ##
+    - name: misp star - generate this host's .env (identity + per-host secrets)
+      delegate_to: localhost
+      when: not _star_env_stat.stat.exists
+      block:
+        - name: misp star - seed .env from the element .env.example
+          ansible.builtin.copy:
+            src: "{{ _star_stage_dir }}/.env.example"
+            dest: "{{ _star_stage_dir }}/.env"
+            remote_src: true
+            mode: "0600"
+
+        - name: misp star - write the host identity and secrets into .env
+          ansible.builtin.lineinfile:
+            path: "{{ _star_stage_dir }}/.env"
+            regexp: "^{{ item.key }}="
+            line: "{{ item.key }}={{ item.value }}"
+          loop: "{{ _star_env | dict2items }}"
+          no_log: true
+          vars:
+            _star_env:
+              MISP_HTTP_PORT:          "{{ MISP_STAR_HTTP_PORT | default(80) | int }}"
+              MISP_HTTPS_PORT:         "{{ _star_https_port }}"
+              MISP_HOSTNAME:           "{{ ansible_default_ipv4.address }}"
+              MISP_BASEURL:            "https://{{ ansible_default_ipv4.address }}{{ '' if _star_https_port | int == 443 else ':' ~ _star_https_port }}"
+              MISP_ORG:                "{{ _star_white_cell if misp_star_role == 'hub' else misp_star_team }}"
+              MISP_STAR_MODE:          "{{ misp_star_role }}"
+              MISP_INSTRUCTOR_ORG:     "{{ _star_white_cell }}"
+              MISP_TEAMS:              "{{ _star_teams | join(',') }}"
+              MISP_ORG_UUID_NAMESPACE: "{{ lookup('file', _star_ns_file) }}"
+              MISP_DEFAULT_DISTRIBUTION: "4"
+              MISP_TEAM_USERS_CAN_PUBLISH: "{{ MISP_STAR_TEAM_USERS_CAN_PUBLISH | default(true) | bool | lower }}"
+              MISP_SALT:               "{{ lookup('community.general.random_string', length=64, override_all=_star_hex) }}"
+              MISP_DB_PASSWORD:        "{{ lookup('community.general.random_string', length=32, override_all=_star_hex) }}"
+              DB_ROOT_PASSWORD:        "{{ lookup('community.general.random_string', length=32, override_all=_star_hex) }}"
+              MISP_ADMIN_PASSWORD:     "Aa1!{{ lookup('community.general.random_string', length=24, override_all=_star_hex) }}"
+              MISP_READER_PASSWORD:    "Aa1!{{ lookup('community.general.random_string', length=24, override_all=_star_hex) }}"
+              MISP_WRITER_PASSWORD:    "Aa1!{{ lookup('community.general.random_string', length=24, override_all=_star_hex) }}"
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: misp star - install Docker + docker-compose on the star VMs
+  hosts: "{{ misp_star_target_group | default('r42_misp_star_active') }}"
+  become: true
+  gather_facts: true
+  roles:
+    - software.install.warmup.basic_packages
+  vars:
+    INSTALL_PACKAGES_BASICS:               "YES"
+    INSTALL_PACKAGES_DOCKER:               "YES"
+    INSTALL_PACKAGES_DOCKER_COMPOSE:       "YES"
+    INSTALL_PACKAGES_NTP_AND_UPDATE_TIME:  "YES"
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+##
+## One single call : the role starts with `state: reset`, so a second call
+## would erase the rules of the first one. This guest ufw is reachability,
+## not team isolation (see the header).
+##
+- name: misp star - open guest firewall ports (SSH + the published MISP ports)
+  hosts: "{{ misp_star_target_group | default('r42_misp_star_active') }}"
+  become: true
+  gather_facts: false
+  roles:
+    - software.configure.firewalls
+  vars:
+    firewall_rules:
+      - { ip: "all", port: 22,                                          protocol: "tcp" }
+      - { ip: "all", port: "{{ MISP_STAR_HTTP_PORT | default(80) }}",   protocol: "tcp" }
+      - { ip: "all", port: "{{ MISP_STAR_HTTPS_PORT | default(443) }}", protocol: "tcp" }
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: misp star - deploy the misp-star stack from the staged per-host copy
+  hosts: "{{ misp_star_target_group | default('r42_misp_star_active') }}"
+  become: true
+  gather_facts: false
+  roles:
+    - software.configure.docker-compose
+  vars:
+    LABEL_PROJECT_TYPE:   "ADMIN"
+    LABEL_PROJET_NAME:    "misp-star"
+    LOCAL__PROJECT_DIR:   "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/misp_star/{{ inventory_hostname }}"
+    REMOTE_PROJECT_DIR:   "/home/alice/misp-star"
+    OPERATOR_USER:        "alice"
+    CLEAN_UP_DEPLOY_DIR:  "NO"
+    SEND_POC_DIR:         "NO"
+  post_tasks:
+    ##
+    ## The 'Provisioning complete.' log line is printed BEFORE the last
+    ## provisioning steps ; the only completion signal is the provisioner
+    ## container exit code 0. First boot takes ~210 s for one VM, up to
+    ## ~27 min for 3 VMs in parallel including the image build.
+    ##
+    - name: misp star - require the provisioner exit code 0
+      ansible.builtin.shell:
+        cmd: docker wait "$(docker compose ps -aq provisioner)"
+        chdir: /home/alice/misp-star
+      register: _star_prov
+      changed_when: false
+      failed_when: _star_prov.rc != 0 or (_star_prov.stdout | trim) != '0'
+
+# #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+##
+## One play over the hub AND every spoke, linear strategy, no serial : the
+## spokes read facts the hub publishes in the same play. The role is
+## idempotent and refuses --check. misp_star_inter_team_sharing and
+## misp_sync_no_log must reach the role as real booleans - the | bool casts
+## below guarantee that whatever the call-site passes.
+##
+- name: misp star - pair the hub and the spokes (software.configure.misp_sync)
+  hosts: "{{ misp_star_target_group | default('r42_misp_star_active') }}"
+  strategy: linear
+  become: true
+  gather_facts: false
+  roles:
+    - role: software.configure.misp_sync
+      vars:
+        misp_star_org_uuid_namespace:   "{{ lookup('file', lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') + '/secrets/misp_star/org_uuid_namespace') }}"
+        misp_star_inter_team_sharing:   "{{ MISP_STAR_INTER_TEAM_SHARING | default(false) | bool }}"
+        misp_star_sightings_sync:       "{{ MISP_STAR_SIGHTINGS_SYNC | default('push') }}"
+        misp_star_galaxy_clusters_sync: "{{ MISP_STAR_GALAXY_CLUSTERS_SYNC | default('push') }}"
+        misp_sync_https_port:           "{{ MISP_STAR_HTTPS_PORT | default(443) | int }}"
+        misp_sync_no_log:               "{{ MISP_STAR_SYNC_NO_LOG | default(true) | bool }}"
