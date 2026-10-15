@@ -3,8 +3,9 @@
 # ============================================================================
 # MISP star topology install playbook. Deploys the misp-star catalog element
 # (range42-catalog/03_container_layer/docker/admin/misp-star/) on one hub VM
-# and N spoke VMs, each with its own staged .env (identity + secrets), then
-# pairs them with the catalog role software.configure.misp_sync.
+# and N spoke VMs, each with its own staged .env (per-host identity + the
+# secrets of the catalog .env seed), then pairs them with the catalog role
+# software.configure.misp_sync.
 #
 # TARGET GROUP (runtime-only, built by the scenario with add_host - see
 # scenarios/demo_lab/02_admin_infrastructure/_build_admin_active_group.yml
@@ -14,17 +15,28 @@
 #   - every spoke also carries misp_star_team: "<team>"  ([A-Za-z0-9_-],
 #     unique, becomes MISP_ORG of that spoke)
 #
-# PER-HOST .env (strategy: staged element copy on the controller) :
-#   Play 1 copies the element to $RANGE42_ACTIVE_CONFIG_DIR/misp_star/<host>/
-#   and renders <host>/.env ONCE (skipped when it already exists) : host
-#   identity (mode, org, baseurl = the VM IP) plus per-host generated secrets.
-#   The shared uuid5 namespace is generated once per star into
+# Catalog .env handling (same convention as the nextcloud, rocketchat,
+# gitea and mattermost bundles) :
+#   Play 1 cp .env.example -> .env on the catalog element if .env is absent
+#   (force=false respects an existing customized .env). This catalog .env is
+#   the SEED of the star secrets (MISP_SALT, DB and user passwords). Populate
+#   the catalog .env BEFORE running for stronger creds : left untouched, the
+#   hub and every spoke run with the same static credentials published in
+#   .env.example.
+#
+# PER-HOST .env (staged element copy on the controller) :
+#   Play 1 copies the element (without its .env) to
+#   $RANGE42_ACTIVE_CONFIG_DIR/misp_star/<host>/ and renders <host>/.env ONCE
+#   (skipped when it already exists) : a copy of the catalog seed, then the
+#   host identity (mode, org, baseurl = the VM IP, teams, ports) written over
+#   it. The shared uuid5 namespace is generated once per star into
 #   $RANGE42_ACTIVE_CONFIG_DIR/secrets/misp_star/org_uuid_namespace.
 #   The docker-compose role then rsyncs the staged copy, so the FIRST boot
 #   already uses the right identity (no down -v, no wasted first boot).
 #   Do NOT delete a staged .env while its stack lives : the database was
-#   initialised with those secrets. Rebuild = VM `docker compose down -v`
-#   + delete the staged .env + re-run.
+#   initialised with those secrets, and editing the seed later does not
+#   change a staged .env. Rebuild = VM `docker compose down -v` + delete the
+#   staged .env + re-run.
 #
 # CALLER PARAMETERS (see bundle_parameters.src.yml) :
 #   misp_star_target_group            : group to run on (default r42_misp_star_active)
@@ -85,25 +97,18 @@
         quiet: true
 
     ##
-    ## The element must NOT carry a shared .env (the misp-standalone
-    ## convention) : it would overwrite the per-host staged .env on every
-    ## element re-sync and give every star VM the same identity and secrets.
+    ## Seed of the star secrets. Populate the catalog .env BEFORE running for
+    ## stronger creds : each host .env below copies its secret values.
     ##
-    - name: misp star - check for a shared .env in the catalog element
-      ansible.builtin.stat:
-        path: "{{ _star_catalog_src }}/.env"
-      register: _star_cat_env
+    - name: cp .env.example -> .env if .env absent (force=false respects an existing customized .env)
+      ansible.builtin.copy:
+        src:  "{{ _star_catalog_src }}/.env.example"
+        dest: "{{ _star_catalog_src }}/.env"
+        mode: "0600"
+        force: false
+        remote_src: true
       run_once: true
       delegate_to: localhost
-
-    - name: misp star - refuse a shared .env in the catalog element
-      ansible.builtin.assert:
-        that: not _star_cat_env.stat.exists
-        fail_msg: >-
-          misp_star: {{ _star_catalog_src }}/.env exists. misp_star renders one .env
-          per host in the workspace staging directory ; remove the catalog-level .env.
-        quiet: true
-      run_once: true
 
     - name: misp star - create the workspace staging and secrets directories
       ansible.builtin.file:
@@ -142,17 +147,22 @@
       delegate_to: localhost
 
     ##
-    ## Controller-side copy (catalog -> workspace staging). mode: preserve
-    ## keeps the provisioning scripts executable for the rsync to the VM.
-    ## Element updates propagate on re-runs ; .env is not in the catalog
-    ## (asserted above), so the staged .env is never overwritten.
+    ## Controller-side copy (catalog -> workspace staging). rsync -a keeps
+    ## the provisioning scripts executable for the rsync to the VM. Element
+    ## updates propagate on re-runs. The catalog .env (the seed) is excluded :
+    ## copying it would overwrite this host's staged .env on every re-run.
     ##
-    - name: misp star - copy the element into this host's staging directory
-      ansible.builtin.copy:
-        src: "{{ _star_catalog_src }}/"
-        dest: "{{ _star_stage_dir }}/"
-        remote_src: true
-        mode: preserve
+    - name: misp star - copy the element into this host's staging directory (without the catalog .env)
+      ansible.builtin.command:
+        argv:
+          - rsync
+          - -a
+          - --itemize-changes
+          - --exclude=/.env
+          - "{{ _star_catalog_src }}/"
+          - "{{ _star_stage_dir }}/"
+      register: _star_copy
+      changed_when: _star_copy.stdout | length > 0
       delegate_to: localhost
 
     - name: misp star - check whether this host's .env already exists
@@ -162,22 +172,27 @@
       delegate_to: localhost
 
     ##
-    ## Generate-once : a re-run never rewrites an existing .env. The database
-    ## is initialised from these secrets at first boot ; regenerating them on
-    ## a live stack would break it.
+    ## Render once : a re-run never rewrites an existing .env. The database
+    ## is initialised from these secrets at first boot ; changing them on a
+    ## live stack would break it.
     ##
-    - name: misp star - generate this host's .env (identity + per-host secrets)
+    - name: misp star - render this host's .env (catalog seed + host identity)
       delegate_to: localhost
       when: not _star_env_stat.stat.exists
       block:
-        - name: misp star - seed .env from the element .env.example
+        - name: misp star - copy the catalog .env seed (secrets) to this host's .env
           ansible.builtin.copy:
-            src: "{{ _star_stage_dir }}/.env.example"
+            src: "{{ _star_catalog_src }}/.env"
             dest: "{{ _star_stage_dir }}/.env"
             remote_src: true
             mode: "0600"
 
-        - name: misp star - write the host identity and secrets into .env
+        ##
+        ## Identity only : the secrets stay the seed values. A blank
+        ## MISP_HOST_ORG_UUID keeps org 1 on uuid5(namespace, org name), even
+        ## if the seed sets one.
+        ##
+        - name: misp star - write the host identity into .env
           ansible.builtin.lineinfile:
             path: "{{ _star_stage_dir }}/.env"
             regexp: "^{{ item.key }}="
@@ -194,15 +209,10 @@
               MISP_STAR_MODE:          "{{ misp_star_role }}"
               MISP_INSTRUCTOR_ORG:     "{{ _star_white_cell }}"
               MISP_TEAMS:              "{{ _star_teams | join(',') }}"
+              MISP_HOST_ORG_UUID:      ""
               MISP_ORG_UUID_NAMESPACE: "{{ lookup('file', _star_ns_file) }}"
               MISP_DEFAULT_DISTRIBUTION: "4"
               MISP_TEAM_USERS_CAN_PUBLISH: "{{ MISP_STAR_TEAM_USERS_CAN_PUBLISH | default(true) | bool | lower }}"
-              MISP_SALT:               "{{ lookup('community.general.random_string', length=64, override_all=_star_hex) }}"
-              MISP_DB_PASSWORD:        "{{ lookup('community.general.random_string', length=32, override_all=_star_hex) }}"
-              DB_ROOT_PASSWORD:        "{{ lookup('community.general.random_string', length=32, override_all=_star_hex) }}"
-              MISP_ADMIN_PASSWORD:     "Aa1!{{ lookup('community.general.random_string', length=24, override_all=_star_hex) }}"
-              MISP_READER_PASSWORD:    "Aa1!{{ lookup('community.general.random_string', length=24, override_all=_star_hex) }}"
-              MISP_WRITER_PASSWORD:    "Aa1!{{ lookup('community.general.random_string', length=24, override_all=_star_hex) }}"
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 

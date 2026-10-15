@@ -37,18 +37,54 @@ spoke's `MISP_ORG`). The white cell org is `instructors` (= the hub host org).
 
 ## What it does
 
-1. Stages one element copy per host under `$RANGE42_ACTIVE_CONFIG_DIR/misp_star/<host>/` and
-   renders `<host>/.env` **once**: star mode, org, `MISP_BASEURL` = the VM IP, the shared
-   uuid5 namespace, `MISP_DEFAULT_DISTRIBUTION=4`, and per-host generated secrets (mode 0600).
-   The namespace lives in `$RANGE42_ACTIVE_CONFIG_DIR/secrets/misp_star/org_uuid_namespace`,
-   generated once per star. Each host gets distinct secrets: a student who is root on a spoke
-   reads only that spoke's `.env`, never the hub credentials.
+1. Seeds the catalog `.env` (see [Credentials](#credentials)), stages one element copy per host
+   under `$RANGE42_ACTIVE_CONFIG_DIR/misp_star/<host>/` (without the catalog `.env`) and
+   renders `<host>/.env` **once** (mode 0600): a copy of the seed, then the host identity
+   written over it - star mode, org, `MISP_BASEURL` = the VM IP, teams, ports, the shared uuid5
+   namespace, `MISP_DEFAULT_DISTRIBUTION=4`. The namespace lives in
+   `$RANGE42_ACTIVE_CONFIG_DIR/secrets/misp_star/org_uuid_namespace` (random, created once per
+   star, 0600): it is identity, not an operator credential, and it is not part of the seed.
 2. Installs Docker, opens the guest ufw (22 + the published MISP ports), deploys the stack with
    `software.configure.docker-compose` from the staged copy, and requires the provisioner
    container exit code 0 (the `Provisioning complete.` log line is not a completion signal).
 3. Runs `software.configure.misp_sync` in one play over hub + spokes (linear strategy, no
    `serial`, no `--limit` that excludes the hub, no `--check`). The role is idempotent and
    enforces the M1/M2/L1 hardening; see its README in the catalog.
+
+## Credentials
+
+The star follows the convention of the admin service bundles (nextcloud, rocketchat, gitea,
+mattermost): the secrets come from an operator-editable seed, not from random generation by
+the bundle. This is a deliberate choice for a training lab: one place to read and set the
+credentials of the whole star.
+
+- **The seed** is the catalog element `.env`:
+  `$RANGE42_INVENTORY/03_container_layer/docker/admin/misp-star/.env` (same place as the admin
+  bundles). If it is absent, the bundle copies `.env.example` to it (`force: false`: an
+  existing, operator-edited `.env` is kept). Git ignores it (`**/.env` in the catalog
+  `.gitignore`).
+- **Seed values used:** `MISP_SALT`, `MISP_DB_PASSWORD`, `DB_ROOT_PASSWORD`, the admin, reader
+  and writer e-mails and passwords, and every other key the bundle does not render. The
+  identity keys (`MISP_STAR_MODE`, `MISP_ORG`, `MISP_BASEURL`, `MISP_HOSTNAME`, `MISP_TEAMS`,
+  `MISP_INSTRUCTOR_ORG`, ports, `MISP_HOST_ORG_UUID`, `MISP_ORG_UUID_NAMESPACE`,
+  `MISP_DEFAULT_DISTRIBUTION`, `MISP_TEAM_USERS_CAN_PUBLISH`) are always written per host over
+  the seed values.
+- **Populate the catalog `.env` BEFORE running for stronger creds.** Edit the seed before the
+  first deploy: each host `.env` copies it once, at first render. Editing the seed later
+  changes nothing on a deployed star (see "Do not delete a staged `.env`" below).
+- Not from the seed: the element itself creates the team and instructor account passwords
+  at first boot (random per instance, in `/keys/api-keys.txt` of its `keys` volume), and MISP
+  creates the sync keys during pairing.
+
+**Residual risk (accepted for this training lab).** With the seed left untouched, the hub and
+every team spoke run with the same static credentials, and these values are public (they are
+in `.env.example`): admin `admin@misp.local` / `Admin1234!XYZ`, reader and writer of the same
+family, DB passwords and `MISP_SALT`. Root on any star VM reads them in that VM's `.env`. The
+hub admin is a MISP site admin: anyone who can open the hub's HTTPS port can log in with it
+and read every team's data on the hub. The boundary between teams then rests only on the
+Proxmox per-NIC firewall and on MISP org scoping, and the firewall leaves the hub's HTTPS port
+open to each spoke host (the sync path). Set unique values in the seed before deploying when
+the teams must not be able to read each other's data.
 
 ## Operational notes
 
@@ -57,9 +93,9 @@ spoke's `MISP_ORG`). The white cell org is `instructors` (= the hub host org).
   wrong sync-key count).
 - **Do not delete a staged `.env` while its stack lives** — the database was initialised with
   those secrets. Rebuild one host: `docker compose down -v` on the VM, delete the staged
-  `.env`, re-run the bundle.
+  `.env`, re-run the bundle (the new `.env` takes the current seed values).
 - **Star membership is fixed at first deploy.** The hub `.env` records `MISP_TEAMS` at
-  generation time; adding a team later needs a manual hub `.env` update plus a hub
+  first render; adding a team later needs a manual hub `.env` update plus a hub
   re-provision before the sync play can pair the new spoke.
 - **The guest ufw is not team isolation** (a student root on a spoke can disable it). Isolation
   needs the Proxmox per-NIC firewall, armed through the scenario firewall flow

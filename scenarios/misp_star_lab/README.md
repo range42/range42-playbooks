@@ -54,6 +54,14 @@ See `manifest/feature_flags.yml`. The only flag defaults to `NO`.
 
 The star pairing options are bundle parameters, set in `03_misp_star_lab_infrastructure/stage_01-vm_configure/misp-star.yml` as real YAML booleans: inter-team sharing off, team users can publish, sync logs quiet.
 
+## Credentials: one seed for the whole star
+
+The MISP secrets of the hub and of both spokes (`MISP_SALT`, the DB passwords, the admin, reader and writer passwords) come from one operator-editable seed, like the admin service bundles (nextcloud, rocketchat, gitea, mattermost): the catalog element `.env`, `$RANGE42_INVENTORY/03_container_layer/docker/admin/misp-star/.env`. If it is absent, the deploy copies `.env.example` to it; an existing `.env` is kept. Each star VM gets its own `.env` from that seed, with its own identity (mode, org, base URL, teams) written over it. This is a deliberate choice for a training lab. The bundle README ("Credentials") lists which keys come from the seed.
+
+**Populate the catalog `.env` BEFORE running for stronger creds.** Each VM copies the seed once, at its first deploy; editing the seed afterwards changes nothing on a running star.
+
+**Residual risk when the seed is not edited.** The hub and both team spokes then share the same static credentials, published in `.env.example` (admin `admin@misp.local` / `Admin1234!XYZ`, reader and writer of the same family). The hub admin is a MISP site admin, and the hub HTTPS port stays open from each spoke host even once armed (the sync path, see below). So root on a spoke, or anyone who can open the hub's 443, can log in to the hub as site admin and read the other team's data. The boundary between the teams then rests on the Proxmox firewall and MISP org scoping alone, and the published site-admin password bypasses org scoping on the hub. Edit the seed before the first deploy whenever the teams must not read each other's data.
+
 ## Team isolation: firewall declared, not armed
 
 **Without an armed firewall, the teams reach each other.** The host routes between `net142`, `net149` and `net150`. Team isolation requires the Proxmox per-NIC firewall **armed** at all three levels: the datacenter switch, the guest switch and the card flag. `range42-context networks-firewall-on --scope scenario` sets all three. `-e FIREWALL_ARM_VMS=YES` at deploy sets only the guest switches and the card flags: on a node whose datacenter switch is off, it filters nothing until `firewall.enable.datacenter_and_nodes` (or `networks-firewall-on --scope proxmox`) runs. This scenario never arms by itself.
@@ -176,7 +184,7 @@ The topology is fixed at 2 teams. The `r42playbooks` generator cannot render thi
 
 All scripts require `RANGE42_ANSIBLE_ROLES__INVENTORY_DIR` and `RANGE42_VAULT_PASSWORD_FILE` to be exported - set by `range42-context use <codename> misp_star_lab`.
 
-Re-deploying a star VM: the bundle keeps each host's generated `.env` under `$RANGE42_ACTIVE_CONFIG_DIR/misp_star/<host>/`. After a VM is destroyed, delete that host's staged `.env` before the redeploy (the bundle README explains why).
+Re-deploying a star VM: the bundle keeps each host's staged `.env` under `$RANGE42_ACTIVE_CONFIG_DIR/misp_star/<host>/`. After a VM is destroyed, delete that host's staged `.env` before the redeploy (the bundle README explains why); the new `.env` takes the current seed values.
 
 ## Structure
 
