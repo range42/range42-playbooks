@@ -87,6 +87,13 @@ Stopped state with nonterminal attempts, workspace locks, inconsistent runner
 artifacts or existing maintenance intent is refused. Readiness is checked after
 Proxmox registration and can therefore fail until private routing/trust works.
 
+Source synchronization uses the selected target's existing SSH arguments,
+including its private config, proxy route and host-key file. Host verification
+remains enabled; a caller requiring strict pins must select its existing strict
+SSH policy. Synchronization does not enroll keys or create another transport.
+The existing source exclusions, deletion policy and privilege escalation remain
+unchanged.
+
 The old bundle copied only playbooks and performed a post-start migration. Its
 `PLAYBOOKS_DEST_DIR` input is replaced by the explicit complete `RUNTIME_DIR_HOST`
 input. Existing caller files must supply the new private inputs. Retain old DB
@@ -102,3 +109,11 @@ Disposable installation acceptance exercises the native packaging tasks with
 synthetic secrets and a localhost-only scenario. The core, backend adapter and
 runtime fingerprint tests verify the same native execution contract. No live
 hypervisor deployment is performed by these tests.
+
+`tests/test_deployer_source_sync.py` runs the actual API/UI sync tasks with real rsync,
+OpenSSH and loopback SSH/proxy fixtures. It checks retained private files, normal
+source replacement/deletion, configured SSH arguments, wrappers and
+unknown/changed host-key refusal. The SSH endpoint stops after authenticated
+rsync execution; it transfers no remote files and uses no live host or key.
+These tests require pytest, PyYAML, cryptography, Paramiko, Ansible,
+`ansible.posix`, rsync and OpenSSH.
