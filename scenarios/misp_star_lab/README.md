@@ -160,7 +160,7 @@ The workspace files `templates/ansible-inventory.j2` and `templates/ssh-config.j
 
 ## More spokes
 
-The topology is fixed at 2 teams. The `r42playbooks` generator cannot render this scenario shape yet (SDN vnets, `_firewall/`, feature flags, pinned slots); porting it is a separate issue. Until then, one more team means, by hand and in the same commit:
+The topology is fixed at 2 teams. One more team means, by hand and in the same commit:
 
 1. a vnet in `00_sdn_bootstrap/_main.yml` (`netNNN`, gateway `.1`, `snat: true`);
 2. a VM entry in `manifest/scenario_vms.json`, then `scenarios/_regenerate_reserved.sh` and `scenarios/_check_reserved.sh`;
