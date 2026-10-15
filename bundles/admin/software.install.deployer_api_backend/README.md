@@ -1,190 +1,119 @@
-# bundles/admin/software.install.deployer_api_backend
+# software.install.deployer_api_backend
 
-Deploys range42-backend-api as a Docker container, following the canonical
-deploy method shipped by the [range42-backend-api repo](../../../range42-backend-api/)
-(multi-stage Dockerfile + docker-compose + Python 3.13 + FastAPI + uvicorn +
-embedded SQLite via SQLAlchemy async + Alembic migrations + ansible-runner
-bundled inside the image).
+Install the application-owned API container through the existing native software
+bundle. The backend uses Python 3.12, startup Alembic migrations, required bearer
+authentication and a persistent credential encryption key. The installer accepts
+preprovisioned private inputs; it does not generate credentials or export a new
+execution runtime.
 
-## Architecture (POC)
+## Required installation inputs
 
-```
-UI (r42.admin-deployer-ui:3000)
-   │
-   │ CORS (UI Settings modal points here)
-   ▼
-Backend (r42.admin-deployer-api-backend:8000)
-   ├─ SQLite DB + events.jsonl  (bind-mounted from /home/range42/range42.config on host)
-   ├─ SSH keys                    (bind-mounted RO from ~/.ssh on host)
-   ├─ Per-deployment secrets      (each <C>-<S>/secrets/vault_pass.txt is reachable
-   │                                under /home/range42/range42.config via the same mount)
-   └─ ansible-core 2.19 + runner  (bundled in the image, used by backend to drive Proxmox)
-```
+Alongside `global_vm_ssh_name` and `global_vm_ci_ip`, supply:
 
-Kong is parallel/not in the UI->backend path for this POC (kong.yml is empty).
+| Input | Required content |
+| --- | --- |
+| `API_SECRETS_DIR_HOST` | Real 0700 directory containing existing 0600 `api-token` and `credential-key`, owned by `API_CONTAINER_UID`. |
+| `RUNTIME_DIR_HOST` | Complete reviewed playbooks/controller/catalog/core/devkit/collections export, strict `ansible.cfg`, combined public/PVE roots, and `bundle-runtime.json` for `/runtime` paths and this Compose environment. |
+| `WORKSPACE_TEMPLATE_DIR_HOST` | Private vault/password/key/known_hosts template, with real 0700 directories and regular 0600 files, without symlinks. |
+| `API_HOME_DIR_HOST` | Dedicated 0700 container home with `.ssh/config`, `.ssh/config_range42-<context>`, `.ssh/range42/<context>/` keys, verified known_hosts and `.zshrc`. Default `/var/lib/range42/backend-home`. |
+| `WORKSPACE_DIR_HOST` | Existing 0700 native workspace root, default `/home/range42/range42.config`, containing the selected `<codename>-<scenario>` context. |
 
-## Required vars
+Prepare the context using core's existing workspace roles and scenario templates.
+Inside the container, home is `/home/range42` and the context root is
+`/home/range42/range42.config`. Render the native sourced environment for
+`RANGE42_GITDIR__ROOT_DIR=/runtime`, and the inventory/SSH aliases for these
+container paths. The context requires `sourced_range42.sh`, `scenario`,
+`inventory/inventory_default.yml`, `secrets/default_vault.yml` and
+`secrets/vault_pass.txt`. Keep machine automation credentials separate from human
+operator credentials. The immutable credential template is a separate input,
+not a copy of the native workspace's symlink layout.
 
-| var | meaning |
-|---|---|
-| `global_vm_ssh_name` | inventory hostname for the backend VM (e.g. `r42.admin-deployer-api-backend`) |
-| `global_vm_ci_ip` | IP of the backend VM (informational, not consumed) |
+The matching core revision supports runner-owned repository credential links.
+The backend's existing native adapter opts into that behavior because it already
+copies the saved scenario and links credentials privately for each attempt.
+Ordinary CLI selection retains its existing shared-link workflow; standalone
+source-based devkit commands still need their normal writable checkout.
 
-## Optional vars (with defaults)
+Generate and verify the runtime profile with the application's existing
+`app.core.bundle_runtime.build_runtime_manifest` function under the exact container
+paths/environment. Include `RANGE42_GITDIR__ROOT_DIR=/runtime`, as set by this
+bundle's override. Supply the matching reviewed backend/playbooks/core revisions.
+The bundle refuses incomplete contexts or drift before starting the service.
 
-| var | default |
-|---|---|
-| `LOCAL_CODE_PATH` | `{{ env RANGE42_GITDIR__ROOT_DIR }}/range42-backend-api/` |
-| `REMOTE_PROJECT_DIR` | `/var/www/range42_backend_api` |
-| `API_PORT` | `8000` |
-| `WORKSPACE_DIR_HOST` | `/home/range42/range42.config` |
-| `PLAYBOOKS_DEST_DIR` | `/home/range42/range42-playbooks` |
-| `DEPLOYER_UI_CORS_REGEX` | `^https?://r42\.admin-deployer-ui(:\d+)?$` |
-
-## Call-site example
+## Native call site
 
 ```yaml
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.deployer_api_backend/main.yml"
   vars:
-    global_vm_ssh_name: "r42.admin-deployer-api-backend"
-    global_vm_ci_ip:    "192.168.142.102"
+    global_vm_ssh_name: r42.admin-deployer-api-backend
+    global_vm_ci_ip: 192.0.2.20
+    API_SECRETS_DIR_HOST: /var/lib/range42/private/api-secrets
+    RUNTIME_DIR_HOST: /opt/range42/runtime
+    WORKSPACE_TEMPLATE_DIR_HOST: /var/lib/range42/private/workspace-template
+    API_HOME_DIR_HOST: /var/lib/range42/backend-home
+    WORKSPACE_DIR_HOST: /home/range42/range42.config
+    BACKEND_CORS_ORIGINS: https://staff.example.test
 ```
 
-## What runs
+Use `range42-context use <codename> <scenario>` on the controller before invoking
+the bundle. Vault inputs for registration remain `proxmox_api_host`,
+`proxmox_node`, `proxmox_api_user`, `proxmox_api_token_id` and
+`proxmox_api_token_secret`. The hostname must match its certificate, and the
+execution network must reach the API and guest SSH paths.
 
-The bundle mirrors the upstream README's Quick Start - Option 1 (Docker) :
-`docker compose up` against an image built from local source. The backend-api
-source is baked into the image at build time ; the range42-playbooks repo is
-bind-mounted read-only at runtime (the backend's ansible-runner reads its
-scenarios + bundles tree). Schema is migrated at deploy time via an explicit
-`alembic upgrade head` step (see the Database section below).
+## Installation and repeat runs
 
-1. **Docker install** : invokes `software.install.warmup.basic_packages` role with `INSTALL_PACKAGES_DOCKER=YES` + `INSTALL_PACKAGES_DOCKER_COMPOSE=YES` (Docker Engine + compose plugin via the project's standard install path)
-2. **Firewall** : applies `software.configure.firewalls` role with rules for ports 22 + API_PORT
-3. **Workspace dir** : creates `/home/range42/range42.config/` on the host owned by UID/GID 1000 (mode 0700) - holds the SQLite DB + events.jsonl + ansible-runner artefacts + per-deployment `<C>-<S>/secrets/vault_pass.txt` ; persists across container restarts
-4. **Sync source (build context)** : rsync's the backend-api repo from the controller to `REMOTE_PROJECT_DIR` (excludes `.git`, `.venv`, `collections`, `__pycache__`, `.pytest_cache`, `.env*`). This is the Docker build context only - the source is BAKED into the image at build time, NOT bind-mounted at runtime
-5. **Record provenance** : captures the controller-side `ref` / short `sha` / dirty-file count of BOTH synced trees (backend-api + playbooks) into `/var/lib/range42/deployer_api_backend.version` and echoes them in the play output
-6. **Render .env** : writes the env file consumed by docker compose (PORT, UID/GID, IMAGE_NAME, SSH_KEY_PATH, VAULT_PASSWORD_FILE empty by default, CORS_ORIGIN_REGEX, RANGE42_WORKSPACE_ROOT, WEB_CONCURRENCY=1, UVICORN_WORKERS=1, DEBUG=false)
-7. **Render docker-compose.override.yml** : two runtime bind-mounts - the workspace dir (RW) and the range42-playbooks repo (RO). The upstream compose's SSH key mount is preserved.
-8. **Compose up** : `docker compose up -d --build` builds the multi-stage image locally on the VM the first time (Python 3.13 builder + slim runtime), then starts the container
-9. **Verify** : waits for the API port + probes `/docs/openapi.json` (same endpoint the container's HEALTHCHECK uses) - expects HTTP 200
+The bundle validates inputs before changing the host, retains the existing
+Docker/firewall/optional-Tailscale roles, syncs only the API build context,
+records native source provenance, renders current Compose inputs, builds, verifies
+the runtime/private context and stopped state, then starts the API. Application
+startup validates credentials and runs migrations before serving. Public
+`/v1/health` is followed by bearer-authenticated Proxmox registration and readiness
+with `ready: true`. Token and registration tasks use `no_log`.
 
-## Source provenance
+`API_PORT` retains its existing meaning, default 8000. `BACKEND_LISTEN_ADDRESS`
+defaults to the packaged loopback listener; remote exposure requires an explicit
+listener and the existing TLS/access policy. `API_CONTAINER_UID`/`GID` default to
+1000 and must match private file ownership. Both the existing CORS regex parameter
+and `BACKEND_CORS_ORIGINS` are passed to the actual container environment.
+The single-worker application command and read-only source/runtime mounts are
+unchanged. `INSTALL_TAILSCALE` retains its existing behavior and defaults to NO.
 
-This bundle deploys the **controller's working trees**, not git clones — for both `range42-backend-api` (the image build context) and `range42-playbooks` (the tree the in-container ansible-runner reads at deploy time). Branch, local commits and uncommitted edits all ship as-is. That is what makes a dev lab fast, but it means what runs here can exist on no git remote.
+A running API is refused before source sync or container replacement. Use the
+backend's documented maintenance drain/stop procedure for an update, preserve
+state and both credential files, then rerun this bundle against the stopped
+installation. This compatibility patch does not automate a running cutover.
+Stopped state with nonterminal attempts, workspace locks, inconsistent runner
+artifacts or existing maintenance intent is refused. Readiness is checked after
+Proxmox registration and can therefore fail until private routing/trust works.
 
-Step 5 therefore records what was actually shipped :
+Source synchronization uses the selected target's existing SSH arguments,
+including its private config, proxy route and host-key file. Host verification
+remains enabled; a caller requiring strict pins must select its existing strict
+SSH policy. Synchronization does not enroll keys or create another transport.
+The existing source exclusions, deletion policy and privilege escalation remain
+unchanged.
 
-```
-# /var/lib/range42/deployer_api_backend.version
-backend_api_source_path=/home/alice/range42-backend-api/
-playbooks_source_path=/home/alice/range42-playbooks/
-backend_api_ref=dev
-backend_api_sha=257e62a
-backend_api_dirty=0
-backend_api_upstream=origin/dev
-backend_api_unpushed=0
-playbooks_ref=fix/dev-deployer-ui-lab-hardening
-playbooks_sha=498b875
-playbooks_dirty=9
-playbooks_upstream=origin/fix/dev-deployer-ui-lab-hardening
-playbooks_unpushed=0
-deployed_at=2026-08-10T09:29:40Z
-```
+The old bundle copied only playbooks and performed a post-start migration. Its
+`PLAYBOOKS_DEST_DIR` input is replaced by the explicit complete `RUNTIME_DIR_HOST`
+input. Existing caller files must supply the new private inputs. Retain old DB
+and attempt paths during migration; never use a fresh empty directory as an
+implicit import of an existing installation. Backup/restore covers API state,
+native home/workspaces and both credential files together.
 
-Reading it: `*_dirty=0` on its own proves nothing about reproducibility — a commit that was never pushed is perfectly clean, and its sha exists on no remote. A tree is recoverable from a remote only when **`*_dirty=0` and `*_unpushed=0` and `*_upstream` is not `none`**. `*_dirty` is the uncommitted-file count, nothing more.
+## Validation
 
-The file lives outside `REMOTE_PROJECT_DIR` on purpose — inside, its timestamp would bust the Docker build cache on every no-op re-run.
+Regression tests render actual Ansible copy tasks against backend Compose and
+check port/UID/CORS, persistent mounts, secret inputs and authenticated probes.
+Disposable installation acceptance exercises the native packaging tasks with
+synthetic secrets and a localhost-only scenario. The core, backend adapter and
+runtime fingerprint tests verify the same native execution contract. No live
+hypervisor deployment is performed by these tests.
 
-## CORS configuration
-
-The backend uses Starlette's `CORSMiddleware` with `allow_origin_regex` read
-from the `CORS_ORIGIN_REGEX` env var. The bundle defaults to a regex that
-matches the demo_lab UI hostname (`http(s)://r42.admin-deployer-ui:<any-port>`).
-
-For other scenarios, override `DEPLOYER_UI_CORS_REGEX` in the call-site :
-
-```yaml
-vars:
-  DEPLOYER_UI_CORS_REGEX: '^https?://ui\.lab\.example\.com$'
-```
-
-The regex must be anchored (`^...$`) and properly escape literal dots. The
-backend disables auth at this layer (Kong's job in a full deployment) - CORS
-is defense-in-depth only.
-
-## Database (SQLite + Alembic)
-
-Embedded SQLite via SQLAlchemy 2.x async + aiosqlite + Alembic for migrations.
-No separate Postgres / MySQL container. The DB file lives at
-`/home/range42/range42.config/.range42.db` inside the container, which is
-bind-mounted from `WORKSPACE_DIR_HOST` on the host (default
-`/home/range42/range42.config`).
-
-Backend invariant : the workspace dir MUST be on a local FS (ext4 / xfs /
-btrfs / zfs / tmpfs). The backend refuses NFS / CIFS / FUSE at deployment-
-create with HTTP 409 / `WORKSPACE_NON_LOCAL_FS`. The bundle uses a host path
-that is local FS by construction (system disk).
-
-Schema is migrated at deploy time. The bundle runs `alembic upgrade head`
-via `docker compose run --rm` right after `docker compose up`, bind-mounting
-`alembic.ini` + `alembic/` from the rsynced source (the upstream image does
-not bake them in). The app does not create tables on startup, so this step is
-required for a fresh DB ; re-running the bundle re-applies it idempotently.
-
-## Vault password file
-
-The backend reads `VAULT_PASSWORD_FILE` at runtime to decrypt ansible-vault-
-encrypted variables in playbooks it executes. The bundle leaves
-`VAULT_PASSWORD_FILE=` empty in `.env` (matches upstream `.env.example`) - no
-global default is set at deploy time.
-
-Each operator-managed workspace already ships its own vault password file at
-`<workspace>/secrets/vault_pass.txt`. Since the bundle bind-mounts the whole
-workspace dir at `/home/range42/range42.config`, every deployment's
-`vault_pass.txt` is reachable inside the container at
-`/home/range42/range42.config/<C>-<S>/secrets/vault_pass.txt`. The backend
-resolves the per-deployment path at runtime via the deployment id ; no
-separate file copy is needed.
-
-## Single-worker invariant
-
-`WEB_CONCURRENCY=1` and `UVICORN_WORKERS=1` are hard-set in `.env`. The
-backend keeps SSE (Server-Sent Events) state in-process ; running multiple
-worker processes silently corrupts that state. The backend logs
-`multi_worker_deploy_invariant_violated` if these env vars are overridden
-to something other than 1.
-
-## Manual verification
-
-From the backend host, after deploy :
-
-```bash
-sudo docker compose -f /var/www/range42_backend_api/docker-compose.yml ps
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/docs/openapi.json   # expect: 200
-curl -s http://127.0.0.1:8000/v1/health | jq                                       # expect: {"status":"ok",...}
-```
-
-From a peer host in the same subnet (e.g. the deployer-ui) :
-
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://r42.admin-deployer-api-backend:8000/docs/openapi.json
-```
-
-From the UI side : open `http://r42.admin-deployer-ui:3000/` in a browser,
-go to Settings, set backend URL to `http://r42.admin-deployer-api-backend:8000`,
-verify connectivity. The browser will send the Origin header
-`http://r42.admin-deployer-ui:3000` which matches the default `CORS_ORIGIN_REGEX`.
-
-## Upgrade path (deferred)
-
-- **Image-based deploys** : build & push `ghcr.io/range42/range42-backend-api:<short-sha>` from CI on the backend repo, then swap this bundle to `docker compose pull && docker compose up -d` against a pinned tag in inventory (eliminates the rsync + local build pattern and the 5-10 min first-build wait on the VM)
-- **Reverse proxy / TLS** : front the backend with Traefik or extend the kong gateway to proxy `/v1`, `/v0`, `/ws` (eliminates the CORS dependency, single origin for the UI)
-- **Backup** : daily `sqlite3 .backup` cron or restic snapshot of the workspace dir
-- **Cross-scenario migration** : same bundle import pattern, swappable into demo_lab, bs2 / bs4 / bs6 later
-
-## Known limitations (POC)
-
-- Vault password file is copied verbatim from controller to host - no rotation, no secret-manager integration. Operator workflow : rotate the file on the controller, re-run the bundle.
-- WEB_CONCURRENCY=1 means single-process throughput. Acceptable for POC ; production scale-out requires backend changes upstream (SSE state would need to move out of process).
-- Backend exposes port 8000 directly to peers in the lab subnet. No TLS. CORS regex protects browser-side. Fine for POC ; production needs TLS + reverse proxy.
+`tests/test_deployer_source_sync.py` runs the actual API/UI sync tasks with real rsync,
+OpenSSH and loopback SSH/proxy fixtures. It checks retained private files, normal
+source replacement/deletion, configured SSH arguments, wrappers and
+unknown/changed host-key refusal. The SSH endpoint stops after authenticated
+rsync execution; it transfers no remote files and uses no live host or key.
+These tests require pytest, PyYAML, cryptography, Paramiko, Ansible,
+`ansible.posix`, rsync and OpenSSH.
