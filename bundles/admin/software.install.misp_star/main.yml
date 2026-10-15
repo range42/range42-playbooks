@@ -54,7 +54,7 @@
 #
 # The guest ufw opened below is NOT an isolation control between teams (a
 # student root on a spoke can disable it). Team isolation needs the Proxmox
-# per-NIC firewall - see the misp star tracking issue, "Network needs".
+# per-NIC firewall - see the misp_star_lab scenario README, isolation section.
 #
 # ============================================================================
 
