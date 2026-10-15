@@ -4,7 +4,7 @@ MISP star scenario: one instructor **hub** and one **spoke per team** (2 teams),
 
 **The star IS the workload** of this scenario: always deployed, no `INSTALL` flag for it. The only optional part is the admin tier (Wazuh SIEM + agents on the 3 star VMs), behind `INSTALL_WAZUH`, like `misp_lab`.
 
-This scenario is distinct from `misp_lab` (single `misp-standalone` VM). It started as a copy of `misp_lab` (the `r42playbooks` generator does not render the SDN scenario shape yet).
+This scenario is distinct from `misp_lab` (single `misp-standalone` VM). It started as a copy of `misp_lab`.
 
 ## Read this before deploying
 
@@ -42,7 +42,7 @@ Source of truth: `manifest/scenario_vms.json`. Project convention: the last 3 di
 
 The wazuh slot is 1198, not misp_lab's 1187: 1187 / `192.168.142.187` already collides between `misp_lab` and `admin_services_lab` in `scenarios/_reserved.json`.
 
-**Resource cost.** The star is 3 VMs from template 9232: 24 GB of RAM allocated on the node (3 x 8 GB), 2 vCPU each. `INSTALL_WAZUH=YES` adds one more VM from the same template: 32 GB allocated in total. Allocated is not used: measured on the lab (MISP v2.5.50 stack idle and healthy), each star VM used about 1.05 GB of RAM and 13 GB of disk.
+**Resource cost.** The star is 3 VMs from template 9232: 24 GB of RAM allocated on the node (3 x 8 GB), 2 vCPU each. `INSTALL_WAZUH=YES` adds one more VM from the same template: 32 GB allocated in total. Allocated is not used: measured on a test deployment (MISP v2.5.50 stack idle and healthy), each star VM used about 1.05 GB of RAM and 13 GB of disk.
 
 ## Feature flags
 
@@ -75,7 +75,7 @@ What the deploy declares (`_firewall/stage_02-post_vm_bootstrap.misp_star_rules.
 
 **Isolation once armed: 443 only.** Armed, a team cannot reach the other team's spoke on 443, and the spoke-to-hub 443 path is the only MISP path open between the vnets. **SSH (22) stays open between teams**: the next stage, `firewall.baseline.ssh_all_vms`, declares its own SSH accept on every VM of the manifest (open, or restricted to every scenario network), as in every other scenario. So the node-only SSH rules above add nothing while that baseline accept is there. Narrowing that is the shared subnet isolation work, not this scenario.
 
-**Measured on the lab (Proxmox VE 9.2.21, fresh deploy with `INSTALL_WAZUH=YES`, then datacenter + node + the 4 guests armed).** Each probe is a new TCP connection with a 4 s timeout, from the VM itself; "dropped" means no answer at all.
+**Measured on a test deployment (Proxmox VE 9.2.21, fresh deploy with `INSTALL_WAZUH=YES`, then datacenter + node + the 4 guests armed).** Each probe is a new TCP connection with a 4 s timeout, from the VM itself; "dropped" means no answer at all.
 
 | From \ to (port) | hub 443 | spoke 443 | any other star VM 22 | admin-wazuh 1514 / 1515 | admin-wazuh 443 / 55000 |
 |---|---|---|---|---|---|
@@ -90,7 +90,7 @@ What the deploy declares (`_firewall/stage_02-post_vm_bootstrap.misp_star_rules.
 - SSH: 22 answers with the `sshd` banner between every pair of VMs, teams included, as described above. This matches what this README states.
 - `admin-wazuh` 443 (the dashboard) and 55000 (the API) are dropped once armed, from the VMs and from the node: this scenario declares no rule for them.
 
-The hub 443 sources are the spoke hosts (`/32`), not the team subnets: this is the narrowest source consistent with the design, because the spoke is the only host of a team that syncs. The rule matches the source address of the packet, so the `/32` alone means "a packet that claims this address". `ipfilter` binds each address to its NIC. Measured on the lab (armed): root on spoke-01 added `192.168.150.197` (spoke-02's address, another vnet) to its interface and opened 443 to the hub from it. Without `ipfilter`, the spoofed SYN reached the hub's NIC (the node's reverse-path filter is loose, `rp_filter=2`); the handshake never completes, because the hub answers the real spoke-02. With `ipfilter`, the spoofed SYN left the guest and was dropped on its own card, while spoke-01 still synced (`testConnection` `status=1`) and its Wazuh agent stayed connected.
+The hub 443 sources are the spoke hosts (`/32`), not the team subnets: this is the narrowest source consistent with the design, because the spoke is the only host of a team that syncs. The rule matches the source address of the packet, so the `/32` alone means "a packet that claims this address". `ipfilter` binds each address to its NIC. Measured on a test deployment (armed): root on spoke-01 added `192.168.150.197` (spoke-02's address, another vnet) to its interface and opened 443 to the hub from it. Without `ipfilter`, the spoofed SYN reached the hub's NIC (the node's reverse-path filter is loose, `rp_filter=2`); the handshake never completes, because the hub answers the real spoke-02. With `ipfilter`, the spoofed SYN left the guest and was dropped on its own card, while spoke-01 still synced (`testConnection` `status=1`) and its Wazuh agent stayed connected.
 
 Limits of `ipfilter` here: it filters only once armed, like every rule above. It covers the 3 star NICs, not `admin-wazuh` and not a VM that another scenario or an operator attaches to a team vnet later. The deploy only adds: an address already in an `ipfilter-net0` ipset stays there. The declare action only adds rules too: a hub deployed with older, wider sources keeps them until VM 1195 is rebuilt or the old rules are deleted by hand.
 
