@@ -1,0 +1,20 @@
+---
+##
+## 03 - misp_star_lab infrastructure - stage_01 (vm_configure)
+##
+## Structure : stage_01 unit imported by top-level main.yml ; cross-tier finalize (wazuh-agent on the star VMs) lives at main.yml level, not here.
+##
+## Sequence :
+##   1. _build_misp_star_active_group.yml : runtime group r42_misp_star_active (hub + spokes)
+##   2. misp-star.yml                     : thin wrapper to the shared misp_star bundle
+##      (Docker + misp-star stack on each VM + spoke-to-hub pairing)
+##
+## The cross-tier wazuh-agent finalize (targets the 3 star VMs when INSTALL_WAZUH=YES) lives at
+## the top-level main.yml as the LAST import - not here.
+##
+
+- import_playbook: ./_build_misp_star_active_group.yml
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+- import_playbook: ./stage_01-vm_configure/misp-star.yml

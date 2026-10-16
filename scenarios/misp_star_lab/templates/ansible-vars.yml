@@ -1,0 +1,32 @@
+---
+################################################################################
+# range42 - scenario-specific variables (misp_star_lab)
+#
+# These variables are specific to this scenario. misp_star_lab deploys a MISP
+# star : one instructor hub + one spoke per team, paired by MISP sync.
+#
+# For shared variables -> group_vars/all/vars.yml
+# For secrets -> vault.yml (see vault.yml.example)
+#
+################################################################################
+
+
+#### SCENARIO IDENTIFICATION ####
+
+INFRASTRUCTURE_SCENARIO: "misp_star_lab"
+
+
+#### CREDENTIAL GENERATION ####
+
+# auto-generate ssh keys and passwords (YES/NO)
+context_auto_generate_ssh_keys: "YES"
+context_auto_generate_vm_passwords: "YES"
+
+# no student extras for misp_star_lab (the team spokes are MISP instances, no student VMs)
+student_additionnal_keys_count: 0
+
+
+#### CLOUD-INIT USERNAMES ####
+
+# admin vm user (not secret - password and ssh key are in vault)
+default_admin_vm_ci_user: "alice"

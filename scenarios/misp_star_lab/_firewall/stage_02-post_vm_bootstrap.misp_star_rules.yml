@@ -1,0 +1,139 @@
+##
+## The MISP star anti-spoofing, on the net0 of the 3 star VMs : each NIC may only SEND from its own
+## address (ipset ipfilter-net0 = the VM address, option ipfilter=1). DECLARES ONLY : arming stays
+## FIREWALL_ARM_VMS / `range42-context networks-firewall-on`. Filters only once armed.
+## Not gated : the star VMs are the workload, always created by stage_00 - a missing VM makes the
+## api refuse, so the play fails loudly.
+##
+## No port rule here : the ports come from the per-service baseline bundles, next to each install
+## (firewall.baseline.misp on the 3 star VMs, firewall.baseline.wazuh + wazuh_server_agents_access
+## on admin-wazuh). Those accept 443 from any source, so the hub's 443 is open to every team and to
+## the node once armed : team isolation on the MISP data rests on MISP itself (sharing groups,
+## authentication). ipfilter keeps the source address of a star VM true - root on a spoke cannot
+## send from another address (spoke-02's, measured), so a source address in a MISP or wazuh log,
+## or in a source-restricted rule, still names the real host.
+##
+## The controller has no ipset action, so these tasks call the api endpoints directly with the
+## vault token, read first, write only what is missing. Additive : an extra address already in
+## the ipset is kept.
+##
+
+- name: "misp_star_lab - misp star ipfilter"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    _star_ipfilter:
+      - { vm_id: 1195, cidr: "192.168.142.195" }
+      - { vm_id: 1196, cidr: "192.168.149.196" }
+      - { vm_id: 1197, cidr: "192.168.150.197" }
+    _star_api: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu"
+    _star_api_headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+
+  tasks:
+
+    ## no_log on every call : the token rides in a header, and a failed uri prints its args at -v.
+    - name: MISP STAR IPFILTER - READ THE IPSETS
+      ansible.builtin.uri:
+        url: "{{ _star_api }}/{{ _star_ipf_it.vm_id }}/firewall/ipset"
+        headers: "{{ _star_api_headers }}"
+        validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+      loop: "{{ _star_ipfilter }}"
+      loop_control: { loop_var: _star_ipf_it }
+      register: _star_ipf_sets
+      no_log: true
+
+    - name: MISP STAR IPFILTER - CREATE ipfilter-net0 WHERE MISSING
+      ansible.builtin.uri:
+        url: "{{ _star_api }}/{{ _star_ipf_r._star_ipf_it.vm_id }}/firewall/ipset"
+        method: POST
+        headers: "{{ _star_api_headers }}"
+        body_format: json
+        body: { name: "ipfilter-net0", comment: "misp star - net0 may only send from its own address" }
+        validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+      loop: "{{ _star_ipf_sets.results }}"
+      loop_control: { loop_var: _star_ipf_r }
+      when: "'ipfilter-net0' not in (_star_ipf_r.json.data | default([], true) | map(attribute='name') | list)"
+      no_log: true
+
+    - name: MISP STAR IPFILTER - READ THE IPSET MEMBERS
+      ansible.builtin.uri:
+        url: "{{ _star_api }}/{{ _star_ipf_it.vm_id }}/firewall/ipset/ipfilter-net0"
+        headers: "{{ _star_api_headers }}"
+        validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+      loop: "{{ _star_ipfilter }}"
+      loop_control: { loop_var: _star_ipf_it }
+      register: _star_ipf_members
+      no_log: true
+
+    - name: MISP STAR IPFILTER - ADD THE VM ADDRESS WHERE MISSING
+      ansible.builtin.uri:
+        url: "{{ _star_api }}/{{ _star_ipf_r._star_ipf_it.vm_id }}/firewall/ipset/ipfilter-net0"
+        method: POST
+        headers: "{{ _star_api_headers }}"
+        body_format: json
+        body: { cidr: "{{ _star_ipf_r._star_ipf_it.cidr }}" }
+        validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+      loop: "{{ _star_ipf_members.results }}"
+      loop_control: { loop_var: _star_ipf_r }
+      when: >-
+        _star_ipf_r._star_ipf_it.cidr not in (_star_ipf_r.json.data | default([], true)
+        | map(attribute='cidr') | map('regex_replace', '/32$', '') | list)
+      no_log: true
+
+    - name: MISP STAR IPFILTER - READ THE OPTIONS
+      ansible.builtin.uri:
+        url: "{{ _star_api }}/{{ _star_ipf_it.vm_id }}/firewall/options"
+        headers: "{{ _star_api_headers }}"
+        validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+      loop: "{{ _star_ipfilter }}"
+      loop_control: { loop_var: _star_ipf_it }
+      register: _star_ipf_opts
+      no_log: true
+
+    - name: MISP STAR IPFILTER - SWITCH ipfilter ON WHERE OFF (FILTERS ONLY ONCE ARMED)
+      ansible.builtin.uri:
+        url: "{{ _star_api }}/{{ _star_ipf_r._star_ipf_it.vm_id }}/firewall/options"
+        method: PUT
+        headers: "{{ _star_api_headers }}"
+        body_format: json
+        body: { ipfilter: 1 }
+        validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+      loop: "{{ _star_ipf_opts.results }}"
+      loop_control: { loop_var: _star_ipf_r }
+      when: (_star_ipf_r.json.data.ipfilter | default(0) | int) != 1
+      no_log: true
+
+    ## Read back after the writes : what is asserted is the node's state, not what was posted.
+    - name: MISP STAR IPFILTER - READ BACK THE OPTIONS
+      ansible.builtin.uri:
+        url: "{{ _star_api }}/{{ _star_ipf_it.vm_id }}/firewall/options"
+        headers: "{{ _star_api_headers }}"
+        validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+      loop: "{{ _star_ipfilter }}"
+      loop_control: { loop_var: _star_ipf_it }
+      register: _star_ipf_opts_after
+      no_log: true
+
+    - name: MISP STAR IPFILTER - READ BACK THE IPSET MEMBERS
+      ansible.builtin.uri:
+        url: "{{ _star_api }}/{{ _star_ipf_it.vm_id }}/firewall/ipset/ipfilter-net0"
+        headers: "{{ _star_api_headers }}"
+        validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+      loop: "{{ _star_ipfilter }}"
+      loop_control: { loop_var: _star_ipf_it }
+      register: _star_ipf_members_after
+      no_log: true
+
+    - name: MISP STAR IPFILTER - EVERY STAR NIC FILTERS ON ITS OWN ADDRESS
+      ansible.builtin.assert:
+        that:
+          - (_star_ipf_opts_after.results[_star_ipf_i].json.data.ipfilter | default(0) | int) == 1
+          - _star_ipf_it.cidr in (_star_ipf_members_after.results[_star_ipf_i].json.data
+            | map(attribute='cidr') | map('regex_replace', '/32$', '') | list)
+        fail_msg: "vm {{ _star_ipf_it.vm_id }} : ipfilter off or {{ _star_ipf_it.cidr }} missing from ipfilter-net0"
+        success_msg: "vm {{ _star_ipf_it.vm_id }} : ipfilter on, net0 may send from {{ _star_ipf_it.cidr }}"
+      loop: "{{ _star_ipfilter }}"
+      loop_control: { loop_var: _star_ipf_it, index_var: _star_ipf_i }

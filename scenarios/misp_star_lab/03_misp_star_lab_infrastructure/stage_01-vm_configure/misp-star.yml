@@ -1,0 +1,31 @@
+##
+## misp-star - MISP star (instructor hub + one spoke per team) on r42_misp_star_active
+##
+## Delegates to the shared bundle : staged per-host .env, Docker, misp-star stack, then the
+## spoke-to-hub pairing (software.configure.misp_sync). Targets the runtime group built by
+## ../_build_misp_star_active_group.yml.
+##
+## NOT gated : the star is the workload of this scenario, always deployed. The booleans are real
+## YAML booleans on purpose : the sync role refuses a string.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.misp_star/main.yml"
+  vars:
+    MISP_STAR_INTER_TEAM_SHARING: false
+    MISP_STAR_TEAM_USERS_CAN_PUBLISH: true
+    MISP_STAR_SYNC_NO_LOG: true
+
+## The HYPERVISOR-side declaration of the MISP ports (22, 80, 443, any source) on each star VM,
+## on the tap - out of reach of a local root. Idempotent, and inert until the guest is ARMED
+## (firewall.enable.*). Not gated, like the install : the star VMs always exist.
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.misp/main.yml"
+  vars:
+    BUNDLE_VM_ID: 1195
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.misp/main.yml"
+  vars:
+    BUNDLE_VM_ID: 1196
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.misp/main.yml"
+  vars:
+    BUNDLE_VM_ID: 1197

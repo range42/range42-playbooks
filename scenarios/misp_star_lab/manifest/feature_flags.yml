@@ -1,0 +1,27 @@
+---
+# Feature flags for misp_star_lab - optional components that can be
+# toggled on/off at deploy time via `-e INSTALL_<NAME>=YES|NO`.
+#
+# Note : there is NO flag for the MISP star. The star (hub + team spokes) IS
+# the workload of this scenario, always deployed via tier
+# 03_misp_star_lab_infrastructure regardless of any flag. Only the admin-wazuh
+# SIEM is optional.
+#
+# This file is the single source of truth :
+#   - the deploy TUI (range42-context --tui) reads `features` to render the
+#     checkbox modal before invoking `range42-context deploy`
+#   - the playbooks read the `INSTALL_<NAME>` variables via
+#     `when: INSTALL_<NAME> | default("YES"|"NO") | upper == "YES"` on the
+#     relevant `import_playbook` / `block:` entries
+#
+# Convention :
+#   - `id` is UPPERCASE (matches the variable name : `id: WAZUH` -> `INSTALL_WAZUH`)
+#   - `default: true|false` is the checkbox initial state in the TUI
+#   - the playbook `default("YES"|"NO")` fallback should align with this
+#   - `| upper` makes the check case-insensitive : YES / yes / Yes all match
+
+features:
+  - id: WAZUH
+    label: "Wazuh stack - SIEM + agents services"
+    description: "Deploys an admin-wazuh VM (vm_id 1198, IP 192.168.142.198) under 02_admin_infrastructure/ + agent install on the 3 MISP star VMs. Off by default (the scenario focuses on the MISP star, not on SIEM)."
+    default: false
