@@ -13,7 +13,8 @@
 ## The vnet list is declared ONCE below and passed to both bundles, so they cannot drift apart.
 ##
 ## Isolation between these subnets is NOT set up here : they reach each other, the host routes. The
-## team isolation of the MISP star comes from the per-NIC rules of _firewall/, and only once armed.
+## team isolation of the MISP star rests on MISP (sharing groups, authentication) ; the per-NIC
+## firewall keeps each star VM's source address true (ipfilter), and only once armed.
 ##
 
 - name: "misp_star_lab - 00 declare the networks, once"

@@ -26,12 +26,11 @@ The PER-SERVICE declares do not live here: they live in the admin-<service>.yml 
 gated by the same flag as the install - flag=NO means the VM does not exist, so the api
 would refuse.
 
-One exception: `stage_02-post_vm_bootstrap.misp_star_rules.yml`, the MISP star per-NIC rules
-(not gated: the star is the workload). It must run BEFORE the scenario-wide ssh accept of
-stage_03, so it lives here, as a local play: no firewall bundle declares a source-restricted
-rule list. The same file also carries the wazuh agent ports on admin-wazuh (1514 + 1515 from
-each star host), gated by `INSTALL_WAZUH` like the install: they are star rules too (one
-`/32` per star VM), and `firewall.baseline.wazuh_server_agents_access` declares 1514 + 55000,
-not the 1515 enrollment port the agent role uses. It also turns on `ipfilter` on the 3 star NICs
-(ipset `ipfilter-net0` = the VM address): the controller has no ipset action, so these few
-tasks call the same api endpoints directly, read first and write only what is missing.
+One exception: `stage_02-post_vm_bootstrap.misp_star_rules.yml`, the MISP star `ipfilter` on
+the 3 star NICs (ipset `ipfilter-net0` = the VM address, not gated: the star is the workload).
+It declares no port: the star ports come from `firewall.baseline.misp`, imported per VM in
+`03_misp_star_lab_infrastructure/stage_01-vm_configure/misp-star.yml`, and the wazuh ports from
+`firewall.baseline.wazuh` + `firewall.baseline.wazuh_server_agents_access` in
+`02_admin_infrastructure/stage_01-vm_configure/admin-wazuh.yml`. The controller has no ipset
+action, so these few tasks call the same api endpoints directly, read first and write only what
+is missing.

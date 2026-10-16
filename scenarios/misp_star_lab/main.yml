@@ -57,7 +57,8 @@
 - import_playbook: ./03_misp_star_lab_infrastructure/_main_stage_00.yml
 
 ## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
-## The MISP star rules (declare only) go first, then the scenario-wide ssh accept.
+## The MISP star ipfilter (declare only), then the scenario-wide ssh accept. The per-service
+## port declares (firewall.baseline.<svc>) run in stage_01, next to each install.
 - import_playbook: ./_firewall/stage_02-post_vm_bootstrap.misp_star_rules.yml
 - import_playbook: ./_firewall/stage_03-post_vm_bootstrap.vm_ssh_baseline.yml
 
