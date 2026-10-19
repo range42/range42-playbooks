@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 ##
 ## delete VMs only - catalog_try VM (single VM, filter by vm_id), keep templates
@@ -27,14 +28,27 @@ echo ":: stopping and deleting catalog_try VMs (keeping templates)..."
 echo ":: catalog_try VMs: ${SCENARIO_VM_IDS[*]}"
 echo ""
 
-VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh 2>&1 | grep '"vm_id":[0-9]')
-if [ -z "$VM_LIST_JSON" ]; then
-    echo "ERROR: proxmox_vm.list.to.jsons.sh returned no VM data (no vm_id lines) - aborting" >&2
-    printf "output: %.200s\n" "$VM_LIST_JSON" >&2
+# Preserve the native command's exit status: an empty successful inventory is
+# expected on the participant's first run. API/authentication failures still stop.
+if ! VM_LIST_JSON=$(proxmox_vm.list.to.jsons.sh); then
+    echo "ERROR: native VM inventory query failed - no deletion attempted" >&2
     exit 1
 fi
-echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.stop_force.to.jsons.sh
-echo "$VM_LIST_JSON" | jq -c | grep -E "\"vm_id\":($ID_REGEX)([^0-9]|\$)" | proxmox_vm.vm_id.delete.to.jsons.sh
+if [[ -z "${VM_LIST_JSON//[[:space:]]/}" ]]; then
+    echo ":: no VMs exist; nothing to delete"
+    exit 0
+fi
+if ! printf '%s\n' "$VM_LIST_JSON" | jq -e -s 'all(.[]; type == "object" and (.vm_id | type == "number"))' >/dev/null; then
+    echo "ERROR: native VM inventory is invalid - no deletion attempted" >&2
+    exit 1
+fi
+SELECTED=$(printf '%s\n' "$VM_LIST_JSON" | jq -c --argjson ids "$(jq '[.vms[].vm_id]' "$MANIFEST")" 'select(.vm_id as $id | $ids | index($id))')
+if [[ -z "$SELECTED" ]]; then
+    echo ":: catalog_try VMs are already absent; templates preserved"
+    exit 0
+fi
+printf '%s\n' "$SELECTED" | proxmox_vm.vm_id.stop_force.to.jsons.sh
+printf '%s\n' "$SELECTED" | proxmox_vm.vm_id.delete.to.jsons.sh
 
 for ip in "${INFRASTRUCTURE_IP[@]}"; do
     echo ":: REMOVE SSH KEY FOR : $ip"
