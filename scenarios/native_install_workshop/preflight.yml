@@ -1,0 +1,39 @@
+---
+- name: Select only this immutable workshop run and the requested participants
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - name: Require a complete run plan from the reviewed deployment
+      ansible.builtin.assert:
+        that:
+          - groups['proxmox'] | length == 1
+          - range42_workshop_plan.version == 1
+          - range42_workshop_plan.run_id is match('^[a-f0-9]{16,32}$')
+          - range42_workshop_plan.seats | int in range(1, 11)
+          - range42_workshop_plan.guests | length == 2 * range42_workshop_plan.seats | int
+          - range42_workshop_selected_seat | int in range(0, range42_workshop_plan.seats | int + 1)
+          - proxmox_api_validate_certs | bool
+          - range42_workshop_receipt_root is match('^/')
+        fail_msg: Select a complete, pinned workshop run on its registered native environment.
+    - ansible.builtin.set_fact:
+        workshop_selected_guests: "{{ range42_workshop_plan.guests if range42_workshop_selected_seat | int == 0 else (range42_workshop_plan.guests | selectattr('seat', 'equalto', range42_workshop_selected_seat | int) | list) }}"
+        workshop_receipt_root: "{{ range42_workshop_receipt_root }}"
+        proxmox_dest_vm_storage_name: "{{ range42_workshop_plan.storage }}"
+    - ansible.builtin.assert:
+        that:
+          - workshop_selected_guests | length > 0
+          - workshop_selected_guests | map(attribute='owner') | select('match', '^range42-workshop:' + range42_workshop_plan.run_id + ':') | list | length == workshop_selected_guests | length
+    - name: Inspect the durable run receipt directory without following links
+      ansible.builtin.stat:
+        path: "{{ workshop_receipt_root }}"
+        follow: false
+      register: workshop_receipt_directory
+    - ansible.builtin.assert:
+        that:
+          - not workshop_receipt_directory.stat.exists or (workshop_receipt_directory.stat.isdir and not workshop_receipt_directory.stat.islnk and workshop_receipt_directory.stat.mode == '0700')
+    - ansible.builtin.file:
+        path: "{{ workshop_receipt_root }}"
+        state: directory
+        mode: '0700'

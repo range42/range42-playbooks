@@ -1,0 +1,9 @@
+{% for guest in range42_workshop_plan.guests %}
+Host {{ guest.alias }}
+    HostName {{ guest.ip }}
+    User range42
+    StrictHostKeyChecking yes
+    UserKnownHostsFile {{ range42_workshop_known_hosts }}
+    ForwardAgent no
+{% endfor %}
+Include {{ range42_workshop_source_ssh_config | tojson }}

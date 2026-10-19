@@ -1,0 +1,33 @@
+name: Native workshop recipe
+on:
+  push:
+    branches: [dev, main, 'feat/**', 'fix/**']
+  pull_request:
+    branches: [dev, main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+      - run: apt-get update && apt-get install -y --no-install-recommends git openssh-client openssl
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: range42/range42-ansible_roles-proxmox_controller
+          ref: e988001493041d6d2fd0c67b2006fe4e7686d374
+          path: .runtime-contract/controller
+      - uses: actions/checkout@v6
+        with:
+          repository: range42/range42-catalog
+          ref: 49387e6cfb6037d31803da3d60cffd3beca94c57
+          path: .runtime-contract/catalog
+      - run: pip install --no-cache-dir -r tests/requirements-native-workshop.txt
+      - name: Verify ownership, inventory and authenticated native Ansible gates
+        env:
+          RANGE42_WORKSHOP_CONTROLLER_ROLES: ${{ github.workspace }}/.runtime-contract/controller/roles
+          RANGE42_WORKSHOP_CATALOG_ROLES: ${{ github.workspace }}/.runtime-contract/catalog/02_ansible_layer/admin/roles
+        run: |
+          ruff check scenarios/native_install_workshop/filter_plugins scenarios/native_install_workshop/library scenarios/native_install_workshop/files tests/test_native_workshop_runs.py
+          pytest -q tests/test_native_workshop_runs.py

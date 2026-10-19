@@ -1,0 +1,55 @@
+---
+- name: Inspect a retained receipt before changing this allocation
+  ansible.builtin.stat:
+    path: "{{ workshop_receipt_root }}/{{ workshop_guest.vm_id }}.json"
+    follow: false
+  register: workshop_previous_receipt
+- ansible.builtin.assert:
+    that: [not workshop_previous_receipt.stat.exists]
+    fail_msg: Retained receipts require owned recovery or a new run; refuse implicit resource adoption.
+- name: Clone using the installed Proxmox controller role
+  ansible.builtin.include_role:
+    name: range42-ansible_roles-proxmox_controller
+    apply: {no_log: true}
+  vars:
+    proxmox_vm_action: vm_clone
+    vm_id: "{{ workshop_guest.template }}"
+    vm_new_id: "{{ workshop_guest.vm_id }}"
+    vm_name: "{{ workshop_guest.vm_name }}"
+    vm_description: "{{ workshop_guest.owner }}"
+  no_log: true
+- name: Wait for the actual clone generation
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ workshop_guest.vm_id }}/config"
+    headers: {Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"}
+    validate_certs: true
+    follow_redirects: none
+  register: workshop_clone
+  until: workshop_clone.json.data.lock is not defined
+  retries: 60
+  delay: 5
+  no_log: true
+- ansible.builtin.assert:
+    that:
+      - workshop_clone.json.data.name == workshop_guest.vm_name
+      - workshop_clone.json.data.description == workshop_guest.owner
+      - not (workshop_clone.json.data.template | default(false) | bool)
+      - workshop_clone.json.data.vmgenid is match('^[0-9a-f-]{36}$')
+- name: Record the owned generation before the first hardware change
+  ansible.builtin.copy:
+    dest: "{{ workshop_receipt_root }}/{{ workshop_guest.vm_id }}.json"
+    mode: '0600'
+    force: false
+    content: "{{ {'version': 2, 'owner': workshop_guest.owner, 'vmgenid': workshop_clone.json.data.vmgenid, 'vmid': workshop_guest.vm_id, 'bootstrap_network': {'net0': workshop_clone.json.data.net0, 'ipconfig0': workshop_clone.json.data.ipconfig0 | default(none)}} | to_nice_json }}\n"
+- name: Set bounded hardware before the guest can start
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ workshop_guest.vm_id }}/config"
+    method: PUT
+    headers: {Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"}
+    body_format: form-urlencoded
+    body: {digest: "{{ workshop_clone.json.data.digest }}", cpu: host, cores: "{{ workshop_guest.cores }}", memory: "{{ workshop_guest.memory_mib }}", balloon: 0}
+    validate_certs: true
+    follow_redirects: none
+  no_log: true
+- name: Finish this recorded clone's private first boot
+  ansible.builtin.include_tasks: bootstrap-one.yml
