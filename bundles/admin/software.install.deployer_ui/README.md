@@ -52,6 +52,13 @@ The upstream repo ships a multi-stage Dockerfile :
 
 ## Source provenance
 
+The source sync retains the selected target's existing SSH arguments, private
+configuration, proxy route and host-key file. Verification remains enabled;
+callers requiring strict pins must use their existing strict SSH policy. The
+bundle does not enroll host keys. Existing copy/delete behavior and exclusions
+remain unchanged. Actual API/UI sync regressions, including real loopback SSH
+unknown/changed-key refusal, are in `tests/test_deployer_source_sync.py`.
+
 This bundle deploys the **controller's working tree**, not a git clone : branch, local commits and uncommitted edits all ship as-is. That is what makes a dev lab fast (edit, redeploy, no push round-trip), but it also means the deployed bundle can exist on no git remote.
 
 Step 4 therefore records what was actually shipped :
