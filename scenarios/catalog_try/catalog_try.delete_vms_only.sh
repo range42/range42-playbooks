@@ -50,10 +50,18 @@ fi
 printf '%s\n' "$SELECTED" | proxmox_vm.vm_id.stop_force.to.jsons.sh
 printf '%s\n' "$SELECTED" | proxmox_vm.vm_id.delete.to.jsons.sh
 
-for ip in "${INFRASTRUCTURE_IP[@]}"; do
-    echo ":: REMOVE SSH KEY FOR : $ip"
-    ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$ip"
-done
+# Native API attempts keep their verified pins in the registered workspace.
+# Remove only this deleted guest's pin; another context's SSH home stays intact.
+KNOWN_HOSTS="$HOME/.ssh/known_hosts"
+if [[ -n "${RANGE42_SOURCE_CONTEXT_DIR:-}" ]]; then
+    KNOWN_HOSTS="${RANGE42_SOURCE_CONTEXT_DIR%/}/ssh_keys/known_hosts"
+fi
+if [[ -f "$KNOWN_HOSTS" ]]; then
+    for ip in "${INFRASTRUCTURE_IP[@]}"; do
+        echo ":: REMOVE SSH KEY FOR : $ip"
+        ssh-keygen -f "$KNOWN_HOSTS" -R "$ip"
+    done
+fi
 
 echo ""
 echo ":: done - templates preserved"
