@@ -138,11 +138,12 @@ def test_native_entrypoints_parse_with_the_reviewed_runtime_roles(tmp_path, entr
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-@pytest.mark.parametrize('fault', [None, 'wrong_disks', 'passthrough', 'untrusted_certificate'])
+@pytest.mark.parametrize('fault', [None, 'wrong_disks', 'passthrough', 'missing_nic', 'malformed_nic', 'untrusted_certificate'])
 def test_real_native_template_gate_blocks_unsafe_sources_without_disclosing_credentials(tmp_path, endpoint, fault):
     replies = []
     for template in (9230, 9222):
         config = {'template': 1, 'cpu': 'host', 'agent': 'enabled=1',
+            'net0': 'virtio=AA:BB:CC:DD:EE:FF,bridge=vmbr422',
             'scsi0': f'pool:base-{template}-disk-0,size=32G', 'ide2': f'pool:vm-{template}-cloudinit,media=cdrom'}
         if template == 9230:
             config['scsi1'] = f'pool:base-{template}-disk-1,size=128G'
@@ -150,6 +151,10 @@ def test_real_native_template_gate_blocks_unsafe_sources_without_disclosing_cred
             config['scsi0'] = f'pool:base-{template}-disk-0,size=24G'
         if fault == 'passthrough':
             config['hostpci0'] = '0000:01:00.0'
+        if fault == 'missing_nic':
+            config.pop('net0')
+        elif fault == 'malformed_nic':
+            config['net0'] = 'virtio=not-a-mac,bridge=vmbr422'
         replies.append((200, {'data': config}))
     endpoint['replies'].clear()
     endpoint['replies'].extend(replies)
