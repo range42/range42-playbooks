@@ -1,0 +1,16 @@
+---
+##
+## 03 - misp_star_lab infrastructure (thin wrapper)
+##
+## Structure : DEVKIT-ONLY wrapper. main.yml deploys via _main_stage_NN.yml directly to enforce global stage discipline.
+## This file is USELESS for the main scenario deploy ; invoked ONLY when running the tier in isolation (devkit / debug).
+##
+## Hosts the MISP star :
+##   - admin-misp-star-hub (VMID 1195, IP 192.168.142.195, net142) : instructor hub
+##   - misp-star-spoke-01  (VMID 1196, IP 192.168.149.196, net149) : team-01 spoke
+##   - misp-star-spoke-02  (VMID 1197, IP 192.168.150.197, net150) : team-02 spoke
+##
+
+- import_playbook: ./_main_stage_00.yml
+
+- import_playbook: ./_main_stage_01.yml

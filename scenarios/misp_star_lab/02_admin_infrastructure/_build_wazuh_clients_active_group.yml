@@ -1,0 +1,44 @@
+---
+##
+## misp_star_lab - 02_admin_infrastructure - build r42_misp_star_lab_wazuh_clients_active
+##
+## Structure : runtime-only group built via add_host on the proxmox host
+## (which has ansible_connection: local) based on the deploy-time state.
+## Mirror of _build_admin_active_group.yml (Option A pattern) applied to the
+## wazuh-agent client list.
+##
+## Used by _finalize-baseline-admin_wazuh_client.yml as wazuh_clients_group.
+## Per-host gating without inventory file modification.
+##
+## Membership map :
+##
+##   client VM                       VM creation gate              add_host condition
+##   ------------------------------ ----------------------------- ----------------------
+##   r42.admin-misp-star-hub         (always created, IS workload) added when INSTALL_WAZUH=YES
+##   r42.misp-star-spoke-01          (always created, IS workload) added when INSTALL_WAZUH=YES
+##   r42.misp-star-spoke-02          (always created, IS workload) added when INSTALL_WAZUH=YES
+##
+## The wazuh server itself (r42.admin-wazuh) is EXCLUDED by design (a server
+## does not run its own agent). With INSTALL_WAZUH=NO the group stays empty
+## (the finalize that reads it is gated by the same flag anyway).
+##
+## `hosts: proxmox` (not localhost) so the play matches the wrapper's
+## `-l "all"` filter.
+##
+
+- name: build r42_misp_star_lab_wazuh_clients_active dynamic group from INSTALL flags
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: add the MISP star VMs to r42_misp_star_lab_wazuh_clients_active (workload VMs, always created)
+      ansible.builtin.add_host:
+        name: "{{ _star_wazuh_client }}"
+        groups: r42_misp_star_lab_wazuh_clients_active
+      loop:
+        - r42.admin-misp-star-hub
+        - r42.misp-star-spoke-01
+        - r42.misp-star-spoke-02
+      loop_control:
+        loop_var: _star_wazuh_client
+      when: INSTALL_WAZUH | default("NO") | upper == "YES"
+      changed_when: false

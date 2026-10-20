@@ -1,0 +1,56 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### misp_star_lab - 03_misp_star_lab_infrastructure - stage_00 - misp star #### #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# The MISP star IS the workload of this scenario : the 3 VMs are always created, no flag.
+# One vnet per team ; the hub stays on the admin vnet.
+#
+#   - admin-misp-star-hub (1195, 192.168.142.195, net142) : instructor hub
+#   - misp-star-spoke-01  (1196, 192.168.149.196, net149) : team-01 spoke
+#   - misp-star-spoke-02  (1197, 192.168.150.197, net150) : team-02 spoke
+#
+# More spokes = one more block here (+ a vnet in 00_sdn_bootstrap, a manifest entry, an add_host
+# in ../_build_misp_star_active_group.yml, the firewall rules, the templates). See the README.
+#
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "admin-misp-star-hub"
+    global_vm_ssh_name:    "r42.admin-misp-star-hub"
+    global_vm_id:          1195
+    global_vm_description: "misp_star_lab - MISP star instructor hub"
+    global_vm_tag_name:    "misp-star-lab"
+    global_vm_ci_ip:       "192.168.142.195"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "misp-star-spoke-01"
+    global_vm_ssh_name:    "r42.misp-star-spoke-01"
+    global_vm_id:          1196
+    global_vm_description: "misp_star_lab - MISP star spoke, team-01"
+    global_vm_tag_name:    "misp-star-lab"
+    global_vm_ci_ip:       "192.168.149.196"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "net149"
+    global_vm_ci_ip_gw:           "192.168.149.1"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "misp-star-spoke-02"
+    global_vm_ssh_name:    "r42.misp-star-spoke-02"
+    global_vm_id:          1197
+    global_vm_description: "misp_star_lab - MISP star spoke, team-02"
+    global_vm_tag_name:    "misp-star-lab"
+    global_vm_ci_ip:       "192.168.150.197"
+    global_template_vm_id: 9232
+    global_template_name:  "03-template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "net150"
+    global_vm_ci_ip_gw:           "192.168.150.1"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

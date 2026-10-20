@@ -1,0 +1,14 @@
+{
+  "scenario": "misp_star_lab",
+  "version": 1,
+  "description": "MISP star scenario: one instructor hub + one spoke per team (2 teams), one SDN vnet per team, deployed from the misp-star catalog element (range42-catalog/03_container_layer/docker/admin/misp-star/) and paired spoke-to-hub by MISP sync via the shared bundle bundles/admin/software.install.misp_star/. The star IS the workload (always deployed, no INSTALL flag for it). Hub admin-misp-star-hub (VMID 1195, 192.168.142.195, net142); spokes misp-star-spoke-01 (team-01, VMID 1196, 192.168.149.196, net149) and misp-star-spoke-02 (team-02, VMID 1197, 192.168.150.197, net150). Optional admin-wazuh VM (VMID 1198, IP 192.168.142.198, net142, gated by INSTALL_WAZUH, default off) deploys a Wazuh SIEM server + agents on the 3 star VMs.",
+  "vms": [
+    {"vm_id": 1198, "vm_name": "admin-wazuh",          "ip": "192.168.142.198", "role": "admin",     "group": "admin",     "bridge": "net142"},
+    {"vm_id": 1195, "vm_name": "admin-misp-star-hub",  "ip": "192.168.142.195", "role": "misp-star", "group": "misp-star", "bridge": "net142"},
+    {"vm_id": 1196, "vm_name": "misp-star-spoke-01",   "ip": "192.168.149.196", "role": "misp-star", "group": "misp-star", "bridge": "net149"},
+    {"vm_id": 1197, "vm_name": "misp-star-spoke-02",   "ip": "192.168.150.197", "role": "misp-star", "group": "misp-star", "bridge": "net150"}
+  ],
+  "templates": [
+    {"vm_id": 9232, "vm_name": "template-vm-medium-02-8g-64g", "spec": "2cpu/8gb/64gb", "ip": "192.168.140.232", "bridge": "net140"}
+  ]
+}

@@ -1,0 +1,68 @@
+---
+bundle: admin/software.install.misp_star
+
+description: MISP star topology (one instructor hub + one MISP spoke per player team, misp-star catalog element) deployed with a per-host staged .env, then paired through native MISP server-to-server sync by software.configure.misp_sync
+
+optional: true
+
+install_flag: INSTALL_MISP_STAR
+
+params:
+  - name: misp_star_target_group
+    target: true
+    type: string
+    required: false
+    default: r42_misp_star_active
+    default_where: bundle-inline
+    description: Runtime-only group of the star VMs, built by the scenario with add_host. Every member carries misp_star_role (hub|spoke, exactly one hub); every spoke also carries misp_star_team (unique, [A-Za-z0-9_-], becomes that spoke's MISP_ORG).
+
+  - name: MISP_STAR_INTER_TEAM_SHARING
+    type: bool
+    required: false
+    default: false
+    default_where: bundle-inline
+    description: true adds the roaming sharing group 'all teams' (every team org + white cell) on the hub and the spokes - an inter-team channel by design. false (default) keeps teams isolated (M1).
+
+  - name: MISP_STAR_SIGHTINGS_SYNC
+    type: string
+    required: false
+    allowed: [push, both]
+    default: push
+    default_where: bundle-inline
+    description: push = sightings flow spoke to hub only (hub Plugin.Sightings_policy 0). both = teams also receive the white cell sightings (policy 3). Never 2.
+
+  - name: MISP_STAR_GALAXY_CLUSTERS_SYNC
+    type: string
+    required: false
+    allowed: [push, both]
+    default: push
+    default_where: bundle-inline
+    description: push = galaxy clusters flow spoke to hub only. both = the spokes also pull galaxy clusters from the hub.
+
+  - name: MISP_STAR_TEAM_USERS_CAN_PUBLISH
+    type: bool
+    required: false
+    default: true
+    default_where: bundle-inline
+    description: true (default) gives team users the Publisher role (4) on their spoke. false gives them User (3); only the team lead (Org Admin, 2) can publish. Written into each .env as MISP_TEAM_USERS_CAN_PUBLISH at first generation.
+
+  - name: MISP_STAR_HTTP_PORT
+    type: int
+    required: false
+    default: 80
+    default_where: bundle-inline
+    description: Published HTTP port of every star instance. Written into each .env at first generation and opened in the guest ufw.
+
+  - name: MISP_STAR_HTTPS_PORT
+    type: int
+    required: false
+    default: 443
+    default_where: bundle-inline
+    description: Published HTTPS port of every star instance (MISP baseurl and spoke-to-hub sync port). Written into each .env at first generation, opened in the guest ufw, passed to the sync role.
+
+  - name: MISP_STAR_SYNC_NO_LOG
+    type: bool
+    required: false
+    default: true
+    default_where: bundle-inline
+    description: Debug switch for software.configure.misp_sync. false shows the MISP API results in the Ansible output - they contain site admin and sync keys. Keep true outside debugging.

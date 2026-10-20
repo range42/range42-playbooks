@@ -23,14 +23,14 @@ Each bundle directory holds :
 
 | Tier | Bundles | What lives there | Index |
 |---|---|---|---|
-| `admin/` | 10 | application stacks on the dedicated admin VMs, each behind an `INSTALL_<NAME>` feature flag | [admin/README.md](admin/README.md) |
+| `admin/` | 11 | application stacks on the dedicated admin VMs, each behind an `INSTALL_<NAME>` feature flag | [admin/README.md](admin/README.md) |
 | `proxmox/` | 33 | cloud images, VM templates, VM bootstrap and network cards, SDN networks, legacy bridge migration | [proxmox/README.md](proxmox/README.md) |
 | `firewall/` | 26 | the Proxmox firewall (`in_proxmox`) and the firewall inside the VM (`in_vm`) | [firewall/README.md](firewall/README.md) |
 | `generic/` | 21 | group-targeted primitives : system baselines, users and access, network policies, repositories, Kunai workshop | [generic/README.md](generic/README.md) |
 | `ctf/` | 16 | vulnerable containers for training, one CVE or misconfiguration each | [ctf/README.md](ctf/README.md) |
 | `_tools/` | | the parameter contract tooling : schema, generator, call-site check, reference annotations, and this index generator | [_tools/README.md](_tools/README.md) |
 
-106 bundles in total.
+107 bundles in total.
 
 ## Where a scenario imports them
 

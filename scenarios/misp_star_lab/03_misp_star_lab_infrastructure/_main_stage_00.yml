@@ -1,0 +1,14 @@
+---
+##
+## 03 - misp_star_lab infrastructure - stage_00 (vm_bootstrap)
+##
+## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
+##
+## Provisions the 3 MISP star VMs (hub on net142, one spoke per team vnet). No gating : the
+## star is the workload ; admin tier optionality lives in 02_admin_infrastructure/.
+##
+## Imported from the top-level main.yml during the global stage_00 phase
+## (ALL tiers stage_00 run before ANY tier stage_01). See main.yml.
+##
+
+- import_playbook: ./stage_00-vm_bootstrap/_misp_star_group.yml
