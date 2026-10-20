@@ -196,7 +196,7 @@ server.socket=context.wrap_socket(server.socket,server_side=True);server.serve_f
             import json
             binding = json.loads((context / '.range42-target.json').read_text())
             assert binding == {'version': 1, 'target_host_id': host_id,
-                'target_node': 'fixture', 'target_api_url': 'https://proxmox-fixture:8443'}
+                'target_node': 'fixture', 'target_api_url': hosts['items'][0]['api_url']}
             runtime_context = client.get('/v1/environments', headers=headers).json()['base_contexts']
             assert len(runtime_context) == 1 and runtime_context[0]['ready'] is True
             first = command(compose + ["ps", "-q", "api"])
