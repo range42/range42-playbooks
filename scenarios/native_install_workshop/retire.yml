@@ -1,0 +1,18 @@
+---
+- name: Retire only original owned outer guests and preserve the platform and networks
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    workshop_allow_retired: true
+    workshop_check_hostkey: true
+  tasks:
+    - name: Verify the entire selected retirement set before any shutdown
+      ansible.builtin.include_tasks: tasks/owned.yml
+      loop: "{{ workshop_selected_guests }}"
+      loop_control: {loop_var: workshop_guest, label: "{{ workshop_guest.vm_name }}"}
+    - name: Retire each exact retained clone through the native controller
+      ansible.builtin.include_tasks: tasks/retire-one.yml
+      loop: "{{ workshop_selected_guests }}"
+      loop_control: {loop_var: workshop_guest, label: "{{ workshop_guest.vm_name }}"}

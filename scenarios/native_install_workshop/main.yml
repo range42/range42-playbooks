@@ -1,0 +1,4 @@
+---
+- import_playbook: preflight.yml
+- import_playbook: clone.yml
+- import_playbook: configure.yml

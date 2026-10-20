@@ -1,0 +1,25 @@
+---
+- name: Set run-local cloud-init credentials and the final isolated interface before start
+  ansible.builtin.include_role:
+    name: range42-ansible_roles-proxmox_controller
+    apply: {no_log: true}
+  vars:
+    proxmox_vm_action: cloudinit_set_variables
+    vm_id: "{{ workshop_guest.vm_id }}"
+    vm_ci_user: range42
+    vm_ci_password: "{{ range42_workshop_participants[workshop_guest.username].deployer_password }}"
+    vm_ci_ssh_key: "{{ default_admin_vm_ci_ssh_key }}"
+    vm_ci_dns_ips: "{{ workshop_guest.gateway }}"
+    vm_ci_ip: "{{ workshop_guest.ip }}"
+    vm_ci_netmask: "{{ workshop_guest.prefix }}"
+    vm_ci_ip_gw: "{{ workshop_guest.gateway }}"
+    vm_net_virtio_bridge: "{{ workshop_guest.bridge }}"
+  no_log: true
+- name: Start only this recorded guest
+  ansible.builtin.include_role:
+    name: range42-ansible_roles-proxmox_controller
+    apply: {no_log: true}
+  vars:
+    proxmox_vm_action: vm_start
+    vm_id: "{{ workshop_guest.vm_id }}"
+  no_log: true

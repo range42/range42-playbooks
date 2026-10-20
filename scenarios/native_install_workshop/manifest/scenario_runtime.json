@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "actions": {
+    "full": "main.yml",
+    "configure": "configure.yml",
+    "teardown": "teardown.yml",
+    "reset": "reset.yml"
+  },
+  "bundle_path": "bundles"
+}

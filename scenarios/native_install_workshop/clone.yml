@@ -1,0 +1,20 @@
+---
+- import_playbook: validate-templates.yml
+- name: Create the selected run's outer machines through the installed native controller
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - name: Confirm all selected allocations are globally absent before the first clone
+      ansible.builtin.uri:
+        url: "https://{{ proxmox_api_host }}/api2/json/cluster/nextid?vmid={{ item.vm_id }}"
+        headers: {Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"}
+        validate_certs: true
+        follow_redirects: none
+      loop: "{{ workshop_selected_guests }}"
+      no_log: true
+    - name: Clone and configure each independently owned guest
+      ansible.builtin.include_tasks: tasks/clone-one.yml
+      loop: "{{ workshop_selected_guests }}"
+      loop_control: {loop_var: workshop_guest, label: "{{ workshop_guest.vm_name }}"}

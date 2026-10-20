@@ -1,0 +1,123 @@
+---
+- name: Require nested KVM and a Proxmox-equipped guest template
+  ansible.builtin.stat:
+    path: /dev/kvm
+  register: workshop_kvm
+- ansible.builtin.assert:
+    that: [workshop_kvm.stat.exists]
+- name: Inspect the per-instance bridge initialization receipt
+  ansible.builtin.stat:
+    path: /etc/range42-workshop-network
+  register: workshop_network_initialized
+- name: Prepare vmbr0 once for the participant's native Range42 installer
+  when: not workshop_network_initialized.stat.exists
+  block:
+    - name: Read this guest's actual initial management interface
+      ansible.builtin.command:
+        argv: [ip, -j, -4, route, show, default]
+      register: workshop_initial_route
+      changed_when: false
+    - ansible.builtin.assert:
+        that:
+          - workshop_initial_route.stdout | from_json | length == 1
+          - (workshop_initial_route.stdout | from_json)[0].gateway == workshop_guest.gateway
+          - (workshop_initial_route.stdout | from_json)[0].dev in ['ens18', 'eth0']
+    - name: Place this isolated guest's management address on its own vmbr0
+      ansible.builtin.copy:
+        dest: /etc/network/interfaces
+        mode: '0644'
+        backup: true
+        content: |
+          # Range42 workshop initial guest-only network. Later native lab changes are preserved.
+          auto lo
+          iface lo inet loopback
+          iface {{ (workshop_initial_route.stdout | from_json)[0].dev }} inet manual
+          auto vmbr0
+          iface vmbr0 inet static
+              address {{ workshop_guest.ip }}/28
+              gateway {{ workshop_guest.gateway }}
+              bridge-ports {{ (workshop_initial_route.stdout | from_json)[0].dev }}
+              bridge-stp off
+              bridge-fd 0
+          source /etc/network/interfaces.d/*
+    - name: Remove only cloud-init's first-boot interface declaration
+      ansible.builtin.file:
+        path: /etc/network/interfaces.d/50-cloud-init
+        state: absent
+    - name: Preserve participant network changes across later cloud-init starts
+      ansible.builtin.copy:
+        dest: /etc/cloud/cloud.cfg.d/99-workshop-network.cfg
+        mode: '0644'
+        content: "network: {config: disabled}\n"
+    - name: Apply networking inside this isolated nested guest only
+      ansible.builtin.command:
+        argv: [ifreload, -a]
+      async: 60
+      poll: 0
+      changed_when: true
+    - name: Reconnect to the same trusted guest after its local bridge transition
+      ansible.builtin.wait_for_connection:
+        delay: 3
+        timeout: 90
+    - name: Retain the guest-only network initialization receipt
+      ansible.builtin.copy:
+        dest: /etc/range42-workshop-network
+        mode: '0644'
+        content: "{{ workshop_guest.owner }}\n"
+- name: Declare only this nested hypervisor's own private hostname
+  ansible.builtin.hostname:
+    name: "{{ workshop_guest.vm_name }}"
+- name: Resolve the nested node's FQDN to its own private address
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '(^127\.0\.1\.1\s|\sworkshop-template(?:\s|$)|\s{{ workshop_guest.vm_name }}(?:\s|$))'
+    line: "{{ workshop_guest.ip }} {{ workshop_guest.vm_name }}.workshop.test {{ workshop_guest.vm_name }}"
+- name: Start the fresh node-local Proxmox configuration filesystem
+  ansible.builtin.systemd_service:
+    name: pve-cluster
+    enabled: true
+    state: started
+- name: Initialize the fresh standalone node configuration and certificates through native Proxmox
+  ansible.builtin.command:
+    argv: [pvecm, updatecerts]
+    creates: /etc/pve/local/pve-ssl.pem
+- name: Read the fresh node-local storage declarations
+  ansible.builtin.command:
+    argv: [pvesh, get, /storage, --output-format, json]
+  register: workshop_inner_storage
+  changed_when: false
+- name: Register the nested hypervisor local image directory
+  ansible.builtin.command:
+    argv: [pvesm, add, dir, local, --path, /var/lib/vz, --content, 'iso,vztmpl,backup,snippets']
+  when: "'local' not in (workshop_inner_storage.stdout | from_json | map(attribute='storage') | list)"
+  changed_when: true
+- name: Register this nested VM's own thin-pool disk for participant guests
+  ansible.builtin.command:
+    argv: [pvesm, add, lvmthin, local-lvm, --vgname, pve, --thinpool, data, --content, 'images,rootdir']
+  when: "'local-lvm' not in (workshop_inner_storage.stdout | from_json | map(attribute='storage') | list)"
+  changed_when: true
+- name: Start the private hypervisor services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: [pvedaemon, pveproxy, pvestatd, pvescheduler]
+- name: Set the nested node DNS through native Proxmox after its vmbr0 transition
+  ansible.builtin.command:
+    argv: [pvesh, set, "/nodes/{{ workshop_guest.vm_name }}/dns", --dns1, "{{ workshop_guest.gateway }}", --search, workshop.test]
+  changed_when: true
+- name: Verify that the native installer can resolve its public image origin
+  ansible.builtin.command:
+    argv: [getent, ahostsv4, cloud-images.ubuntu.com]
+  register: workshop_image_dns
+  changed_when: false
+  retries: 5
+  delay: 2
+  until: workshop_image_dns.rc == 0
+- name: Record the nested Proxmox public certificate fingerprint
+  ansible.builtin.command:
+    argv: [openssl, x509, -in, /etc/pve/local/pve-ssl.pem, -noout, -sha256, -fingerprint]
+  register: workshop_pve_fingerprint
+  changed_when: false
+- ansible.builtin.debug:
+    msg: {participant: "{{ workshop_guest.username }}", proxmox_certificate: "{{ workshop_pve_fingerprint.stdout }}"}

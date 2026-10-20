@@ -1,0 +1,7 @@
+# Validation only. CI never connects to or deploys infrastructure.
+ansible-core==2.19.1
+Jinja2==3.1.6
+PyYAML==6.0.3
+cryptography==46.0.7
+pytest==8.3.4
+ruff==0.15.19

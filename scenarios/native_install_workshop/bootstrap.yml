@@ -1,0 +1,37 @@
+---
+- name: Resume only recorded unfinished clones
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - name: Finish a clone only when its recorded first-boot network is unfinished
+      ansible.builtin.include_tasks: tasks/bootstrap-one.yml
+      loop: "{{ workshop_selected_guests }}"
+      loop_control: {loop_var: workshop_guest, label: "{{ workshop_guest.vm_name }}"}
+      when: workshop_guest.vm_id in workshop_bootstrap_vmids
+    - name: Start retained final allocations without rewriting participant cloud-init
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+        apply: {no_log: true}
+      vars:
+        proxmox_vm_action: vm_start
+        vm_id: "{{ item.vm_id }}"
+      loop: "{{ workshop_selected_guests }}"
+      no_log: true
+- name: Wait through the native authenticated SSH and cloud-init path
+  hosts: workshop_guests
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    global_vm_id: "{{ workshop_guest.vm_id }}"
+    global_vm_name: "{{ workshop_guest.vm_name }}"
+    global_vm_ci_ip: "{{ workshop_guest.ip }}"
+    ARG_vm_ssh_name: "{{ workshop_guest.alias }}"
+    requested_tasks: [wait/openssh_server/is_reachable.yml, wait/cloudinit/is_boot_finished.yml]
+  tasks:
+    - ansible.builtin.meta: end_host
+      when: range42_workshop_selected_seat | int not in [0, workshop_guest.seat]
+    - ansible.builtin.include_role:
+        name: ansible.utils

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "kind": "native-installation",
+  "title": "Install Range42 in isolated participant environments",
+  "min_seats": 1,
+  "max_seats": 10
+}
