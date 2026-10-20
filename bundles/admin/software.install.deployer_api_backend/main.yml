@@ -21,6 +21,11 @@
     CONTAINER_UID: "{{ API_CONTAINER_UID | default(1000) }}"
     CONTAINER_GID: "{{ API_CONTAINER_GID | default(1000) }}"
     DEPLOYER_UI_CORS_REGEX_RESOLVED: "{{ DEPLOYER_UI_CORS_REGEX | default('^https?://r42\\.admin-deployer-ui(:\\d+)?$') }}"
+    native_target_binding:
+      version: 1
+      target_host_id: "{{ register_proxmox_result.json.id }}"
+      target_node: "{{ register_proxmox_result.json.node_name }}"
+      target_api_url: "{{ register_proxmox_result.json.api_url }}"
     compose_argv:
       - docker
       - compose
@@ -416,6 +421,38 @@
         status_code: [200, 201]
       register: register_proxmox_result
       no_log: true
+
+    - name: Inspect native target binding without following a link
+      ansible.builtin.stat:
+        path: "{{ WORKSPACE_DIR_HOST_RESOLVED }}/{{ WORKSPACE_DIR_NAME }}/.range42-target.json"
+        follow: false
+      register: api_native_binding_stat
+
+    - name: Read native target binding when a version already exists
+      ansible.builtin.slurp:
+        src: "{{ WORKSPACE_DIR_HOST_RESOLVED }}/{{ WORKSPACE_DIR_NAME }}/.range42-target.json"
+      register: api_native_binding_file
+      when:
+        - api_native_binding_stat.stat.isreg | default(false)
+        - not (api_native_binding_stat.stat.islnk | default(false))
+        - api_native_binding_stat.stat.size | int <= 16384
+
+    - name: Require unchanged native target binding before recording installation
+      ansible.builtin.assert:
+        that:
+          - not api_native_binding_stat.stat.exists or (api_native_binding_stat.stat.isreg | default(false) and not (api_native_binding_stat.stat.islnk | default(false)))
+          - not api_native_binding_stat.stat.exists or api_native_binding_stat.stat.size | int <= 16384
+          - not api_native_binding_stat.stat.exists or (api_native_binding_file.content | default('') | b64decode | from_json) == native_target_binding
+        fail_msg: The existing native target binding differs or is unsafe. Review an explicit target migration; this installer will not replace the binding.
+
+    - name: Record registered native target binding for Settings environment onboarding
+      ansible.builtin.copy:
+        dest: "{{ WORKSPACE_DIR_HOST_RESOLVED }}/{{ WORKSPACE_DIR_NAME }}/.range42-target.json"
+        content: "{{ native_target_binding | to_nice_json }}\n"
+        owner: "{{ CONTAINER_UID }}"
+        group: "{{ CONTAINER_GID }}"
+        mode: '0600'
+        validate: /usr/bin/python3 -m json.tool %s
 
     - name: Verify authenticated readiness including the registered Proxmox target
       ansible.builtin.uri:

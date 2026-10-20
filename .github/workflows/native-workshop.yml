@@ -31,3 +31,21 @@ jobs:
         run: |
           ruff check scenarios/native_install_workshop/filter_plugins scenarios/native_install_workshop/library scenarios/native_install_workshop/files tests/test_native_workshop_runs.py
           pytest -q tests/test_native_workshop_runs.py
+
+  native-backend-packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v6
+        with:
+          repository: range42/range42-backend-api
+          ref: 16d227dafc67e367d1ebe5f4cf2ae281deb24609
+          path: .runtime-contract/backend
+      - run: pip install --no-cache-dir -r tests/requirements-native-workshop.txt
+      - name: Render native backend packaging and verify immutable target binding
+        env:
+          RANGE42_BACKEND_SOURCE: ${{ github.workspace }}/.runtime-contract/backend
+        run: pytest -q tests/test_deployer_api_packaging.py

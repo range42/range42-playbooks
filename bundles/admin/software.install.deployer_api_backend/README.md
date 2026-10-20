@@ -71,6 +71,16 @@ startup validates credentials and runs migrations before serving. Public
 `/v1/health` is followed by bearer-authenticated Proxmox registration and readiness
 with `ready: true`. Token and registration tasks use `no_log`.
 
+After registration, the installer records the returned host ID, node and HTTPS
+origin in the selected workspace’s credential-free 0600 `.range42-target.json`.
+The matching backend reads this explicit binding during automatic context
+discovery, so Settings can review/register reusable environments without a
+hand-edited context registry. A matching file is preserved on repeat installs;
+a different, linked or malformed binding is refused rather than retargeted.
+An explicit backend context registry takes precedence and needs its separately
+reviewed binding. This installation binding enables environment planning; it
+does not certify templates, network isolation, routing, access or capacity.
+
 `API_PORT` retains its existing meaning, default 8000. `BACKEND_LISTEN_ADDRESS`
 defaults to the packaged loopback listener; remote exposure requires an explicit
 listener and the existing TLS/access policy. `API_CONTAINER_UID`/`GID` default to
