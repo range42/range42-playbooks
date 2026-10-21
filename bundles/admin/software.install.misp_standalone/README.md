@@ -5,17 +5,18 @@ MISP standalone docker-compose stack install bundle - 4 plays :
 1. ensure catalog `.env` exists on localhost (cp `.env.example` -> `.env` if absent, force=false)
 2. install Docker + docker-compose on the MISP VM (via `software.install.warmup.basic_packages` role)
 3. open firewall ports 22 + 80 + 443 on the VM (via `software.configure.firewalls` role - the compose publishes 80 and 443, and the role default-denies incoming, so this play was missing)
-4. deploy misp-standalone docker-compose stack on the VM (via `software.configure.docker-compose` role : rsync catalog -> VM + `docker compose up -d`)
+4. stage the VM `.env` (seeded once from the catalog `.env`, `MISP_BASEURL=https://<global_vm_ci_ip>`, random `MISP_ADMIN_KEY` in place of the placeholder), then deploy the misp-standalone docker-compose stack (via `software.configure.docker-compose` role : rsync catalog -> VM without touching the VM `.env` + `docker compose up -d`)
 
 The catalog source is `range42-catalog/03_container_layer/docker/admin/misp-standalone/`
-(MariaDB + Redis + misp-modules + misp + provisioner = 5 services).
+(official misp-docker images : MariaDB + Valkey + misp-modules + misp-core + misp-nginx,
+plus the certgen and provisioner one-shots ; nothing is built on the VM).
 
 ## Required vars
 
 | var | example | purpose |
 |-----|---------|---------|
 | `global_vm_ssh_name` | `r42.admin-misp` | inventory hostname of the MISP VM |
-| `global_vm_ci_ip` | `192.168.142.111` | IP of the MISP server (informational) |
+| `global_vm_ci_ip` | `192.168.142.111` | IP of the MISP server, written to the VM `.env` as `MISP_BASEURL=https://<ip>` |
 
 ## Catalog .env handling
 
@@ -34,6 +35,10 @@ $EDITOR .env       # fill MISP_DB_PASSWORD, DB_ROOT_PASSWORD,
 ```
 
 The catalog `.env` is gitignored (`**/.env`) so customizations stay local.
+
+The catalog `.env` only seeds the VM `.env` on the first deploy. After that the
+VM copy is authoritative : edit `/home/alice/misp-standalone/.env` on the VM
+and re-run the bundle. `MISP_BASEURL` is always reset to `https://<global_vm_ci_ip>`.
 
 ## Operator user + deploy dir
 
@@ -55,11 +60,10 @@ Matches the convention used by the other admin docker-compose stacks.
 
 ## First-boot timing
 
-The MISP image is built from source (not pulled) :
-- first build : 10-20 min (git clone MISP + submodules + apt + composer)
-- bootstrap   : 3-5 min after build (provisioner sidecar seeds DB + writes API keys)
-
-Subsequent boots : fast (image cached).
+The stack pulls ~3.2 GB of pinned misp-docker images on a fresh VM. Once they
+are present, MISP answers about 2 minutes after a cold start and the
+provisioner finishes about 15 seconds later. Re-deploys with existing volumes
+are healthy in about 30 seconds.
 
 Watch progress with :
 ```
@@ -68,7 +72,8 @@ cd /home/alice/misp-standalone
 sudo docker compose logs -f provisioner    # wait for "Provisioning complete."
 ```
 
-API keys + credentials end up in `/keys/api-keys.txt` inside the misp service container.
+Credentials end up in `/home/alice/misp-standalone/keys/` on the VM
+(`api-keys.txt`, `misp-credentials.json`, root-only).
 
 ## Naming
 

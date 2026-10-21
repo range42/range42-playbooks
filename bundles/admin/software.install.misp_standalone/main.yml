@@ -2,21 +2,25 @@
 # bundles/admin/software.install.misp_standalone/main.yml
 # ============================================================================
 # MISP standalone docker-compose stack install playbook. Deploys the
-# misp-standalone catalog element (5 services : MariaDB + Redis + misp-modules
-# + misp + provisioner) on a dedicated VM via Docker compose. The catalog
+# misp-standalone catalog element (official misp-docker images : MariaDB +
+# Valkey + misp-modules + misp-core + misp-nginx, plus the certgen and
+# provisioner one-shots) on a dedicated VM via Docker compose. The catalog
 # element source is range42-catalog/03_container_layer/docker/admin/misp-standalone/
 # and is rsynced to the VM at /home/alice/misp-standalone/.
 #
 # REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
 #   - global_vm_ssh_name   : inventory hostname for the MISP VM
 #                            (e.g. "r42.admin-misp")
-#   - global_vm_ci_ip      : IP of the MISP server (e.g. "192.168.142.111")
+#   - global_vm_ci_ip      : IP of the MISP server (e.g. "192.168.142.111"),
+#                            written to the VM .env as MISP_BASEURL=https://<ip>
 #
-# Catalog .env handling :
+# .env handling :
 #   Play 1 (on localhost) auto-cps .env.example -> .env on the catalog if
 #   .env is absent (force=false respects an existing customized .env).
-#   First-time deploys work with the catalog's weak placeholder secrets ;
-#   populate the catalog .env BEFORE running the bundle for stronger creds.
+#   Play 4 seeds the VM .env from the catalog .env once, then owns it : it
+#   sets MISP_BASEURL from global_vm_ci_ip and replaces the placeholder
+#   MISP_ADMIN_KEY with a random one. The rsync skips the VM .env so these
+#   values survive re-deploys.
 #
 # Example call-site (in scenarios/<scenario>/.../admin-misp.yml) :
 #
@@ -57,9 +61,9 @@
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 ##
-## Service ports : the catalog compose publishes ${MISP_HTTP_PORT:-80}:80 and
-## ${MISP_HTTPS_PORT:-443}:443. This play was MISSING : the role sets ufw to
-## default-deny incoming, so without it the web ui was blocked on a fresh VM.
+## Service ports : the catalog compose publishes ${MISP_HTTP_PORT:-80} and
+## ${MISP_HTTPS_PORT:-443} on misp-nginx. The role sets ufw to default-deny
+## incoming, so without this play the web ui is blocked on a fresh VM.
 ##
 - name: misp - open firewall ports (22 SSH + 80 HTTP + 443 HTTPS)
   hosts: "{{ global_vm_ssh_name }}"
@@ -81,16 +85,11 @@
   gather_facts: false
   pre_tasks:
     ##
-    ## Push .env BEFORE the role's rsync + docker compose up. Catalog ships
-    ## only .env.example (`.env` is gitignored), and the role does not
-    ## materialize an .env on the VM. Without .env present, the misp service
-    ## container env_file: .env loads empty -> configure-misp.sh hits
-    ## "MISP_DB_PASSWORD: unbound variable" at first boot.
-    ##
-    ## Strategy : push controller's .env.example as the VM's .env with
-    ## force=false. Operator can customize /home/alice/misp-standalone/.env
-    ## once on the VM and subsequent re-deploys respect it. The rsync that
-    ## follows transfers .env.example as a sibling, never touches .env.
+    ## Stage the VM .env BEFORE the role's rsync + docker compose up. The role
+    ## runs with DOCKER_COMPOSE_PRESERVE_REMOTE_ENV, so it never overwrites this
+    ## file : it is seeded once from the catalog .env (force=false), then this
+    ## play keeps MISP_BASEURL on the VM IP and gives MISP_ADMIN_KEY a random
+    ## value the first time it finds the placeholder.
     ##
     - name: ensure REMOTE_PROJECT_DIR exists on the VM (idempotent ; the role's CREATE TMP DIR runs the same op)
       ansible.builtin.file:
@@ -100,14 +99,62 @@
         group: "alice"
         mode: "0700"
 
-    - name: push .env on the VM (cp .env.example -> .env if .env absent on the VM)
+    - name: seed the VM .env from the catalog .env (only if the VM has none yet)
       ansible.builtin.copy:
-        src:   "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone/.env.example"
+        src:   "{{ lookup('env', 'RANGE42_INVENTORY') }}/03_container_layer/docker/admin/misp-standalone/.env"
         dest:  "/home/alice/misp-standalone/.env"
         owner: "alice"
         group: "alice"
         mode:  "0600"
         force: false
+
+    ##
+    ## The previous from-source stack (service "misp", MariaDB 11 data) cannot
+    ## be upgraded in place : its container holds ports 80/443 and MariaDB 10.11
+    ## cannot open its data. Stop here rather than wipe data automatically.
+    ##
+    - name: look for a container of the previous from-source stack
+      ansible.builtin.command: >-
+        docker ps -aq
+        --filter label=com.docker.compose.project=misp-standalone
+        --filter label=com.docker.compose.service=misp
+      register: misp_legacy_container
+      changed_when: false
+
+    - name: stop when the previous from-source stack is still deployed
+      ansible.builtin.fail:
+        msg: >-
+          The previous misp-standalone stack (built from source) is still deployed on
+          {{ global_vm_ssh_name }}. Its data cannot be reused. Remove it, then re-run :
+          cd /home/alice/misp-standalone && sudo docker compose down -v --remove-orphans
+          && sudo docker rm -f $(sudo docker ps -aq --filter label=com.docker.compose.project=misp-standalone)
+      when: misp_legacy_container.stdout | length > 0
+
+    - name: read the VM .env
+      ansible.builtin.slurp:
+        path: "/home/alice/misp-standalone/.env"
+      register: misp_vm_env
+      no_log: true
+
+    - name: point MISP_BASEURL at the VM IP (with the HTTPS port when it is not 443)
+      vars:
+        misp_https_port: >-
+          {{ (misp_vm_env.content | b64decode
+              | regex_search('(?m)^MISP_HTTPS_PORT=(\d+)$', '\1') or ['443']) | first }}
+      ansible.builtin.lineinfile:
+        path:   "/home/alice/misp-standalone/.env"
+        regexp: '^MISP_BASEURL='
+        line:   "MISP_BASEURL=https://{{ global_vm_ci_ip }}{{ '' if misp_https_port == '443' else ':' ~ misp_https_port }}"
+
+    - name: replace a missing or placeholder MISP_ADMIN_KEY with a random 40-character key
+      ansible.builtin.lineinfile:
+        path:   "/home/alice/misp-standalone/.env"
+        regexp: '^MISP_ADMIN_KEY='
+        line:   "MISP_ADMIN_KEY={{ lookup('ansible.builtin.password', '/dev/null', chars=['hexdigits'], length=40) }}"
+      when: >-
+        misp_vm_env.content | b64decode
+        is not regex('(?m)^MISP_ADMIN_KEY=(?!changeme)[A-Za-z0-9]{40}$')
+      no_log: true
   roles:
     - software.configure.docker-compose
   vars:
@@ -118,3 +165,4 @@
     OPERATOR_USER:        "alice"
     CLEAN_UP_DEPLOY_DIR:  "NO"
     SEND_POC_DIR:         "NO"
+    DOCKER_COMPOSE_PRESERVE_REMOTE_ENV: true

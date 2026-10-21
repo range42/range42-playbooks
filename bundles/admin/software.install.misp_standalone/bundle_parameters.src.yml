@@ -1,7 +1,7 @@
 ---
 bundle: admin/software.install.misp_standalone
 
-description: MISP standalone docker-compose stack (MariaDB + Redis + misp-modules + misp + provisioner) deployed on a dedicated VM from the catalog
+description: MISP standalone docker-compose stack (official misp-docker images - MariaDB + Valkey + misp-modules + misp-core + misp-nginx - plus certgen and provisioner one-shots) deployed on a dedicated VM from the catalog
 
 optional: true
 
@@ -19,4 +19,4 @@ params:
     type: string
     required: true
     default_where: call-site
-    description: IP of the MISP server passed at the call-site for documentation purposes (informational, not consumed by any task)
+    description: IP of the MISP server, written to the VM .env as MISP_BASEURL=https://<ip> (the URL MISP redirects to and issues its self-signed cert for)
