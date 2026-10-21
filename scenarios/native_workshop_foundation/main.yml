@@ -1,5 +1,5 @@
 ---
-- name: Prepare the original reusable workshop template copies
+- name: Prepare the original workshop foundation and optional environment bridges
   hosts: localhost
   gather_facts: false
   tasks:
@@ -16,7 +16,7 @@
           accept its original capacity before starting the native attempt.
         quiet: true
 
-    - name: Copy and seal only the original enrolled templates
+    - name: Run the bounded original foundation stages in the native attempt
       ansible.builtin.command:
         argv:
           - "{{ range42_foundation_python }}"

@@ -11,6 +11,13 @@ node and its nested Proxmox and Linux template VMIDs. The destinations and stora
 come from the selected environment's approved profile. Review and reserve the
 copies, then create the deployment.
 
+To prepare the registered environment's isolated bridges as well, select the
+optional bridge preparation setting in Deploy. It requires an approved managed
+gateway network and a separately enrolled bounded network module. In Overview,
+retain the template request and then review the environment bridge request. The
+same full native deployment action prepares both stages. The environment owns
+the bridges; each later participant run owns its own gateway and guests.
+
 In Overview, review and reserve physical capacity, request physical acceptance,
 then review and retain the preparation request. Run the full deployment action.
 The backend uses the existing native attempt and verifies completion directly
@@ -26,9 +33,10 @@ changes an original source. This scenario has no identity-provider dependency.
 
 Preparation reserves 20 GiB of configured RAM, six vCPUs and 192 GiB of virtual
 disks plus two cloud-init volumes. The full commitment remains retained during
-failure and recovery. Bridge preparation, gateway configuration, participant
-installation and exercise isolation must also be qualified before running a
-workshop.
+failure and recovery. Optional bridge preparation installs and verifies its own
+firewall before activating the approved bridges. Gateway configuration,
+participant installation and exercise isolation must still be qualified before
+running a workshop. No participant account or VPN enrollment is performed here.
 
 If a clone reply is lost before its task ID is recorded, the operation stays
 uncertain. Do not create a replacement deployment or release its capacity.
