@@ -22,11 +22,12 @@
           - item.json.data.ide2 is search('cloudinit')
           - item.json.data.scsi0 is search('(^|,)size=32G(,|$)')
           - item.json.data.agent | string is match('^(1|enabled=1)(,|$)')
-          - item.json.data | dict2items | selectattr('key', 'match', '^net[0-9]+$') | map(attribute='key') | list == ['net0']
-          - item.json.data.net0 is string
-          - item.json.data.net0 is match('^[A-Za-z][A-Za-z0-9_-]*=(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}(?:,|$)')
-          - item.json.data.net0 | regex_findall('(?:^|,)bridge=') | length == 1
-          - item.json.data.net0 is search('(?:^|,)bridge=[A-Za-z][A-Za-z0-9_.-]{0,14}(?:,|$)')
+          - item.json.data | dict2items | selectattr('key', 'match', '^net[0-9]+$') | map(attribute='key') | list in [[], ['net0']]
+          - item.json.data.net0 is not defined or item.json.data.net0 is string
+          - item.json.data.net0 is not defined or item.json.data.net0 is match('^[A-Za-z][A-Za-z0-9_-]*=(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}(?:,|$)')
+          - item.json.data.net0 is not defined or item.json.data.net0 | regex_findall('(?:^|,)bridge=') | length == 1
+          - item.json.data.net0 is not defined or item.json.data.net0 is search('(?:^|,)bridge=[A-Za-z][A-Za-z0-9_.-]{0,14}(?:,|$)')
+          - item.json.data.net0 is defined or item.json.data | dict2items | selectattr('key', 'match', '^ipconfig[0-9]+$') | list | length == 0
           - item.json.data | dict2items | selectattr('key', 'match', '^(hostpci[0-9]+|usb[0-9]+|unused[0-9]+|args|hookscript|cicustom|net[1-9][0-9]*)$') | list | length == 0
       loop: "{{ workshop_source_templates.results }}"
       loop_control: {label: "{{ item.item }}"}

@@ -138,7 +138,7 @@ def test_native_entrypoints_parse_with_the_reviewed_runtime_roles(tmp_path, entr
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-@pytest.mark.parametrize('fault', [None, 'wrong_disks', 'passthrough', 'missing_nic', 'malformed_nic', 'untrusted_certificate'])
+@pytest.mark.parametrize('fault', [None, 'sealed', 'wrong_disks', 'passthrough', 'missing_nic', 'malformed_nic', 'extra_nic', 'untrusted_certificate'])
 def test_real_native_template_gate_blocks_unsafe_sources_without_disclosing_credentials(tmp_path, endpoint, fault):
     replies = []
     for template in (9230, 9222):
@@ -151,8 +151,12 @@ def test_real_native_template_gate_blocks_unsafe_sources_without_disclosing_cred
             config['scsi0'] = f'pool:base-{template}-disk-0,size=24G'
         if fault == 'passthrough':
             config['hostpci0'] = '0000:01:00.0'
-        if fault == 'missing_nic':
+        if fault in ('missing_nic', 'sealed'):
             config.pop('net0')
+        if fault == 'missing_nic':
+            config['ipconfig0'] = 'ip=192.0.2.2/24,gw=192.0.2.1'
+        if fault == 'extra_nic':
+            config['net1'] = 'virtio=AA:BB:CC:DD:EE:01,bridge=vmbr422'
         elif fault == 'malformed_nic':
             config['net0'] = 'virtio=not-a-mac,bridge=vmbr422'
         replies.append((200, {'data': config}))
@@ -174,7 +178,7 @@ def test_real_native_template_gate_blocks_unsafe_sources_without_disclosing_cred
             'SSL_CERT_FILE': endpoint['ca'] if fault != 'untrusted_certificate' else ssl.get_default_verify_paths().openssl_cafile,
             'ANSIBLE_LOCAL_TEMP': str(tmp_path / 'ansible-tmp')},
         capture_output=True, text=True, timeout=30)
-    assert (result.returncode == 0) == (fault is None), result.stdout + result.stderr
+    assert (result.returncode == 0) == (fault in (None, 'sealed')), result.stdout + result.stderr
     assert SECRET not in result.stdout + result.stderr
     if fault == 'untrusted_certificate':
         assert not endpoint['requests']
@@ -206,3 +210,52 @@ def test_real_ansible_partial_cleanup_requires_independent_absence_before_skippi
     assert SECRET not in result.stdout + result.stderr
     assert all('/config' in request['path'] or '/cluster/nextid' in request['path'] for request in endpoint['requests'])
     assert list(receipts.iterdir()) == []  # Absence is never invented into an original clone receipt.
+
+
+def test_sealed_clone_resumes_only_from_its_recorded_empty_network():
+    plugin = module('workshop_sealed_filter', 'filter_plugins/workshop.py')
+    expected = allocation()
+    final = live_config(expected)
+    sealed = {key: value for key, value in final.items() if key not in ('net0', 'ipconfig0')}
+    receipt = {'owner': expected['owner'], 'vmid': expected['vm_id'], 'vmgenid': final['vmgenid'],
+        'bootstrap_network': {'net0': None, 'ipconfig0': None}}
+    assert plugin.verify_bootstrap(sealed, expected, receipt)
+    assert plugin.needs_cloudinit(sealed, expected, receipt)
+    assert plugin.verify_bootstrap(final, expected, receipt)
+    assert not plugin.needs_cloudinit(final, expected, receipt)
+    for changes in [
+        {'net0': 'virtio=AA:BB:CC:DD:EE:01,bridge=vmbr601'},
+        {'net1': 'virtio=AA:BB:CC:DD:EE:01,bridge=vmbr600'},
+        {'ipconfig0': 'ip=192.0.2.2/24'},
+        {'net0': None},
+        {'vmgenid': 'abcdefab-1234-1234-1234-123456789abc'},
+        {'memory': 32768},
+    ]:
+        with pytest.raises(ValueError):
+            plugin.verify_bootstrap({**sealed, **changes}, expected, receipt)
+    with pytest.raises(ValueError):
+        plugin.verify_bootstrap(sealed, expected, {**receipt, 'bootstrap_complete': True})
+
+
+@pytest.mark.parametrize('sealed', [False, True])
+def test_actual_clone_generation_receipt_records_network_before_first_configuration(tmp_path, sealed):
+    guest = allocation()
+    current = live_config(guest)
+    if sealed:
+        current.pop('net0')
+        current.pop('ipconfig0')
+    tasks = yaml.safe_load((SCENARIO / 'tasks/clone-one.yml').read_text())
+    receipt_task = next(task for task in tasks if task.get('name') == 'Record the owned generation before the first hardware change')
+    playbook = tmp_path / 'receipt.yml'
+    playbook.write_text(yaml.safe_dump([{'hosts': 'localhost', 'gather_facts': False,
+        'vars': {'ansible_connection': 'local', 'ansible_python_interpreter': sys.executable,
+            'workshop_guest': guest, 'workshop_receipt_root': str(tmp_path),
+            'workshop_clone': {'json': {'data': current}}}, 'tasks': [receipt_task]}]))
+    result = subprocess.run([sys.executable, '-m', 'ansible.cli.playbook', '-i', 'localhost,', str(playbook)],
+        env={**os.environ, 'ANSIBLE_LOCAL_TEMP': str(tmp_path / 'ansible-tmp')},
+        capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    receipt = json.loads((tmp_path / f"{guest['vm_id']}.json").read_text())
+    assert receipt['vmgenid'] == current['vmgenid'] and receipt['owner'] == guest['owner']
+    assert receipt['bootstrap_network'] == {'net0': current.get('net0'), 'ipconfig0': current.get('ipconfig0')}
+    assert (tmp_path / f"{guest['vm_id']}.json").stat().st_mode & 0o777 == 0o600
