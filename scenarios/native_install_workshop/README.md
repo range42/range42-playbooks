@@ -15,7 +15,11 @@ two VMs and fresh private credentials.
 
 The selected native context supplies verified Proxmox credentials, the installed
 controller/catalog runtime and SSH trust. Source templates need cloud-init and
-an enabled guest agent. The nested Proxmox template has a 32 GiB system disk,
+an enabled guest agent. They may have one validated bootstrap NIC, or be sealed
+with no NIC and no IP configuration. A sealed clone stays disconnected until the
+installed controller creates its final isolated interface before first boot. The
+original generation receipt records the empty network so interrupted bootstrap
+can resume without adopting a foreign interface. The nested Proxmox template has a 32 GiB system disk,
 a separate empty 128 GiB lab disk and host CPU support. Participant bridges,
 gateway/DNS/egress and laptop access must be qualified for the selected installation.
 

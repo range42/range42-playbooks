@@ -49,10 +49,15 @@ def verify_bootstrap(current, expected, receipt):
         if (not isinstance(baseline, Mapping) or set(baseline) != {'net0', 'ipconfig0'}
                 or any(current.get(key) != value for key, value in baseline.items())):
             raise ValueError('Network is neither the original recorded clone nor the final seat allocation')
-        if not re.search(r'(?:^|,)bridge=[A-Za-z][A-Za-z0-9_.-]{0,14}(?:,|$)', baseline.get('net0', '')):
-            raise ValueError('Recorded clone network is not the declared template network')
         normalized = dict(current)
-        normalized['net0'] = re.sub(r'(?<=bridge=)vmbr[0-9]+', expected['bridge'], current['net0'])
+        if baseline['net0'] is None:
+            if baseline['ipconfig0'] is not None or any(re.fullmatch(r'(?:net|ipconfig)[0-9]+', key) for key in current):
+                raise ValueError('A sealed clone must retain its recorded empty network')
+            normalized['net0'] = 'virtio,bridge=' + expected['bridge']
+        else:
+            if not isinstance(baseline['net0'], str) or not re.search(r'(?:^|,)bridge=[A-Za-z][A-Za-z0-9_.-]{0,14}(?:,|$)', baseline['net0']):
+                raise ValueError('Recorded clone network is not the declared template network')
+            normalized['net0'] = re.sub(r'(?<=bridge=)vmbr[0-9]+', expected['bridge'], current['net0'])
         normalized['ipconfig0'] = f"ip={expected['ip']}/28,gw={expected['gateway']}"
         return verify(normalized, expected, receipt)
 

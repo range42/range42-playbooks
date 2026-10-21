@@ -40,7 +40,7 @@
     dest: "{{ workshop_receipt_root }}/{{ workshop_guest.vm_id }}.json"
     mode: '0600'
     force: false
-    content: "{{ {'version': 2, 'owner': workshop_guest.owner, 'vmgenid': workshop_clone.json.data.vmgenid, 'vmid': workshop_guest.vm_id, 'bootstrap_network': {'net0': workshop_clone.json.data.net0, 'ipconfig0': workshop_clone.json.data.ipconfig0 | default(none)}} | to_nice_json }}\n"
+    content: "{{ {'version': 2, 'owner': workshop_guest.owner, 'vmgenid': workshop_clone.json.data.vmgenid, 'vmid': workshop_guest.vm_id, 'bootstrap_network': {'net0': workshop_clone.json.data.net0 | default(none), 'ipconfig0': workshop_clone.json.data.ipconfig0 | default(none)}} | to_nice_json }}\n"
 - name: Set bounded hardware before the guest can start
   ansible.builtin.uri:
     url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ workshop_guest.vm_id }}/config"
