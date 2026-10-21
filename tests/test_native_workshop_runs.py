@@ -258,4 +258,159 @@ def test_actual_clone_generation_receipt_records_network_before_first_configurat
     receipt = json.loads((tmp_path / f"{guest['vm_id']}.json").read_text())
     assert receipt['vmgenid'] == current['vmgenid'] and receipt['owner'] == guest['owner']
     assert receipt['bootstrap_network'] == {'net0': current.get('net0'), 'ipconfig0': current.get('ipconfig0')}
+    assert receipt['bootstrap_hardware'] == {key: current.get(key) for key in ('cpu', 'memory', 'cores')}
     assert (tmp_path / f"{guest['vm_id']}.json").stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize('network', ['sealed', 'bootstrap', 'final'])
+def test_exact_recorded_initial_hardware_can_resume_or_retire_after_first_write_failure(network):
+    plugin = module('workshop_early_hardware_filter', 'filter_plugins/workshop.py')
+    expected = allocation()
+    current = live_config(expected)
+    current.update(memory=4096, cores=2)
+    if network == 'sealed':
+        current.pop('net0')
+        current.pop('ipconfig0')
+    elif network == 'bootstrap':
+        current['net0'] = 'virtio=AA:BB:CC:DD:EE:FF,bridge=vmbr422'
+        current.pop('ipconfig0')
+    receipt = {'owner': expected['owner'], 'vmid': expected['vm_id'], 'vmgenid': current['vmgenid'],
+        'bootstrap_network': {'net0': current.get('net0'), 'ipconfig0': current.get('ipconfig0')},
+        'bootstrap_hardware': {key: current.get(key) for key in ('cpu', 'memory', 'cores')}}
+    assert plugin.verify_bootstrap(current, expected, receipt)
+    assert plugin.needs_cloudinit(current, expected, receipt)
+    assert plugin.retirement_state(current, expected, receipt, False) is False
+    assert plugin.retirement_state(current, expected, {**receipt, 'phase': 'retiring'}, False) is False
+    for edits in [{'memory': 8192}, {'cores': 3}, {'cpu': 'kvm64'},
+        {'vmgenid': 'abcdefab-1234-1234-1234-123456789abc'},
+        {'net1': 'virtio=AA:BB:CC:DD:EE:01,bridge=vmbr600'}]:
+        with pytest.raises(ValueError):
+            plugin.verify_bootstrap({**current, **edits}, expected, receipt)
+        with pytest.raises(ValueError):
+            plugin.retirement_state({**current, **edits}, expected, receipt, False)
+    with pytest.raises(ValueError):
+        plugin.verify_bootstrap(current, expected, {**receipt, 'bootstrap_complete': True})
+    with pytest.raises(ValueError):
+        plugin.retirement_state(current, expected, {**receipt, 'phase': 'retired'}, False)
+    with pytest.raises(ValueError):
+        plugin.verify_bootstrap(current, expected, {key: value for key, value in receipt.items() if key != 'bootstrap_hardware'})
+
+
+@pytest.mark.parametrize('fault', [None, 'memory', 'generation', 'running', 'completed', 'disk', 'readback'])
+def test_real_ansible_resumes_only_recorded_hardware_before_native_first_boot(tmp_path, certificate, fault):
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import threading
+    from urllib.parse import parse_qs
+
+    source = SCENARIO / 'tasks/resume-hardware.yml'
+    assert source.is_file(), 'Native configure must restore bounded hardware after an early clone interruption'
+    guest = allocation()
+    current = live_config(guest)
+    current.update(memory=4096, cores=2, digest='c'*40)
+    current.pop('net0')
+    current.pop('ipconfig0')
+    proof = {'owner': guest['owner'], 'vmid': guest['vm_id'], 'vmgenid': current['vmgenid'],
+        'bootstrap_network': {'net0': None, 'ipconfig0': None},
+        'bootstrap_hardware': {key: current.get(key) for key in ('cpu', 'memory', 'cores')}}
+    if fault == 'memory':
+        current['memory'] = 8192
+    if fault == 'generation':
+        current['vmgenid'] = 'abcdefab-1234-1234-1234-123456789abc'
+    if fault == 'completed':
+        proof['bootstrap_complete'] = True
+    if fault == 'disk':
+        current['scsi0'] = 'fast-storage:vm-45001-disk-0,size=32G'
+    writes = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def reply(self, value):
+            raw = json.dumps({'data': value}).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def do_GET(self):
+            assert self.headers['Authorization'] == 'PVEAPIToken=fixture@pve!scoped=' + SECRET
+            if self.path.endswith('/status/current'):
+                self.reply({'status': 'running' if fault == 'running' else 'stopped'})
+            else:
+                assert self.path.endswith('/qemu/45000/config')
+                value = dict(current)
+                if fault == 'readback' and writes:
+                    value['vmgenid'] = 'abcdefab-1234-1234-1234-123456789abc'
+                self.reply(value)
+
+        def do_PUT(self):
+            assert self.path.endswith('/qemu/45000/config')
+            fields = parse_qs(self.rfile.read(int(self.headers['Content-Length'])).decode())
+            writes.append(fields)
+            for key in ('cpu', 'cores', 'memory', 'balloon'):
+                current[key] = fields[key][0] if key == 'cpu' else int(fields[key][0])
+            self.reply(None)
+
+        def log_message(self, *args): pass
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(*map(str, certificate))
+    server.socket = context.wrap_socket(server.socket, server_side=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        path = tmp_path / '45000.json'
+        path.write_text(json.dumps(proof))
+        path.chmod(0o600)
+        playbook = tmp_path / 'resume.yml'
+        playbook.write_text(yaml.safe_dump([{'hosts': 'localhost', 'gather_facts': False,
+            'vars': {'ansible_connection': 'local', 'ansible_python_interpreter': sys.executable,
+                'workshop_guest': guest, 'workshop_receipt_root': str(tmp_path), 'workshop_bootstrap_vmids': [],
+                'proxmox_api_host': f'localhost:{server.server_port}', 'proxmox_node': 'node-a',
+                'proxmox_api_user': 'fixture@pve', 'proxmox_api_token_id': 'scoped', 'proxmox_api_token_secret': SECRET},
+            'tasks': [{'ansible.builtin.import_tasks': str(source)}]}]))
+        result = subprocess.run([sys.executable, '-m', 'ansible.cli.playbook', '-i', 'localhost,', str(playbook)],
+            env={**os.environ, 'SSL_CERT_FILE': str(certificate[0]), 'ANSIBLE_FILTER_PLUGINS': str(SCENARIO/'filter_plugins'),
+                'ANSIBLE_LIBRARY': str(SCENARIO/'library'), 'ANSIBLE_LOCAL_TEMP': str(tmp_path/'ansible-tmp')},
+            capture_output=True, text=True, timeout=30)
+        assert (result.returncode == 0) == (fault is None), result.stdout + result.stderr
+        assert SECRET not in result.stdout + result.stderr
+        assert len(writes) == (1 if fault in (None, 'readback') else 0)
+        if writes:
+            assert writes[0] == {'digest': ['c'*40], 'cpu': ['host'], 'cores': ['4'], 'memory': ['16384'], 'balloon': ['0']}
+        assert json.loads(path.read_text()) == proof  # Original receipt is retained across recovery.
+        if fault is None:
+            # Exercise the actual cleanup ownership boundary before any delete,
+            # including the original pre-hardware state after a lost first write.
+            current.update(memory=4096, cores=2)
+            cleanup = yaml.safe_load(playbook.read_text())
+            cleanup[0]['vars']['workshop_allow_retired'] = True
+            cleanup[0]['tasks'] = [
+                {'ansible.builtin.import_tasks': str(SCENARIO/'tasks/owned.yml')},
+                {'ansible.builtin.assert': {'that': ['not workshop_guest_absent', 'not workshop_guest_uncreated']}},
+            ]
+            playbook.write_text(yaml.safe_dump(cleanup))
+            retired = subprocess.run([sys.executable, '-m', 'ansible.cli.playbook', '-i', 'localhost,', str(playbook)],
+                env={**os.environ, 'SSL_CERT_FILE': str(certificate[0]), 'ANSIBLE_FILTER_PLUGINS': str(SCENARIO/'filter_plugins'),
+                    'ANSIBLE_LIBRARY': str(SCENARIO/'library'), 'ANSIBLE_LOCAL_TEMP': str(tmp_path/'ansible-tmp')},
+                capture_output=True, text=True, timeout=30)
+            assert retired.returncode == 0, retired.stdout + retired.stderr
+            assert SECRET not in retired.stdout + retired.stderr
+            assert len(writes) == 1 and json.loads(path.read_text()) == proof
+
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_ownership_accepts_native_integer_metadata_and_still_rejects_boolean_ids():
+    plugin = module('workshop_integer_identity', 'filter_plugins/workshop.py')
+    class TaggedInt(int):
+        pass
+    expected = allocation()
+    current = live_config(expected)
+    proof = {'vmid': expected['vm_id'], 'owner': expected['owner'], 'vmgenid': current['vmgenid']}
+    assert plugin.verify(current, {**expected, 'vm_id': TaggedInt(expected['vm_id'])}, proof)
+    with pytest.raises(ValueError):
+        plugin.verify(current, {**expected, 'vm_id': True}, {**proof, 'vmid': True})
