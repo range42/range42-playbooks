@@ -5,6 +5,11 @@
   vars_files:
     - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
   tasks:
+    - name: Recover bounded hardware on each recorded unfinished clone
+      ansible.builtin.include_tasks: tasks/resume-hardware.yml
+      loop: "{{ workshop_selected_guests }}"
+      loop_control: {loop_var: workshop_guest, label: "{{ workshop_guest.vm_name }}"}
+      when: workshop_guest.vm_id in workshop_bootstrap_vmids
     - name: Finish a clone only when its recorded first-boot network is unfinished
       ansible.builtin.include_tasks: tasks/bootstrap-one.yml
       loop: "{{ workshop_selected_guests }}"

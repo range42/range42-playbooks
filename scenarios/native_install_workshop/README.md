@@ -30,6 +30,13 @@ software. `reset` replaces one explicitly selected participant's pair.
 pins. Source templates and platform networking remain owned by their respective
 lifecycles. Replacement guests, changed disks and altered ownership receipts are
 refused before mutation.
+New clone receipts also retain the initial CPU, core count and memory before the
+first hardware write. An interrupted first configuration can resume only from
+that exact recorded hardware or the final planned shape. Recovery rechecks the
+original generation and stopped state, writes bounded hardware with the observed
+configuration digest, and verifies the result before native first boot. Owned
+cleanup can retire that same unfinished generation; it cannot adopt edited
+hardware or a replacement. Older receipts do not gain an invented baseline.
 For a partial deployment, cleanup skips a guest that was never created only
 after independently proving its VMID absent across the cluster. A live guest
 without its original receipt remains blocked.

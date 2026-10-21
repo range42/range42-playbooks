@@ -58,7 +58,7 @@
 - name: Refuse replaced guests foreign disks or a changed network before mutation
   ansible.builtin.assert:
     that:
-      - workshop_current.status != 200 or ((workshop_current.json.data | workshop_bootstrap_owned(workshop_guest, workshop_current_receipt)) if workshop_verify_bootstrap | default(false) | bool else (workshop_current.json.data | workshop_owned(workshop_guest, workshop_current_receipt)))
+      - workshop_current.status != 200 or ((workshop_current.json.data | workshop_bootstrap_owned(workshop_guest, workshop_current_receipt)) if workshop_verify_bootstrap | default(false) | bool else ((workshop_current.json.data | workshop_retirement_owned(workshop_guest, workshop_current_receipt)) if workshop_allow_retired | default(false) | bool else (workshop_current.json.data | workshop_owned(workshop_guest, workshop_current_receipt))))
 - name: Retain the verified live or retired generation state for the next exact action
   when: not (workshop_verify_bootstrap | default(false) | bool)
   ansible.builtin.set_fact:

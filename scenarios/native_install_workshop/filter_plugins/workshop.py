@@ -5,7 +5,7 @@ from collections.abc import Mapping
 
 def verify(current, expected, receipt):
     vmid = expected['vm_id']
-    if (type(vmid) is not int or not 1000 <= vmid <= 999999999
+    if (isinstance(vmid, bool) or not isinstance(vmid, int) or not 1000 <= vmid <= 999999999
             or not re.fullmatch(r'range42-workshop:[a-f0-9]{16,32}:user(?:0[1-9]|10):(?:proxmox|deployer)', expected['owner'])
             or receipt.get('vmid') != vmid
             or current.get('name') != expected['vm_name']
@@ -45,11 +45,21 @@ def verify_bootstrap(current, expected, receipt):
     except ValueError:
         if receipt.get('bootstrap_complete', False):
             raise ValueError('A completed bootstrap must retain its final seat allocation')
+        normalized = dict(current)
+        initial_hardware = receipt.get('bootstrap_hardware')
+        if initial_hardware is not None:
+            if not isinstance(initial_hardware, Mapping) or set(initial_hardware) != {'cpu', 'memory', 'cores'}:
+                raise ValueError('Recorded initial clone hardware is incomplete')
+            if all(current.get(key) == value for key, value in initial_hardware.items()):
+                normalized.update(cpu='host', memory=expected['memory_mib'], cores=expected['cores'])
+            try:
+                return verify(normalized, expected, receipt)
+            except ValueError:
+                pass
         baseline = receipt.get('bootstrap_network')
         if (not isinstance(baseline, Mapping) or set(baseline) != {'net0', 'ipconfig0'}
                 or any(current.get(key) != value for key, value in baseline.items())):
             raise ValueError('Network is neither the original recorded clone nor the final seat allocation')
-        normalized = dict(current)
         if baseline['net0'] is None:
             if baseline['ipconfig0'] is not None or any(re.fullmatch(r'(?:net|ipconfig)[0-9]+', key) for key in current):
                 raise ValueError('A sealed clone must retain its recorded empty network')
@@ -60,6 +70,12 @@ def verify_bootstrap(current, expected, receipt):
             normalized['net0'] = re.sub(r'(?<=bridge=)vmbr[0-9]+', expected['bridge'], current['net0'])
         normalized['ipconfig0'] = f"ip={expected['ip']}/28,gw={expected['gateway']}"
         return verify(normalized, expected, receipt)
+
+
+def verify_retirement(current, expected, receipt):
+    if receipt.get('phase', 'active') not in ('active', 'retiring'):
+        raise ValueError('A live generation requires its original active or retiring receipt')
+    return verify_bootstrap(current, expected, {**receipt, 'phase': 'active'})
 
 
 def needs_cloudinit(current, expected, receipt):
@@ -73,7 +89,7 @@ def needs_cloudinit(current, expected, receipt):
 
 def retirement_state(current, expected, receipt, globally_absent):
     if current is not None:
-        verify(current, expected, receipt)
+        verify_retirement(current, expected, receipt)
         return False
     if (globally_absent is True and receipt == {'phase': 'uncreated',
             'owner': expected['owner'], 'vmid': expected['vm_id']}):
@@ -96,5 +112,6 @@ def first_configuration(marker, expected):
 class FilterModule:
     def filters(self):
         return {'workshop_owned': verify, 'workshop_retirement_state': retirement_state,
+                'workshop_retirement_owned': verify_retirement,
                 'workshop_bootstrap_owned': verify_bootstrap,
                 'workshop_needs_cloudinit': needs_cloudinit, 'workshop_first_configuration': first_configuration}
