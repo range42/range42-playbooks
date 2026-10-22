@@ -27,7 +27,7 @@ import urllib.request
 PINS = {
     'range42': '178376b1280b9adf75e8414c2f743d3ec5bb7527',
     'range42-playbooks': 'cb32906e6b2453aed0f595383d92aa4831022ab4',
-    'range42-catalog': '3de2f39bf7c94b7a68b508ed3be06c5dc0a81322',
+    'range42-catalog': '4b49f0d3d0b68820e6b88386a95f588dfda6755a',
     'range42-ansible_roles-proxmox_controller': 'e988001493041d6d2fd0c67b2006fe4e7686d374',
     'range42-ansible_roles-debug-devkit': 'bd0e8eafdd14dec9a8b3cca63248b5ddc14c9da3',
     'range42-backend-api': 'fc80911bc01272161a19d7cd10c0b3e6ea4988fa',

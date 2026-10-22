@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: range42/range42-catalog
-          ref: 3de2f39bf7c94b7a68b508ed3be06c5dc0a81322
+          ref: 4b49f0d3d0b68820e6b88386a95f588dfda6755a
           path: .runtime-contract/catalog
       - run: pip install --no-cache-dir -r tests/requirements-native-workshop.txt
       - name: Verify ownership, inventory and authenticated native Ansible gates
