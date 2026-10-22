@@ -45,6 +45,23 @@ range42-context delete            # same as delete-vms here (the template 9221 i
 ```
 
 
+## Deletion, reset and guest SSH trust
+
+`delete-vms`, `delete` and `reset` share the same guarded native deletion path.
+It selects only the manifest's declared non-template guests, refuses a VMID
+whose native name differs, and checks a fresh authenticated inventory after
+deletion. A failed query, stop, delete or absence check stops reset before setup.
+A successful empty inventory is valid, including recovery after an earlier
+delete already removed the guest.
+
+Only after absence is confirmed does it retire the exact SSH target resolved
+by the current SSH configuration, including its host-key alias and port. Native
+API runs use `RANGE42_SOURCE_CONTEXT_DIR/ssh_keys/known_hosts`; ordinary CLI runs
+use their existing SSH home. Other guest and Proxmox pins stay intact. The trust
+file is locked and checked for concurrent changes; ambiguous shared or marked
+records need attended review. This never learns a replacement key. The next
+clone still requires the authenticated QGA enrollment and strict SSH checks.
+
 ## Vulnerability-Lookup integration (motivation)
 
 The broader idea behind `catalog-try` is to offer a way to **spin up a one usage vulnerable lab VM** that can be **linked directly from a Vulnerability-Lookup CVE insight** (a "sighting"), so an analyst can move from reading a CVE to running a reproduction VM in seconds.

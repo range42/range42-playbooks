@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: range42/range42-catalog
-          ref: 49387e6cfb6037d31803da3d60cffd3beca94c57
+          ref: 4b49f0d3d0b68820e6b88386a95f588dfda6755a
           path: .runtime-contract/catalog
       - run: pip install --no-cache-dir -r tests/requirements-native-workshop.txt
       - name: Verify ownership, inventory and authenticated native Ansible gates
@@ -29,8 +29,8 @@ jobs:
           RANGE42_WORKSHOP_CONTROLLER_ROLES: ${{ github.workspace }}/.runtime-contract/controller/roles
           RANGE42_WORKSHOP_CATALOG_ROLES: ${{ github.workspace }}/.runtime-contract/catalog/02_ansible_layer/admin/roles
         run: |
-          ruff check scenarios/native_install_workshop/filter_plugins scenarios/native_install_workshop/library scenarios/native_install_workshop/files tests/test_native_workshop_runs.py
-          pytest -q tests/test_native_workshop_runs.py tests/test_native_workshop_foundation.py tests/test_template_preparation.py tests/test_catalog_try_forwarding.py
+          ruff check scenarios/native_install_workshop/filter_plugins scenarios/native_install_workshop/library scenarios/native_install_workshop/files tests/test_native_workshop_runs.py scenarios/catalog_try/catalog_try_lifecycle.py tests/test_catalog_try_lifecycle.py
+          pytest -q tests/test_native_workshop_runs.py tests/test_native_workshop_foundation.py tests/test_template_preparation.py tests/test_catalog_try_forwarding.py tests/test_catalog_try_lifecycle.py
 
   native-backend-packaging:
     runs-on: ubuntu-latest
