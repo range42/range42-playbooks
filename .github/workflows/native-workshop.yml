@@ -1,4 +1,4 @@
-name: Native workshop recipe
+name: Native scenarios and reusable preparation
 on:
   push:
     branches: [dev, main, 'feat/**', 'fix/**']
@@ -30,7 +30,7 @@ jobs:
           RANGE42_WORKSHOP_CATALOG_ROLES: ${{ github.workspace }}/.runtime-contract/catalog/02_ansible_layer/admin/roles
         run: |
           ruff check scenarios/native_install_workshop/filter_plugins scenarios/native_install_workshop/library scenarios/native_install_workshop/files tests/test_native_workshop_runs.py
-          pytest -q tests/test_native_workshop_runs.py
+          pytest -q tests/test_native_workshop_runs.py tests/test_native_workshop_foundation.py tests/test_template_preparation.py
 
   native-backend-packaging:
     runs-on: ubuntu-latest

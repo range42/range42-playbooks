@@ -1,0 +1,7 @@
+---
+- name: Prepare approved reusable templates and optional environment bridges
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Use the shared bounded native preparation stages
+      ansible.builtin.import_tasks: ../../bundles/generic/template.preparation/main.yml

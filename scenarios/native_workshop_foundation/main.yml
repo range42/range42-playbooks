@@ -1,40 +1,7 @@
 ---
-- name: Prepare the original workshop foundation and optional environment bridges
+- name: Prepare approved reusable templates and optional environment bridges
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Require the original Core capacity request and bounded adapter
-      ansible.builtin.assert:
-        that:
-          - range42_foundation_request_file is defined
-          - range42_foundation_runner_file is defined
-          - range42_foundation_python is defined
-          - range42_foundation_target_host_id is defined
-          - range42_foundation_agent_revision is defined
-        fail_msg: >-
-          Review this foundation through its deployment Overview and physically
-          accept its original capacity before starting the native attempt.
-        quiet: true
-
-    - name: Run the bounded original foundation stages in the native attempt
-      ansible.builtin.command:
-        argv:
-          - "{{ range42_foundation_python }}"
-          - -I
-          - "{{ range42_foundation_runner_file }}"
-          - --request-file
-          - "{{ range42_foundation_request_file }}"
-          - --target-host-id
-          - "{{ range42_foundation_target_host_id }}"
-          - --agent-revision
-          - "{{ range42_foundation_agent_revision }}"
-      register: range42_foundation_result
-      changed_when: (range42_foundation_result.stdout | from_json).changed | default(true)
-
-    - name: Require independently reconcilable foundation completion
-      ansible.builtin.assert:
-        that:
-          - (range42_foundation_result.stdout | from_json).foundation_ready
-          - (range42_foundation_result.stdout | from_json).status == 'complete'
-        fail_msg: Preserve the original request and reconcile its node status in Overview.
-        quiet: true
+    - name: Use the shared bounded native preparation stages
+      ansible.builtin.import_tasks: ../../bundles/generic/template.preparation/main.yml
