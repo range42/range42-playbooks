@@ -29,8 +29,18 @@ jobs:
           RANGE42_WORKSHOP_CONTROLLER_ROLES: ${{ github.workspace }}/.runtime-contract/controller/roles
           RANGE42_WORKSHOP_CATALOG_ROLES: ${{ github.workspace }}/.runtime-contract/catalog/02_ansible_layer/admin/roles
         run: |
-          ruff check scenarios/native_install_workshop/filter_plugins scenarios/native_install_workshop/library scenarios/native_install_workshop/files tests/test_native_workshop_runs.py scenarios/catalog_try/catalog_try_lifecycle.py tests/test_catalog_try_lifecycle.py
-          pytest -q tests/test_native_workshop_runs.py tests/test_native_workshop_foundation.py tests/test_template_preparation.py tests/test_catalog_try_forwarding.py tests/test_catalog_try_lifecycle.py
+          ruff check scenarios/native_install_workshop/filter_plugins scenarios/native_install_workshop/library scenarios/native_install_workshop/files tests/test_native_workshop_runs.py scenarios/catalog_try/catalog_try_lifecycle.py tests/test_catalog_try_lifecycle.py scenarios/catalog_try/catalog_try_template_bootstrap.py tests/test_catalog_try_template_bootstrap.py
+          pytest -q tests/test_native_workshop_runs.py tests/test_native_workshop_foundation.py tests/test_template_preparation.py tests/test_catalog_try_forwarding.py tests/test_catalog_try_lifecycle.py tests/test_catalog_try_template_bootstrap.py
+
+  native-cli-template-bootstrap:
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+      - uses: actions/checkout@v6
+      - run: pip install --no-cache-dir -r tests/requirements-native-workshop.txt
+      - run: pip install --no-cache-dir ansible-core==2.16.3
+      - name: Verify the ordinary CLI template boundary with native Ansible 2.16
+        run: pytest -q tests/test_catalog_try_template_bootstrap.py
 
   native-backend-packaging:
     runs-on: ubuntu-latest

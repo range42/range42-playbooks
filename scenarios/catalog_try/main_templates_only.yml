@@ -1,0 +1,7 @@
+---
+# Prepare the existing native template recipe without cloning a practice guest.
+- import_playbook: ./_firewall/stage_00-pre_scenario.report_status.yml
+- import_playbook: ./_firewall/stage_01-pre_scenario.management_access.yml
+- import_playbook: ./00_sdn_bootstrap/_main.yml
+- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
+- import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
