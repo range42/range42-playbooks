@@ -39,11 +39,49 @@ The standard scenario operations stay available if you need them directly :
 
 ```
 range42-context deploy            # full setup : template (if missing) + VM
+range42-context deploy-templates  # template 9221 only; no practice guest or guest SSH
 range42-context deploy-vms        # VM only (template assumed present)
 range42-context delete-vms        # destroys the VM, keeps the template
 range42-context delete            # same as delete-vms here (the template 9221 is shared with demo_lab, never owned by catalog_try)
 ```
 
+For a fresh workshop installation, prepare the template before enabling the UI:
+
+```
+range42-context use <codename> catalog_try
+range42-context deploy-templates
+range42-workshop ui <codename>
+```
+
+The template-only command first reads the selected PVE node through authenticated,
+certificate-verified HTTPS. An existing template with the declared name and type
+is retained without image, network or VM writes. A conflicting VMID or failed
+inventory read stops before provisioning. On an empty target, only the existing
+pre-scenario guards, SDN, image download and template 9221 recipe run. It does not
+clone VM 1250 or connect to a guest. The subsequent workshop UI bootstrap enables
+the template's guest agent before any strict CLI or UI guest enrollment.
+
+Template bootstrap accepts read-only analysis switches such as `--check` and
+`--diff`; target, inventory and arbitrary extra-variable overrides are refused.
+Run one CLI or UI operation at a time on the selected native environment.
+
+
+## Deletion, reset and guest SSH trust
+
+`delete-vms`, `delete` and `reset` share the same guarded native deletion path.
+It selects only the manifest's declared non-template guests, refuses a VMID
+whose native name differs, and checks a fresh authenticated inventory after
+deletion. A failed query, stop, delete or absence check stops reset before setup.
+A successful empty inventory is valid, including recovery after an earlier
+delete already removed the guest.
+
+Only after absence is confirmed does it retire the exact SSH target resolved
+by the current SSH configuration, including its host-key alias and port. Native
+API runs use `RANGE42_SOURCE_CONTEXT_DIR/ssh_keys/known_hosts`; ordinary CLI runs
+use their existing SSH home. Other guest and Proxmox pins stay intact. The trust
+file is locked and checked for concurrent changes; ambiguous shared or marked
+records need attended review. This never learns a replacement key. The next
+clone still requires the authenticated QGA enrollment and strict SSH checks.
 
 ## Vulnerability-Lookup integration (motivation)
 
@@ -80,6 +118,7 @@ This scenario mirrors the `demo_lab` pattern :
 | script | purpose |
 |---|---|
 | `catalog_try.setup.sh` | full provisioning (template + VM) ; idempotent on the template stage |
+| `catalog_try.setup_templates_only.sh` | authenticated template-only bootstrap; retain exact existing 9221 without mutation |
 | `catalog_try.setup_vms_only.sh` | skips template creation (faster on repeated runs ; assumes template present) |
 | `catalog_try.delete_vms_only.sh` | destroys the disposable VM, preserves the template |
 | `catalog_try.delete_all.sh` | alias of `delete_vms_only.sh` (no scenario-specific templates beyond 9221, which is shared with `demo_lab`) |

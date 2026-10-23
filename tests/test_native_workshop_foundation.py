@@ -24,7 +24,8 @@ def test_foundation_declares_no_fixed_participant_ids_networks_or_identity_provi
     entry = (SCENARIO/'main.yml').read_text()
     assert 'headscale' not in entry.lower() and 'keycloak' not in entry.lower()
     assert 'pvesh' not in entry and 'qm ' not in entry and 'curl' not in entry
-    assert 'ansible.builtin.command' in entry
+    assert 'ansible.builtin.import_tasks' in entry
+    assert 'ansible.builtin.command' in (ROOT/'bundles/generic/template.preparation/main.yml').read_text()
 
 
 def test_real_ansible_hands_the_private_request_to_the_fixed_backend_adapter(tmp_path):
