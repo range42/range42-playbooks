@@ -205,6 +205,9 @@ def test_recreated_guest_stays_untrusted_until_independent_enrollment(tmp_path):
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import ed25519
 
+    catalog_roles = os.environ.get('RANGE42_WORKSHOP_CATALOG_ROLES')
+    if not catalog_roles:
+        pytest.skip('Set the reviewed catalog role directory for independent enrollment acceptance')
     f = fixture(tmp_path)
     private = ed25519.Ed25519PrivateKey.generate()
     key = paramiko.Ed25519Key.from_private_key(io.StringIO(private.private_bytes(
@@ -272,8 +275,7 @@ def test_recreated_guest_stays_untrusted_until_independent_enrollment(tmp_path):
         unknown = subprocess.run(argv, capture_output=True, text=True, timeout=8, check=False)
         assert unknown.returncode == 255 and 'Host key verification failed' in unknown.stderr
         assert not executed.is_set()
-        roles = Path(os.environ.get('RANGE42_WORKSHOP_CATALOG_ROLES',
-            '/home/ppa/projects/range42-workshop-catalog-20261019/02_ansible_layer/admin/roles'))
+        roles = Path(catalog_roles)
         module_path = roles / 'ansible.utils/library/range42_guest_hostkey_pin.py'
         assert module_path.is_file(), 'Configure the reviewed catalog runtime for independent enrollment'
         spec = importlib.util.spec_from_file_location('catalog_guest_pin', module_path)

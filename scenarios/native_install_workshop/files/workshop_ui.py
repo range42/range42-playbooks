@@ -25,9 +25,9 @@ import urllib.parse
 import urllib.request
 
 PINS = {
-    'range42': '18a1dd9a27276b623f4ff8e33e7e219f72eecbf6',
-    'range42-playbooks': '4a970fc2d7a1864b81f7324287690c9cf74e1853',
-    'range42-catalog': '49387e6cfb6037d31803da3d60cffd3beca94c57',
+    'range42': 'e342bb6199bb83393ea123833a4f67da39bec6b6',
+    'range42-playbooks': '59bd610b5353fd409fe63a3ee074080b78fd8e74',
+    'range42-catalog': '4b49f0d3d0b68820e6b88386a95f588dfda6755a',
     'range42-ansible_roles-proxmox_controller': 'e988001493041d6d2fd0c67b2006fe4e7686d374',
     'range42-ansible_roles-debug-devkit': 'bd0e8eafdd14dec9a8b3cca63248b5ddc14c9da3',
     'range42-backend-api': 'fc80911bc01272161a19d7cd10c0b3e6ea4988fa',
@@ -316,6 +316,14 @@ def render(template, values):
     return environment.from_string(template.read_text()).render(**values)
 
 
+def runtime_ansible_config():
+    # Preserve verified host keys while detecting dead SSH sessions during boot.
+    return ('[defaults]\nhost_key_checking = True\ninterpreter_python = auto_silent\n'
+            'retry_files_enabled = False\n[ssh_connection]\n'
+            'ssh_args = -C -o ControlMaster=auto -o ControlPersist=60s '
+            '-o ServerAliveInterval=15 -o ServerAliveCountMax=3\nretries = 3\n')
+
+
 def prepare_runtime_and_context(root, context, spec, service, human):
     import yaml
     runtime = owned_system_directory('/opt/range42/runtime')
@@ -335,7 +343,7 @@ def prepare_runtime_and_context(root, context, spec, service, human):
         if source is None:
             raise ValueError('Install the native Ansible collections before UI setup')
         shutil.copytree(source, collections / 'ansible_collections', symlinks=False)
-    config = '[defaults]\nhost_key_checking = True\ninterpreter_python = auto_silent\nretry_files_enabled = False\n'
+    config = runtime_ansible_config()
     (runtime / 'ansible.cfg').write_text(config)
     (runtime / 'proxmox-ca.pem').write_text(Path('/etc/ssl/certs/ca-certificates.crt').read_text() + '\n' + Path('/etc/range42-workshop-pve-ca.pem').read_text())
     home = owned_system_directory('/var/lib/range42/backend-home')
