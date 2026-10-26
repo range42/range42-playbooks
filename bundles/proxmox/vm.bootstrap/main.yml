@@ -19,6 +19,7 @@
 #   global_template_name          template human label (default '' - used in task names)
 #   global_vm_ci_dns_ips          cloud-init DNS (default '1.1.1.1')
 #   global_vm_ci_netmask          cloud-init netmask (default '24')
+#   global_vm_ssh_wait_retries    SSH wait retries, 5 s apart (default 60 ; Windows clones : 180)
 #
 # Cloud-init credentials come from the scenario vault, with the same fall-back as before :
 #   vm_ci_user      = default_admin_vm_ci_user      | default('alice')
@@ -106,6 +107,7 @@
   vars:
     deployer_cli_user_ssh_known_hosts: "{{ deployer_cli_user_ssh_known_hosts }}"
     ARG_vm_ssh_name: "{{ global_vm_ssh_name }}"
+    ssh_wait_retries: "{{ global_vm_ssh_wait_retries | default(60) }}"
 
     requested_tasks:
       - wait/openssh_server/is_reachable.yml
