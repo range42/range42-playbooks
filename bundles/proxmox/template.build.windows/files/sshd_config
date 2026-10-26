@@ -1,0 +1,14 @@
+# sshd_config of the range42 Windows templates (copied by finalize.ps1).
+# Public-key authentication only. No "Match Group administrators" block : the key of alice
+# (an administrator) is read from C:\Users\alice\.ssh\authorized_keys, where cloudbase-init
+# writes the Proxmox `sshkeys` value. The default shell (powershell.exe) is set in the
+# registry (HKLM\SOFTWARE\OpenSSH\DefaultShell), not here.
+
+Port 22
+AuthorizedKeysFile .ssh/authorized_keys
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+
+Subsystem sftp sftp-server.exe

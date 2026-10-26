@@ -1,0 +1,55 @@
+##
+## bundles/proxmox/template.build.windows/main.yml
+##
+## Builds the Windows VM templates on a Proxmox hypervisor, fully unattended, from the
+## Microsoft evaluation ISOs : Windows Setup + Autounattend.xml, first-logon finalize.ps1
+## (virtio guest tools, QEMU guest agent, OpenSSH server, cloudbase-init), sysprep, then
+## `qm template`. A full clone of a template is then bootstrapped by
+## bundles/proxmox/vm.bootstrap like a Linux clone : cloudbase-init reads the Proxmox
+## cloud-init drive on ide2 (hostname, static IP, alice SSH key).
+##
+## Idempotent per template : already a template -> skipped ; stopped VM with the install
+## CDs still attached -> finalized only ; running VM -> left alone, the run fails at the
+## end with inspection pointers ; missing -> built. See README.md.
+##
+## Optional vars (caller passes them via `import_playbook vars:`) :
+##
+##   templates_whitelist     []        # empty = build every template below ; else only the
+##                                     # codes listed : win2025 | win11
+##   template_net_bridge     net140    # bridge or SDN vnet of the build NIC. Must reach the
+##                                     # internet (Windows 11 downloads the OpenSSH server).
+##   template_subnet_octet   140       # third octet of the build IP (192.168.<octet>.<ip_octet>)
+##
+## Every other variable (ISO URLs and file names, image index, virtio-win version,
+## cloudbase-init MSI and its sha256, timeouts) is listed in README.md and
+## bundle_parameters.src.yml.
+##
+## Vault : `$RANGE42_ACTIVE_CONFIG_DIR/secrets/default_vault.yml`. The template password of
+## `alice` is `default_admin_vm_ci_password`.
+##
+
+- name: WIN TEMPLATES - build the Windows templates
+  import_playbook: ./_build_templates.yml
+  vars:
+    win_templates:
+      - code: "win2025"
+        vm_id: 9250
+        vm_name: "template-vm-win2025-02-4g-64g"
+        os_kind: "server"
+        computer_name: "R42-WIN2025"
+        ip_octet: 250
+        iso_name: "{{ win2025_iso_name | default('windows-server-2025-eval-en-us.iso') }}"
+        iso_url: "{{ win2025_iso_url | default('https://go.microsoft.com/fwlink/?linkid=2345730&clcid=0x409&culture=en-us&country=us') }}"
+        image_index: "{{ win2025_image_index | default(2) }}"
+        virtio_dir: "{{ win2025_virtio_dir | default('2k25') }}"
+
+      - code: "win11"
+        vm_id: 9251
+        vm_name: "template-vm-win11-02-4g-64g"
+        os_kind: "client"
+        computer_name: "R42-WIN11"
+        ip_octet: 251
+        iso_name: "{{ win11_iso_name | default('windows-11-enterprise-eval-en-us.iso') }}"
+        iso_url: "{{ win11_iso_url | default('https://go.microsoft.com/fwlink/?LinkId=2382600&clcid=0x409&culture=en-us&country=us') }}"
+        image_index: "{{ win11_image_index | default(1) }}"
+        virtio_dir: "{{ win11_virtio_dir | default('w11') }}"

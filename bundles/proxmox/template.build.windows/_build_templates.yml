@@ -1,0 +1,462 @@
+##
+## bundles/proxmox/template.build.windows/_build_templates.yml
+##
+## Pipeline imported by main.yml (which passes the `win_templates` table) :
+##
+##   play 1 (proxmox)     download the missing ISOs onto `local` through the Proxmox API
+##                        (role action storage_download_iso), wait for the download tasks
+##   play 2 (proxmox_cli) probe -> build payload ISO -> qm create -> qm start + boot key
+##                        -> wait for the sysprep shutdown -> finalize -> qm template
+##
+## Play 2 runs `qm`, `genisoimage` and `mount -o loop` as root on the Proxmox host, like
+## template.build.ubuntu_noble/_update_templates.yml : the controller role has no action
+## for the Windows hardware keys (efidisk0, tpmstate0, machine, ostype), `qm sendkey` or
+## `qm template`.
+##
+## The payload directory holds the rendered answer files, which carry the alice password in
+## clear : mode 0700, tasks that render it are no_log, deleted after a successful build,
+## kept after a failure for inspection (delete it with the VM, see README.md).
+##
+
+- name: WIN TEMPLATES - download the ISOs
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  vars:
+    win_iso_dir: "/var/lib/vz/template/iso"
+    win_selected: >-
+      {{ win_templates if (templates_whitelist | default([])) | length == 0
+         else win_templates | selectattr('code', 'in', templates_whitelist) | list }}
+
+  tasks:
+
+    - name: WIN TEMPLATES - ISO - PROBE which selected templates are not finalized yet
+      ansible.builtin.command: qm config {{ item.vm_id }}
+      register: win_iso_tpl_probe
+      loop: "{{ win_selected }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+
+    - name: WIN TEMPLATES - ISO - KEEP the templates still to build
+      ansible.builtin.set_fact:
+        win_iso_pending: >-
+          {{ win_selected | zip(win_iso_tpl_probe.results)
+                          | rejectattr('1.stdout', 'search', '(?m)^template:') | map(attribute='0') | list }}
+
+    - name: WIN TEMPLATES - ISO - LIST the ISOs they need (name, url)
+      ansible.builtin.set_fact:
+        win_iso_needed: >-
+          {{ (win_iso_pending | map(attribute='iso_name') | zip(win_iso_pending | map(attribute='iso_url')) | map('list') | list)
+             + ([[virtio_win_iso_name | default('virtio-win-0.1.271.iso'),
+                  virtio_win_iso_url | default('https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/'
+                                               ~ 'archive-virtio/virtio-win-0.1.271-1/virtio-win-0.1.271.iso')]]
+                if win_iso_pending | length > 0 else []) }}
+
+    - name: WIN TEMPLATES - ISO - CHECK which ISOs are already on the store
+      ansible.builtin.command: test -s {{ (win_iso_dir ~ '/' ~ item[0]) | quote }}
+      register: win_iso_present
+      loop: "{{ win_iso_needed }}"
+      loop_control:
+        label: "{{ item[0] }}"
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+
+    - name: WIN TEMPLATES - ISO - DOWNLOAD missing ISOs (Proxmox download-url API)
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "storage_download_iso"
+        proxmox_storage: "local"
+        iso_file_content_type: "iso"
+        iso_url: "{{ item.0[1] }}"
+        iso_file_name: "{{ item.0[0] }}"
+      loop: "{{ win_iso_needed | zip(win_iso_present.results) | list }}"
+      loop_control:
+        label: "{{ item.0[0] }}"
+      when: item.1.rc != 0
+
+    - name: WIN TEMPLATES - ISO - WAIT until no download task is active on the node
+      ansible.builtin.command: >-
+        pvesh get /nodes/localhost/tasks --source active --typefilter download --output-format json
+      register: win_iso_active
+      until: (win_iso_active.stdout | from_json | length) == 0
+      retries: "{{ (win_download_timeout_min | default(120) | int) * 6 }}"
+      delay: 10
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+      when: win_iso_present.results | rejectattr('rc', 'eq', 0) | list | length > 0
+
+    - name: WIN TEMPLATES - ISO - ASSERT every needed ISO is now on the store
+      ansible.builtin.command: test -s {{ (win_iso_dir ~ '/' ~ item[0]) | quote }}
+      loop: "{{ win_iso_needed }}"
+      loop_control:
+        label: "{{ item[0] }}"
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}-cli"
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: WIN TEMPLATES - build, finalize, convert
+  hosts: proxmox_cli
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  vars:
+    win_iso_dir: "/var/lib/vz/template/iso"
+    win_work_dir: "/var/lib/vz/template/range42-win"
+    win_virtio_mnt: "{{ win_work_dir }}/mnt-virtio"
+    win_virtio_iso: "{{ virtio_win_iso_name | default('virtio-win-0.1.271.iso') }}"
+    win_virtio_iso_sha256: "{{ virtio_win_iso_sha256 | default('bbe6166ad86a490caefad438fef8aa494926cb0a1b37fa1212925cfd81656429') }}"
+    win_build_timeout: "{{ win_build_timeout_min | default(150) | int }}"
+    win_selected: >-
+      {{ win_templates if (templates_whitelist | default([])) | length == 0
+         else win_templates | selectattr('code', 'in', templates_whitelist) | list }}
+
+  tasks:
+
+    # vm_id and vm_name go into root shell commands, the bridge into the qm arguments, the other
+    # values unescaped into the XML answer files.
+    - name: WIN TEMPLATES - CHECK the template table and the values rendered into qm and the answer files
+      ansible.builtin.assert:
+        that:
+          - item.vm_id | string is match('^[0-9]+$')
+          - item.vm_name is match('^[A-Za-z0-9][A-Za-z0-9.-]*$')
+          - item.computer_name is match('^[A-Za-z0-9-]{1,15}$')
+          - item.ip_octet | string is match('^[0-9]{1,3}$')
+          - item.image_index | string is match('^[0-9]+$')
+          - template_net_bridge | default('net140') is match('^[A-Za-z0-9_.-]+$')
+          - template_subnet_octet | default(140) | string is match('^[0-9]{1,3}$')
+          - win_build_dns | default('1.1.1.1') is match('^[0-9]{1,3}([.][0-9]{1,3}){3}$')
+          - win_timezone | default('W. Europe Standard Time') is match('^[A-Za-z0-9 .()+-]+$')
+        fail_msg: "invalid value in win_templates or in the build parameters: {{ item.code | default('?') }}"
+        quiet: true
+      loop: "{{ win_selected }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+
+    #### #### #### probe #### #### ####
+    # missing  : build
+    # template : finalized, skip
+    # running  : build in progress, or a failed build left up for inspection -> untouched, fail at the end
+    # finalize : stopped with the payload CD still on sata0 = sysprep finished in an earlier run
+    # other    : stopped, no payload CD -> not left behind by this bundle -> fail
+
+    - name: WIN TEMPLATES - PROBE state of each selected template VM
+      ansible.builtin.shell: |
+        set -eu
+        if ! cfg=$(qm config {{ item.vm_id }} 2>/dev/null); then echo missing
+        elif grep -q '^template:' <<<"$cfg"; then echo template
+        elif [ "$(qm status {{ item.vm_id }})" = "status: running" ]; then echo running
+        elif grep -q '^sata0:.*range42-autounattend-{{ item.vm_id }}\.iso' <<<"$cfg"; then echo finalize
+        else echo other
+        fi
+      args:
+        executable: /bin/bash
+      register: win_state
+      loop: "{{ win_selected }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+      changed_when: false
+
+    - name: WIN TEMPLATES - SPLIT the selection by state
+      ansible.builtin.set_fact:
+        win_to_build: "{{ win_selected | zip(win_state.results) | selectattr('1.stdout', 'eq', 'missing') | map(attribute='0') | list }}"
+        win_to_finalize: "{{ win_selected | zip(win_state.results) | selectattr('1.stdout', 'eq', 'finalize') | map(attribute='0') | list }}"
+        win_running: "{{ win_selected | zip(win_state.results) | selectattr('1.stdout', 'eq', 'running') | map(attribute='0') | list }}"
+        win_other: "{{ win_selected | zip(win_state.results) | selectattr('1.stdout', 'eq', 'other') | map(attribute='0') | list }}"
+
+    - name: WIN TEMPLATES - DISPLAY PLAN
+      ansible.builtin.debug:
+        msg: "{{ item.0.vm_id }} {{ item.0.vm_name }} : {{ item.1.stdout }}"
+      loop: "{{ win_selected | zip(win_state.results) | list }}"
+      loop_control:
+        label: "vm_id={{ item.0.vm_id }}"
+
+    - name: WIN TEMPLATES - FAIL on a stopped VM that this bundle did not leave behind
+      ansible.builtin.fail:
+        msg: >-
+          VM(s) {{ win_other | map(attribute='vm_id') | join(', ') }} exist, are stopped, are not
+          templates and have no range42 payload CD on sata0. Inspect them ; to rebuild run
+          `qm destroy <id> --purge` on the Proxmox host.
+      when: win_other | length > 0
+
+    - name: WIN TEMPLATES - SHORT-CIRCUIT when nothing is left to build or finalize
+      ansible.builtin.meta: end_play
+      when:
+        - win_to_build | length == 0
+        - win_to_finalize | length == 0
+        - win_running | length == 0
+
+    #### #### #### build : payload ISO, create, start #### #### ####
+
+    - name: WIN TEMPLATES - BUILD
+      when: win_to_build | length > 0
+      block:
+
+        - name: WIN TEMPLATES - PREFLIGHT - genisoimage is installed
+          ansible.builtin.command: which genisoimage
+          changed_when: false
+
+        - name: WIN TEMPLATES - PREFLIGHT - the vault provides the alice template password
+          ansible.builtin.assert:
+            that:
+              - default_admin_vm_ci_password is defined
+              - default_admin_vm_ci_password | length > 0
+            fail_msg: "default_admin_vm_ci_password is missing from the scenario vault"
+            quiet: true
+          no_log: true
+
+        - name: WIN TEMPLATES - PREFLIGHT - the ISOs are on the store
+          ansible.builtin.command: test -s {{ (win_iso_dir ~ '/' ~ item) | quote }}
+          loop: "{{ (win_to_build | map(attribute='iso_name') | list) + [win_virtio_iso] }}"
+          changed_when: false
+
+        - name: WIN TEMPLATES - PAYLOAD - create the work and payload directories (0700, they hold the password)
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: directory
+            owner: root
+            group: root
+            mode: "0700"
+          loop: >-
+            {{ [win_work_dir, win_virtio_mnt]
+               + (win_to_build | map(attribute='vm_id') | map('string') | map('regex_replace', '^(.*)$', win_work_dir ~ '/\1') | list)
+               + (win_to_build | map(attribute='vm_id') | map('string') | map('regex_replace', '^(.*)$', win_work_dir ~ '/\1/range42') | list) }}
+
+        - name: WIN TEMPLATES - PAYLOAD - render Autounattend.xml
+          ansible.builtin.template:
+            src: "templates/autounattend.xml.j2"
+            dest: "{{ win_work_dir }}/{{ item.vm_id }}/Autounattend.xml"
+            mode: "0600"
+          loop: "{{ win_to_build }}"
+          loop_control:
+            label: "vm_id={{ item.vm_id }}"
+          no_log: true
+
+        - name: WIN TEMPLATES - PAYLOAD - render unattend-sysprep.xml
+          ansible.builtin.template:
+            src: "templates/unattend-sysprep.xml.j2"
+            dest: "{{ win_work_dir }}/{{ item.vm_id }}/range42/unattend-sysprep.xml"
+            mode: "0600"
+          loop: "{{ win_to_build }}"
+          loop_control:
+            label: "vm_id={{ item.vm_id }}"
+          no_log: true
+
+        - name: WIN TEMPLATES - PAYLOAD - copy finalize.ps1, cloudbase-init and sshd configuration
+          ansible.builtin.copy:
+            src: "files/{{ item.1 }}"
+            dest: "{{ win_work_dir }}/{{ item.0.vm_id }}/range42/{{ item.1 }}"
+            mode: "0600"
+          loop: >-
+            {{ win_to_build | product(['finalize.ps1', 'cloudbase-init.conf',
+                                       'cloudbase-init-unattend.conf', 'sshd_config']) | list }}
+          loop_control:
+            label: "{{ item.0.vm_id }}/{{ item.1 }}"
+
+        - name: WIN TEMPLATES - PAYLOAD - download the cloudbase-init MSI (sha256 pinned)
+          ansible.builtin.get_url:
+            url: "{{ cloudbase_init_msi_url | default('https://cloudbase.it/downloads/CloudbaseInitSetup_Stable_x64.msi') }}"
+            dest: "{{ win_work_dir }}/{{ item.vm_id }}/range42/CloudbaseInitSetup_x64.msi"
+            checksum: "sha256:{{ cloudbase_init_msi_sha256 | default('0e7fa42e0cbc0ce7657f85730b0c6cc7afc4087a3639df0ff51a721a0be19bd5') }}"
+            mode: "0600"
+          loop: "{{ win_to_build }}"
+          loop_control:
+            label: "vm_id={{ item.vm_id }}"
+
+        # The virtio drivers and MSIs run as SYSTEM in the guest. Upstream publishes no checksum
+        # for the ISO : the pin is the sha256 measured on the downloaded file.
+        - name: WIN TEMPLATES - PAYLOAD - check the virtio-win ISO sha256 (pinned)
+          ansible.builtin.command:
+            cmd: sha256sum --check --strict -
+            stdin: "{{ win_virtio_iso_sha256 }}  {{ win_iso_dir }}/{{ win_virtio_iso }}"
+          changed_when: false
+
+        - name: WIN TEMPLATES - PAYLOAD - copy the WinPE drivers from the virtio-win ISO
+          block:
+            # transient loop mount, unmounted in `always` : no fstab entry wanted
+            - name: WIN TEMPLATES - PAYLOAD - loop-mount the virtio-win ISO read-only  # noqa: command-instead-of-module
+              ansible.builtin.command: >-
+                mount -o loop,ro {{ (win_iso_dir ~ '/' ~ win_virtio_iso) | quote }} {{ win_virtio_mnt | quote }}
+              changed_when: true
+
+            - name: WIN TEMPLATES - PAYLOAD - check the driver directories exist for each OS
+              ansible.builtin.command: >-
+                test -d {{ (win_virtio_mnt ~ '/' ~ item.1 ~ '/' ~ item.0.virtio_dir ~ '/amd64') | quote }}
+              loop: "{{ win_to_build | product(['vioscsi', 'NetKVM', 'Balloon']) | list }}"
+              loop_control:
+                label: "{{ item.1 }}/{{ item.0.virtio_dir }}/amd64"
+              changed_when: false
+
+            # Windows Setup scans the root of every volume for $WinPEDriver$ before it
+            # enumerates the disks, so no PnpCustomizationsWinPE and no drive letter is needed.
+            - name: WIN TEMPLATES - PAYLOAD - copy vioscsi, NetKVM, Balloon into $WinPEDriver$
+              ansible.builtin.shell: |
+                set -eu
+                dst='{{ win_work_dir }}/{{ item.0.vm_id }}/$WinPEDriver$/{{ item.1 }}'
+                mkdir -p "$dst"
+                cp -r {{ (win_virtio_mnt ~ '/' ~ item.1 ~ '/' ~ item.0.virtio_dir ~ '/amd64/.') | quote }} "$dst/"
+              loop: "{{ win_to_build | product(['vioscsi', 'NetKVM', 'Balloon']) | list }}"
+              loop_control:
+                label: "{{ item.0.vm_id }} {{ item.1 }}/{{ item.0.virtio_dir }}"
+              changed_when: true
+
+          always:
+            - name: WIN TEMPLATES - PAYLOAD - unmount the virtio-win ISO
+              ansible.builtin.command: umount {{ win_virtio_mnt | quote }}
+              register: win_umount
+              failed_when: win_umount.rc != 0 and 'not mounted' not in win_umount.stderr
+              changed_when: win_umount.rc == 0
+
+        # The ISO holds the password : umask 077 creates it with mode 0600. rm first, because
+        # genisoimage keeps the mode of an existing file.
+        - name: WIN TEMPLATES - PAYLOAD - make the payload ISO (mode 0600)
+          ansible.builtin.shell: |
+            set -eu
+            umask 077
+            rm -f {{ iso | quote }}
+            genisoimage -quiet -J -R -joliet-long -V RANGE42 -o {{ iso | quote }} {{ (win_work_dir ~ '/' ~ item.vm_id) | quote }}
+          vars:
+            iso: "{{ win_iso_dir }}/range42-autounattend-{{ item.vm_id }}.iso"
+          loop: "{{ win_to_build }}"
+          loop_control:
+            label: "vm_id={{ item.vm_id }}"
+          changed_when: true
+
+        # Hardware follows the Proxmox "Windows 2025 guest best practices" page. ostype win11
+        # also makes configdrive2 the cloud-init type of the clones. The MAC is derived from the
+        # VM id so that Autounattend.xml can bind the static build IP to this NIC.
+        - name: WIN TEMPLATES - CREATE VM
+          ansible.builtin.command: >-
+            qm create {{ item.vm_id }}
+            --name {{ item.vm_name }}
+            --ostype win11 --machine q35
+            --bios ovmf --efidisk0 local-lvm:1,efitype=4m,pre-enrolled-keys=1
+            --tpmstate0 local-lvm:1,version=v2.0
+            --scsihw virtio-scsi-single --scsi0 local-lvm:64,discard=on,iothread=1
+            --cpu host --cores 2 --sockets 1 --memory 4096 --balloon 0
+            --net0 virtio={{ '52:54:00:42:%02X:%02X' | format(item.vm_id // 256, item.vm_id % 256) }},bridge={{ template_net_bridge | default('net140') }}
+            --agent enabled=1
+            --ide0 local:iso/{{ item.iso_name }},media=cdrom
+            --ide2 local:iso/{{ win_virtio_iso }},media=cdrom
+            --sata0 local:iso/range42-autounattend-{{ item.vm_id }}.iso,media=cdrom
+            --boot order=ide0;scsi0
+            --tags template
+          loop: "{{ win_to_build }}"
+          loop_control:
+            label: "vm_id={{ item.vm_id }}"
+          changed_when: true
+
+        # OVMF shows "Press any key to boot from CD or DVD" for a few seconds, after a firmware
+        # start whose length varies under nested virtualisation (measured : from under 1 to
+        # about 8 minutes). The Windows Server ISO then shows a Windows Boot Manager menu, which waited
+        # forever under a space-key loop : ENTER answers both screens.
+        # Send ENTER in a loop until the VM has read more than 100 MB (Windows Setup loads
+        # boot.wim from the CD) or win_bootkey_seconds have passed. Later reboots time out on
+        # the prompt and fall through to scsi0, which is wanted.
+        - name: WIN TEMPLATES - START VM and press a key for the UEFI CD boot prompt
+          ansible.builtin.shell: |
+            set -euo pipefail
+            qm start {{ item.vm_id }}
+            end=$(( $(date +%s) + {{ win_bootkey_seconds | default(900) | int }} ))
+            while [ "$(date +%s)" -lt "$end" ]; do
+              qm sendkey {{ item.vm_id }} ret >/dev/null 2>&1 || true
+              read_bytes=$(qm status {{ item.vm_id }} --verbose | awk '/^diskread:/ { print $2 }') || read_bytes=0
+              if [ "${read_bytes:-0}" -gt 104857600 ]; then exit 0; fi
+            done
+            echo "VM {{ item.vm_id }} did not start Windows Setup from the CD (left running at the UEFI prompt)" >&2
+            exit 1
+          args:
+            executable: /bin/bash
+          loop: "{{ win_to_build }}"
+          loop_control:
+            label: "vm_id={{ item.vm_id }}"
+          changed_when: true
+
+    #### #### #### wait for the sysprep shutdown #### #### ####
+
+    - name: WIN TEMPLATES - WAIT for the VM to stop by itself (sysprep /shutdown)
+      ansible.builtin.command: qm status {{ item.vm_id }}
+      register: win_stop_wait
+      until: "win_stop_wait.stdout | trim == 'status: stopped'"
+      retries: "{{ win_build_timeout | int * 4 }}"
+      delay: 15
+      failed_when: false
+      changed_when: false
+      loop: "{{ win_to_build }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+
+    - name: WIN TEMPLATES - SPLIT finished and timed-out builds
+      ansible.builtin.set_fact:
+        win_finished: >-
+          {{ win_to_finalize
+             + (win_to_build | zip(win_stop_wait.results | default([])) | selectattr('1.stdout', 'eq', 'status: stopped') | map(attribute='0') | list) }}
+        win_timed_out: >-
+          {{ win_to_build | zip(win_stop_wait.results | default([])) | rejectattr('1.stdout', 'eq', 'status: stopped') | map(attribute='0') | list }}
+
+    #### #### #### finalize #### #### ####
+
+    - name: WIN TEMPLATES - FINALIZE - detach the install CDs
+      ansible.builtin.command: qm set {{ item.vm_id }} --delete ide0,ide2,sata0
+      loop: "{{ win_finished }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+      changed_when: true
+
+    - name: WIN TEMPLATES - FINALIZE - add the cloud-init drive on ide2, boot from scsi0 only
+      ansible.builtin.command: qm set {{ item.vm_id }} --ide2 local-lvm:cloudinit,media=cdrom --boot order=scsi0
+      loop: "{{ win_finished }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+      changed_when: true
+
+    - name: WIN TEMPLATES - FINALIZE - convert to template
+      ansible.builtin.command: qm template {{ item.vm_id }}
+      loop: "{{ win_finished }}"
+      loop_control:
+        label: "vm_id={{ item.vm_id }}"
+      changed_when: true
+
+    - name: WIN TEMPLATES - CLEANUP - delete the payload directory and ISO of each finished template
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: >-
+        {{ (win_finished | map(attribute='vm_id') | map('string') | map('regex_replace', '^(.*)$', win_work_dir ~ '/\1') | list)
+           + (win_finished | map(attribute='vm_id') | map('string')
+                           | map('regex_replace', '^(.*)$', win_iso_dir ~ '/range42-autounattend-\1.iso') | list) }}
+
+    - name: WIN TEMPLATES - CLEANUP - remove the work directory when no other build uses it
+      ansible.builtin.shell: |
+        rmdir {{ win_virtio_mnt | quote }} 2>/dev/null || true
+        rmdir {{ win_work_dir | quote }} 2>/dev/null || true
+      changed_when: false
+      when: win_finished | length > 0
+
+    #### #### #### report #### #### ####
+
+    - name: WIN TEMPLATES - FAIL on builds still running
+      ansible.builtin.fail:
+        msg: |
+          Still running : {{ (win_running + win_timed_out) | map(attribute='vm_id') | join(', ') }}
+          {% if win_timed_out | length > 0 %}(no shutdown within {{ win_build_timeout }} minutes){% endif %}
+          {% if win_running | length > 0 %}(already running when this run started : a build in progress, or a failed build){% endif %}
+
+          The VMs are left running. Inspect them in noVNC, or through the guest agent once
+          finalize.ps1 has installed it (`qm guest cmd <id> ping`). Logs in the guest :
+            C:\range42-build.log                              finalize.ps1 transcript
+            C:\Windows\Panther\setupact.log, setuperr.log     Windows Setup
+            C:\Windows\System32\Sysprep\Panther\setuperr.log  sysprep
+          Retry from scratch on the Proxmox host :
+            qm stop <id> ; qm destroy <id> --purge
+            rm -rf {{ win_work_dir }}/<id> {{ win_iso_dir }}/range42-autounattend-<id>.iso
+          then rerun this bundle.
+      when: (win_running + win_timed_out) | length > 0
