@@ -28,7 +28,7 @@ The upstream repo ships a multi-stage Dockerfile :
 | `REMOTE_PROJECT_DIR` | `/var/www/range42_deployer_ui` |
 | `UI_PORT` | `3000` |
 | `BACKEND_API_URL` | *(unset)* — when set, rendered into `public/config.json` so the SPA pre-registers this backend |
-| `PROXMOX_NODE_NAME` | `pve` — paired with `BACKEND_API_URL` in `config.json` |
+| `PROXMOX_NODE_NAME` | `proxmox_node` from the workspace vault, else `pve` — paired with `BACKEND_API_URL` in `config.json` |
 
 ## Call-site example
 
