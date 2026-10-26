@@ -1,0 +1,18 @@
+---
+- ansible.builtin.slurp:
+    src: "{{ workshop_receipt_root }}/{{ workshop_guest.vm_id }}.json"
+  register: workshop_pin_receipt
+- name: Retain only the already authenticated native SSH pin for this generation
+  workshop_hostkey:
+    allowed_addresses: "{{ range42_workshop_plan.guests | map(attribute='ip') | list }}"
+    action: capture
+    path: "{{ deployer_cli_user_ssh_known_hosts }}"
+    address: "{{ workshop_guest.ip }}"
+  register: workshop_authenticated_pin
+- ansible.builtin.assert:
+    that: [workshop_authenticated_pin.key is string]
+- name: Associate the authenticated public pin with the retained original generation
+  ansible.builtin.copy:
+    dest: "{{ workshop_receipt_root }}/{{ workshop_guest.vm_id }}.json"
+    mode: '0600'
+    content: "{{ (workshop_pin_receipt.content | b64decode | from_json) | combine({'hostkey_pin': workshop_authenticated_pin.key, 'bootstrap_complete': true}) | to_nice_json }}\n"

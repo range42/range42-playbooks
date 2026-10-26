@@ -21,7 +21,7 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = ROOT.parent
+SOURCES = Path(os.getenv("RANGE42_NATIVE_INSTALL_SOURCES", str(ROOT.parent)))
 BUNDLE = ROOT / "bundles/admin/software.install.deployer_api_backend"
 IMAGE = os.getenv("RANGE42_NATIVE_API_INSTALL_TEST_IMAGE")
 pytestmark = pytest.mark.skipif(not IMAGE, reason="set RANGE42_NATIVE_API_INSTALL_TEST_IMAGE for disposable Docker acceptance")
@@ -193,6 +193,12 @@ server.socket=context.wrap_socket(server.socket,server_side=True);server.serve_f
             assert client.get("/v1/health/ready", headers=headers).json()["ready"] is True
             hosts = client.get("/v1/proxmox/hosts", headers=headers).json()
             host_id = hosts["items"][0]["id"]
+            import json
+            binding = json.loads((context / '.range42-target.json').read_text())
+            assert binding == {'version': 1, 'target_host_id': host_id,
+                'target_node': 'fixture', 'target_api_url': hosts['items'][0]['api_url']}
+            runtime_context = client.get('/v1/environments', headers=headers).json()['base_contexts']
+            assert len(runtime_context) == 1 and runtime_context[0]['ready'] is True
             first = command(compose + ["ps", "-q", "api"])
             env_before = (project / ".env").read_bytes()
             ansible([plays[0]], expect_success=False)

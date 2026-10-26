@@ -1,0 +1,43 @@
+---
+- name: Recheck the original clone generation and its recorded initial or final shape
+  ansible.builtin.include_tasks: owned.yml
+  vars:
+    workshop_verify_bootstrap: true
+- name: Read the owned clone's current power state before hardware recovery
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ workshop_guest.vm_id }}/status/current"
+    headers: {Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"}
+    validate_certs: true
+    follow_redirects: none
+  register: workshop_recovery_status
+  no_log: true
+- name: Require an unfinished clone to remain stopped before changing its hardware
+  ansible.builtin.assert:
+    that: [workshop_recovery_status.json.data.status == 'stopped']
+- name: Restore only this generation's bounded hardware with the observed configuration digest
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ workshop_guest.vm_id }}/config"
+    method: PUT
+    headers: {Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"}
+    body_format: form-urlencoded
+    body: {digest: "{{ workshop_current.json.data.digest }}", cpu: host, cores: "{{ workshop_guest.cores }}", memory: "{{ workshop_guest.memory_mib }}", balloon: 0}
+    validate_certs: true
+    follow_redirects: none
+  no_log: true
+- name: Read back the exact original generation after bounded hardware recovery
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ workshop_guest.vm_id }}/config"
+    headers: {Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"}
+    validate_certs: true
+    follow_redirects: none
+  register: workshop_recovered_hardware
+  no_log: true
+- name: Require the final bounded hardware and retained generation before native first boot
+  ansible.builtin.assert:
+    that:
+      - workshop_recovered_hardware.json.data | workshop_bootstrap_owned(workshop_guest, workshop_current_receipt)
+      - workshop_recovered_hardware.json.data.cpu == 'host'
+      - workshop_recovered_hardware.json.data.memory | int == workshop_guest.memory_mib
+      - workshop_recovered_hardware.json.data.cores | int == workshop_guest.cores
+      - workshop_recovered_hardware.json.data.balloon | int == 0
+  no_log: true

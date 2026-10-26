@@ -1,0 +1,29 @@
+---
+- import_playbook: preflight.yml
+- name: Require exactly one explicitly selected participant before reset
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - ansible.builtin.assert:
+        that:
+          - range42_workshop_selected_seat | default(0) | int >= 1
+          - range42_workshop_selected_seat | int <= 10
+          - workshop_selected_guests | length == 2
+- import_playbook: validate-templates.yml
+- import_playbook: retire.yml
+- name: Archive original generation receipts after independently confirmed retirement
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - ansible.builtin.stat:
+        path: "{{ workshop_receipt_root }}/{{ item.vm_id }}.json"
+        follow: false
+      loop: "{{ workshop_selected_guests }}"
+      register: workshop_reset_receipts
+    - ansible.builtin.command:
+        argv: [mv, --no-clobber, "{{ workshop_receipt_root }}/{{ item.item.vm_id }}.json", "{{ workshop_receipt_root }}/{{ item.item.vm_id }}.{{ now(utc=true, fmt='%Y%m%dT%H%M%S%f') }}.retired.json"]
+      loop: "{{ workshop_reset_receipts.results }}"
+      when: item.stat.exists
+      changed_when: true
+- import_playbook: clone.yml
+- import_playbook: configure.yml

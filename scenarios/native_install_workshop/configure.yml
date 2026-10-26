@@ -1,0 +1,159 @@
+---
+- import_playbook: preflight.yml
+
+- name: Verify every original generation before resuming native bootstrap
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - ansible.builtin.set_fact:
+        workshop_bootstrap_vmids: []
+    - name: Accept only recorded clone or final network on each owned guest
+      ansible.builtin.include_tasks: tasks/owned.yml
+      vars:
+        workshop_verify_bootstrap: true
+      loop: "{{ workshop_selected_guests }}"
+      loop_control: {loop_var: workshop_guest, label: "{{ workshop_guest.vm_name }}"}
+
+- import_playbook: bootstrap.yml
+
+- name: Verify every selected outer resource before configuring guests
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - name: Check the original generation network and disks of each selected guest
+      ansible.builtin.include_tasks: tasks/owned.yml
+      loop: "{{ workshop_selected_guests }}"
+      loop_control: {loop_var: workshop_guest, label: "{{ workshop_guest.vm_name }}"}
+
+- name: Retain the authenticated public SSH pins for owned reset
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  tasks:
+    - ansible.builtin.include_tasks: tasks/record-hostkey.yml
+      loop: "{{ workshop_selected_guests }}"
+      loop_control: {loop_var: workshop_guest, label: "{{ workshop_guest.vm_name }}"}
+
+- name: Prepare individual workshop login and installation prerequisites
+  hosts: workshop_guests
+  gather_facts: false
+  become: true
+  vars:
+    workshop_participants: "{{ range42_workshop_participants }}"
+  tasks:
+    - ansible.builtin.meta: end_host
+      when: workshop_guest.vm_id not in hostvars[groups['proxmox'][0]].workshop_selected_guests | map(attribute='vm_id') | list
+    - name: Inspect the existing participant configuration identity
+      ansible.builtin.stat:
+        path: /etc/range42-workshop.json
+        follow: false
+      register: workshop_existing_identity
+    - name: Require the facilitator-owned existing identity before resuming
+      ansible.builtin.assert:
+        that:
+          - workshop_existing_identity.stat.isreg | default(false)
+          - workshop_existing_identity.stat.uid == 0
+          - workshop_existing_identity.stat.mode in ['0644', '0600']
+      when: workshop_existing_identity.stat.exists
+    - ansible.builtin.slurp:
+        src: /etc/range42-workshop.json
+      register: workshop_identity_document
+      when: workshop_existing_identity.stat.exists
+    - name: Preserve installed participant credentials and shell on later configure
+      ansible.builtin.set_fact:
+        workshop_initial_configuration: "{{ ((workshop_identity_document.content | b64decode | from_json) if workshop_existing_identity.stat.exists else none) | workshop_first_configuration(workshop_guest) }}"
+    - name: Set the individual deployer login password without changing other accounts
+      ansible.builtin.user:
+        name: range42
+        password: "{{ workshop_participants[workshop_guest.username].deployer_password_hash }}"
+        shell: /bin/bash
+      no_log: true
+      when: workshop_initial_configuration
+    - name: Allow password login only inside the isolated workshop guest
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/00-range42-workshop.conf
+        mode: '0644'
+        content: "PasswordAuthentication yes\nPermitRootLogin {{ 'yes' if workshop_guest.role == 'proxmox' else 'prohibit-password' }}\n"
+        validate: /usr/sbin/sshd -t -f %s
+      register: workshop_ssh_login
+      when: workshop_initial_configuration
+    - ansible.builtin.systemd_service:
+        name: ssh
+        state: reloaded
+      when: workshop_ssh_login.changed | default(false)
+    - name: Install the native installer workstation prerequisites
+      ansible.builtin.apt:
+        name: [git, ansible, sshpass, keychain, rsync, python3-venv, python3-pip, python3-textual, python3-bcrypt, python3-paramiko, zsh, jq, openssh-client]
+        state: present
+        update_cache: true
+      when: workshop_guest.role == 'deployer'
+    - name: Set the individual nested Proxmox root password
+      ansible.builtin.user:
+        name: root
+        password: "{{ workshop_participants[workshop_guest.username].proxmox_password_hash }}"
+      no_log: true
+      when: workshop_guest.role == 'proxmox' and workshop_initial_configuration
+    - name: Initialize the private nested hypervisor after clone identity is set
+      ansible.builtin.include_tasks: tasks/proxmox-guest.yml
+      when: workshop_guest.role == 'proxmox' and workshop_initial_configuration
+    - name: Record the non-secret participant instance identity
+      ansible.builtin.copy:
+        dest: /etc/range42-workshop.json
+        mode: '0644'
+        content: "{{ {'username': workshop_guest.username, 'role': workshop_guest.role, 'owner': workshop_guest.owner, 'expires_at': range42_workshop_plan.expires_at, 'proxmox_address': (range42_workshop_plan.participants | selectattr('username', 'equalto', workshop_guest.username) | first).proxmox_address, 'proxmox_node': (range42_workshop_plan.guests | selectattr('username', 'equalto', workshop_guest.username) | selectattr('role', 'equalto', 'proxmox') | first).vm_name} | to_nice_json }}\n"
+    - name: Read this participant hypervisor's public TLS trust anchor
+      ansible.builtin.slurp:
+        src: /etc/pve/pve-root-ca.pem
+      register: workshop_public_pve_ca
+      when: workshop_guest.role == 'proxmox'
+    - name: Read this participant hypervisor's public SSH trust anchor
+      ansible.builtin.slurp:
+        src: /etc/ssh/ssh_host_ed25519_key.pub
+      register: workshop_public_pve_ssh
+      when: workshop_guest.role == 'proxmox'
+
+- name: Install the workshop UI preparation helper on each selected CLI
+  hosts: workshop_guests
+  gather_facts: false
+  become: true
+  tasks:
+    - ansible.builtin.meta: end_host
+      when: workshop_guest.role != 'deployer' or workshop_guest.vm_id not in hostvars[groups['proxmox'][0]].workshop_selected_guests | map(attribute='vm_id') | list
+    - name: Seed only the participant's own public hypervisor trust
+      ansible.builtin.copy:
+        dest: "{{ item.dest }}"
+        content: "{{ item.content | b64decode }}"
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - dest: /etc/range42-workshop-pve-ca.pem
+          content: "{{ hostvars['r42.' + range42_workshop_plan.namespace + '.' + workshop_guest.username + '.proxmox'].workshop_public_pve_ca.content }}"
+        - dest: /etc/range42-workshop-pve-hostkey.pub
+          content: "{{ hostvars['r42.' + range42_workshop_plan.namespace + '.' + workshop_guest.username + '.proxmox'].workshop_public_pve_ssh.content }}"
+    - ansible.builtin.file:
+        path: /usr/local/lib/range42-workshop
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Install reviewed workshop UI preparation code without installing Range42
+      ansible.builtin.copy:
+        src: files/workshop_ui.py
+        dest: /usr/local/lib/range42-workshop/workshop_ui.py
+        owner: root
+        group: root
+        mode: '0644'
+    - ansible.builtin.copy:
+        dest: /usr/local/bin/range42-workshop
+        owner: root
+        group: root
+        mode: '0755'
+        content: |
+          #!/bin/sh
+          exec /usr/bin/python3 /usr/local/lib/range42-workshop/workshop_ui.py "$@"

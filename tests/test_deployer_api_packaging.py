@@ -93,3 +93,36 @@ def test_public_liveness_replaces_unauthenticated_openapi_probe():
     assert not any(p["url"].endswith("/docs/openapi.json") for p in probes)
     ready = next(p for p in probes if p["url"].endswith("/v1/health/ready"))
     assert "Bearer" in ready["headers"]["Authorization"]
+
+
+def test_native_installer_records_explicit_registered_target_and_refuses_retargeting(tmp_path):
+    plays = yaml.safe_load((BUNDLE / 'main.yml').read_text())
+    tasks = [copy.deepcopy(t) for p in plays for t in p.get('tasks', [])
+             if t.get('name', '').startswith(('Inspect native target binding', 'Read native target binding',
+                 'Require unchanged native target binding', 'Record registered native target binding'))]
+    assert len(tasks) == 4, 'Native installation must pin its registered target without manual registry editing'
+    for task in tasks:
+        if 'ansible.builtin.copy' in task:
+            task['ansible.builtin.copy'].pop('owner', None)
+            task['ansible.builtin.copy'].pop('group', None)
+    workspace = tmp_path / 'workspaces' / 'training-demo';workspace.mkdir(parents=True)
+    config = tmp_path / 'ansible.cfg';config.write_text('[defaults]\nhost_key_checking = True\n')
+    def run(node):
+        variables = {'WORKSPACE_DIR_HOST_RESOLVED': str(workspace.parent), 'WORKSPACE_DIR_NAME': workspace.name,
+            'CONTAINER_UID': os.getuid(), 'CONTAINER_GID': os.getgid(),
+            'native_target_binding': {'version': 1, 'target_host_id': 'registered-host', 'target_node': node, 'target_api_url': 'https://pve.example.test:8006'},
+            'register_proxmox_result': {'json': {'id': 'registered-host', 'node_name': node,
+                'api_url': 'https://pve.example.test:8006'}}}
+        play = tmp_path / 'binding.yml';play.write_text(yaml.safe_dump([{'hosts': 'localhost',
+            'connection': 'local', 'gather_facts': False, 'vars': variables, 'tasks': tasks}], sort_keys=False))
+        return subprocess.run(['ansible-playbook', '-i', 'localhost,', str(play)],
+            env={**os.environ, 'ANSIBLE_CONFIG': str(config)}, capture_output=True, text=True, timeout=30)
+    first = run('pve-a');assert first.returncode == 0, first.stdout + first.stderr
+    path = workspace / '.range42-target.json';before = path.read_bytes()
+    assert json.loads(before) == {'version': 1, 'target_host_id': 'registered-host',
+        'target_node': 'pve-a', 'target_api_url': 'https://pve.example.test:8006'}
+    assert path.stat().st_mode & 0o777 == 0o600
+    repeat = run('pve-a');assert repeat.returncode == 0, repeat.stdout + repeat.stderr
+    assert path.read_bytes() == before
+    drift = run('pve-b');assert drift.returncode != 0
+    assert path.read_bytes() == before

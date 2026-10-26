@@ -1,0 +1,65 @@
+---
+- ansible.builtin.import_tasks: owned.yml
+- name: Retire a live original generation or complete its retained tombstone
+  when: not workshop_guest_absent
+  block:
+    - name: Request clean shutdown of this owned outer guest
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+        apply: {no_log: true}
+      vars:
+        proxmox_vm_action: vm_stop
+        vm_id: "{{ workshop_guest.vm_id }}"
+      no_log: true
+    - name: Wait for the selected owned guest to stop
+      ansible.builtin.uri:
+        url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ workshop_guest.vm_id }}/status/current"
+        headers: {Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"}
+        validate_certs: true
+        follow_redirects: none
+      register: workshop_stopped
+      until: workshop_stopped.json.data.status == 'stopped'
+      retries: 60
+      delay: 5
+      no_log: true
+    - ansible.builtin.import_tasks: owned.yml
+    - name: Persist the original generation delete intent before the native delete
+      ansible.builtin.copy:
+        dest: "{{ workshop_receipt_root }}/{{ workshop_guest.vm_id }}.json"
+        mode: '0600'
+        content: "{{ workshop_current_receipt | combine({'phase':'retiring'}) | to_nice_json }}\n"
+    - name: Delete only the verified stopped outer guest
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+        apply: {no_log: true}
+      vars:
+        proxmox_vm_action: vm_delete
+        vm_id: "{{ workshop_guest.vm_id }}"
+        vm_name: "{{ workshop_guest.vm_name }}"
+      no_log: true
+    - name: Verify cluster-wide absence before reporting retirement
+      ansible.builtin.uri:
+        url: "https://{{ proxmox_api_host }}/api2/json/cluster/nextid?vmid={{ workshop_guest.vm_id }}"
+        headers: {Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"}
+        validate_certs: true
+        follow_redirects: none
+      register: workshop_absent
+      until: workshop_absent.status == 200
+      retries: 30
+      delay: 5
+      no_log: true
+- name: Retain the original retired generation tombstone after independent absence proof
+  when: not workshop_guest_uncreated
+  ansible.builtin.copy:
+    dest: "{{ workshop_receipt_root }}/{{ workshop_guest.vm_id }}.json"
+    mode: '0600'
+    content: "{{ workshop_current_receipt | combine({'phase':'retired'}) | to_nice_json }}\n"
+
+- name: Retire only this absent generation's authenticated SSH pin
+  when: not workshop_guest_uncreated
+  workshop_hostkey:
+    allowed_addresses: "{{ range42_workshop_plan.guests | map(attribute='ip') | list }}"
+    action: remove
+    path: "{{ deployer_cli_user_ssh_known_hosts }}"
+    address: "{{ workshop_guest.ip }}"
+    expected: "{{ workshop_current_receipt.hostkey_pin | default(none) }}"

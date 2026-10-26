@@ -1,0 +1,22 @@
+all:
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    proxmox_api_validate_certs: true
+    range42_guest_hostkey_from_pve_agent: true
+    deployer_cli_user_ssh_known_hosts: {{ range42_workshop_known_hosts | tojson }}
+  children:
+    proxmox:
+      hosts:
+        {{ INFRASTRUCTURE_CODENAME }}:
+          ansible_host: {{ (INFRASTRUCTURE_PROXMOX_API_AUTHORITY | default(INFRASTRUCTURE_PROXMOX_ADDRESS ~ ':8006')) | tojson }}
+          ansible_connection: local
+          ansible_python_interpreter: "{{ '{{ ansible_playbook_python }}' }}"
+    workshop_guests:
+      hosts:
+{% for guest in range42_workshop_plan.guests %}
+        {{ guest.alias }}:
+          ansible_host: {{ guest.ip | tojson }}
+          ansible_connection: ssh
+          ansible_user: range42
+          workshop_guest: {{ guest | tojson }}
+{% endfor %}

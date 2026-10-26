@@ -1,0 +1,84 @@
+---
+- name: Inspect the exact retained workshop generation receipt
+  ansible.builtin.stat:
+    path: "{{ workshop_receipt_root }}/{{ workshop_guest.vm_id }}.json"
+    follow: false
+  register: workshop_receipt_stat
+- ansible.builtin.assert:
+    that:
+      - workshop_receipt_stat.stat.isreg | default(false)
+      - not workshop_receipt_stat.stat.islnk
+      - workshop_receipt_stat.stat.mode == '0600'
+      - workshop_receipt_stat.stat.size < 4096
+  when: workshop_receipt_stat.stat.exists
+- name: Allow no receipt only for globally absent uncreated allocations during cleanup
+  ansible.builtin.assert:
+    that: [workshop_allow_retired | default(false) | bool]
+  when: not workshop_receipt_stat.stat.exists
+- ansible.builtin.slurp:
+    src: "{{ workshop_receipt_root }}/{{ workshop_guest.vm_id }}.json"
+  register: workshop_receipt_bytes
+  no_log: true
+  when: workshop_receipt_stat.stat.exists
+- ansible.builtin.set_fact:
+    workshop_guest_uncreated: "{{ not workshop_receipt_stat.stat.exists }}"
+    workshop_current_receipt: "{{ (workshop_receipt_bytes.content | b64decode | from_json) if workshop_receipt_stat.stat.exists else {'phase': 'uncreated', 'owner': workshop_guest.owner, 'vmid': workshop_guest.vm_id} }}"
+- name: Read the exact live owned guest configuration
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ workshop_guest.vm_id }}/config"
+    headers: {Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"}
+    validate_certs: true
+    follow_redirects: none
+    status_code: [200, 400, 500]
+  register: workshop_current
+  no_log: true
+- name: Reject a live resource without its original clone receipt
+  ansible.builtin.assert:
+    that: [workshop_current.status != 200 or not workshop_guest_uncreated]
+- name: Require a recorded owned retirement intent before checking a missing resource
+  ansible.builtin.assert:
+    that:
+      - workshop_allow_retired | default(false) | bool
+      - workshop_current_receipt.phase | default('active') in ['retiring', 'retired', 'uncreated']
+  when: workshop_current.status != 200
+- name: Independently verify a retired allocation is globally absent
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/cluster/nextid?vmid={{ workshop_guest.vm_id }}"
+    headers: {Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"}
+    validate_certs: true
+    follow_redirects: none
+    status_code: 200
+  register: workshop_absence
+  when: workshop_current.status != 200
+  no_log: true
+- ansible.builtin.assert:
+    that: [workshop_absence.json.data | int == workshop_guest.vm_id | int]
+  when: workshop_current.status != 200
+  no_log: true
+- name: Refuse replaced guests foreign disks or a changed network before mutation
+  ansible.builtin.assert:
+    that:
+      - workshop_current.status != 200 or ((workshop_current.json.data | workshop_bootstrap_owned(workshop_guest, workshop_current_receipt)) if workshop_verify_bootstrap | default(false) | bool else ((workshop_current.json.data | workshop_retirement_owned(workshop_guest, workshop_current_receipt)) if workshop_allow_retired | default(false) | bool else (workshop_current.json.data | workshop_owned(workshop_guest, workshop_current_receipt))))
+- name: Retain the verified live or retired generation state for the next exact action
+  when: not (workshop_verify_bootstrap | default(false) | bool)
+  ansible.builtin.set_fact:
+    workshop_guest_absent: >-
+      {{ (workshop_current.json.data if workshop_current.status == 200 else none) |
+         workshop_retirement_state(workshop_guest, workshop_current_receipt,
+                                   workshop_current.status != 200) }}
+
+- name: Require any existing SSH pin to match the original generation before retirement
+  workshop_hostkey:
+    allowed_addresses: "{{ range42_workshop_plan.guests | map(attribute='ip') | list }}"
+    action: check
+    path: "{{ deployer_cli_user_ssh_known_hosts }}"
+    address: "{{ workshop_guest.ip }}"
+    expected: "{{ workshop_current_receipt.hostkey_pin | default(none) }}"
+  when: workshop_check_hostkey | default(false) | bool
+
+- name: Select native bootstrap only for an unfinished owned generation
+  ansible.builtin.set_fact:
+    workshop_bootstrap_vmids: "{{ workshop_bootstrap_vmids + [workshop_guest.vm_id] }}"
+  when:
+    - workshop_verify_bootstrap | default(false) | bool
+    - workshop_current.json.data | workshop_needs_cloudinit(workshop_guest, workshop_current_receipt)
