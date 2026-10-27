@@ -1,0 +1,44 @@
+---
+bundle: generic/systems.configure.ad_domain_member
+
+description: Join Windows hosts to an existing Active Directory domain (DNS to the domain controller, join, reboot, membership and local Administrator checks)
+
+optional: false
+
+params:
+  - name: TARGET_GROUP
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Ansible inventory group the play targets (used in hosts) - Windows hosts
+
+  - name: AD_MEMBER_DOMAIN
+    type: string
+    required: true
+    default_where: none
+    description: DNS name of the domain to join ; read directly by the role
+
+  - name: AD_MEMBER_DC_IP
+    type: string
+    required: true
+    default_where: none
+    description: IPv4 address of a domain controller that serves the domain DNS ; read directly by the role
+
+  - name: AD_MEMBER_JOIN_USER
+    type: string
+    required: true
+    default_where: none
+    description: Account allowed to join computers, for example Administrator@example.lab ; read directly by the role
+
+  - name: AD_MEMBER_JOIN_PASSWORD
+    type: string
+    required: true
+    default_where: none
+    description: Password of AD_MEMBER_JOIN_USER (secret) - pass a vault variable ; read directly by the role
+
+  - name: AD_MEMBER_OU
+    type: string
+    required: false
+    default_where: role-defaults
+    description: Distinguished name of the OU for the new computer object ; empty = default Computers container ; read directly by the role

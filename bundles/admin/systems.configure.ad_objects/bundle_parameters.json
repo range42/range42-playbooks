@@ -1,0 +1,41 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "admin",
+  "bundle": "admin/systems.configure.ad_objects",
+  "description": "Create the organizational units, groups and users of an Active Directory domain on a domain controller, idempotently",
+  "optional": false,
+  "params": [
+    {
+      "name": "TARGET_GROUP",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Ansible inventory group the play targets (used in hosts) - a domain controller of the domain"
+    },
+    {
+      "name": "AD_OBJECTS_OUS",
+      "type": "list",
+      "items": "dict",
+      "required": false,
+      "default_where": "role-defaults",
+      "description": "Organizational units, list of {name, path} ; read directly by the role"
+    },
+    {
+      "name": "AD_OBJECTS_GROUPS",
+      "type": "list",
+      "items": "dict",
+      "required": false,
+      "default_where": "role-defaults",
+      "description": "Groups, list of {name, path, scope} with scope domainlocal, global or universal ; read directly by the role"
+    },
+    {
+      "name": "AD_OBJECTS_USERS",
+      "type": "list",
+      "items": "dict",
+      "required": false,
+      "default_where": "role-defaults",
+      "description": "Users, list of {name, password, path, groups, display_name} ; password is a secret - pass a vault variable ; read directly by the role"
+    }
+  ]
+}

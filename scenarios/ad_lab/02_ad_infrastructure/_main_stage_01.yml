@@ -1,0 +1,16 @@
+---
+##
+## 02 - ad infrastructure - stage_01 (vm_configure)
+##
+## Structure : stage_01 unit imported by top-level main.yml.
+##
+## Sequence (the order matters) :
+##   1. ad-dc.yml     : promote ad-dc01 (new forest range42.lab, DNS), then create the user bob
+##   2. ad-client.yml : join ad-client01 to the domain, through the DC's DNS
+##
+## No Linux baseline here (basic packages, dot files, ufw) : both hosts run Windows.
+##
+
+- import_playbook: ./stage_01-vm_configure/ad-dc.yml
+
+- import_playbook: ./stage_01-vm_configure/ad-client.yml

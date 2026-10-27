@@ -48,6 +48,13 @@
 - import_playbook: ./_firewall/stage_03-post_vm_bootstrap.vm_ssh_baseline.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+## Domain controller first (promotion, user bob), then the join of the client.
+- import_playbook: ./02_ad_infrastructure/_main_stage_01.yml
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### END SCENARIO  #### #### #### #### #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 

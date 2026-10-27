@@ -1,0 +1,15 @@
+##
+## ad-client - join r42.ad-client01 to range42.lab
+##
+## Runs AFTER ad-dc.yml : the domain and its DNS must exist. The join account is the domain
+## Administrator, whose password ad-dc.yml set from ad_lab_builtin_admin_password. The role also
+## checks that the local built-in Administrator of the client is disabled (Windows 11 default).
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.ad_domain_member/main.yml"
+  vars:
+    TARGET_GROUP: "r42_ad_clients"
+    AD_MEMBER_DOMAIN: "{{ ad_lab_domain | default('range42.lab') }}"
+    AD_MEMBER_DC_IP: "192.168.151.201"
+    AD_MEMBER_JOIN_USER: "Administrator@{{ ad_lab_domain | default('range42.lab') }}"
+    AD_MEMBER_JOIN_PASSWORD: "{{ ad_lab_builtin_admin_password }}"

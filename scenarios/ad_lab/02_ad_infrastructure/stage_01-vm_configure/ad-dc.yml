@@ -1,0 +1,27 @@
+##
+## ad-dc - domain controller of range42.lab on r42.ad-dc01
+##
+## 1. software.install.ad_domain_controller : the built-in Administrator gets
+##    ad_lab_builtin_admin_password, then the promotion (new forest, DNS, reboot) makes it the
+##    domain Administrator. alice keeps the template password (default_admin_vm_ci_password) :
+##    after the promotion the two accounts no longer share a password.
+## 2. systems.configure.ad_objects : the demo domain user bob, nothing else.
+##
+## NOT gated : the DC is the workload of this scenario, always deployed. The domain names come
+## from the scenario vars (templates/ansible-vars.yml) ; the defaults below are the same values.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.ad_domain_controller/main.yml"
+  vars:
+    TARGET_GROUP: "r42_ad_dc"
+    AD_DC_DOMAIN: "{{ ad_lab_domain | default('range42.lab') }}"
+    AD_DC_NETBIOS: "{{ ad_lab_netbios | default('RANGE42') }}"
+    AD_DC_DSRM_PASSWORD: "{{ ad_lab_dsrm_password }}"
+    AD_DC_BUILTIN_ADMIN_PASSWORD: "{{ ad_lab_builtin_admin_password }}"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/systems.configure.ad_objects/main.yml"
+  vars:
+    TARGET_GROUP: "r42_ad_dc"
+    AD_OBJECTS_USERS:
+      - name: "bob"
+        password: "{{ ad_lab_user_password }}"
