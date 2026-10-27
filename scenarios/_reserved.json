@@ -1,3 +1,7 @@
+{"vm_id":1201,"vm_name":"ad-dc01","ip":"192.168.151.201","role":"ad-dc","group":"ad","bridge":"net151","scenario":"ad_lab"}
+{"vm_id":1202,"vm_name":"ad-client01","ip":"192.168.151.202","role":"ad-client","group":"ad","bridge":"net151","scenario":"ad_lab"}
+{"vm_id":9250,"vm_name":"template-vm-win2025-02-4g-64g","spec":"2cpu/4gb/64gb","ip":"192.168.140.250","bridge":"net140","scenario":"ad_lab","role":"template"}
+{"vm_id":9251,"vm_name":"template-vm-win11-02-4g-64g","spec":"2cpu/4gb/64gb","ip":"192.168.140.251","bridge":"net140","scenario":"ad_lab","role":"template"}
 {"vm_id":1187,"vm_name":"admin-all-services-lab","ip":"192.168.142.187","role":"admin","bridge":"net142","scenario":"admin_services_lab"}
 {"vm_id":1188,"vm_name":"student-gitea-client-01","ip":"192.168.142.188","role":"student","bridge":"net142","scenario":"admin_services_lab"}
 {"vm_id":9232,"vm_name":"template-vm-medium-02-8g-64g","spec":"2cpu/8gb/64gb","ip":"192.168.140.232","bridge":"net140","scenario":"admin_services_lab","role":"template"}
