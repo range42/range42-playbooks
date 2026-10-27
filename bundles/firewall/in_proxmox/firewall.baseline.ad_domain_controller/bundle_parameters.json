@@ -23,7 +23,7 @@
       "type": "string",
       "required": true,
       "default_where": "none",
-      "description": "The only source every rule accepts - one IPv4 address or network, normally the subnet of the domain members (for example 192.0.2.0/24)."
+      "description": "The only source every rule accepts - one IPv4 address or network from /8 to /32, outside 0.0.0.0/8, normally the subnet of the domain members (for example 192.0.2.0/24)."
     },
     {
       "name": "proxmox_node",

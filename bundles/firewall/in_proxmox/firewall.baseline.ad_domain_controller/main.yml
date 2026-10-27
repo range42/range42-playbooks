@@ -13,7 +13,8 @@
 #
 # EVERY RULE IS RESTRICTED TO BUNDLE_AD_SOURCE (required, no default) : the clients of the domain,
 # normally the subnet of the scenario. The directory services of a DC are not meant for any other
-# network, and a source-less accept would open LDAP and SMB to every network the node routes.
+# network, and a source-less accept would open LDAP and SMB to every network the node routes. The
+# assert below therefore rejects a prefix shorter than /8 and any address in 0.0.0.0/8 (0.0.0.0/0).
 #
 # IDEMPOTENT. Single ports : firewall_vm_declare_iptables_port reads the chain, posts only when no
 # active accept already grants the port, then reads back. The RPC range : the declare action accepts
@@ -46,9 +47,14 @@
         that:
           - BUNDLE_AD_SOURCE is defined
           - BUNDLE_AD_SOURCE is string
-          - BUNDLE_AD_SOURCE is match('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])[.]){3}(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:/(?:3[0-2]|[12]?[0-9]))?$')
-        fail_msg: "BUNDLE_AD_SOURCE must be one IPv4 address or network such as 192.0.2.0/24, got : {{ BUNDLE_AD_SOURCE | default('undefined') }}"
+          - BUNDLE_AD_SOURCE is match('^(?:' ~ _fwad_octet ~ '[.]){3}' ~ _fwad_octet ~ '(?:/(?:3[0-2]|[12][0-9]|[89]))?$')
+          - BUNDLE_AD_SOURCE is not match('^0[.]')
+        fail_msg: >-
+          BUNDLE_AD_SOURCE must be one IPv4 address or network from /8 to /32, not in 0.0.0.0/8,
+          such as 192.0.2.0/24, got : {{ BUNDLE_AD_SOURCE | default('undefined') }}
         quiet: true
+      vars:
+        _fwad_octet: "(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])"
 
     - name: FIREWALL BASELINE AD DC - WHAT WAS ASKED
       ansible.builtin.debug:
