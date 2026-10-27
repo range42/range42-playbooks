@@ -2,17 +2,14 @@
 ##
 ## ad_lab - main_vms_only playbook
 ##
-## Structure : same multi-level pattern as main.yml (skips 01_templates-bootstrap, template assumed already present).
+## Structure : same multi-level pattern as main.yml (skips 01_templates-bootstrap, templates assumed already present).
 ##
-## Skips 01_templates-bootstrap (template 9232 assumed already present from a
-## prior ad_lab.setup.sh run, or from another scenario that builds
-## the same medium template). Used by `range42-context deploy-vms`.
+## Skips 01_templates-bootstrap (templates 9250 and 9251 assumed already present from a prior
+## ad_lab.setup.sh run). Used by `range42-context deploy-vms`.
 ##
-## Same global stage discipline as main.yml : ALL tiers stage_00 first, then
-## ALL tiers stage_01, then build wazuh_clients_active group, then finalize.
 ## EVERYTHING ELSE IS THE SAME AS main.yml, THE FIREWALL STAGES INCLUDED. A VM recreated by
 ## deploy-vms must carry the same hypervisor-side accepts as one created by the full deploy :
-## same four imports, same anchors, same opt-in on the last one.
+## same imports, same anchors, same opt-in on the last one.
 ##
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### 00 - SDN BOOTSTRAP #### #### #### #### #### #### ####
@@ -21,7 +18,7 @@
 ## MUST run first : the VMs below are created directly on these vnets.
 ##
 ## The firewall wiring lives in ./_firewall/, one file per MOMENT - see its README. Arming
-## happens at end_scenario, opt-in: FIREWALL_ARM_VMS=YES (default NO, decision of 2026-09-04).
+## happens at end_scenario, opt-in: FIREWALL_ARM_VMS=YES (default NO).
 - import_playbook: ./_firewall/stage_00-pre_scenario.report_status.yml
 - import_playbook: ./_firewall/stage_01-pre_scenario.management_access.yml
 
@@ -32,26 +29,10 @@
 #### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-
+- import_playbook: ./02_ad_infrastructure/_main_stage_00.yml
 
 ## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
 - import_playbook: ./_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### BUILD r42_ad_lab_wazuh_clients_active  #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### END SCENARIO  #### #### #### #### #### #### #### ####

@@ -2,9 +2,8 @@
 ################################################################################
 # range42 - scenario-specific variables (ad_lab)
 #
-# These variables are specific to this scenario. ad_lab is a single-VM
-# scenario delivering an Ubuntu LTS host pre-provisioned with the Docker
-# baseline, intended to host MISP via docker-compose in a follow-up step.
+# These variables are specific to this scenario : one Windows Server 2025
+# domain controller and one Windows 11 domain member.
 #
 # For shared variables -> group_vars/all/vars.yml
 # For secrets -> vault.yml (see vault.yml.example)
@@ -23,7 +22,7 @@ INFRASTRUCTURE_SCENARIO: "ad_lab"
 context_auto_generate_ssh_keys: "YES"
 context_auto_generate_vm_passwords: "YES"
 
-# no student extras for ad_lab (single-VM host scenario)
+# no student extras for ad_lab
 student_additionnal_keys_count: 0
 
 
@@ -31,3 +30,11 @@ student_additionnal_keys_count: 0
 
 # admin vm user (not secret - password and ssh key are in vault)
 default_admin_vm_ci_user: "alice"
+
+
+#### ACTIVE DIRECTORY ####
+
+# DNS name and NetBIOS name of the domain created on ad-dc01. The stage_01 playbooks fall back
+# to these same values when the variables are not loaded.
+ad_lab_domain: "range42.lab"
+ad_lab_netbios: "RANGE42"

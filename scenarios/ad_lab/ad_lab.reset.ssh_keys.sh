@@ -7,8 +7,7 @@
 ## Use when a redeploy reuses the same IPs but cloud-init regenerated the host
 ## SSH keys (otherwise ssh complains about REMOTE HOST IDENTIFICATION CHANGED).
 ##
-## Manifest-driven : iterates all VMs (including admin-wazuh) so that even
-## when INSTALL_WAZUH=NO today, the known_hosts is cleaned for the slot.
+## Manifest-driven : iterates every VM of the manifest (ad-dc01, ad-client01).
 ##
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

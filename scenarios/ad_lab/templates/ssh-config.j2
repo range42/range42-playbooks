@@ -39,27 +39,24 @@ Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
     Port 22
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      ADMIN BAND (net142, gated by INSTALL_WAZUH)
+#                                      AD LAB (net151)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
-# admin-wazuh entry is emitted UNCONDITIONALLY so the operator can SSH-in
-# for debugging even when the VM hasn't been deployed. The VM is only
-# created when INSTALL_WAZUH=YES at deploy time.
+# Windows guests : OpenSSH server, default shell PowerShell, key-only authentication.
+# RDP (tcp 3389) goes through the jump host, for example :
+#   ssh -N -L 13389:192.168.151.202:3389 px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+# then connect an RDP client to localhost:13389.
 #
 
-Host r42.admin-wazuh
-    Hostname 192.168.142.187
+Host r42.ad-dc01
+    Hostname 192.168.151.201
     User alice
     IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
     Port 22
     ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      MISP-LAB VM
-#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-
-Host r42.admin-misp-standalone
-    Hostname 192.168.142.180
+Host r42.ad-client01
+    Hostname 192.168.151.202
     User alice
     IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
     Port 22

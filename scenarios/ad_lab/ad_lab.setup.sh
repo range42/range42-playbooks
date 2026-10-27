@@ -1,16 +1,15 @@
 #!/bin/bash
 
 ##
-## ad_lab.setup.sh - run the main playbook (template + 1 lab VM + MISP stack [+ optional admin tier])
+## ad_lab.setup.sh - run the main playbook (Windows templates + domain controller + domain member)
 ##
 ## Same shape as kunai_lab.setup.sh (bundle-driven scenario wrappers).
 ## Requires RANGE42_ANSIBLE_ROLES__INVENTORY_DIR and RANGE42_VAULT_PASSWORD_FILE
 ## to be exported - set by `range42-context use <codename> ad_lab`.
 ##
-## Trailing "$@" propagates any extra args to ansible-playbook.
-## Typical use : feature flag overrides from the TUI, e.g.
-##   ./ad_lab.setup.sh -e INSTALL_WAZUH=YES
-## See ./manifest/feature_flags.yml for the list of toggleable features.
+## Trailing "$@" propagates any extra args to ansible-playbook, e.g.
+##   ./ad_lab.setup.sh -e FIREWALL_ARM_VMS=YES
+## ad_lab has no feature flag (./manifest/feature_flags.yml : features: []).
 ##
 
 ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \

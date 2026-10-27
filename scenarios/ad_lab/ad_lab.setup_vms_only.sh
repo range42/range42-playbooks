@@ -3,9 +3,9 @@
 ##
 ## ad_lab.setup_vms_only.sh - run main_vms_only.yml (skip template creation)
 ##
-## Same shape as kunai_lab.setup_vms_only.sh. Template 9232 is assumed
-## already present on the Proxmox (built by a prior setup.sh or by another
-## scenario). Used by `range42-context deploy-vms`.
+## Same shape as kunai_lab.setup_vms_only.sh. Templates 9250 and 9251 are
+## assumed already present on the Proxmox (built by a prior setup.sh). Used by
+## `range42-context deploy-vms`.
 ##
 
 ansible-playbook -i "${RANGE42_ANSIBLE_ROLES__INVENTORY_DIR}/inventory_default.yml" \

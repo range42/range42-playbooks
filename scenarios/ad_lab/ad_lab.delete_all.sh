@@ -7,14 +7,10 @@
 ##   manifest/scenario_vms.json
 ##
 ## WARNING
-##   The medium ubuntu_noble template (VMID 9232) declared in ad_lab's
-##   manifest is also created and used by every other ubuntu_noble-consuming
-##   scenario on the same Proxmox (demo_lab_bundles, kunai_lab_bundles,
-##   blank_scenario_2/4/6_subnets, init_lab, dev_deployer_ui_lab,
-##   debug_scenario_a/b_bundles). Running this script removes 9232 - those
-##   scenarios will need to re-run their 01_templates-bootstrap/ to rebuild
-##   it before re-deploy.
-##   Use ad_lab.delete_vms_only.sh instead to keep the template intact.
+##   This script also removes the Windows templates 9250 and 9251 declared in
+##   ad_lab's manifest. Rebuilding them takes 30 minutes to more than one hour
+##   each (bundles/proxmox/template.build.windows/README.md, "Operations").
+##   Use ad_lab.delete_vms_only.sh instead to keep the templates intact.
 ##
 ## Companions:
 ##   - ad_lab.delete_vms_only.sh        - VMs only, keep template

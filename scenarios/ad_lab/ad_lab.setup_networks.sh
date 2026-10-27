@@ -69,8 +69,8 @@ TMP=$(mktemp -d) || exit 1
 trap 'rm -rf "$TMP"' EXIT
 
 ## Derived from the `bridge` field and never from the IP third octet : two template entries in the
-## repo intentionally carry bridge=vmbr140 with a 192.168.142.x address (plan section 4.3). Every
-## subnet in the repo is a /24. Same query as delete_networks.sh.
+## repo intentionally carry bridge=vmbr140 with a 192.168.142.x address. Every subnet in the repo
+## is a /24. Same query as delete_networks.sh.
 jq -c '
     # every bridge the manifest names, VMs and templates alike
       [ (.vms // [])[], (.templates // [])[] ]

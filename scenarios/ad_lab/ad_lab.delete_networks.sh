@@ -7,10 +7,10 @@
 ## its entries carry. Nothing outside that list is read or removed - a hypervisor hosts several
 ## scenarios, and taking one down must never damage another one's networks.
 ##
-## THE SHARED ZONE IS KEPT. net142 alone is used by around 14 scenarios, so the zone also holds
-## their vnets. An empty zone carries nothing, unlike a legacy bridge left with an address.
+## THE SHARED ZONE IS KEPT. The zone also holds the vnets of the other scenarios. An empty zone
+## carries nothing, unlike a legacy bridge left with an address.
 ##
-## NEVER `ip link del` A VNET INTERFACE. Measured on px-testing 2026-08-24 : ifupdown2 wants to
+## NEVER `ip link del` A VNET INTERFACE. Measured on a Proxmox VE node : ifupdown2 wants to
 ## play the post-down of the interfaces it configured at the next reload, fails without
 ## /sys/class/net/<if>/brif/, and then EVERY ifreload on the hypervisor fails - other scenarios
 ## included. Hence the sequence below : objects, then one apply, and the apply brings them down.
@@ -55,8 +55,8 @@ trap 'rm -rf "$TMP"' EXIT
 #### #### ####
 #
 # 1. WHICH NETWORKS. Derived from the `bridge` field and never from the IP third octet : two
-#    template entries in the repo intentionally carry bridge=vmbr140 with a 192.168.142.x address
-#    (plan section 4.3). Every subnet in the repo is a /24.
+#    template entries in the repo intentionally carry bridge=vmbr140 with a 192.168.142.x address.
+#    Every subnet in the repo is a /24.
 #
 jq -c '
     # every bridge the manifest names, VMs and templates alike

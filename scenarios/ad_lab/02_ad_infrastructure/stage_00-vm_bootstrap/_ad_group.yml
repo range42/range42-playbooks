@@ -1,0 +1,51 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### ad_lab - 02_ad_infrastructure - stage_00 - domain controller + domain member #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# The two Windows guests ARE the workload of this scenario : always created, no flag.
+#
+#   - ad-dc01     (1201, 192.168.151.201, net151, template 9250) : Windows Server 2025, future DC
+#   - ad-client01 (1202, 192.168.151.202, net151, template 9251) : Windows 11, future domain member
+#
+# The DC block comes first. The client resolves through the DC from its first boot
+# (global_vm_ci_dns_ips) : it only needs it at the join, in stage_01, after the promotion.
+#
+# global_vm_ssh_wait_retries 180 (5 s apart, plus up to 5 s of connect timeout each : at least
+# 15 min, 25 min measured when SSH never answers) : the first boot of a Windows clone after
+# sysprep takes up to about 15 minutes before SSH answers under nested virtualisation. See
+# bundles/proxmox/template.build.windows/README.md, section "Clone contract".
+#
+# Host names stay at most 15 characters (NetBIOS limit, checked by the template bundle).
+#
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "ad-dc01"
+    global_vm_ssh_name:    "r42.ad-dc01"
+    global_vm_id:          1201
+    global_vm_description: "ad_lab - Windows Server 2025 domain controller"
+    global_vm_tag_name:    "ad-lab"
+    global_vm_ci_ip:       "192.168.151.201"
+    global_template_vm_id: 9250
+    global_template_name:  "template-vm-win2025-02-4g-64g - 9250"
+    global_vm_net_virtio_bridge:  "net151"
+    global_vm_ci_ip_gw:           "192.168.151.1"
+    global_vm_ssh_wait_retries:   180
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "ad-client01"
+    global_vm_ssh_name:    "r42.ad-client01"
+    global_vm_id:          1202
+    global_vm_description: "ad_lab - Windows 11 domain member"
+    global_vm_tag_name:    "ad-lab"
+    global_vm_ci_ip:       "192.168.151.202"
+    global_template_vm_id: 9251
+    global_template_name:  "template-vm-win11-02-4g-64g - 9251"
+    global_vm_net_virtio_bridge:  "net151"
+    global_vm_ci_ip_gw:           "192.168.151.1"
+    global_vm_ci_dns_ips:         "192.168.151.201"
+    global_vm_ssh_wait_retries:   180
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

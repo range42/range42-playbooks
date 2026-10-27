@@ -1,12 +1,13 @@
 {
   "scenario": "ad_lab",
   "version": 1,
-  "description": "Single-VM scenario delivering an Ubuntu LTS host with the Docker baseline (docker, docker compose, zsh, curl, git, jq, vim, network utils) on net142, then deploying the misp-standalone docker-compose stack from range42-catalog/03_container_layer/docker/admin/misp-standalone/ via the shared bundle bundles/admin/software.install.misp_standalone/. MISP IS the workload of this scenario (always deployed, no INSTALL_MISP flag). The lab VM is admin-misp-standalone (VMID 1180, IP 192.168.142.180). Optional admin-wazuh VM (VMID 1187, IP 192.168.142.187, net142, gated by INSTALL_WAZUH, default off) deploys a Wazuh SIEM server + agent on admin-misp-standalone.",
+  "description": "Active Directory lab on net151: one Windows Server 2025 domain controller (ad-dc01, VMID 1201, IP 192.168.151.201) for the domain range42.lab (NetBIOS RANGE42) with its DNS server, and one Windows 11 Enterprise client (ad-client01, VMID 1202, IP 192.168.151.202) joined to that domain. Both are cloned from the unattended Windows templates 9250 and 9251 (bundles/proxmox/template.build.windows) and reached over OpenSSH with a PowerShell shell.",
   "vms": [
-    {"vm_id": 1187, "vm_name": "admin-wazuh",            "ip": "192.168.142.187", "role": "admin",    "group": "admin",    "bridge": "net142"},
-    {"vm_id": 1180, "vm_name": "admin-misp-standalone",  "ip": "192.168.142.180", "role": "ad-lab", "group": "ad-lab", "bridge": "net142"}
+    {"vm_id": 1201, "vm_name": "ad-dc01",     "ip": "192.168.151.201", "role": "ad-dc",     "group": "ad", "bridge": "net151"},
+    {"vm_id": 1202, "vm_name": "ad-client01", "ip": "192.168.151.202", "role": "ad-client", "group": "ad", "bridge": "net151"}
   ],
   "templates": [
-    {"vm_id": 9232, "vm_name": "template-vm-medium-02-8g-64g", "spec": "2cpu/8gb/64gb", "ip": "192.168.140.232", "bridge": "net140"}
+    {"vm_id": 9250, "vm_name": "template-vm-win2025-02-4g-64g", "spec": "2cpu/4gb/64gb", "ip": "192.168.140.250", "bridge": "net140"},
+    {"vm_id": 9251, "vm_name": "template-vm-win11-02-4g-64g",   "spec": "2cpu/4gb/64gb", "ip": "192.168.140.251", "bridge": "net140"}
   ]
 }

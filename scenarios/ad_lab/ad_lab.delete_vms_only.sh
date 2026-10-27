@@ -6,7 +6,7 @@
 ## VM IDs are read from the scenario manifest :
 ##   manifest/scenario_vms.json
 ##
-## Lists admin-misp-standalone (VMID 1180) + admin-wazuh (VMID 1187, optional).
+## Lists ad-dc01 (VMID 1201) + ad-client01 (VMID 1202).
 ##
 ## Companions:
 ##   - ad_lab.delete_vms_only.sh (this) - VMs only, keep templates

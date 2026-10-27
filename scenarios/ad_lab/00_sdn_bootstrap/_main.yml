@@ -3,8 +3,9 @@
 ## ad_lab - 00 SDN BOOTSTRAP
 ##
 ## RUNS BEFORE EVERYTHING ELSE, and the order is not a preference : net140 is the templating
-## network, the template build runs `apt`, so without a live SNAT rule there the templates come
-## out empty and out of date.
+## network, and the Windows 11 template build downloads the OpenSSH server there, so without a live
+## SNAT rule the build fails. net151 keeps SNAT on as well : the evaluation editions must activate
+## online within 10 days of the first boot.
 ##
 ## CREATES, NEVER DELETES. The bundle looks each object up and writes only what is missing, so a
 ## second run is a no-op. A vnet name is GLOBAL TO THE CLUSTER - deleting one here would take away
@@ -25,8 +26,8 @@
     - name: SDN BOOTSTRAP - THE NETWORKS THIS SCENARIO RUNS ON
       ansible.builtin.set_fact:
         _sdn_vnets:
-          - { vnet: "net140", subnet: "192.168.140.0/24", gateway: "192.168.140.1", snat: true }   # templating, apt
-          - { vnet: "net142", subnet: "192.168.142.0/24", gateway: "192.168.142.1", snat: true }   # admin, ad-lab
+          - { vnet: "net140", subnet: "192.168.140.0/24", gateway: "192.168.140.1", snat: true }   # templating, OpenSSH download
+          - { vnet: "net151", subnet: "192.168.151.0/24", gateway: "192.168.151.1", snat: true }   # ad-dc01, ad-client01 (evaluation activation)
 
 ## The zone is the infrastructure's, not the scenario's : the init declares it in the range42
 ## inventory (range42_sdn_zone, section NETWORK MODE) and the vault carries it to this workspace,

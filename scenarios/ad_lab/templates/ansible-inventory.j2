@@ -4,27 +4,19 @@ all:
       children:
         ####
 
-        r42_admin:
-          hosts:
-            r42.admin-wazuh:
-
-        ####
-
-        r42_ad_lab_group:
-          hosts:
-            r42.admin-misp-standalone:
-
-        ####
-
-        # All potential wazuh-agent clients (every non-server VM in the scenario).
-        # This static group is the POTENTIAL set. At deploy time, the runtime
-        # group r42_ad_lab_wazuh_clients_active is built by
-        # _build_wazuh_clients_active_group.yml (admin-misp-standalone is the
-        # workload VM, always added). The wazuh-agent finalize play targets
-        # the runtime active group, not this static set.
-        r42_ad_lab_wazuh_clients:
-          hosts:
-            r42.admin-misp-standalone:
+        # The Windows guests. The connection stays ssh (OpenSSH server baked in the templates) ;
+        # the shell is PowerShell, and alice is the account cloudbase-init gives the deployer key to.
+        r42_ad_windows:
+          vars:
+            ansible_shell_type: powershell
+            ansible_user: alice
+          children:
+            r42_ad_dc:
+              hosts:
+                r42.ad-dc01:
+            r42_ad_clients:
+              hosts:
+                r42.ad-client01:
 
         ####
 
