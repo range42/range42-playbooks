@@ -1,157 +1,177 @@
 # ad_lab
 
-Single-VM scenario that delivers an Ubuntu LTS host with the Docker baseline
-and deploys the misp-standalone docker-compose stack on it. Bundle-driven
-shape (mirror of `kunai_lab` / `demo_lab`) with an optional
-admin tier (Wazuh SIEM) gated by a feature flag.
+Active Directory scenario: one **Windows Server 2025 domain controller** for the domain
+`range42.lab` (NetBIOS `RANGE42`), with the DNS server of the domain, and one **Windows 11
+Enterprise client** joined to that domain. Both run on the SDN vnet `net151` and are reached over
+OpenSSH with a PowerShell shell.
 
-The lab VM (`admin-misp-standalone`, VMID 1180, IP `192.168.142.180` on
-`net142`) is cloned from the project standard medium Ubuntu noble template
-(VMID 9232 - 2cpu / 8gb RAM / 64gb disk).
-
-**MISP IS the workload** of this scenario - always deployed via the shared
-bundle `bundles/admin/software.install.misp_standalone/`. There is NO
-`INSTALL_MISP` flag : if you don't want MISP, this is not the right scenario
-(use `init_lab` or a `blank_scenario_*` instead).
-
-## Read this before deploying
-
-**Any legacy `vmbrXXX` bridge carrying the same `.1` as a vnet must go.** See [Migrating from the bridge-based scenarios](#migrating-from-the-bridge-based-scenarios) - this is not optional, and the failure it causes is silent.
+The two VMs ARE the workload of this scenario: always deployed, no feature flag
+(`manifest/feature_flags.yml` has `features: []`). The scenario started as a copy of `misp_lab`.
 
 ## Network architecture
 
 ```
-                              +-----------------------+
-                              |     Proxmox Host      |
-                              +-----------+-----------+
-                                          |
-                                       net142
-                                    (admin band, 192.168.142.0/24)
-                                          |
-                         +----------------+----------------+
-                         |                                 |
-                  admin-misp-standalone .180        admin-wazuh .187 (optional)
-                  (VMID 1180, MISP stack)            (VMID 1187, SIEM server)
+Proxmox host (holds 192.168.151.1, routes, SNAT to the outside)
+ |
+ +-- net140  192.168.140.0/24  templating (build of 9250 and 9251 only)
+ |
+ +-- net151  192.168.151.0/24  ad_lab
+       +-- ad-dc01      .201  (VMID 1201)  domain controller, DNS of range42.lab
+       +-- ad-client01  .202  (VMID 1202)  domain member, DNS = 192.168.151.201
 ```
+
+Both vnets have SNAT on. The Windows 11 template build downloads the OpenSSH server through
+`net140`, and the evaluation editions must activate online (see "Evaluation editions").
 
 ## VM details
 
-| VM Name                | VM ID | IP              | Bridge  | Template                            | Gated by         |
-|------------------------|-------|-----------------|---------|-------------------------------------|------------------|
-| admin-misp-standalone  | 1180  | 192.168.142.180 | net142 | template-vm-medium-02-8g-64g (9232) | always created   |
-| admin-wazuh            | 1187  | 192.168.142.187 | net142 | template-vm-medium-02-8g-64g (9232) | `INSTALL_WAZUH`  |
+| VM name | VM ID | IP | vnet | Template | Role |
+|---|---|---|---|---|---|
+| ad-dc01 | 1201 | 192.168.151.201 | `net151` | template-vm-win2025-02-4g-64g (9250) | domain controller, DNS server |
+| ad-client01 | 1202 | 192.168.151.202 | `net151` | template-vm-win11-02-4g-64g (9251) | domain member |
 
-Source of truth : `manifest/scenario_vms.json`.
+Source of truth: `manifest/scenario_vms.json`. Each VM has 2 vCPU, 4 GB of RAM and a 64 GB disk,
+inherited from its template. Host names stay at most 15 characters (NetBIOS limit).
 
-Project convention : last 3 digits of VMID match the IP last octet (1180 -> .180, 1187 -> .187).
+The templates come from `bundles/proxmox/template.build.windows` (unattended build from the
+Microsoft evaluation ISOs). Read its README before the first deploy, in particular "Clone
+contract" and "Operations" (build time).
 
-## Feature flags
+## Accounts and passwords
 
-See `manifest/feature_flags.yml`. All flags default to `NO`.
+| Account | Where | Password | SSH |
+|---|---|---|---|
+| `alice` | local administrator baked into both templates ; on the DC it becomes the domain account `RANGE42\alice` at the promotion | vault `default_admin_vm_ci_password` | yes, key only (deployer key) |
+| built-in `Administrator` (RID 500) of ad-dc01 | set before the promotion, then **domain** Administrator `RANGE42\Administrator` | vault `ad_lab_builtin_admin_password` | no key installed |
+| `bob` | domain user, created on the DC | vault `ad_lab_user_password` | no |
+| built-in `Administrator` of ad-client01 | local, **disabled** (Windows 11 default ; the join role fails if it is enabled) | - | - |
 
-| Flag                | Effect                                                                                                  | Default |
-|---------------------|---------------------------------------------------------------------------------------------------------|---------|
-| `INSTALL_WAZUH`     | Deploy admin-wazuh SIEM + wazuh-agent on admin-misp-standalone                                          | NO      |
-| `INSTALL_TAILSCALE` | Tailscale VPN client on admin tier                                                                      | NO      |
+**On the DC, `alice` and `Administrator` no longer share a password.** A clone of template 9250
+carries the vault `alice` password on the built-in Administrator too, and cloudbase-init does not
+change it. `software.install.ad_domain_controller` sets `ad_lab_builtin_admin_password` on that
+account before the promotion, so the domain Administrator gets its own value. ad-client01 joins
+the domain with `Administrator@range42.lab`.
 
-There is NO `INSTALL_MISP` flag - MISP is the workload, always deployed.
+The DSRM password of the DC is `ad_lab_dsrm_password`. The three `ad_lab_*` values must be in the
+scenario vault before the deploy (see `templates/vault-example.yml`). They must satisfy the
+default domain password policy: at least 7 characters and three of the four classes (upper case,
+lower case, digits, symbols).
 
-## How the SDN networks are created
+## What the deploy does
 
-`00_sdn_bootstrap/` runs **before everything else** and brings up one zone holding the two vnets:
+`./ad_lab.setup.sh` runs `main.yml`:
 
-| vnet | subnet | gateway | SNAT | used by |
-|---|---|---|---|---|
-| `net140` | `192.168.140.0/24` | `.1` | yes | the template build |
-| `net142` | `192.168.142.0/24` | `.1` | yes | the admin and ad-lab tiers |
+1. `_firewall` stages 00 and 01: firewall status report, management access on the datacenter and
+   node chains (rules only).
+2. `00_sdn_bootstrap`: creates `net140` and `net151` when missing, never deletes.
+3. `01_templates-bootstrap`: builds templates 9250 and 9251 when missing ; existing templates are
+   skipped.
+4. `02_ad_infrastructure` stage_00: clones ad-dc01 and ad-client01 with
+   `bundles/proxmox/vm.bootstrap`, waits for SSH and for the end of cloudbase-init. The SSH wait
+   makes up to 180 attempts, 5 s apart, each with a 5 s connect timeout: at least 15 minutes,
+   25 minutes measured when SSH never answers. The first boot after sysprep takes up to about
+   15 minutes.
+5. `_firewall` stages 02 and 03: declares the AD and RDP accepts (below) and the SSH accept.
+6. `02_ad_infrastructure` stage_01, in this order:
+   - `admin/software.install.ad_domain_controller` on ad-dc01: built-in Administrator password,
+     promotion to the first DC of a new forest with DNS, reboot, DNS forwarder `1.1.1.1` ;
+   - `admin/systems.configure.ad_objects` on ad-dc01: the user `bob` ;
+   - `generic/systems.configure.ad_domain_member` on ad-client01: DNS to the DC, join, reboot,
+     checks (member of `range42.lab`, local built-in Administrator disabled).
+7. `_firewall` stage 04: arming, only with `-e FIREWALL_ARM_VMS=YES` (default NO).
 
-The vnet name follows the third octet of its subnet: `net143` carries `192.168.143.0/24`. The zone is `simple`, which means it is host-local - the Proxmox holds the `.1` of every subnet and routes between them, and outbound internet comes from the SNAT rule, not from the physical network knowing these ranges exist.
+**Do not rerun `./ad_lab.setup.sh` on running VMs.** A second run does not clone again, but
+`bundles/proxmox/vm.bootstrap` applies the cloud-init settings again through the action
+`cloudinit_set_variables` of the Proxmox controller role, and that action **stops** a running VM
+first (power off, not a guest shutdown), then starts it. This is the behaviour of every scenario
+built on `vm.bootstrap`. Measured on this scenario: the domain controller logged an unexpected
+shutdown (System event 6008) and came back ; the Windows 11 client stayed on the boot screen with
+no CPU activity, never answered SSH, and the run failed after 180 SSH retries. To deploy again, run
+`./ad_lab.delete_vms_only.sh` first, or `./ad_lab.reset.setup.sh`.
 
-**It creates, it never deletes.** Each object is looked up first and only what is missing is written, so a second run is a no-op and an existing object is left alone. A vnet name is global to the cluster: deleting one here would take away a network other scenarios attach to. The delete scripts of this scenario remove VMs only.
+## Firewall
 
-**The order is not a preference.** `net140` is the templating network and the template build runs `apt`. Without a live SNAT rule there, the templates come out empty and out of date - so a template tier that runs first produces broken templates.
+What the deploy declares on the Proxmox per-NIC firewall (rules only, inert until armed):
 
-## Migrating from the bridge-based scenarios
+- ad-dc01 (1201): `firewall.baseline.ad_domain_controller` - tcp 53, 88, 135, 139, 389, 445,
+  464, 636, 3268, 3269, 9389 and 49152:65535 (RPC dynamic range), udp 53, 88, 123, 137, 138, 389,
+  464, each from `192.168.151.0/24` only ;
+- ad-dc01 and ad-client01: tcp 3389 (RDP) from `192.168.151.0/24` only ;
+- both: the SSH accept of `firewall.baseline.ssh_all_vms`.
 
-A `vmbrNNN` bridge and a `netNNN` vnet **cannot both carry the same `.1`**. If they do, the host resolves the route to the bridge, where no VM is attached, and ARPs into the void. Everything looks correct - the zone, the vnet, the subnet, the gateway and the SNAT rule are all there and stay there - but:
+The source `192.168.151.0/24` covers the domain members and the node itself (`192.168.151.1`), from
+which the jump-host forwards below arrive. The armed state of this rule set is not tested yet.
 
-- SSH to the VM fails with `No route to host`, which reads like a timeout;
-- the VM cannot reach the internet, because the NATed reply comes back and is lost the same way;
-- cloud-init ends `degraded` after several minutes of network timeouts.
+## RDP through the jump host
 
-**No API check can see this.** The declaration is valid; the fault is in the host's routing table. The one command that tells you:
+The VMs have no route from the outside. Forward a local port through the jump host, then connect
+an RDP client to it, for example for the client:
 
 ```bash
-ip route get <the_vm_ip>      # must answer `dev netXXX`, not `dev vmbrXXX`
+ssh -N -L 13389:192.168.151.202:3389 px.<codename>.jumper
+# RDP client -> localhost:13389
 ```
 
-**So the switch to SDN is atomic per hypervisor.** Before deploying this scenario, the VMs of every bridge-based scenario using these ranges must be deleted and their `vmbrNNN` bridges freed. There is no gradual coexistence and no partial rollback.
+## Evaluation editions
 
-While the bridge-creating tooling is still in place, `00_sdn_bootstrap/` imports the `proxmox/legacy_bridge.workaround.shadowed_subnet` bundle, which removes the duplicate address from the conflicting bridges - the address only, nothing written to disk, so `ifreload -a` puts it back. It refuses to run if a live VM is still attached to one of those bridges, rather than cutting that VM off mid-deployment. Skip it with `-e BUNDLE_LEGACY_SKIP=true` once the bridges are gone for good.
-
-To clear those lines from the disk for good, so no `ifreload` can restore them, run `range42-context networks-legacy-clean` once - a migration step, not routine maintenance.
-
-## Subnet isolation
-
-**Not implemented yet.** Today the subnets reach each other: the host holds a gateway in each and routes between them. That is the expected state of this scenario, not a defect - a VM in `net143` can open a connection to a VM in `net144`.
-
-Isolating them is a firewall matter, not a topology one: putting each vnet in its own zone would change nothing, because the host would still route. The work is in progress and will use per-NIC filtering with address sets, so that team subnets are isolated from each other while the deployer keeps reaching the VMs it manages - without that exception, no deployment could run at all.
+- Windows Server 2025 evaluation: 180 days from activation ; Windows 11 Enterprise evaluation:
+  90 days from activation.
+- The evaluation must activate online within 10 days, otherwise Windows Server shuts down every
+  hour. Keep SNAT on `net151` during the first days.
 
 ## Usage
 
 ```bash
 range42-context use <codename> ad_lab
-range42-context deploy
-
-# enable Wazuh SIEM on top of the MISP stack :
-./ad_lab.setup.sh -e INSTALL_WAZUH=YES
+./ad_lab.setup.sh                       # full deploy (templates built if missing)
+./ad_lab.setup.sh -e FIREWALL_ARM_VMS=YES
 ```
 
 ## Wrapper scripts
 
-| Script                                          | Action                                                              |
-|-------------------------------------------------|---------------------------------------------------------------------|
-| `ad_lab.setup.sh`                     | Run main playbook (template + VM + MISP stack + optional admin)     |
-| `ad_lab.setup_vms_only.sh`            | Run main_vms_only.yml (skip template creation)                      |
-| `ad_lab.reset.setup.sh`               | Delete + redeploy VMs                                               |
-| `ad_lab.reset.ssh_keys.sh`            | Clear ~/.ssh/known_hosts for every IP in manifest                   |
-| `ad_lab.delete_vms_only.sh`           | Delete VMs only, keep template                                      |
-| `ad_lab.delete_all.sh`                | Delete VMs + shared template 9232 (WARNING - affects other scenarios) |
-
-All scripts require `RANGE42_ANSIBLE_ROLES__INVENTORY_DIR` and `RANGE42_VAULT_PASSWORD_FILE` to be exported - set by `range42-context use <codename> ad_lab`.
+| Script | Effect |
+|---|---|
+| `ad_lab.setup.sh` | `main.yml` : networks, templates, VMs, AD configuration |
+| `ad_lab.setup_vms_only.sh` | `main_vms_only.yml` : same without the template build |
+| `ad_lab.setup_networks.sh` | `00_sdn_bootstrap` only (`--dry-run` : read-only diff) |
+| `ad_lab.delete_vms_only.sh` | stops and destroys 1201 and 1202 (from the manifest), keeps the templates |
+| `ad_lab.delete_all.sh` | same, plus the templates 9250 and 9251 (rebuild : 30 minutes to more than one hour each) |
+| `ad_lab.reset.setup.sh` | deletes the VMs, then runs `main.yml` |
+| `ad_lab.reset.ssh_keys.sh` | removes the known_hosts entries of the VM addresses |
+| `ad_lab.delete_networks.sh` | removes the subnets and vnets named in the manifest, `net140` included ; it refuses while a VM or template of the manifest still exists |
 
 ## Structure
 
 ```
 ad_lab/
-  main.yml                            full deploy entrypoint (global stage discipline)
-  main_vms_only.yml                   fast redeploy (skip templates)
-  manifest/
-    scenario_vms.json                 source of truth for VMID / IP / bridge
-    feature_flags.yml                 INSTALL_WAZUH (default NO) + INSTALL_TAILSCALE
-  README.md
-  6 wrapper scripts (see table above)
-  01_templates-bootstrap/             Ubuntu noble cloud-init image + template 9232
-  02_admin_infrastructure/            Optional admin-wazuh (gated INSTALL_WAZUH)
-    _main.yml + _main_stage_00.yml + _main_stage_01.yml
-    _build_admin_active_group.yml
-    _build_wazuh_clients_active_group.yml
-    stage_00-vm_bootstrap/_r42_admin_group.yml
-    stage_01-vm_configure/
-      _baseline_admin.yml
-      admin-wazuh.yml                 thin wrapper to bundles/admin/software.install.wazuh/
-      _finalize-baseline-admin_wazuh_client.yml
-  03_ad_lab_infrastructure/         The MISP lab VM (always created)
-    _main.yml + _main_stage_00.yml + _main_stage_01.yml
-    stage_00-vm_bootstrap/ad_lab_vm.yml
-    stage_01-vm_configure/
-      _r42_ad_lab_group.yml         basics + dotfiles + firewall (22/80/443)
-      misp-standalone.yml             thin wrapper to bundles/admin/software.install.misp_standalone/
-  templates/                          scenario-level j2 (inventory, ssh-config, ansible-vars, vault-example)
+  main.yml / main_vms_only.yml
+  00_sdn_bootstrap/_main.yml                     net140 + net151
+  01_templates-bootstrap/_main.yml               template.build.windows (win2025, win11)
+  02_ad_infrastructure/
+    _main.yml                                    devkit-only wrapper
+    _main_stage_00.yml / _main_stage_01.yml
+    stage_00-vm_bootstrap/_ad_group.yml          two vm.bootstrap blocks
+    stage_01-vm_configure/ad-dc.yml              promotion + user bob
+    stage_01-vm_configure/ad-client.yml          domain join
+  _firewall/                                     five moments, see its README
+  manifest/scenario_vms.json, feature_flags.yml
+  templates/                                     inventory, ssh-config, vars, vault example
 ```
+
+The inventory group `r42_ad_windows` (`ansible_shell_type: powershell`, `ansible_user: alice`)
+holds `r42_ad_dc` (`r42.ad-dc01`) and `r42_ad_clients` (`r42.ad-client01`).
 
 ## Notes
 
-- The admin tier is OPTIONAL. With `INSTALL_WAZUH=NO` (default), only the MISP VM is created and the admin tier plays skip silently.
-- When `INSTALL_WAZUH=YES`, the wazuh-agent is installed on `admin-misp-standalone` (the lab VM) via the cross-tier finalize at the top of `main.yml`.
-- The shared misp-standalone bundle handles `.env` materialization on the VM via `pre_tasks` (copies `.env.example` to `/home/alice/misp-standalone/.env` with `force: false`). Operator should customize the catalog `.env` before deploy for strong secrets.
+- The domain names come from `templates/ansible-vars.yml` (`ad_lab_domain`, `ad_lab_netbios`) ;
+  the stage_01 files fall back to the same values.
+- A change of `ad_lab_builtin_admin_password` after the first deploy is not applied by a rerun :
+  the DC role sets it only before the promotion.
+- A change of `default_admin_vm_ci_password` needs a rebuild of both templates (template bundle
+  README, "Operations").
+- A reboot of the Windows 11 clone can be slow on this kind of host: the reboot that cloudbase-init
+  starts to set the host name was measured at 16 minutes. The wait for the end of cloudbase-init
+  (`ansible.utils`, `wait/cloudinit/is_boot_finished.yml`) stops after 60 attempts 10 s apart, so
+  the deploy can fail there while the VM comes up a few minutes later. In that case run
+  `./ad_lab.delete_vms_only.sh`, then `./ad_lab.setup.sh` again. A new deploy can hit the same slow
+  reboot: it was measured on one of the two fresh deploys of this scenario.

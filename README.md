@@ -138,6 +138,7 @@ All the scenarios below run on the SDN vnets. "Deployed on SDN" means deployed a
 | `init_lab` | **functional**, deployed on SDN | Shared init : builds every VM template of the project, 5 small init VMs on two subnets | [README](scenarios/init_lab/README.md) |
 | `kunai_lab` | **functional**, deployed on SDN | Kunai-based detection lab : trainer + 5 students, workshop toolchain | [README](scenarios/kunai_lab/README.md) |
 | `misp_lab` | **functional**, deployed on SDN | MISP standalone server | [README](scenarios/misp_lab/README.md) |
+| `ad_lab` | **functional**, deployed on SDN | Active Directory : Windows Server 2025 domain controller + Windows 11 domain member | [README](scenarios/ad_lab/README.md) |
 | `gitea_lab` | **functional**, deployed on SDN | Gitea server + a student client | [README](scenarios/gitea_lab/README.md) |
 | `mattermost_lab` | **functional**, deployed on SDN | Mattermost standalone | [README](scenarios/mattermost_lab/README.md) |
 | `nextcloud_lab` | **functional**, deployed on SDN | Nextcloud standalone | [README](scenarios/nextcloud_lab/README.md) |
