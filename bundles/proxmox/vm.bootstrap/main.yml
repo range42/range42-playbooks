@@ -3,6 +3,7 @@
 # vm.bootstrap - shared per-VM stage_00 playbook
 #
 #   clone template -> wait proxmox unlock -> set tag -> set cloudinit -> start VM -> wait openssh + cloudinit
+#   (set cloudinit is skipped on a running VM whose config already matches : see the task comment)
 #
 # Required vars (passed by the call-site - per-VM block) :
 #   global_vm_id                  proxmox vm id of the new VM
@@ -75,7 +76,39 @@
         vm_id: "{{ global_vm_id }}"
         vm_tag_name: "{{ global_vm_tag_name }}"
 
+    # The controller action cloudinit_set_variables hard-stops a running VM before it writes the
+    # config. On a rerun, skip it when the VM is running and its cloud-init fields and net0 bridge
+    # already have the requested values. Proxmox masks cipassword on read, so a password-only
+    # change is not detected: stop the VM first to apply it.
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - READ VM STATUS
+      ansible.builtin.uri:
+        url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ global_vm_id }}/status/current"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+        validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+        ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+        status_code: 200
+      register: vm_bootstrap_status
+      changed_when: false
+      no_log: true
+
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - COMPARE RUNNING CONFIG WITH THE REQUESTED ONE
+      vars:
+        _cfg: "{{ vm_bootstrap_clone_lock.json.data }}"
+        _want_ipconfig0: "ip={{ global_vm_ci_ip }}/{{ global_vm_ci_netmask | default('24') }},gw={{ global_vm_ci_ip_gw }}"
+        _want_sshkeys: "{{ default_admin_vm_ci_ssh_key | default('') | trim | urlencode | replace('/', '%2F') }}"
+      ansible.builtin.set_fact:
+        vm_bootstrap_ci_unchanged: >-
+          {{ vm_bootstrap_status.json.data.status | default('') == 'running'
+             and _cfg.ciuser | default('') == (default_admin_vm_ci_user | default('alice'))
+             and _cfg.nameserver | default('') == (global_vm_ci_dns_ips | default('1.1.1.1'))
+             and _cfg.ipconfig0 | default('') == _want_ipconfig0
+             and _cfg.sshkeys | default('') == _want_sshkeys
+             and (_cfg.net0 | default('') | regex_findall('bridge=([^,]+)') | first | default('')) == global_vm_net_virtio_bridge }}
+
     - name: VM BOOTSTRAP - "{{ global_vm_name }}" - SET CLOUDINIT VARIABLES
+      when: not (vm_bootstrap_ci_unchanged | bool)
       include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
