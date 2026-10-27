@@ -1,0 +1,5 @@
+##
+## The firewall state BEFORE the deploy touches anything: dc, node, and the already-deployed
+## guests of the scenario. READ-ONLY - every call is a GET.
+##
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.report.status/main.yml"
