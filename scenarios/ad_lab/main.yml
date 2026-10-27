@@ -50,9 +50,7 @@
 #### #### #### #### STAGE 00 (vm_bootstrap) - ALL TIERS  #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./02_admin_infrastructure/_main_stage_00.yml
 
-- import_playbook: ./03_ad_lab_infrastructure/_main_stage_00.yml
 
 ## The VMs exist from here on - the guest firewall api refuses a vmid that does not run.
 - import_playbook: ./_firewall/stage_02-post_vm_bootstrap.vm_ssh_baseline.yml
@@ -61,9 +59,7 @@
 #### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-- import_playbook: ./02_admin_infrastructure/_main_stage_01.yml
 
-- import_playbook: ./03_ad_lab_infrastructure/_main_stage_01.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### BUILD r42_ad_lab_wazuh_clients_active  #### #### ####
@@ -73,7 +69,6 @@
 # runs. Mirror of _build_admin_active_group (Option A).
 #
 
-- import_playbook: ./02_admin_infrastructure/_build_wazuh_clients_active_group.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### CROSS-TIER FINALIZE  #### #### #### #### #### #### ####
@@ -86,7 +81,6 @@
 # stack deployed. Gated by INSTALL_WAZUH.
 #
 
-- import_playbook: ./02_admin_infrastructure/stage_01-vm_configure/_finalize-baseline-admin_wazuh_client.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### END SCENARIO  #### #### #### #### #### #### #### ####
