@@ -177,8 +177,7 @@ Windows 11 clone):
   After the hostname reboot the last run ends with "Plugins execution done", and the clone
   has its hostname, IP address and `alice` key. A healthy clone therefore has about
   150 `ERROR` lines in `cloudbase-init.log` (151 and 156 on the two measured clones). Judge a
-  clone by its end state (hostname, `Get-NetIPConfiguration`, SSH as `alice`), not by the
-  error count of this log.
+  clone by its end state (the clone checks below), not by the error count of this log.
 
 Therefore no LocalScripts fallback is needed. `LocalScriptsPlugin` stays in the plugin list as
 an extension point for later scenarios ; its `local_scripts_path` is under
@@ -186,6 +185,29 @@ an extension point for later scenarios ; its `local_scripts_path` is under
 Administrators can write by default, and the bundle puts no script there.
 The SSH host keys, the key of `alice` and the
 hostname are set again on every new clone (measured by destroying and re-cloning).
+
+The first boot of a clone runs the `oobeSystem` pass of `unattend-sysprep.xml`.
+`HideLocalAccountScreen` applies only to Windows Server editions (Microsoft unattend
+reference) ; there `AdministratorPassword` completes OOBE. On Windows 11 the answer file
+therefore declares `alice` as a `LocalAccount` (group `Administrators`), the same block as in
+`Autounattend.xml`. `alice` already exists in the generalized image : on a Windows 11 26H2
+clone, the only `Shell Unattend` line of `C:\Windows\Panther\UnattendGC\setupact.log` about it
+is `UserAccounts: Password set for 'alice'`, and OOBE then logs
+`Section Account: could not find page LocalUser`. OOBE still creates the temporary account
+`defaultuser0`, but it stays disabled and no session uses it.
+The password is the vault value either way : the answer file and `cipassword` both carry
+`default_admin_vm_ci_password`.
+
+Clone checks : hostname, `Get-NetIPConfiguration`, SSH as `alice`, and the console
+(`qm monitor <id>`, then `screendump <file>`, or noVNC) shows the Windows logon screen, not an
+OOBE page. Registry and SSH checks cannot detect an OOBE page : the OS is fully configured
+behind it.
+
+A Windows 11 template built before the `LocalAccount` block gives clones whose console stays on
+the OOBE page "Who's going to use this device?" (process `CloudExperienceHost`, session of the
+temporary account `defaultuser0`, enabled, no password) ; `quser` and
+`Get-LocalUser defaultuser0` in the clone show it. Rebuild the template (`qm destroy <id> --purge`,
+then this bundle with `templates_whitelist: ["win11"]`) and re-clone.
 
 For the bootstrap of a Windows clone, set `global_vm_ssh_wait_retries: 180` (the first boot
 after sysprep takes several minutes) and give the inventory group of the Windows hosts
@@ -246,9 +268,9 @@ not fail the play.
 - Microsoft documents that Windows Setup hides the passwords of the answer files it caches
   under `C:\Windows\Panther` after use ; this bundle does not check it. `finalize.ps1` removes the Winlogon `DefaultPassword` of the automatic logon.
 - `sysprep /unattend` caches `unattend-sysprep.xml` in the template disk until the first boot
-  of each clone. On Windows Server it carries the `Administrator` password (the same vault
-  value) : whoever can read the template disk can read it, which on Proxmox means root on the
-  hypervisor or `VM.Clone` rights on the template.
+  of each clone. It carries the vault value in clear : as the `Administrator` password on
+  Windows Server, as the `alice` password on Windows 11. Whoever can read the template disk can
+  read it, which on Proxmox means root on the hypervisor or `VM.Clone` rights on the template.
 - sshd accepts public keys only. The SSH host keys are deleted before sysprep, so every clone
   has its own.
 - The virtio-win ISO is pinned by sha256 before the loop mount (its drivers and MSIs run as
@@ -267,7 +289,7 @@ under nested virtualisation with the ISOs of [Measured values](#measured-values)
 | Windows Boot Manager menu (Windows Server ISO) | the menu "Windows Setup [EMS Enabled]" waits for input ; the VM reads about 8 MB from the CD, then nothing more | the loop sends ENTER, which starts the default entry | with a loop that sent the space key, the menu showed no countdown and waited (Windows Server 2025 ; most likely a key press stopped the countdown, not proven). One ENTER started Windows Setup : the VM read 622 MB in the next 55 s |
 | storage driver in Windows Setup | "We couldn't find any drives" | `$WinPEDriver$` on the payload ISO ; the alternative is `DriverPaths` in the windowsPE pass | `$WinPEDriver$` with `vioscsi`, `NetKVM`, `Balloon` : the disk was found on both builds |
 | image selection | Setup stops at the edition choice, or installs Server Core | `win2025_image_index` / `win11_image_index` | index 2 (Server 2025 Standard, Desktop Experience) and 1 (Windows 11 Enterprise), read from the WIM XML header |
-| OOBE | an OOBE screen waits for input | `OOBE` block of `Autounattend.xml` and `unattend-sysprep.xml` | no page waited for input. The build ran the `oobeSystem` pass from the answer file (Panther `UnattendGC\setupact.log`: `Status for unattend pass [oobeSystem] = 0x0`). On the first boot of a Windows 11 clone, OOBE shows the automatic "Checking for updates" page (it needs internet access), then continues without input : the bootstrap finished with no console input on both clones |
+| OOBE | an OOBE screen waits for input | `OOBE` block of `Autounattend.xml` and `unattend-sysprep.xml` ; on Windows 11 also the `LocalAccount` `alice` in both files (`HideLocalAccountScreen` is Windows Server only) | build : no page waited for input (Panther `UnattendGC\setupact.log`: `Status for unattend pass [oobeSystem] = 0x0`). Windows Server 2025 clones : no page. Windows 11 clones of a template without the `LocalAccount` block in `unattend-sysprep.xml` : the console stayed on "Who's going to use this device?" (session `defaultuser0`) while hostname, IP, SSH and domain join were all applied, so the bootstrap and the registry checks passed. Windows 11 clone of a template with the block : the console showed the lock screen, no `CloudExperienceHost` process, no user session, `defaultuser0` disabled, `OOBEInProgress` 0 |
 | OpenSSH server (Windows 11) | `Add-WindowsCapability` fails or never finishes | 3 attempts ; the alternative is the Win32-OpenSSH MSI from GitHub (not implemented) | the capability is downloaded from Windows Update : 14.5, 15 and 66 minutes (one attempt each, three builds) on Windows 11 26H2. The 66-minute download is the reason for the `win_build_timeout_min` default of 150 (Windows Server 2025 ships it installed) |
 | cloudbase-init MSI signature check | the build stalls at this step (most likely in `Get-AuthenticodeSignature`, not proven) ; the build stops before sysprep and reaches `win_build_timeout_min` | the check runs in a child process with a 5-minute timeout, up to 3 attempts | on Windows 11 the build stalled for more than 90 minutes between the firewall step and the MSI installation (no msiexec log, no child process), right after the OpenSSH capability install ; the same call in a new process returned `Valid` in 10 seconds. On the next build the check in a child process returned `Valid` at the first attempt |
 | Windows 11 first logon | the console stays on "Welcome", no disk or network I/O, both vCPUs busy in the guest kernel | none in the bundle : stop the build at the timeout and restart it (see Operations) | seen once in four Windows 11 builds : no I/O for 15 minutes, both vCPUs at a fixed kernel address. The next build did not hang. Cause not established |

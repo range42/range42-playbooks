@@ -55,6 +55,20 @@
           <PlainText>true</PlainText>
         </AdministratorPassword>
       </UserAccounts>
+{% elif item.os_kind == 'client' %}
+{# HideLocalAccountScreen applies to Windows Server only: without an account the clone shows the user OOBE #}
+      <UserAccounts>
+        <LocalAccounts>
+          <LocalAccount wcm:action="add">
+            <Name>alice</Name>
+            <Group>Administrators</Group>
+            <Password>
+              <Value>{{ win_password }}</Value>
+              <PlainText>true</PlainText>
+            </Password>
+          </LocalAccount>
+        </LocalAccounts>
+      </UserAccounts>
 {% endif %}
       <TimeZone>{{ win_timezone | default('W. Europe Standard Time') }}</TimeZone>
     </component>
