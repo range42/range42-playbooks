@@ -70,7 +70,9 @@ lower case, digits, symbols).
    `bundles/proxmox/vm.bootstrap`, waits for SSH and for the end of cloudbase-init. The SSH wait
    makes up to 180 attempts, 5 s apart, each with a 5 s connect timeout: at least 15 minutes,
    25 minutes measured when SSH never answers. The first boot after sysprep takes up to about
-   15 minutes.
+   15 minutes. The cloudbase-init wait makes up to 150 attempts, at least 10 s apart: at least
+   25 minutes. The reboot that cloudbase-init starts to set the host name of the Windows 11
+   clone was measured at 16 minutes, more than the default budget of 60 attempts.
 5. `_firewall` stages 02 and 03: declares the AD and RDP accepts (below) and the SSH accept.
 6. `02_ad_infrastructure` stage_01, in this order:
    - `admin/software.install.ad_domain_controller` on ad-dc01: built-in Administrator password,
@@ -80,14 +82,16 @@ lower case, digits, symbols).
      checks (member of `range42.lab`, local built-in Administrator disabled).
 7. `_firewall` stage 04: arming, only with `-e FIREWALL_ARM_VMS=YES` (default NO).
 
-**Do not rerun `./ad_lab.setup.sh` on running VMs.** A second run does not clone again, but
-`bundles/proxmox/vm.bootstrap` applies the cloud-init settings again through the action
-`cloudinit_set_variables` of the Proxmox controller role, and that action **stops** a running VM
-first (power off, not a guest shutdown), then starts it. This is the behaviour of every scenario
-built on `vm.bootstrap`. Measured on this scenario: the domain controller logged an unexpected
-shutdown (System event 6008) and came back ; the Windows 11 client stayed on the boot screen with
-no CPU activity, never answered SSH, and the run failed after 180 SSH retries. To deploy again, run
-`./ad_lab.delete_vms_only.sh` first, or `./ad_lab.reset.setup.sh`.
+A second `./ad_lab.setup.sh` on running VMs does not clone again and does not restart them:
+`bundles/proxmox/vm.bootstrap` skips the cloud-init update when the VM is running and its
+cloud-init user, SSH key, IP address, gateway, DNS server and net0 bridge already have the
+requested values. When one of them differs, the action `cloudinit_set_variables` of the Proxmox
+controller role **stops** the running VM (power off, not a guest shutdown), writes the settings,
+and the VM is started again. Measured on this scenario before that check existed: the domain
+controller logged an unexpected shutdown (System event 6008) and came back ; the Windows 11 client
+never answered SSH again. Proxmox does not return the cloud-init password, so a change of the
+password alone is not detected: stop the VM first, or redeploy with `./ad_lab.delete_vms_only.sh`
+and `./ad_lab.setup.sh`.
 
 ## Firewall
 
@@ -96,11 +100,12 @@ What the deploy declares on the Proxmox per-NIC firewall (rules only, inert unti
 - ad-dc01 (1201): `firewall.baseline.ad_domain_controller` - tcp 53, 88, 135, 139, 389, 445,
   464, 636, 3268, 3269, 9389 and 49152:65535 (RPC dynamic range), udp 53, 88, 123, 137, 138, 389,
   464, each from `192.168.151.0/24` only ;
-- ad-dc01 and ad-client01: tcp 3389 (RDP) from `192.168.151.0/24` only ;
+- ad-dc01 and ad-client01: tcp 3389 (RDP) from `192.168.151.1/32` only ;
 - both: the SSH accept of `firewall.baseline.ssh_all_vms`.
 
-The source `192.168.151.0/24` covers the domain members and the node itself (`192.168.151.1`), from
-which the jump-host forwards below arrive. The armed state of this rule set is not tested yet.
+The source `192.168.151.0/24` covers the domain members. `192.168.151.1` is the node itself, from
+which the jump-host forwards below arrive: RDP accepts only that address. The armed state of this
+rule set is not tested yet.
 
 ## RDP through the jump host
 
@@ -169,9 +174,5 @@ holds `r42_ad_dc` (`r42.ad-dc01`) and `r42_ad_clients` (`r42.ad-client01`).
   the DC role sets it only before the promotion.
 - A change of `default_admin_vm_ci_password` needs a rebuild of both templates (template bundle
   README, "Operations").
-- A reboot of the Windows 11 clone can be slow on this kind of host: the reboot that cloudbase-init
-  starts to set the host name was measured at 16 minutes. The wait for the end of cloudbase-init
-  (`ansible.utils`, `wait/cloudinit/is_boot_finished.yml`) stops after 60 attempts 10 s apart, so
-  the deploy can fail there while the VM comes up a few minutes later. In that case run
-  `./ad_lab.delete_vms_only.sh`, then `./ad_lab.setup.sh` again. A new deploy can hit the same slow
-  reboot: it was measured on one of the two fresh deploys of this scenario.
+- If a deploy still stops in the cloudbase-init wait (a reboot slower than 25 minutes), run
+  `./ad_lab.delete_vms_only.sh`, then `./ad_lab.setup.sh` again.

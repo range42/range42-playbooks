@@ -3,12 +3,12 @@
 ## until armed. Not gated : both VMs are the workload, always created by stage_00 - a missing VM
 ## makes the api refuse, so the play fails loudly.
 ##
-## Source 192.168.151.0/24 on every rule : the domain members live on net151, and an RDP session
-## forwarded through the jump host reaches the guests from the node's own address on net151
-## (192.168.151.1). No other network needs these ports.
+## Sources : the AD port set accepts 192.168.151.0/24, the network of the domain members. RDP accepts
+## 192.168.151.1/32 only : a session forwarded through the jump host reaches the guests from the
+## node's own address on net151, and no guest needs RDP to another guest.
 ##
 ##   - ad-dc01 (1201)     : the AD port set, through firewall.baseline.ad_domain_controller
-##   - ad-dc01, ad-client01 (1201, 1202) : tcp 3389 (RDP)
+##   - ad-dc01, ad-client01 (1201, 1202) : tcp 3389 (RDP), from 192.168.151.1/32
 ##
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.ad_domain_controller/main.yml"
@@ -33,7 +33,7 @@
         vm_id: "{{ _adrdp_it }}"
         vm_fw_dport: "3389"
         vm_fw_proto: "tcp"
-        vm_fw_source: "192.168.151.0/24"
+        vm_fw_source: "192.168.151.1/32"
         vm_fw_comment: "range42 ad_lab rdp"
       loop: [1201, 1202]
       loop_control:
