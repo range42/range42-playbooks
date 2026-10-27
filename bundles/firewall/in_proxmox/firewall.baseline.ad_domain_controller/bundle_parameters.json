@@ -1,0 +1,37 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "firewall",
+  "bundle": "firewall/in_proxmox/firewall.baseline.ad_domain_controller",
+  "description": "Declare the Active Directory ports of one domain controller at the hypervisor level, restricted to one source network : tcp 53, 88, 135, 139, 389, 445, 464, 636, 3268, 3269, 9389 and the RPC dynamic range 49152-65535, udp 53, 88, 123, 137, 138, 389, 464. One inbound ACCEPT per port on the guest's own chain, posted only when absent, verified by read-back. Declaring does not arm - nothing filters until the three switches are on.",
+  "optional": false,
+  "params": [
+    {
+      "name": "BUNDLE_VM_ID",
+      "renamed_to": [
+        "vm_id"
+      ],
+      "type": "int",
+      "required": true,
+      "default_where": "none",
+      "description": "Proxmox VM id of the domain controller whose ports are declared."
+    },
+    {
+      "name": "BUNDLE_AD_SOURCE",
+      "renamed_to": [
+        "vm_fw_source"
+      ],
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "The only source every rule accepts - one IPv4 address or network, normally the subnet of the domain members (for example 192.0.2.0/24)."
+    },
+    {
+      "name": "proxmox_node",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Proxmox node the guest runs on, resolved from the scenario vault. These endpoints are node-scoped."
+    }
+  ]
+}

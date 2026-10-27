@@ -1,0 +1,153 @@
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# firewall.baseline.ad_domain_controller - declare the Active Directory ports of one domain controller,
+# at the hypervisor
+#
+# The ports a domain member needs on its DC : DNS, Kerberos, RPC endpoint mapper, NetBIOS, LDAP and
+# LDAPS, SMB (SYSVOL, NETLOGON), Kerberos password change, global catalog, AD Web Services, NTP, and the
+# RPC dynamic range 49152-65535 (tcp) that replication, the join and the management tools use after
+# the endpoint mapper.
+#
+# This is the PROXMOX side of the policy : it posts ACCEPT rules on the guest's own chain via the api,
+# filtering happens on the tap, out of reach from inside the guest.
+#
+# EVERY RULE IS RESTRICTED TO BUNDLE_AD_SOURCE (required, no default) : the clients of the domain,
+# normally the subnet of the scenario. The directory services of a DC are not meant for any other
+# network, and a source-less accept would open LDAP and SMB to every network the node routes.
+#
+# IDEMPOTENT. Single ports : firewall_vm_declare_iptables_port reads the chain, posts only when no
+# active accept already grants the port, then reads back. The RPC range : the declare action accepts
+# a single port only, so this bundle posts it with firewall_vm_apply_iptables_rule, guarded by a read
+# of the chain and a match on the rule comment ; a rerun posts nothing. Then it reads back and asserts.
+#
+# DECLARING DOES NOT ARM : nothing filters until the datacenter switch, the guest switch and the card
+# flag are all on (firewall.enable.*). This bundle never deletes, never denies, never touches a
+# switch : its only possible write is an ACCEPT.
+#
+# Required : BUNDLE_VM_ID, BUNDLE_AD_SOURCE. From the vault : proxmox_node.
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+- name: "FIREWALL BASELINE AD DC - firewall.baseline.ad_domain_controller"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    _fwad_tcp: ["53", "88", "135", "139", "389", "445", "464", "636", "3268", "3269", "9389"]
+    _fwad_udp: ["53", "88", "123", "137", "138", "389", "464"]
+    _fwad_rpc_range: "49152:65535"
+    _fwad_rpc_comment: "range42 baseline ad dc, rpc dynamic range"
+
+  tasks:
+
+    - name: FIREWALL BASELINE AD DC - THE SOURCE IS ONE IPv4 ADDRESS OR NETWORK
+      ansible.builtin.assert:
+        that:
+          - BUNDLE_AD_SOURCE is defined
+          - BUNDLE_AD_SOURCE is string
+          - BUNDLE_AD_SOURCE is match('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])[.]){3}(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:/(?:3[0-2]|[12]?[0-9]))?$')
+        fail_msg: "BUNDLE_AD_SOURCE must be one IPv4 address or network such as 192.0.2.0/24, got : {{ BUNDLE_AD_SOURCE | default('undefined') }}"
+        quiet: true
+
+    - name: FIREWALL BASELINE AD DC - WHAT WAS ASKED
+      ansible.builtin.debug:
+        msg:
+          - "proxmox node : {{ proxmox_node }}"
+          - "vm id        : {{ BUNDLE_VM_ID }}"
+          - "source       : {{ BUNDLE_AD_SOURCE }}"
+          - "tcp          : {{ _fwad_tcp | join(', ') }}, {{ _fwad_rpc_range }}"
+          - "udp          : {{ _fwad_udp | join(', ') }}"
+
+    ## loop_var is EXPLICIT: an item passed down to an action that loops itself gets rebound -
+    ## measured, the collision that broke the sweeps. Same rule as the other baseline bundles.
+    - name: FIREWALL BASELINE AD DC - DECLARE EACH TCP PORT, IDEMPOTENTLY
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_declare_iptables_port"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+        vm_fw_dport: "{{ _fwad_it }}"
+        vm_fw_proto: "tcp"
+        vm_fw_source: "{{ BUNDLE_AD_SOURCE }}"
+        vm_fw_comment: "range42 baseline ad dc"
+      loop: "{{ _fwad_tcp }}"
+      loop_control:
+        loop_var: _fwad_it
+
+    - name: FIREWALL BASELINE AD DC - DECLARE EACH UDP PORT, IDEMPOTENTLY
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_declare_iptables_port"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+        vm_fw_dport: "{{ _fwad_it }}"
+        vm_fw_proto: "udp"
+        vm_fw_source: "{{ BUNDLE_AD_SOURCE }}"
+        vm_fw_comment: "range42 baseline ad dc"
+      loop: "{{ _fwad_udp }}"
+      loop_control:
+        loop_var: _fwad_it
+
+    #### The RPC dynamic range : list, match on the comment, post only when absent.
+
+    ## Not optional : the list action APPENDS to this fact.
+    - name: FIREWALL BASELINE AD DC - RESET THE ACCUMULATING FACT
+      ansible.builtin.set_fact:
+        firewall_vm_list_iptables_rule: []
+
+    - name: FIREWALL BASELINE AD DC - READ THE CHAIN
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_list_iptables_rule"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    - name: FIREWALL BASELINE AD DC - ACCEPT THE RPC RANGE INBOUND, ONLY WHEN ITS RULE IS ABSENT
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_apply_iptables_rule"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+        vm_fw_action: "ACCEPT"
+        vm_fw_type: "in"
+        vm_fw_proto: "tcp"
+        vm_fw_dport: "{{ _fwad_rpc_range }}"
+        vm_fw_source: "{{ BUNDLE_AD_SOURCE }}"
+        vm_fw_enable: 1
+        vm_fw_comment: "{{ _fwad_rpc_comment }}"
+      when: >-
+        (firewall_vm_list_iptables_rule | default([])
+         | selectattr('vm_fw_comment', 'defined')
+         | selectattr('vm_fw_comment', 'equalto', _fwad_rpc_comment) | list | length) == 0
+
+    #### Read back : what is asserted is the node's state, not what was posted.
+
+    - name: FIREWALL BASELINE AD DC - RESET THE ACCUMULATING FACT, AGAIN
+      ansible.builtin.set_fact:
+        firewall_vm_list_iptables_rule: []
+
+    - name: FIREWALL BASELINE AD DC - READ THE CHAIN BACK
+      ansible.builtin.include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_list_iptables_rule"
+        vm_id: "{{ BUNDLE_VM_ID }}"
+
+    - name: FIREWALL BASELINE AD DC - THE RPC RANGE IS GRANTED, FROM THE SOURCE, EXACTLY ONCE
+      ansible.builtin.assert:
+        that:
+          - (_fwad_rpc_rules | length) == 1
+          - _fwad_rpc_rules[0].vm_fw_action == 'ACCEPT'
+          - _fwad_rpc_rules[0].vm_fw_type == 'in'
+          - _fwad_rpc_rules[0].vm_fw_proto == 'tcp'
+          - _fwad_rpc_rules[0].vm_fw_dport == _fwad_rpc_range
+          - _fwad_rpc_rules[0].vm_fw_source == BUNDLE_AD_SOURCE
+          - (_fwad_rpc_rules[0].vm_fw_enable | default(1) | int) == 1
+        fail_msg: "vm {{ BUNDLE_VM_ID }} : rules commented '{{ _fwad_rpc_comment }}' : {{ _fwad_rpc_rules }}"
+        success_msg: "vm {{ BUNDLE_VM_ID }} : {{ _fwad_rpc_range }}/tcp accepted from {{ BUNDLE_AD_SOURCE }}"
+      vars:
+        _fwad_rpc_rules: >-
+          {{ firewall_vm_list_iptables_rule | default([])
+             | selectattr('vm_fw_comment', 'defined')
+             | selectattr('vm_fw_comment', 'equalto', _fwad_rpc_comment) | list }}

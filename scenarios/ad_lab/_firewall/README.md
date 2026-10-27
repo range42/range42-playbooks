@@ -11,7 +11,7 @@ improvisation:
 |---|---|
 | `pre_scenario` | before any infrastructure - state reading and dc/node protections, nothing that requires a VM |
 | `post_vm_bootstrap` | the VMs exist - the guest firewall api REFUSES a vmid that does not run, measured |
-| `end_scenario` | the very end - arming, so nothing above gets filtered mid-deploy. OPT-IN: `FIREWALL_ARM_VMS=YES`, default NO (decision of 2026-09-04: the anchor exists, the default keeps arming an operator move) |
+| `end_scenario` | the very end - arming, so nothing above gets filtered mid-deploy. OPT-IN: `FIREWALL_ARM_VMS=YES`, default NO: the anchor exists, the default keeps arming an operator move |
 
 **FILE NAMING: `stage_XX-<anchor>.<what>.yml`** - the `stage_XX` prefix makes `ls` show the
 execution order (same idiom as the tiers' stage_00/stage_01 directories), the anchor names the
@@ -25,3 +25,8 @@ bundles/firewall/, zero local logic.
 The PER-SERVICE declares do not live here: they live in the admin-<service>.yml wrappers,
 gated by the same flag as the install - flag=NO means the VM does not exist, so the api
 would refuse.
+
+One exception: `stage_02-post_vm_bootstrap.ad_rules.yml`, the Active Directory accepts, not gated
+(both VMs are the workload). It imports `firewall.baseline.ad_domain_controller` for ad-dc01 and
+declares tcp 3389 (RDP) on ad-dc01 and ad-client01 in one local task. Every rule accepts only
+192.168.151.0/24, the network of the domain members and of the jump-host forwards.

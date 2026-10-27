@@ -1,0 +1,40 @@
+##
+## The Active Directory accepts, DECLARED ONLY : arming stays FIREWALL_ARM_VMS (stage_04). Inert
+## until armed. Not gated : both VMs are the workload, always created by stage_00 - a missing VM
+## makes the api refuse, so the play fails loudly.
+##
+## Source 192.168.151.0/24 on every rule : the domain members live on net151, and an RDP session
+## forwarded through the jump host reaches the guests from the node's own address on net151
+## (192.168.151.1). No other network needs these ports.
+##
+##   - ad-dc01 (1201)     : the AD port set, through firewall.baseline.ad_domain_controller
+##   - ad-dc01, ad-client01 (1201, 1202) : tcp 3389 (RDP)
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.ad_domain_controller/main.yml"
+  vars:
+    BUNDLE_VM_ID: 1201
+    BUNDLE_AD_SOURCE: "192.168.151.0/24"
+
+- name: "ad_lab - rdp on the windows guests"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    ## loop_var is EXPLICIT: an item passed down to an action that loops itself gets rebound.
+    - name: AD LAB RDP - DECLARE 3389 ON EACH WINDOWS GUEST, IDEMPOTENTLY
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_declare_iptables_port"
+        vm_id: "{{ _adrdp_it }}"
+        vm_fw_dport: "3389"
+        vm_fw_proto: "tcp"
+        vm_fw_source: "192.168.151.0/24"
+        vm_fw_comment: "range42 ad_lab rdp"
+      loop: [1201, 1202]
+      loop_control:
+        loop_var: _adrdp_it
