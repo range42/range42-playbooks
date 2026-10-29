@@ -79,7 +79,9 @@ lower case, digits, symbols).
      promotion to the first DC of a new forest with DNS, reboot, DNS forwarder `1.1.1.1` ;
    - `admin/systems.configure.ad_objects` on ad-dc01: the user `bob` ;
    - `generic/systems.configure.ad_domain_member` on ad-client01: DNS to the DC, join, reboot,
-     checks (member of `range42.lab`, local built-in Administrator disabled).
+     checks (member of `range42.lab`, local built-in Administrator disabled) ;
+   - `generic/systems.configure.windows_eval_activation` on both VMs: online activation of the
+     evaluation editions (see "Evaluation editions").
 7. `_firewall` stage 04: arming, only with `-e FIREWALL_ARM_VMS=YES` (default NO).
 
 A second `./ad_lab.setup.sh` on running VMs does not clone again and does not restart them:
@@ -121,8 +123,31 @@ ssh -N -L 13389:192.168.151.202:3389 px.<codename>.jumper
 
 - Windows Server 2025 evaluation: 180 days from activation ; Windows 11 Enterprise evaluation:
   90 days from activation.
-- The evaluation must activate online within 10 days, otherwise Windows Server shuts down every
-  hour. Keep SNAT on `net151` during the first days.
+- A clone starts with an expired grace period (sysprep rearms it) and must activate online.
+  Windows tries it at the first boot. When that attempt fails, the next automatic attempt is one
+  day later, and `wlms.exe` (Windows Licensing Monitoring Service) shuts the VM down 60 minutes
+  after each boot (System event 1074 by `wlms.exe`, WLMS event 101).
+- The DNS path of the client to the Microsoft activation hosts is the DC : the only DNS server of
+  ad-client01 is 192.168.151.201, which resolves external names through its forwarder `1.1.1.1`.
+  Measured on an earlier deploy : the first-boot activation of the client failed with event 8200
+  `hr=0x80072EE7` (name not resolved) because the DC did not resolve external names at that moment
+  (before the DC role had set its forwarder), and the client shut down 60 minutes
+  after boot.
+- The deploy therefore activates both VMs explicitly as the last stage_01 step
+  (`systems.configure.windows_eval_activation` : `slmgr.vbs /ato`, 11 attempts 60 s apart by
+  default), after the DC has its forwarder. When no attempt succeeds, it fails with the `hr=0x...`
+  code of the last SPP event 8200, or says that no event 8200 was found. A rerun on activated VMs
+  reports `ok`.
+- Keep SNAT on `net151` : the activation needs outbound HTTPS.
+
+## Nested virtualisation
+
+The Windows templates keep `cpu host` (the VMs see VMX) but have VBS, HVCI and Credential Guard
+turned off in the registry (the `bcdedit` hypervisor setting of the build does not reach the
+clones). Under nested virtualisation a Windows 11 clone that
+launches its hypervisor at boot stayed on the boot spinner for hours. The lab posture without
+Credential Guard is intended : it keeps credentials in the LSASS memory for the exercises. Details
+and measurements : `bundles/proxmox/template.build.windows/README.md`, "Nested virtualisation".
 
 ## Usage
 
@@ -158,6 +183,7 @@ ad_lab/
     stage_00-vm_bootstrap/_ad_group.yml          two vm.bootstrap blocks
     stage_01-vm_configure/ad-dc.yml              promotion + user bob
     stage_01-vm_configure/ad-client.yml          domain join
+    stage_01-vm_configure/eval-activation.yml    online activation of both VMs
   _firewall/                                     five moments, see its README
   manifest/scenario_vms.json, feature_flags.yml
   templates/                                     inventory, ssh-config, vars, vault example
