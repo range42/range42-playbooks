@@ -81,7 +81,9 @@ lower case, digits, symbols).
    - `generic/systems.configure.ad_domain_member` on ad-client01: DNS to the DC, join, reboot,
      checks (member of `range42.lab`, local built-in Administrator disabled) ;
    - `generic/systems.configure.windows_eval_activation` on both VMs: online activation of the
-     evaluation editions (see "Evaluation editions").
+     evaluation editions (see "Evaluation editions") ;
+   - `generic/systems.configure.rdp_access` on both VMs: Remote Desktop, `RANGE42\bob` in
+     "Remote Desktop Users" of ad-client01 (see "RDP through the jump host").
 7. `_firewall` stage 04: arming, only with `-e FIREWALL_ARM_VMS=YES` (default NO).
 
 A second `./ad_lab.setup.sh` on running VMs does not clone again and does not restart them:
@@ -111,12 +113,38 @@ rule set is not tested yet.
 
 ## RDP through the jump host
 
-The VMs have no route from the outside. Forward a local port through the jump host, then connect
-an RDP client to it, for example for the client:
+`generic/systems.configure.rdp_access` enables Remote Desktop on both VMs : `fDenyTSConnections`
+0, the Windows firewall rule group "Remote Desktop" enabled, `TermService` running, listener on
+tcp 3389. Network Level Authentication stays on : the RDP client must authenticate before the
+session opens.
+
+Accounts that can log on:
+
+| VM | Accounts | Why |
+|---|---|---|
+| ad-dc01 (192.168.151.201) | `RANGE42\alice`, `RANGE42\Administrator` | administrators of the domain (built-in `Administrators`) ; on a DC the RDP log-on right is granted to Administrators only |
+| ad-client01 (192.168.151.202) | `RANGE42\bob` | member of the local group "Remote Desktop Users" (the deploy adds it) |
+| ad-client01 | `AD-CLIENT01\alice` (local account, `.\alice`) | local administrator from the template |
+
+`RANGE42\alice` cannot log on to ad-client01 : it is a member of the domain built-in
+`Administrators` group, not of `Domain Admins`, and only `Domain Admins` is in the local
+Administrators group of the client.
+
+Two paths reach tcp 3389:
+
+- **Direct route, while the Proxmox firewall is not armed.** The Proxmox firewall rules are
+  declared but not armed (see "Firewall"), so the Proxmox firewall does not filter tcp 3389. An
+  RDP client on a host with a route to `192.168.151.0/24` through the node connects directly to
+  `192.168.151.201:3389` or `192.168.151.202:3389`.
+- **Port forward through the jump host.** The forwarded connection leaves the node from
+  `192.168.151.1`, the only source that the declared RDP rule allows once the firewall is armed
+  (armed state not tested yet). Use this path from a host without a route to `192.168.151.0/24`,
+  and after arming:
 
 ```bash
-ssh -N -L 13389:192.168.151.202:3389 px.<codename>.jumper
-# RDP client -> localhost:13389
+ssh -N -L 13389:192.168.151.202:3389 px.<codename>.jumper   # ad-client01
+ssh -N -L 13390:192.168.151.201:3389 px.<codename>.jumper   # ad-dc01
+# RDP client -> localhost:13389 or localhost:13390
 ```
 
 ## Evaluation editions
@@ -133,7 +161,7 @@ ssh -N -L 13389:192.168.151.202:3389 px.<codename>.jumper
   `hr=0x80072EE7` (name not resolved) because the DC did not resolve external names at that moment
   (before the DC role had set its forwarder), and the client shut down 60 minutes
   after boot.
-- The deploy therefore activates both VMs explicitly as the last stage_01 step
+- The deploy therefore activates both VMs explicitly in stage_01, after the client join
   (`systems.configure.windows_eval_activation` : `slmgr.vbs /ato`, 11 attempts 60 s apart by
   default), after the DC has its forwarder. When no attempt succeeds, it fails with the `hr=0x...`
   code of the last SPP event 8200, or says that no event 8200 was found. A rerun on activated VMs
@@ -184,6 +212,7 @@ ad_lab/
     stage_01-vm_configure/ad-dc.yml              promotion + user bob
     stage_01-vm_configure/ad-client.yml          domain join
     stage_01-vm_configure/eval-activation.yml    online activation of both VMs
+    stage_01-vm_configure/rdp-access.yml         Remote Desktop on both VMs
   _firewall/                                     five moments, see its README
   manifest/scenario_vms.json, feature_flags.yml
   templates/                                     inventory, ssh-config, vars, vault example

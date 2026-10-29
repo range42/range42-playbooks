@@ -51,7 +51,8 @@
 #### #### #### #### STAGE 01 (vm_configure) - ALL TIERS  #### #### #### ####
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
-## Domain controller first (promotion, user bob), then the join of the client.
+## Domain controller first (promotion, user bob), then the join of the client, the online
+## activation of both VMs, then Remote Desktop on both VMs (bob on the client).
 - import_playbook: ./02_ad_infrastructure/_main_stage_01.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

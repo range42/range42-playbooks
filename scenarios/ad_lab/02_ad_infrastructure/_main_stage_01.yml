@@ -9,6 +9,8 @@
 ##   2. ad-client.yml : join ad-client01 to the domain, through the DC's DNS
 ##   3. eval-activation.yml : online activation of both evaluation editions ; the client resolves
 ##      the Microsoft hosts through the DNS forwarder of the DC
+##   4. rdp-access.yml : Remote Desktop on both VMs, RANGE42\bob in "Remote Desktop Users" of the
+##      client ; needs bob (step 1) and the join (step 2)
 ##
 ## No Linux baseline here (basic packages, dot files, ufw) : both hosts run Windows.
 ##
@@ -18,3 +20,5 @@
 - import_playbook: ./stage_01-vm_configure/ad-client.yml
 
 - import_playbook: ./stage_01-vm_configure/eval-activation.yml
+
+- import_playbook: ./stage_01-vm_configure/rdp-access.yml

@@ -1,0 +1,20 @@
+##
+## rdp-access - Remote Desktop on both ad_lab VMs
+##
+## Runs AFTER ad-dc.yml (user bob) and ad-client.yml (join) : RANGE42\bob must exist and the
+## client must be a member before the role adds bob to its group "Remote Desktop Users".
+## - ad-client01 : RANGE42\bob added. The local administrator alice of the client can log on too.
+## - ad-dc01 : nobody added. The Default Domain Controllers Policy grants the RDP log-on right to
+##   Administrators only, so the group would not let bob log on ; RANGE42\alice is the DC account.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.rdp_access/main.yml"
+  vars:
+    TARGET_GROUP: "r42_ad_dc"
+    RDP_USERS: []
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.rdp_access/main.yml"
+  vars:
+    TARGET_GROUP: "r42_ad_clients"
+    RDP_USERS:
+      - "{{ ad_lab_netbios | default('RANGE42') }}\\bob"
