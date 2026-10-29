@@ -113,6 +113,19 @@ try {
         }
         Write-Output "BitLocker C: $((Get-BitLockerVolume -MountPoint 'C:').VolumeStatus)"
     }
+    # No Windows hypervisor, no VBS, no Credential Guard : under nested virtualisation a
+    # Windows 11 clone stalled at boot while launching the hypervisor (README, Nested virtualisation).
+    bcdedit.exe /set hypervisorlaunchtype off
+    if ($LASTEXITCODE -ne 0) { throw "bcdedit hypervisorlaunchtype exit code $LASTEXITCODE" }
+    $dg = 'HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard'
+    foreach ($v in @(
+            @($dg, 'EnableVirtualizationBasedSecurity'),
+            @($dg, 'RequirePlatformSecurityFeatures'),
+            @("$dg\Scenarios\HypervisorEnforcedCodeIntegrity", 'Enabled'),
+            @('HKLM:\SYSTEM\CurrentControlSet\Control\Lsa', 'LsaCfgFlags'))) {
+        if (-not (Test-Path $v[0])) { New-Item -Path $v[0] -Force | Out-Null }
+        New-ItemProperty -Path $v[0] -Name $v[1] -PropertyType DWord -Value 0 -Force | Out-Null
+    }
 
     #### 5. cleanup : no stored logon password, no SSH host keys shared by every clone
     $winlogon = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'

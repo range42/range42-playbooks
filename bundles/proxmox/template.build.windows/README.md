@@ -55,7 +55,8 @@ is bootstrapped by `bundles/proxmox/vm.bootstrap` exactly like a Linux clone (se
 7. **finalize.ps1** (first logon, transcript `C:\range42-build.log`): virtio guest tools,
    QEMU guest agent, OpenSSH server (capability, `DefaultShell` = `powershell.exe`, firewall
    rule TCP 22), cloudbase-init (Authenticode check, service as LocalSystem), hibernation and
-   automatic updates off, BitLocker off on `C:`, Winlogon password removed, SSH host keys
+   automatic updates off, BitLocker off on `C:`, Windows hypervisor launch, VBS, HVCI and
+   Credential Guard off (see [Nested virtualisation](#nested-virtualisation)), Winlogon password removed, SSH host keys
    deleted (each clone generates its own), then
    `sysprep /generalize /oobe /shutdown /unattend:unattend-sysprep.xml`. If sysprep fails
    because of an Appx package "installed for a user, but not provisioned", the package is
@@ -217,13 +218,83 @@ cloud-init wait detects `ansible_shell_type: powershell` and waits for the cloud
 service to stop, probing over plain ssh from the controller so that the hostname reboot does
 not fail the play.
 
+## Nested virtualisation
+
+The templates use `cpu host`, the CPU model that the Proxmox best-practice page recommends. The
+clones therefore see VMX. When the Proxmox node is itself a VM (here a VMware guest with KVM
+nested virtualisation on), a Windows guest that launches its own hypervisor runs a third level of
+virtualisation. Windows 11 (build 26300) launches its hypervisor at boot for Virtualization-Based
+Security (VBS) ; Windows Server 2025 does not.
+
+Measured before the change below, on Proxmox VE 9.2 inside VMware with KVM nested virtualisation:
+
+- A Windows 11 clone with `cpu host` stayed on the boot spinner for 35.6 hours (uptime 128118 s),
+  both vCPUs busy, almost no disk I/O.
+- The same clone with `qm set <id> --cpu x86-64-v3` (no VMX) answered the guest agent 46 s after
+  `qm start`. The System log then holds event 41 of `Microsoft-Windows-Hyper-V-Hypervisor` (the
+  hypervisor launch failed because VMX is missing).
+- A Windows Server 2025 clone with `cpu host` logs no `Microsoft-Windows-Hyper-V-Hypervisor` event
+  and boots normally.
+`finalize.ps1` therefore disables, on both templates before sysprep: the hypervisor launch
+(`bcdedit /set hypervisorlaunchtype off`), VBS (`HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard`
+`EnableVirtualizationBasedSecurity` = 0, `RequirePlatformSecurityFeatures` = 0), memory integrity
+(`...\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity` `Enabled` = 0) and Credential Guard
+(`HKLM\SYSTEM\CurrentControlSet\Control\Lsa` `LsaCfgFlags` = 0). The CPU model stays `cpu host` :
+the clones still see VMX, they do not use it.
+
+Measured with templates built with this change, one clone of each, same platform:
+
+- The four registry values are 0 on both clones, `Win32_DeviceGuard`
+  `VirtualizationBasedSecurityStatus` is 0, and the System log holds no
+  `Microsoft-Windows-Hyper-V-Hypervisor` event.
+- The `bcdedit` setting does not reach the clones : the build log shows "The operation completed
+  successfully.", but `bcdedit /enum all` on a clone has no `hypervisorlaunchtype` element.
+  `sysprep /generalize` rewrites the BCD store (`Sysprep_Generalize_Bcd` in the sysprep log). So
+  the element does not survive generalize : the `bcdedit` command in `finalize.ps1` has no effect
+  on the clones.
+- **The registry values are the control.** With them alone, the clones logged no hypervisor event
+  and report VBS 0. This is consistent with the hypervisor staying off; no clone without the
+  values was measured.
+- If the boot entry must carry `hypervisorlaunchtype Off` on a clone, re-apply the command after
+  sysprep, on the clone: for example `bcdedit /set hypervisorlaunchtype off` in
+  `%WINDIR%\Setup\Scripts\SetupComplete.cmd`, which Windows Setup runs once at the end of the
+  clone's setup. This bundle does not write that file.
+- Windows 11 clone with `cpu host` : guest agent 36 s after `qm start`.
+- Some reboots of both clones still took about 11 minutes between the shutdown of the OS (System
+  event 13) and the start of the next kernel (event 12) : 11 min 50 s for the host name reboot of
+  the Windows 11 clone, 10 min 51 s for the promotion reboot of the Windows Server 2025 domain
+  controller. During the Windows 11 one the console was black, both vCPUs were busy and the disk
+  read counter did not move during a 35 s sample. Other reboots of the same clones took 16 to
+  31 s. The Windows Server 2025 clone did not launch the hypervisor in the measurement above, so
+  these slow reboots most likely have another cause, which is not established.
+
+A cyber-range client without VBS and without Credential Guard is the intended lab posture : LSASS
+holds credentials in its own memory, which exercises on credential theft from LSASS need. Do not
+reuse these templates where Credential Guard is required.
+
+Memory integrity (HVCI) off has a separate consequence : the hypervisor no longer enforces kernel
+code integrity, so unsigned drivers and vulnerable signed drivers load more easily on every clone of
+both templates, the Windows Server 2025 domain controller included. Driver signature enforcement
+still applies, but only the kernel itself protects it : code that runs in the kernel, for example
+through a vulnerable signed driver, can turn it off and load unsigned code. The bundle applies all four
+values unconditionally, to every template it builds ; there is no variable to keep VBS, HVCI or
+Credential Guard on. Do not reuse these templates where kernel driver integrity matters.
+
 ## Constraints of the evaluation editions
 
 - Windows Server 2025 evaluation: 180 days from activation. Windows 11 Enterprise evaluation:
   90 days from activation.
-- The evaluation must activate online within 10 days, otherwise Windows Server shuts down
-  every hour. The clones therefore need internet access (SNAT on their vnet) during their
-  first days ; a scenario without internet must take this into account.
+- `sysprep /generalize` rearms the licensing state, and a clone starts with an expired grace
+  period (Software Protection status code `0xC004F009` in Application event 1003). The clone must
+  complete one online activation. Windows tries it automatically at boot ; after a failure the next
+  automatic attempt is one day later. Meanwhile `wlms.exe` (Windows Licensing Monitoring Service)
+  shuts the clone down 60 minutes after each boot (System event 1074 by `wlms.exe`, WLMS event
+  101). Measured on a Windows 11 clone whose DNS server did not resolve external names at boot :
+  activation failure with event 8200 `hr=0x80072EE7`, shutdown 60 minutes after boot.
+- The clones therefore need internet access (SNAT on their vnet) and a DNS server that resolves
+  external names at their first boot. A scenario activates them explicitly with
+  `bundles/generic/systems.configure.windows_eval_activation` once that DNS path exists ; a scenario
+  without internet must take this into account.
 - Windows host names are NetBIOS names : at most 15 characters. cloudbase-init truncates a
   longer Proxmox VM name (`netbios_host_name_compatibility=true`).
 
@@ -295,6 +366,7 @@ under nested virtualisation with the ISOs of [Measured values](#measured-values)
 | Windows 11 first logon | the console stays on "Welcome", no disk or network I/O, both vCPUs busy in the guest kernel | none in the bundle : stop the build at the timeout and restart it (see Operations) | seen once in four Windows 11 builds : no I/O for 15 minutes, both vCPUs at a fixed kernel address. The next build did not hang. Cause not established |
 | sysprep | sysprep fails on an Appx package "installed for a user, but not provisioned" | `finalize.ps1` removes the package and runs sysprep once more | Windows 11 : sysprep succeeded at the first attempt (`Sysprep_succeeded.tag`), the retry was not needed. Windows Server 2025 : sysprep shut the VM down and the template was created ; whether the retry ran was not recorded |
 | clone first boot | `vm.bootstrap` fails on the SSH wait | `global_vm_ssh_wait_retries: 180` | the first boot of a Windows Server 2025 clone took up to 15 minutes until SSH answered (108 SSH wait retries), with several minutes of black console between the reboots of the specialize pass (the vCPUs were in System Management Mode, that is in the UEFI firmware). 108 retries are more than the default of 60. The first Windows 11 clone needed 15 retries |
+| Windows 11 clone boot, nested virtualisation | the console stays on the boot spinner, both vCPUs busy, almost no disk I/O, no guest agent | `finalize.ps1` sets VBS, HVCI and Credential Guard to off (registry) and runs `bcdedit /set hypervisorlaunchtype off`, which does not reach the clones ; the alternative is a CPU model without VMX (`x86-64-v3`) on the clone | see [Nested virtualisation](#nested-virtualisation) : 35.6 hours on the spinner with `cpu host`, guest agent after 46 s with `x86-64-v3`, on a template without the change. With the change and `cpu host` : guest agent 36 s after `qm start`, no Hyper-V-Hypervisor event. Some later reboots of both editions still take about 11 minutes before the kernel starts, cause not established |
 | clone configuration | hostname, key or network not applied | a cloudbase-init `LocalScripts` plugin reading the drive | not needed : see [Clone contract](#clone-contract) |
 
 ## Files in this directory
