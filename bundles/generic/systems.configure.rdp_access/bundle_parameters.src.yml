@@ -1,0 +1,21 @@
+---
+bundle: generic/systems.configure.rdp_access
+
+description: Enable Remote Desktop on Windows hosts (registry, firewall rule group, TermService) and add accounts to the Remote Desktop Users group
+
+optional: false
+
+params:
+  - name: TARGET_GROUP
+    target: true
+    type: string
+    required: true
+    default_where: none
+    description: Ansible inventory group the play targets (used in hosts) - Windows hosts
+
+  - name: RDP_USERS
+    type: list
+    items: string
+    required: false
+    default_where: role-defaults
+    description: Accounts to add to the group Remote Desktop Users, for example EXAMPLE\user ; members are only added ; read directly by the role
