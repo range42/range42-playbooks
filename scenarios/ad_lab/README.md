@@ -124,11 +124,13 @@ Accounts that can log on:
 |---|---|---|
 | ad-dc01 (192.168.151.201) | `RANGE42\alice`, `RANGE42\Administrator` | administrators of the domain (built-in `Administrators`) ; on a DC the RDP log-on right is granted to Administrators only |
 | ad-client01 (192.168.151.202) | `RANGE42\bob` | member of the local group "Remote Desktop Users" (the deploy adds it) |
+| ad-client01 | `RANGE42\Administrator` | member of `Domain Admins`, which is in the local Administrators group of the client |
 | ad-client01 | `AD-CLIENT01\alice` (local account, `.\alice`) | local administrator from the template |
 
 `RANGE42\alice` cannot log on to ad-client01 : it is a member of the domain built-in
-`Administrators` group, not of `Domain Admins`, and only `Domain Admins` is in the local
-Administrators group of the client.
+`Administrators` group, not of `Domain Admins`. The local Administrators group of the client holds
+the local Administrator, the local `alice` and `RANGE42\Domain Admins` ; "Remote Desktop Users"
+holds `RANGE42\bob` only.
 
 Two paths reach tcp 3389:
 
