@@ -7,6 +7,8 @@
 ## Sequence (the order matters) :
 ##   1. ad-dc.yml     : promote ad-dc01 (new forest range42.lab, DNS), then create the user bob
 ##   2. ad-client.yml : join ad-client01 to the domain, through the DC's DNS
+##   3. eval-activation.yml : online activation of both evaluation editions ; the client resolves
+##      the Microsoft hosts through the DNS forwarder of the DC
 ##
 ## No Linux baseline here (basic packages, dot files, ufw) : both hosts run Windows.
 ##
@@ -14,3 +16,5 @@
 - import_playbook: ./stage_01-vm_configure/ad-dc.yml
 
 - import_playbook: ./stage_01-vm_configure/ad-client.yml
+
+- import_playbook: ./stage_01-vm_configure/eval-activation.yml

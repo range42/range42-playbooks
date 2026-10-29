@@ -1,0 +1,35 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "generic",
+  "bundle": "generic/systems.configure.windows_eval_activation",
+  "description": "Activate Windows evaluation editions online (slmgr.vbs /ato with retries until licensed for more than one day, else fail with the error code)",
+  "optional": false,
+  "params": [
+    {
+      "name": "TARGET_GROUP",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Ansible inventory group the play targets (used in hosts) - Windows hosts"
+    },
+    {
+      "name": "WIN_EVAL_ACTIVATION_RETRIES",
+      "type": "int",
+      "required": false,
+      "default_where": "role-defaults",
+      "description": "Activation attempts after the first one ; read directly by the role",
+      "default": 10,
+      "default_review": true
+    },
+    {
+      "name": "WIN_EVAL_ACTIVATION_DELAY",
+      "type": "int",
+      "required": false,
+      "default_where": "role-defaults",
+      "description": "Seconds between two activation attempts ; read directly by the role",
+      "default": 60,
+      "default_review": true
+    }
+  ]
+}
