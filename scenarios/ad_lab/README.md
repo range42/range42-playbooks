@@ -42,20 +42,25 @@ contract" and "Operations" (build time).
 | Account | Where | Password | SSH |
 |---|---|---|---|
 | `alice` | local administrator baked into both templates ; on the DC it becomes the domain account `RANGE42\alice` at the promotion | vault `default_admin_vm_ci_password` | yes, key only (deployer key) |
-| built-in `Administrator` (RID 500) of ad-dc01 | set before the promotion, then **domain** Administrator `RANGE42\Administrator` | vault `ad_lab_builtin_admin_password` | no key installed |
-| `bob` | domain user, created on the DC | vault `ad_lab_user_password` | no |
+| built-in `Administrator` (RID 500) of ad-dc01 | set before the promotion, then **domain** Administrator `RANGE42\Administrator` | vault `default_windows_builtin_admin_password` (generated) | no key installed |
+| `bob` | domain user, created on the DC ; the platform trainee user, so it shares the trainee password | vault `default_trainee_vm_ci_password` (generated) | no |
 | built-in `Administrator` of ad-client01 | local, **disabled** (Windows 11 default ; the join role fails if it is enabled) | - | - |
 
 **On the DC, `alice` and `Administrator` no longer share a password.** A clone of template 9250
 carries the vault `alice` password on the built-in Administrator too, and cloudbase-init does not
-change it. `software.install.ad_domain_controller` sets `ad_lab_builtin_admin_password` on that
+change it. `software.install.ad_domain_controller` sets `default_windows_builtin_admin_password` on that
 account before the promotion, so the domain Administrator gets its own value. ad-client01 joins
 the domain with `Administrator@range42.lab`.
 
-The DSRM password of the DC is `ad_lab_dsrm_password`. The three `ad_lab_*` values must be in the
-scenario vault before the deploy (see `templates/vault-example.yml`). They must satisfy the
-default domain password policy: at least 7 characters and three of the four classes (upper case,
-lower case, digits, symbols).
+The DSRM password of the DC is `default_ad_dsrm_password`. The bootstrapper generates the AD
+passwords in the workspace vault when the workspace is created (`range42-context init`), like the
+`alice` and `bob` passwords: nothing to type. The stage_01 files read these vault keys directly. Read
+them with `range42-context show-vault`. The two Windows keys are 32 characters of a-z A-Z 0-9 - _
+ending with a fixed upper case letter, lower case letter and digit, so they satisfy the default
+domain password policy (at least 7 characters and three of the four classes) by construction. The
+trainee password used for `bob` is 32 random characters of the same set without that guarantee:
+about 1 workspace in 770 gets a value with fewer than three classes, and the creation of `bob` then
+fails.
 
 ## What the deploy does
 
@@ -247,7 +252,7 @@ holds `r42_ad_dc` (`r42.ad-dc01`) and `r42_ad_clients` (`r42.ad-client01`).
 
 - The domain names come from `templates/ansible-vars.yml` (`ad_lab_domain`, `ad_lab_netbios`) ;
   the stage_01 files fall back to the same values.
-- A change of `ad_lab_builtin_admin_password` after the first deploy is not applied by a rerun :
+- A change of `default_windows_builtin_admin_password` after the first deploy is not applied by a rerun :
   the DC role sets it only before the promotion.
 - A change of `default_admin_vm_ci_password` needs a rebuild of both templates (template bundle
   README, "Operations").
