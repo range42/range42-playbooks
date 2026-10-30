@@ -1,0 +1,31 @@
+---
+##
+## ad_lab - preflight : fail before any network, template or VM change when the workspace vault
+## lacks one of the passwords that the stage_01 plays read. The bootstrapper generates them at
+## `range42-context init` ; a workspace created before that generation existed has none of them.
+## Only the key names are checked and printed, never a value.
+##
+
+- name: "ad_lab - preflight : generated AD passwords in the workspace vault"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    _ad_lab_required_vault_keys:
+      - default_ad_dsrm_password
+      - default_windows_builtin_admin_password
+      - default_trainee_vm_ci_password
+  tasks:
+    - name: "ad_lab - preflight : required vault keys are set"
+      ansible.builtin.assert:
+        that:
+          - lookup('vars', item, default='') | string | length > 0
+          - "'REPLACE_ME' not in (lookup('vars', item, default='') | string)"
+        fail_msg: >-
+          vault key {{ item }} is missing, empty or a REPLACE_ME placeholder in
+          {{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml.
+          Recreate the workspace with range42-context init.
+        quiet: true
+      loop: "{{ _ad_lab_required_vault_keys }}"

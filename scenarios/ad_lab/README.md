@@ -212,6 +212,36 @@ range42-context use <codename> ad_lab
 ./ad_lab.setup.sh -e FIREWALL_ARM_VMS=YES
 ```
 
+The deploy first runs `_preflight.yml` : it stops before any change when the workspace vault lacks
+`default_ad_dsrm_password`, `default_windows_builtin_admin_password` or
+`default_trainee_vm_ci_password` (workspace created before the bootstrapper generated them ;
+recreate it with `range42-context init`).
+
+## Operator access
+
+From the deployer, in a shell where the ad_lab workspace is active (`range42-context use
+<codename> ad_lab`) :
+
+```bash
+range42-context ssh-reload           # load the workspace SSH keys into ssh-agent
+range42-context ssh ad-dc01          # PowerShell session as alice on 192.168.151.201
+range42-context ssh ad-client01      # PowerShell session as alice on 192.168.151.202
+range42-context show-vault           # the generated passwords (alice, Administrator, bob, DSRM)
+```
+
+`range42-context ssh <pattern>` looks the pattern up in the `Host r42.*` entries of the workspace
+SSH config (`~/.ssh/config_range42-<codename>-ad_lab`) ; both hosts go through the jump host
+`px.<codename>.jumper` (ProxyJump).
+
+RDP to ad-client01 as `RANGE42\bob`, through the jump host :
+
+```bash
+ssh -N -L 13389:192.168.151.202:3389 px.<codename>.jumper
+# RDP client -> localhost:13389, user RANGE42\bob, password: vault default_trainee_vm_ci_password
+```
+
+The other accounts and the DC forward are in "RDP through the jump host".
+
 ## Wrapper scripts
 
 | Script | Effect |
