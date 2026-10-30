@@ -149,6 +149,26 @@ ssh -N -L 13390:192.168.151.201:3389 px.<codename>.jumper   # ad-dc01
 # RDP client -> localhost:13389 or localhost:13390
 ```
 
+### RDP client note : Kerberos discovery delay (FreeRDP, Remmina)
+
+FreeRDP 3 (Remmina) tries Kerberos before NTLM. The MIT Kerberos library first sends a DNS query
+of type URI for `_kerberos.<DOMAIN>`. Some resolvers (home routers) never answer that query type
+while they answer SRV queries normally : each Kerberos attempt then waits 2 servers x 2 retries x
+5 s = 20 s, FreeRDP makes several attempts, and the connection ends with "cannot connect" or
+`ERRCONNECT_ACTIVATION_TIMEOUT` before the NTLM fallback (measured 2026-10-30 with
+`KRB5_TRACE=/tmp/krb5.trace remmina -c <profile>` : the URI query took 20.1 s, the SRV queries 7 ms).
+The domain has no reachable KDC from the operator workstation anyway, so NTLM is the expected path.
+
+Fix on the workstation, in `/etc/krb5.conf`:
+
+```ini
+[libdefaults]
+    dns_uri_lookup = false
+```
+
+Remmina's own setting "FreeRDP auth-pkg-list" (`rdp_auth_filter=!kerberos`) did not stop the
+Kerberos attempt with Remmina 1.4.43 / FreeRDP 3.32 ; cause not established.
+
 ## Evaluation editions
 
 - Windows Server 2025 evaluation: 180 days from activation ; Windows 11 Enterprise evaluation:
