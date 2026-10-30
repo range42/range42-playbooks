@@ -4,8 +4,9 @@
 ## Runs AFTER ad-dc.yml (user bob) and ad-client.yml (join) : RANGE42\bob must exist and the
 ## client must be a member before the role adds bob to its group "Remote Desktop Users".
 ## - ad-client01 : RANGE42\bob added. The local administrator alice of the client can log on too.
-## - ad-dc01 : nobody added. The Default Domain Controllers Policy grants the RDP log-on right to
-##   Administrators only, so the group would not let bob log on ; RANGE42\alice is the DC account.
+## - ad-dc01 : nobody added. On the DC the RDP log-on right lists Administrators only (measured on
+##   Windows Server 2025 : SeRemoteInteractiveLogonRight = *S-1-5-32-544), so the group would not
+##   let bob log on ; RANGE42\alice is the DC account.
 ##
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.rdp_access/main.yml"
