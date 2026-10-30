@@ -155,7 +155,7 @@ FreeRDP 3 (Remmina) tries Kerberos before NTLM. The MIT Kerberos library first s
 of type URI for `_kerberos.<DOMAIN>`. Some resolvers (home routers) never answer that query type
 while they answer SRV queries normally : each Kerberos attempt then waits 2 servers x 2 retries x
 5 s = 20 s, FreeRDP makes several attempts, and the connection ends with "cannot connect" or
-`ERRCONNECT_ACTIVATION_TIMEOUT` before the NTLM fallback (measured 2026-10-30 with
+`ERRCONNECT_ACTIVATION_TIMEOUT` before the NTLM fallback (measured with
 `KRB5_TRACE=/tmp/krb5.trace remmina -c <profile>` : the URI query took 20.1 s, the SRV queries 7 ms).
 The domain has no reachable KDC from the operator workstation anyway, so NTLM is the expected path.
 
