@@ -229,7 +229,7 @@ range42-context ssh ad-client01      # PowerShell session as alice on 192.168.15
 range42-context show-vault           # the generated passwords (alice, Administrator, bob, DSRM)
 ```
 
-`range42-context ssh-reload` runs `ssh-add -D` first : it clears every key of the current ssh-agent.
+`range42-context use` and `range42-context ssh-reload` run `ssh-add -D` first : they clear every key of the current ssh-agent.
 
 Run `range42-context use` in the same shell before `range42-context deploy` : the deploy reads
 `RANGE42_ACTIVE_CONFIG_DIR`, `RANGE42_ACTIVE_WORKSPACE` and `RANGE42_VAULT_PASSWORD_FILE`, which only
