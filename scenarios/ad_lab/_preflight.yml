@@ -18,6 +18,15 @@
       - default_windows_builtin_admin_password
       - default_trainee_vm_ci_password
   tasks:
+    - name: "ad_lab - preflight : a workspace is active"
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') | length > 0
+        fail_msg: >-
+          RANGE42_ACTIVE_CONFIG_DIR is not set : no workspace is active in this shell.
+          Run range42-context use <codename> ad_lab first.
+        quiet: true
+
     - name: "ad_lab - preflight : required vault keys are set"
       ansible.builtin.assert:
         that:
