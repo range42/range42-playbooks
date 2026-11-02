@@ -212,17 +212,18 @@ Symptom : a VM start stays on a black console. Proxmox shows 0 bytes read from d
 load of 0. The QEMU monitor shows CPU 0 in System Management Mode (`info registers` : `SMM=1`).
 The hang is intermittent. It was seen on clones of the Windows Server 2025 template (OVMF,
 `efitype 4m`, Secure Boot keys pre-enrolled, TPM v2, q35, `cpu host`) on Proxmox VE 9.2 nested
-in VMware Workstation, three times : once on the first start of a fresh clone, once on a cold
-start after a Proxmox reboot, and once in an earlier deploy. One hang lasted more than 95
-minutes, another more than 5 minutes ; `qm reset` ended both. The hang after the Proxmox reboot
-ended alone after about 2.5 minutes. No hang was recorded on the Windows 11 clone.
+in VMware Workstation, three times. One hang lasted more than 95 minutes, another one, on the
+first start of a fresh clone, more than 5 minutes ; `qm reset` ended both. The third one, on a
+cold start after a Proxmox reboot, ended alone after about 2.5 minutes. No firmware hang was
+recorded on the Windows 11 clone.
 
 Workaround : stage_00 sets `global_vm_firmware_stall_reset_after: 240` on both VMs. The Windows
 11 clone gets it too : `bundles/proxmox/template.build.windows` creates both templates with the
-same OVMF, Secure Boot keys and TPM settings, and the cause is not established. When the
-play starts a VM and the VM reads 0 bytes from disk during 4 minutes of uptime, the play resets
-the VM through the Proxmox API (once, `global_vm_firmware_stall_max_resets`) and prints one line
-with the VM id, the uptime and the reset number. The reset task reports `changed`. When the VM
+same `qm create` command (OVMF, `efitype=4m`, pre-enrolled Secure Boot keys, TPM v2), and the
+cause is not established. When the play starts a VM and the VM reads 0 bytes from disk during
+4 minutes of uptime, the play resets the VM through the Proxmox API (once,
+`global_vm_firmware_stall_max_resets`) and prints one line with the VM id, the uptime and the
+reset number. The reset task reports `changed`. When the VM
 still reads nothing after the second window, the play fails. The play never resets a VM that
 was already running. Details : the header of `bundles/proxmox/vm.bootstrap/main.yml`.
 

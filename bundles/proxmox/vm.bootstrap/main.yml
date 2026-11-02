@@ -138,11 +138,11 @@
         proxmox_vm_action: "vm_start"
         vm_id: "{{ global_vm_id }}"
 
-    # Workaround, not a fix : the first start of a fresh OVMF clone can hang in the firmware
-    # (black console, 0 bytes read from disk) and a reset ends the hang. The cause is not
-    # established. The watchdog runs only when the VM was not running before this play
-    # (READ VM STATUS), so it never resets a VM that was already running. Each reset prints one
-    # line and reports changed.
+    # Workaround, not a fix : the start of an OVMF VM (a fresh clone, or a cold start) can hang
+    # in the firmware (black console, 0 bytes read from disk) and a reset ended the long hangs.
+    # The cause is not established. The watchdog runs only when the VM was not running before
+    # this play (READ VM STATUS), so it never resets a VM that was already running. Each reset
+    # prints one line and reports changed.
     - name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG
       when:
         - global_vm_firmware_stall_reset_after | default(0) | int > 0

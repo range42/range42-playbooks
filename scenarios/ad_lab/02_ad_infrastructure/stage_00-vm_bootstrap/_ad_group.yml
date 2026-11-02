@@ -27,10 +27,10 @@
 # global_vm_firmware_stall_reset_after 240 (4 min) : workaround, the cause is not established.
 # A start of the Windows Server 2025 clone can hang in the OVMF firmware : black console,
 # 0 bytes read from disk. A reset ended the two long hangs. One hang ended alone after about
-# 2.5 min, hence 4 min before the reset. No hang was recorded on the Windows 11 clone, but the
-# template bundle creates both templates with the same OVMF, Secure Boot keys and TPM settings,
-# and the cause is not established : the workaround covers both VMs. See the README, section
-# "Known issues".
+# 2.5 min, hence 4 min before the reset. No firmware hang was recorded on the Windows 11 clone,
+# but the template bundle creates both templates with the same qm create command (OVMF,
+# efitype 4m, pre-enrolled Secure Boot keys, TPM v2) and the cause is not established : the
+# workaround covers both VMs. See the README, section "Known issues".
 #
 # Host names stay at most 15 characters (NetBIOS limit, checked by the template bundle).
 #
