@@ -21,8 +21,8 @@
 # default budget of 60.
 #
 # global_vm_clone_unlock_retries 360 (5 s apart : 30 min) : the full clone of a 64 GiB template
-# holds the Proxmox lock while it copies the disk ; one clone of 9250 took 14 min at 24-32 MiB/s
-# on a single-disk node, beyond the default budget of 5 min.
+# holds the Proxmox lock while it copies the disk. On a single-disk node, the clone of 9250 took
+# 14 min 13 s and the clone of 9251 took 19 min 15 s, beyond the default budget of 5 min.
 #
 # Host names stay at most 15 characters (NetBIOS limit, checked by the template bundle).
 #
