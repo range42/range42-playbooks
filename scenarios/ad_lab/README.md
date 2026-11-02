@@ -5,23 +5,29 @@ Active Directory scenario: one **Windows Server 2025 domain controller** for the
 Enterprise client** joined to that domain. Both run on the SDN vnet `net151` and are reached over
 OpenSSH with a PowerShell shell.
 
-The two VMs ARE the workload of this scenario: always deployed, no feature flag
-(`manifest/feature_flags.yml` has `features: []`). The scenario started as a copy of `misp_lab`.
+The two Windows VMs ARE the workload of this scenario: always deployed. One optional component,
+off by default: a Wazuh manager on an admin LAN with the Wazuh agent on both Windows VMs
+(`INSTALL_WAZUH=YES`, see "Wazuh (optional)"). The scenario started as a copy of `misp_lab`.
 
 ## Network architecture
 
 ```
-Proxmox host (holds 192.168.151.1, routes, SNAT to the outside)
+Proxmox host (holds 192.168.151.1 and 192.168.142.1, routes, SNAT to the outside)
  |
  +-- net140  192.168.140.0/24  templating (build of 9250 and 9251 only)
  |
  +-- net151  192.168.151.0/24  ad_lab
-       +-- ad-dc01      .201  (VMID 1201)  domain controller, DNS of range42.lab
-       +-- ad-client01  .202  (VMID 1202)  domain member, DNS = 192.168.151.201
+ |     +-- ad-dc01      .201  (VMID 1201)  domain controller, DNS of range42.lab
+ |     +-- ad-client01  .202  (VMID 1202)  domain member, DNS = 192.168.151.201
+ |
+ +-- net142  192.168.142.0/24  admin LAN, INSTALL_WAZUH=YES only, shared with other scenarios
+       +-- ad-wazuh01   .204  (VMID 1204)  Wazuh manager (indexer, dashboard, manager)
 ```
 
-Both vnets have SNAT on. The Windows 11 template build downloads the OpenSSH server through
-`net140`, and the evaluation editions must activate online (see "Evaluation editions").
+All vnets have SNAT on. The Windows 11 template build downloads the OpenSSH server through
+`net140`, the evaluation editions must activate online (see "Evaluation editions"), and the
+Wazuh manager downloads its packages. The node routes between `net151` and `net142` without
+address translation : the manager sees the agents with their own addresses.
 
 ## VM details
 
@@ -29,9 +35,14 @@ Both vnets have SNAT on. The Windows 11 template build downloads the OpenSSH ser
 |---|---|---|---|---|---|
 | ad-dc01 | 1201 | 192.168.151.201 | `net151` | template-vm-win2025-02-4g-64g (9250) | domain controller, DNS server |
 | ad-client01 | 1202 | 192.168.151.202 | `net151` | template-vm-win11-02-4g-64g (9251) | domain member |
+| ad-wazuh01 | 1204 | 192.168.142.204 | `net142` | template-vm-medium-02-8g-64g (9232) | Wazuh manager, `INSTALL_WAZUH=YES` only |
 
-Source of truth: `manifest/scenario_vms.json`. Each VM has 2 vCPU, 4 GB of RAM and a 64 GB disk,
-inherited from its template. Host names stay at most 15 characters (NetBIOS limit).
+Source of truth: `manifest/scenario_vms.json`. Each Windows VM has 2 vCPU, 4 GB of RAM and a 64 GB
+disk, inherited from its template. Host names stay at most 15 characters (NetBIOS limit).
+
+With `INSTALL_WAZUH=YES` the scenario costs one more VM : 2 vCPU, 8 GiB of RAM and a 64 GiB disk,
+from template 9232. The scenario does not build 9232 : it must exist on the node (other scenarios
+use it too).
 
 The templates come from `bundles/proxmox/template.build.windows` (unattended build from the
 Microsoft evaluation ISOs). Read its README before the first deploy, in particular "Clone
@@ -68,7 +79,8 @@ fails.
 
 1. `_firewall` stages 00 and 01: firewall status report, management access on the datacenter and
    node chains (rules only).
-2. `00_sdn_bootstrap`: creates `net140` and `net151` when missing, never deletes.
+2. `00_sdn_bootstrap`: creates `net140` and `net151` when missing, never deletes. With
+   `INSTALL_WAZUH=YES`, `net142` too.
 3. `01_templates-bootstrap`: builds templates 9250 and 9251 when missing ; existing templates are
    skipped.
 4. `02_ad_infrastructure` stage_00: clones ad-dc01 and ad-client01 with
@@ -88,8 +100,13 @@ fails.
    - `generic/systems.configure.windows_eval_activation` on both VMs: online activation of the
      evaluation editions (see "Evaluation editions") ;
    - `generic/systems.configure.rdp_access` on both VMs: Remote Desktop, `RANGE42\bob` in
-     "Remote Desktop Users" of ad-client01 (see "RDP through the jump host").
-7. `_firewall` stage 04: arming, only with `-e FIREWALL_ARM_VMS=YES` (default NO).
+     "Remote Desktop Users" of ad-client01 (see "RDP through the jump host") ;
+   - `INSTALL_WAZUH=YES` only : the Proxmox accepts of ad-wazuh01, the Linux baseline
+     (`generic/systems.baseline.default`, `generic/network.baseline.ssh`) and
+     `admin/software.install.wazuh` on ad-wazuh01 (see "Wazuh (optional)").
+7. `INSTALL_WAZUH=YES` only : `admin/software.install.wazuh_agent_windows` on both Windows VMs,
+   after every stage_01 step (the promotion and the join reboot the hosts).
+8. `_firewall` stage 04: arming, only with `-e FIREWALL_ARM_VMS=YES` (default NO).
 
 A second `./ad_lab.setup.sh` on running VMs does not clone again and does not restart them:
 `bundles/proxmox/vm.bootstrap` skips the cloud-init update when the VM is running and its
@@ -110,7 +127,8 @@ What the deploy declares on the Proxmox per-NIC firewall (rules only, inert unti
   464, 636, 3268, 3269, 9389 and 49152:65535 (RPC dynamic range), udp 53, 88, 123, 137, 138, 389,
   464, each from `192.168.151.0/24` only ;
 - ad-dc01 and ad-client01: tcp 3389 (RDP) from `192.168.151.1/32` only ;
-- both: the SSH accept of `firewall.baseline.ssh_all_vms`.
+- every VM of the scenario that runs: the SSH accept of `firewall.baseline.ssh_all_vms` ;
+- ad-wazuh01 (1204), `INSTALL_WAZUH=YES` only : see "Wazuh (optional)".
 
 The source `192.168.151.0/24` covers the domain members. `192.168.151.1` is the node itself, from
 which the jump-host forwards below arrive: RDP accepts only that address. The armed state of this
@@ -174,6 +192,67 @@ Fix on the workstation, in `/etc/krb5.conf`:
 Remmina's own setting "FreeRDP auth-pkg-list" (`rdp_auth_filter=!kerberos`) did not stop the
 Kerberos attempt with Remmina 1.4.43 / FreeRDP 3.32 ; cause not established.
 
+## Wazuh (optional)
+
+| Flag | Default | Effect of `YES` |
+|---|---|---|
+| `INSTALL_WAZUH` | `NO` | `net142` (when missing), VM ad-wazuh01 (1204), Wazuh 4.14.4 all-in-one on it, its Proxmox accepts, the Wazuh agent 4.14.4 on ad-dc01 and ad-client01 |
+
+```bash
+./ad_lab.setup.sh -e INSTALL_WAZUH=YES     # or the WAZUH checkbox of range42-context --tui
+```
+
+Without the flag, or with `INSTALL_WAZUH=NO`, the deploy creates no `net142`, no VM 1204 and no
+agent, and runs no Wazuh task on the AD hosts.
+
+- **Manager** : ad-wazuh01, 192.168.142.204 on `net142`, clone of template 9232. The deploy runs
+  the Linux baseline, then `admin/software.install.wazuh`, the bundle demo_lab uses : indexer,
+  dashboard, manager, filebeat-oss, dashboard user `admin` with the vault password
+  `infrastructure_wazuh_admin_password`. Its DNS server is the first address of
+  `AD_DC_DNS_FORWARDERS` (default `1.1.1.1`), the resolvers the DC forwards to.
+- **Agents** : `admin/software.install.wazuh_agent_windows` on ad-dc01 and ad-client01, after
+  every other configure step. Each agent enrolls with its host name (`ad-dc01`, `ad-client01`)
+  on tcp 1515 of 192.168.142.204 and reports on tcp 1514. The agent configuration is the one of
+  the MSI : the Security, System and Application event channels, no Sysmon, no change of the audit
+  policy.
+- **Enrollment has no password**, as in every scenario : any host that reaches tcp 1515 of the
+  manager can enroll an agent. The Proxmox accepts below restrict it, once armed.
+- **Workspace** : `range42-context init` renders the inventory (`r42.ad-wazuh01`, group
+  `r42_ad_wazuh`) and the SSH config from `templates/`. A workspace created before ad-wazuh01
+  existed lacks both : recreate it before the first deploy with the flag.
+
+Proxmox accepts on ad-wazuh01 (1204), declared by `stage_01-vm_configure/ad-wazuh.yml` (rules
+only, inert until armed). Not `firewall.baseline.wazuh`, which accepts tcp 22, 443, 1514, 1515 and
+55000 from any source :
+
+| Port | Source | Why |
+|---|---|---|
+| tcp 1514 | `192.168.151.201/32`, `192.168.151.202/32` | agent events |
+| tcp 1515 | `192.168.151.201/32`, `192.168.151.202/32` | agent enrollment, without password |
+| tcp 443 | `192.168.142.1/32` | dashboard ; the jump-host forward arrives from the node address on `net142` |
+| tcp 22 | as for every VM : `firewall.baseline.ssh_all_vms` | deploy and operator SSH |
+
+No tcp 55000 : the agents enroll on 1515 and do not call the manager API.
+
+**Isolation** : the admin LAN is isolated from `net151` only when the firewall is armed
+(`FIREWALL_ARM_VMS=YES`). Unarmed, the node routes freely between `net151` and `net142` : every
+host of `net151`, a trainee session on ad-client01 included, reaches every port that ufw opens
+on the manager.
+Inside the VM, `admin/software.install.wazuh` opens tcp 22, 443, 1514, 1515 and 55000 to any
+source in ufw : the Proxmox accepts above are the only source restriction. The armed state is not
+tested yet.
+
+Dashboard, from the deployer (or any host with the workspace SSH config) :
+
+```bash
+ssh -N -L 18443:192.168.142.204:443 px.<codename>.jumper
+# browser -> https://127.0.0.1:18443, user admin,
+# password: range42-context show-vault, key infrastructure_wazuh_admin_password
+```
+
+The dashboard certificate comes from a certificate authority that the server bundle generates on
+the deployer : the browser does not trust it and warns.
+
 ## Evaluation editions
 
 - Windows Server 2025 evaluation: 180 days from activation ; Windows 11 Enterprise evaluation:
@@ -235,12 +314,14 @@ This is a workaround, not a fix : the cause of the hang is not established.
 range42-context use <codename> ad_lab
 ./ad_lab.setup.sh                       # full deploy (templates built if missing)
 ./ad_lab.setup.sh -e FIREWALL_ARM_VMS=YES
+./ad_lab.setup.sh -e INSTALL_WAZUH=YES     # optional Wazuh manager + agents
 ```
 
 The deploy first runs `_preflight.yml` : it stops before any change when the workspace vault lacks
 `default_ad_dsrm_password`, `default_windows_builtin_admin_password` or
 `default_trainee_vm_ci_password` (workspace created before the bootstrapper generated them ;
-recreate it with `range42-context init`).
+recreate it with `range42-context init`). With `INSTALL_WAZUH=YES` it checks
+`infrastructure_wazuh_admin_password` too.
 
 ## Operator access
 
@@ -251,7 +332,8 @@ From the deployer, in a shell where the ad_lab workspace is active (`range42-con
 range42-context ssh-reload           # load the workspace SSH keys into ssh-agent
 range42-context ssh ad-dc01          # PowerShell session as alice on 192.168.151.201
 range42-context ssh ad-client01      # PowerShell session as alice on 192.168.151.202
-range42-context show-vault           # the generated passwords (alice, Administrator, bob, DSRM)
+range42-context ssh ad-wazuh01       # INSTALL_WAZUH=YES : shell as alice on 192.168.142.204
+range42-context show-vault           # the generated passwords (alice, Administrator, bob, DSRM, Wazuh admin)
 ```
 
 `range42-context use` and `range42-context ssh-reload` run `ssh-add -D` first : they clear every key of the current ssh-agent.
@@ -281,34 +363,38 @@ The other accounts and the DC forward are in "RDP through the jump host".
 | `ad_lab.setup.sh` | `main.yml` : networks, templates, VMs, AD configuration |
 | `ad_lab.setup_vms_only.sh` | `main_vms_only.yml` : same without the template build |
 | `ad_lab.setup_networks.sh` | `00_sdn_bootstrap` only (`--dry-run` : read-only diff) |
-| `ad_lab.delete_vms_only.sh` | stops and destroys 1201 and 1202 (from the manifest), keeps the templates |
+| `ad_lab.delete_vms_only.sh` | stops and destroys 1201, 1202 and 1204 when present (from the manifest), keeps the templates |
 | `ad_lab.delete_all.sh` | same, plus the templates 9250 and 9251 (rebuild : 30 minutes to more than one hour each) |
 | `ad_lab.reset.setup.sh` | deletes the VMs, then runs `main.yml` |
 | `ad_lab.reset.ssh_keys.sh` | removes the known_hosts entries of the VM addresses |
-| `ad_lab.delete_networks.sh` | removes the subnets and vnets named in the manifest, `net140` included ; it refuses while a VM or template of the manifest still exists |
+| `ad_lab.delete_networks.sh` | removes the subnets and vnets named in the manifest, `net140` and `net142` included ; it refuses while a VM or template of the manifest still exists, and does not check the VMs of other scenarios : `net140` and `net142` are shared |
 
 ## Structure
 
 ```
 ad_lab/
   main.yml / main_vms_only.yml
-  00_sdn_bootstrap/_main.yml                     net140 + net151
+  00_sdn_bootstrap/_main.yml                     net140 + net151 (+ net142 with INSTALL_WAZUH)
   01_templates-bootstrap/_main.yml               template.build.windows (win2025, win11)
   02_ad_infrastructure/
     _main.yml                                    devkit-only wrapper
     _main_stage_00.yml / _main_stage_01.yml
-    stage_00-vm_bootstrap/_ad_group.yml          two vm.bootstrap blocks
+    stage_00-vm_bootstrap/_ad_group.yml          two vm.bootstrap blocks (+ 1204 with INSTALL_WAZUH)
     stage_01-vm_configure/ad-dc.yml              promotion + user bob
     stage_01-vm_configure/ad-client.yml          domain join
     stage_01-vm_configure/eval-activation.yml    online activation of both VMs
     stage_01-vm_configure/rdp-access.yml         Remote Desktop on both VMs
+    stage_01-vm_configure/ad-wazuh.yml           INSTALL_WAZUH : Wazuh manager + its Proxmox accepts
+    stage_01-vm_configure/_finalize-ad_wazuh_agents.yml   INSTALL_WAZUH : agents, from main.yml
   _firewall/                                     five moments, see its README
   manifest/scenario_vms.json, feature_flags.yml
   templates/                                     inventory, ssh-config, vars, vault example
 ```
 
 The inventory group `r42_ad_windows` (`ansible_shell_type: powershell`, `ansible_user: alice`)
-holds `r42_ad_dc` (`r42.ad-dc01`) and `r42_ad_clients` (`r42.ad-client01`).
+holds `r42_ad_dc` (`r42.ad-dc01`) and `r42_ad_clients` (`r42.ad-client01`). The group
+`r42_ad_wazuh` holds `r42.ad-wazuh01` (Linux). The Wazuh plays target the runtime groups
+`r42_ad_wazuh_active` and `r42_ad_wazuh_agents_active`, filled only with `INSTALL_WAZUH=YES`.
 
 ## Notes
 
