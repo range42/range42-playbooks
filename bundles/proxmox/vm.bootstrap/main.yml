@@ -3,6 +3,7 @@
 # vm.bootstrap - shared per-VM stage_00 playbook
 #
 #   clone template -> wait proxmox unlock -> set tag -> set cloudinit -> start VM -> wait openssh + cloudinit
+#   (optional firmware stall watchdog after start VM : see global_vm_firmware_stall_reset_after)
 #   (set cloudinit is skipped on a running VM whose config already matches : see the task comment)
 #
 # Required vars (passed by the call-site - per-VM block) :
@@ -24,6 +25,10 @@
 #   global_vm_cloudinit_wait_retries  Windows cloudbase-init wait retries, at least 10 s apart (default 60)
 #   global_vm_clone_unlock_retries    post-clone lock wait retries, 5 s apart (default 60 = 5 min ;
 #                                     a full clone of a 64 GiB template can take longer)
+#   global_vm_firmware_stall_reset_after  firmware stall watchdog window in seconds (default 0 = disabled) :
+#                                     when this play started the VM and the VM reads 0 bytes from disk
+#                                     during the window, reset the VM through the API and watch again
+#   global_vm_firmware_stall_max_resets   resets before the watchdog fails the play (default 1)
 #
 # Cloud-init credentials come from the scenario vault, with the same fall-back as before :
 #   vm_ci_user      = default_admin_vm_ci_user      | default('alice')
@@ -132,6 +137,28 @@
       vars:
         proxmox_vm_action: "vm_start"
         vm_id: "{{ global_vm_id }}"
+
+    # Workaround, not a fix : the first start of a fresh OVMF clone can hang in the firmware
+    # (black console, 0 bytes read from disk) and a reset ends the hang. The cause is not
+    # established. The watchdog runs only when the VM was not running before this play
+    # (READ VM STATUS), so it never resets a VM that was already running. Each reset prints one
+    # line and reports changed.
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG
+      when:
+        - global_vm_firmware_stall_reset_after | default(0) | int > 0
+        - vm_bootstrap_status.json.data.status | default('') != 'running'
+      block:
+
+        - name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG - INIT
+          ansible.builtin.set_fact:
+            vm_bootstrap_fw_reading: false
+            vm_bootstrap_fw_deadline: "{{ global_vm_firmware_stall_reset_after | int }}"   # VM uptime, s
+
+        - name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG - WATCH
+          ansible.builtin.include_tasks: firmware_stall_watchdog.yml
+          loop: "{{ range(0, (global_vm_firmware_stall_max_resets | default(1) | int) + 1) | list }}"
+          loop_control:
+            loop_var: vm_bootstrap_fw_window
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
