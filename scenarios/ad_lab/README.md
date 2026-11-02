@@ -106,7 +106,9 @@ fails.
      `admin/software.install.wazuh` on ad-wazuh01 (see "Wazuh (optional)").
 7. `INSTALL_WAZUH=YES` only : `admin/software.install.wazuh_agent_windows` on both Windows VMs,
    after every stage_01 step (the promotion and the join reboot the hosts).
-8. `_firewall` stage 04: arming, only with `-e FIREWALL_ARM_VMS=YES` (default NO).
+8. `_firewall` stage 04: arming, only with `-e FIREWALL_ARM_VMS=YES` (default NO). Arming raises
+   the guest level only : the rules filter only when the Proxmox datacenter firewall is enabled
+   too (see "Firewall").
 
 A second `./ad_lab.setup.sh` on running VMs does not clone again and does not restart them:
 `bundles/proxmox/vm.bootstrap` skips the cloud-init update when the VM is running and its
@@ -245,7 +247,8 @@ only, inert until armed). Not `firewall.baseline.wazuh`, which accepts tcp 22, 4
 No tcp 55000 : the agents enroll on 1515 and do not call the manager API.
 
 **Isolation** : the admin LAN is isolated from `net151` only when the firewall is armed
-(`FIREWALL_ARM_VMS=YES`) and the Proxmox datacenter firewall is enabled (see "Firewall"). Unarmed, the node routes freely between `net151` and `net142` : every
+(`FIREWALL_ARM_VMS=YES`) and the Proxmox datacenter firewall is enabled (see "Firewall").
+Unarmed, the node routes freely between `net151` and `net142` : every
 host of `net151`, a trainee session on ad-client01 included, reaches every port that ufw opens
 on the manager.
 Inside the VM, `admin/software.install.wazuh` opens tcp 22, 443, 1514, 1515 and 55000 to any
