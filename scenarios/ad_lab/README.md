@@ -210,10 +210,10 @@ and measurements : `bundles/proxmox/template.build.windows/README.md`, "Nested v
 
 Symptom : a VM start stays on a black console. Proxmox shows 0 bytes read from disk and a CPU
 load of 0. The QEMU monitor shows CPU 0 in System Management Mode (`info registers` : `SMM=1`).
-The hang is intermittent. It was seen on `ad-dc01`, a clone of the Windows Server 2025 template
-(OVMF, `efitype 4m`, Secure Boot keys pre-enrolled, TPM v2, q35, `cpu host`), on Proxmox VE 9.2
-nested in VMware Workstation : twice on the first start of a fresh clone, once on a cold start
-after a Proxmox reboot. The two hangs after a fresh clone lasted more than 95 minutes and more
+The hang is intermittent. It was seen on clones of the Windows Server 2025 template (OVMF,
+`efitype 4m`, Secure Boot keys pre-enrolled, TPM v2, q35, `cpu host`) on Proxmox VE 9.2 nested
+in VMware Workstation, three times : once on the first start of a fresh clone, once on a cold
+start after a Proxmox reboot, and once in an earlier deploy. Two hangs lasted more than 95 minutes and more
 than 5 minutes, and `qm reset` ended both. The hang after the Proxmox reboot ended alone after
 about 2.5 minutes.
 
