@@ -70,4 +70,32 @@
     global_vm_clone_unlock_retries: 360
     global_vm_firmware_stall_reset_after: 240
 
+#
+# OPTIONAL, INSTALL_WAZUH=YES only : the Wazuh manager on the admin LAN net142, as in demo_lab.
+#
+#   - ad-wazuh01 (1204, 192.168.142.204, net142, template 9232) : Linux, Wazuh all-in-one
+#
+# DNS : the first address of AD_DC_DNS_FORWARDERS (default 1.1.1.1), the resolvers the DC
+# forwards to. A network that blocks 1.1.1.1 needs one override for both VMs.
+#
+# global_vm_clone_unlock_retries 360 (5 s apart : 30 min) : 9232 is a 64 GiB template too, see
+# the Windows clone times above. Only a budget : a faster clone ends sooner.
+#
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "ad-wazuh01"
+    global_vm_ssh_name:    "r42.ad-wazuh01"
+    global_vm_id:          1204
+    global_vm_description: "ad_lab - Wazuh manager (optional, INSTALL_WAZUH)"
+    global_vm_tag_name:    "ad-lab"
+    global_vm_ci_ip:       "192.168.142.204"
+    global_template_vm_id: 9232
+    global_template_name:  "template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+    global_vm_ci_dns_ips:         "{{ AD_DC_DNS_FORWARDERS | default(['1.1.1.1']) | first }}"
+    global_vm_clone_unlock_retries: 360
+
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

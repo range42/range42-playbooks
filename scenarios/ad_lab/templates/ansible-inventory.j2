@@ -20,6 +20,15 @@ all:
 
         ####
 
+        # The optional Wazuh manager (INSTALL_WAZUH=YES only), Linux. Connection : ssh, user and
+        # key from the ssh-config, as for the other VMs. Without the flag the VM does not exist ;
+        # every play that targets it carries the flag.
+        r42_ad_wazuh:
+          hosts:
+            r42.ad-wazuh01:
+
+        ####
+
         proxmox:
           hosts:
             {{ INFRASTRUCTURE_CODENAME }}:

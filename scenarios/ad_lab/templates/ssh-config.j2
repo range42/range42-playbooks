@@ -62,3 +62,20 @@ Host r42.ad-client01
     Port 22
     ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#                                      WAZUH MANAGER (net142, INSTALL_WAZUH=YES only)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# Linux guest, same user and key as the other VMs. The dashboard (tcp 443) goes through the
+# jump host, for example :
+#   ssh -N -L 18443:192.168.142.204:443 px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+# then open https://127.0.0.1:18443 (user admin).
+#
+
+Host r42.ad-wazuh01
+    Hostname 192.168.142.204
+    User alice
+    IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
+    Port 22
+    ProxyJump px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+

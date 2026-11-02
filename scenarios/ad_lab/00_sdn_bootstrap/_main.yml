@@ -29,6 +29,14 @@
           - { vnet: "net140", subnet: "192.168.140.0/24", gateway: "192.168.140.1", snat: true }   # templating, OpenSSH download
           - { vnet: "net151", subnet: "192.168.151.0/24", gateway: "192.168.151.1", snat: true }   # ad-dc01, ad-client01 (evaluation activation)
 
+    ## The admin LAN of the optional Wazuh manager, as in demo_lab. net142 is shared with other
+    ## scenarios : the bundle creates it when it is missing, and the declaration below is the one
+    ## every scenario of the repository uses (gateway .1, SNAT on). Without the flag, no net142.
+    - name: SDN BOOTSTRAP - THE ADMIN LAN OF THE WAZUH MANAGER, ONLY WITH INSTALL_WAZUH=YES
+      ansible.builtin.set_fact:
+        _sdn_vnets: "{{ _sdn_vnets + [{'vnet': 'net142', 'subnet': '192.168.142.0/24', 'gateway': '192.168.142.1', 'snat': true}] }}"   # ad-wazuh01 (package downloads)
+      when: INSTALL_WAZUH | default("NO") | upper == "YES"
+
 ## The zone is the infrastructure's, not the scenario's : the init declares it in the range42
 ## inventory (range42_sdn_zone, section NETWORK MODE) and the vault carries it to this workspace,
 ## which the bundle loads before reading it. The default covers a workspace whose vault predates

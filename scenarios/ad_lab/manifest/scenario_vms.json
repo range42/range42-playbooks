@@ -1,10 +1,11 @@
 {
   "scenario": "ad_lab",
   "version": 1,
-  "description": "Active Directory lab on net151: one Windows Server 2025 domain controller (ad-dc01, VMID 1201, IP 192.168.151.201) for the domain range42.lab (NetBIOS RANGE42) with its DNS server, and one Windows 11 Enterprise client (ad-client01, VMID 1202, IP 192.168.151.202) joined to that domain. Both are cloned from the unattended Windows templates 9250 and 9251 (bundles/proxmox/template.build.windows) and reached over OpenSSH with a PowerShell shell.",
+  "description": "Active Directory lab on net151: one Windows Server 2025 domain controller (ad-dc01, VMID 1201, IP 192.168.151.201) for the domain range42.lab (NetBIOS RANGE42) with its DNS server, and one Windows 11 Enterprise client (ad-client01, VMID 1202, IP 192.168.151.202) joined to that domain. Both are cloned from the unattended Windows templates 9250 and 9251 (bundles/proxmox/template.build.windows) and reached over OpenSSH with a PowerShell shell. Optional (INSTALL_WAZUH=YES): a Wazuh manager (ad-wazuh01, VMID 1204, IP 192.168.142.204) on the admin LAN net142, cloned from the Linux template 9232 that the scenario does not build, with the Wazuh agent on both Windows VMs.",
   "vms": [
     {"vm_id": 1201, "vm_name": "ad-dc01",     "ip": "192.168.151.201", "role": "ad-dc",     "group": "ad", "bridge": "net151"},
-    {"vm_id": 1202, "vm_name": "ad-client01", "ip": "192.168.151.202", "role": "ad-client", "group": "ad", "bridge": "net151"}
+    {"vm_id": 1202, "vm_name": "ad-client01", "ip": "192.168.151.202", "role": "ad-client", "group": "ad", "bridge": "net151"},
+    {"vm_id": 1204, "vm_name": "ad-wazuh01",  "ip": "192.168.142.204", "role": "ad-wazuh",  "group": "ad", "bridge": "net142"}
   ],
   "templates": [
     {"vm_id": 9250, "vm_name": "template-vm-win2025-02-4g-64g", "spec": "2cpu/4gb/64gb", "ip": "192.168.140.250", "bridge": "net140"},

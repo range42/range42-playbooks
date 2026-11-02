@@ -11,8 +11,11 @@
 ##      the Microsoft hosts through the DNS forwarder of the DC
 ##   4. rdp-access.yml : Remote Desktop on both VMs, RANGE42\bob in "Remote Desktop Users" of the
 ##      client ; needs bob (step 1) and the join (step 2)
+##   5. ad-wazuh.yml : INSTALL_WAZUH=YES only - the Wazuh manager on ad-wazuh01 (Linux baseline,
+##      server bundle, its Proxmox accepts). After the AD steps : the domain does not depend on it.
+##      The Windows agents come later, from main.yml (_finalize-ad_wazuh_agents.yml).
 ##
-## No Linux baseline here (basic packages, dot files, ufw) : both hosts run Windows.
+## No Linux baseline for the AD hosts (basic packages, dot files, ufw) : both run Windows.
 ##
 
 - import_playbook: ./stage_01-vm_configure/ad-dc.yml
@@ -22,3 +25,5 @@
 - import_playbook: ./stage_01-vm_configure/eval-activation.yml
 
 - import_playbook: ./stage_01-vm_configure/rdp-access.yml
+
+- import_playbook: ./stage_01-vm_configure/ad-wazuh.yml

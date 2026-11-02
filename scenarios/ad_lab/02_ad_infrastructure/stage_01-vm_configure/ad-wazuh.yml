@@ -1,0 +1,71 @@
+##
+## ad-wazuh - the optional Wazuh manager on ad-wazuh01 (1204, 192.168.142.204), INSTALL_WAZUH=YES
+##
+## Same tier as admin-wazuh in demo_lab : the Linux baseline the server bundle needs (packages,
+## ufw with ssh), then bundles/admin/software.install.wazuh unchanged (ufw rules in the VM,
+## indexer, dashboard, manager, filebeat-oss, admin password from the vault). The Windows agents
+## come last in main.yml : see _finalize-ad_wazuh_agents.yml.
+##
+## The Proxmox accepts of the manager live here, gated like the install (see _firewall/README.md).
+## Declared only : arming stays FIREWALL_ARM_VMS (stage_04). Least privilege, so NOT the bundle
+## firewall.baseline.wazuh (22/443/1514/1515/55000 from any source) :
+##   - tcp 1514 and 1515 : from the two agents only, 192.168.151.201/32 and 192.168.151.202/32.
+##     Enrollment on 1515 has no password : this source list is its only restriction.
+##   - tcp 443 (dashboard) : from 192.168.142.1/32 only, the node address on net142 from which the
+##     jump-host forwards arrive.
+##   - tcp 22 : the ssh accept of every scenario VM, _firewall/stage_03 (manifest + running VMs).
+##   - no 55000 : the agents enroll on 1515 and do not call the manager API.
+##
+## Without the flag : the runtime group r42_ad_wazuh_active stays empty, so the baseline plays
+## match no host ; the other steps carry the gate.
+##
+
+- name: "ad_lab - wazuh manager : runtime group and Proxmox accepts"
+  hosts: proxmox
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  tasks:
+
+    - name: AD LAB WAZUH - ADD r42.ad-wazuh01 TO r42_ad_wazuh_active
+      ansible.builtin.add_host:
+        name: r42.ad-wazuh01
+        groups: r42_ad_wazuh_active
+      changed_when: false
+      when: INSTALL_WAZUH | default("NO") | upper == "YES"
+
+    ## loop_var is EXPLICIT: an item passed down to an action that loops itself gets rebound.
+    - name: AD LAB WAZUH - DECLARE THE MANAGER PORTS ON 1204, SOURCE-RESTRICTED, IDEMPOTENTLY
+      include_role:
+        name: range42-ansible_roles-proxmox_controller
+      vars:
+        proxmox_vm_action: "firewall_vm_declare_iptables_port"
+        vm_id: 1204
+        vm_fw_dport: "{{ _adwz_it.port }}"
+        vm_fw_proto: "tcp"
+        vm_fw_source: "{{ _adwz_it.source }}"
+        vm_fw_comment: "range42 ad_lab wazuh"
+      loop:
+        - { port: "1514", source: "192.168.151.201/32" }
+        - { port: "1514", source: "192.168.151.202/32" }
+        - { port: "1515", source: "192.168.151.201/32" }
+        - { port: "1515", source: "192.168.151.202/32" }
+        - { port: "443",  source: "192.168.142.1/32" }
+      loop_control:
+        loop_var: _adwz_it
+      when: INSTALL_WAZUH | default("NO") | upper == "YES"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.baseline.default/main.yml"
+  vars:
+    target_group: "r42_ad_wazuh_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/network.baseline.ssh/main.yml"
+  vars:
+    target_group: "r42_ad_wazuh_active"
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.wazuh/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    global_vm_ssh_name: "r42.ad-wazuh01"
+    global_vm_ci_ip:    "192.168.142.204"

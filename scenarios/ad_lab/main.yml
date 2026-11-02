@@ -8,12 +8,17 @@
 ##   - ad-dc01     (192.168.151.201, VMID 1201, template 9250) - Windows Server 2025, domain controller
 ##                 of range42.lab (NetBIOS RANGE42), DNS server of the domain
 ##   - ad-client01 (192.168.151.202, VMID 1202, template 9251) - Windows 11, member of range42.lab
+##   - ad-wazuh01  (192.168.142.204, VMID 1204, template 9232) - optional (INSTALL_WAZUH=YES) :
+##                 Wazuh manager on the admin LAN net142, agents on both Windows VMs
 ##
 ## Global stage discipline (mirror of misp_lab / kunai_lab) :
-##   1. 00_sdn_bootstrap                       create the vnets (net140, net151) when missing
-##   2. 01_templates-bootstrap                 build the Windows templates (9250, 9251) when missing
+##   1. 00_sdn_bootstrap                       create the vnets (net140, net151 ; net142 with
+##                                             INSTALL_WAZUH=YES) when missing
+##   2. 01_templates-bootstrap                 build the Windows templates (9250, 9251) when missing ;
+##                                             the Linux template 9232 must already exist
 ##   3. ALL tiers stage_00 (vm_bootstrap)      create every VM first
 ##   4. ALL tiers stage_01 (vm_configure)      configure every VM after
+##   5. Wazuh agents (INSTALL_WAZUH=YES)       after every stage_01 step
 ##
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### 00 - SDN BOOTSTRAP #### #### #### #### #### #### ####
@@ -55,8 +60,13 @@
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 ## Domain controller first (promotion, user bob), then the join of the client, the online
-## activation of both VMs, then Remote Desktop on both VMs (bob on the client).
+## activation of both VMs, then Remote Desktop on both VMs (bob on the client), then the optional
+## Wazuh manager (INSTALL_WAZUH=YES).
 - import_playbook: ./02_ad_infrastructure/_main_stage_01.yml
+
+## The Wazuh agents on both Windows VMs (INSTALL_WAZUH=YES), the last configure step : the
+## promotion and the join reboot the hosts, and the manager must be installed first.
+- import_playbook: ./02_ad_infrastructure/stage_01-vm_configure/_finalize-ad_wazuh_agents.yml
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #### #### #### #### END SCENARIO  #### #### #### #### #### #### #### ####

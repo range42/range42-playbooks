@@ -37,4 +37,6 @@
           {{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml.
           Recreate the workspace with range42-context init.
         quiet: true
-      loop: "{{ _ad_lab_required_vault_keys }}"
+      ## INSTALL_WAZUH=YES : the server bundle reads the dashboard admin password too.
+      loop: "{{ _ad_lab_required_vault_keys
+                + (['infrastructure_wazuh_admin_password'] if (INSTALL_WAZUH | default('NO') | upper == 'YES') else []) }}"

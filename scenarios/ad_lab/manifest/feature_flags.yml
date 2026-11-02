@@ -1,9 +1,13 @@
 ---
 # Feature flags for ad_lab - optional components that can be toggled on/off at deploy time via
 # `-e INSTALL_<NAME>=YES|NO`. The deploy TUI (range42-context --tui) reads `features` to render
-# the checkbox modal.
+# the checkbox modal. The playbooks gate on `INSTALL_<NAME> | default("NO") | upper == "YES"`,
+# aligned with `default: false` below.
 #
-# ad_lab has no optional component today : the domain controller and the domain member are the
-# workload, always deployed.
+# The domain controller and the domain member are the workload, always deployed.
 
-features: []
+features:
+  - id: WAZUH
+    label: "Wazuh - manager on the admin LAN + agents on the Windows VMs"
+    description: "Deploys the Wazuh manager VM ad-wazuh01 (1204, 192.168.142.204, admin LAN net142, +8 GiB RAM, clone of the Linux template 9232) and installs the Wazuh agent on ad-dc01 and ad-client01. Unchecked: no net142, no VM 1204, no agent."
+    default: false
