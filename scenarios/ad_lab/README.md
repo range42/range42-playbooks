@@ -229,6 +229,11 @@ range42-context ssh ad-client01      # PowerShell session as alice on 192.168.15
 range42-context show-vault           # the generated passwords (alice, Administrator, bob, DSRM)
 ```
 
+Run `range42-context use` in the same shell before `range42-context deploy` : the deploy reads
+`RANGE42_ACTIVE_CONFIG_DIR`, `RANGE42_ACTIVE_WORKSPACE` and `RANGE42_VAULT_PASSWORD_FILE`, which only
+`use` exports. A fresh non-interactive shell does not have them, even when the workspace file is
+sourced from the shell rc file.
+
 `range42-context ssh <pattern>` looks the pattern up in the `Host r42.*` entries of the workspace
 SSH config (`~/.ssh/config_range42-<codename>-ad_lab`) ; both hosts go through the jump host
 `px.<codename>.jumper` (ProxyJump).

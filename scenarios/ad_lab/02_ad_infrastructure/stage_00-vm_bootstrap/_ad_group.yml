@@ -20,6 +20,10 @@
 # reboot that cloudbase-init triggers took 16 min on one Windows 11 clone, more than the
 # default budget of 60.
 #
+# global_vm_clone_unlock_retries 360 (5 s apart : 30 min) : the full clone of a 64 GiB template
+# holds the Proxmox lock while it copies the disk ; one clone of 9250 took 14 min at 24-32 MiB/s
+# on a single-disk node, beyond the default budget of 5 min.
+#
 # Host names stay at most 15 characters (NetBIOS limit, checked by the template bundle).
 #
 
@@ -37,6 +41,7 @@
     global_vm_ci_ip_gw:           "192.168.151.1"
     global_vm_ssh_wait_retries:   180
     global_vm_cloudinit_wait_retries: 150
+    global_vm_clone_unlock_retries: 360
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
   vars:
@@ -53,5 +58,6 @@
     global_vm_ci_dns_ips:         "192.168.151.201"
     global_vm_ssh_wait_retries:   180
     global_vm_cloudinit_wait_retries: 150
+    global_vm_clone_unlock_retries: 360
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
