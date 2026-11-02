@@ -134,6 +134,16 @@ The source `192.168.151.0/24` covers the domain members. `192.168.151.1` is the 
 which the jump-host forwards below arrive: RDP accepts only that address. The armed state of this
 rule set is not tested yet.
 
+**Arming needs the datacenter firewall.** `FIREWALL_ARM_VMS=YES` runs `firewall.enable.vms`,
+which sets the guest option `enable: 1` and `firewall=1` on net0. Proxmox applies no VM rule
+while the datacenter firewall is disabled (`pve-firewall status` = `disabled/running`, no
+`enable: 1` in `/etc/pve/firewall/cluster.fw`), and nothing in the deploy enables it
+(range42-playbooks#186). Check `pve-firewall status` before you rely on the armed state.
+
+**Known limit : SSH is open from any source once armed.** The tcp 22 accept of
+`firewall.baseline.ssh_all_vms` has no source address on any VM of the scenario. Once the
+firewall filters, tcp 22 of every VM accepts any address.
+
 ## RDP through the jump host
 
 `generic/systems.configure.rdp_access` enables Remote Desktop on both VMs : `fDenyTSConnections`
@@ -230,7 +240,7 @@ only, inert until armed). Not `firewall.baseline.wazuh`, which accepts tcp 22, 4
 | tcp 1514 | `192.168.151.201/32`, `192.168.151.202/32` | agent events |
 | tcp 1515 | `192.168.151.201/32`, `192.168.151.202/32` | agent enrollment, without password |
 | tcp 443 | `192.168.142.1/32` | dashboard ; the jump-host forward arrives from the node address on `net142` |
-| tcp 22 | as for every VM : `firewall.baseline.ssh_all_vms` | deploy and operator SSH |
+| tcp 22 | as for every VM : `firewall.baseline.ssh_all_vms`, any source (see "Firewall") | deploy and operator SSH |
 
 No tcp 55000 : the agents enroll on 1515 and do not call the manager API.
 
@@ -239,19 +249,47 @@ No tcp 55000 : the agents enroll on 1515 and do not call the manager API.
 host of `net151`, a trainee session on ad-client01 included, reaches every port that ufw opens
 on the manager.
 Inside the VM, `admin/software.install.wazuh` opens tcp 22, 443, 1514, 1515 and 55000 to any
-source in ufw : the Proxmox accepts above are the only source restriction. The armed state is not
-tested yet.
+source in ufw : the Proxmox accepts above are the only source restriction, and they filter only
+with the datacenter firewall enabled (see "Firewall").
 
 Dashboard, from the deployer (or any host with the workspace SSH config) :
 
 ```bash
-ssh -N -L 18443:192.168.142.204:443 px.<codename>.jumper
+ssh -N -o ExitOnForwardFailure=yes -L 18443:192.168.142.204:443 px.<codename>.jumper
 # browser -> https://127.0.0.1:18443, user admin,
 # password: range42-context show-vault, key infrastructure_wazuh_admin_password
 ```
 
+When another process already listens on 127.0.0.1:18443, ssh stops with
+`bind [127.0.0.1]:18443: Address already in use` : choose another local port. Without
+`ExitOnForwardFailure=yes`, ssh continues without the forward and the browser reaches that other
+listener.
+
 The dashboard certificate comes from a certificate authority that the server bundle generates on
 the deployer : the browser does not trust it and warns.
+
+### Measured results
+
+Wazuh 4.14.4 manager and agents. The deploys with the flag ran with `BASELINE_INSTALL_NTP=NO`
+(outbound udp 123 was blocked on that network) ; the armed checks ran with the Proxmox
+datacenter firewall enabled.
+
+- **Agent hosts** : `/var/ossec/bin/agent_control -l` lists `ad-dc01` (Windows Server 2025
+  Standard Evaluation, build 26100) and `ad-client01` (Windows 11 Enterprise Evaluation,
+  build 26300) as `Active`. Windows Server 2025 is not in the vendor's list of supported agent
+  systems ; the agent enrolls and reports on it.
+- **Failed logon** : a network logon (type 3) of `RANGE42\bob` with a wrong password on
+  ad-client01 raised rule 60122 (level 5, "Logon Failure - Unknown user or bad password",
+  Windows event 4625) about 10 s later.
+- **Kerberos** : ad-dc01 sends Windows event 4769 (service ticket), alerted by rule 60106
+  (level 3). Event 4768 was not checked.
+- **Second deploy** : with `INSTALL_WAZUH=YES`, the second run reports `changed=0` on ad-dc01,
+  ad-client01 and the Proxmox host, and `changed=30` on ad-wazuh01, all in the shared
+  `admin/software.install.wazuh` bundle (ufw reset and rules, indexer, dashboard and manager
+  keystores, filebeat, `wazuh-passwords-tool.sh`). That bundle is not idempotent.
+- **Armed** (`FIREWALL_ARM_VMS=YES`) : both agents return `Active` after a restart of
+  `WazuhSvc` ; tcp 1515 from the node (192.168.142.1) gets no answer (dropped) ; tcp 443
+  from ad-client01 does not connect ; the dashboard answers through the jump-host forward (HTTP 302 to its login page).
 
 ## Evaluation editions
 
