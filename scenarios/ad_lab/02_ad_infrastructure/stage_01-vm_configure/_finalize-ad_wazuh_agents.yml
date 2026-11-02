@@ -6,7 +6,8 @@
 ##
 ## Each agent enrolls on 192.168.142.204 tcp 1515 without a password and reports on tcp 1514,
 ## routed from net151 through the node. Its name is the host name (the inventory name without
-## "r42."). The Proxmox accepts on 1204 admit these two sources only : see ad-wazuh.yml.
+## "r42."). The Proxmox accepts on 1204 admit tcp 1514 and 1515 from these two sources only,
+## once armed with the datacenter firewall enabled : see ad-wazuh.yml.
 ##
 ## Without the flag the runtime group r42_ad_wazuh_agents_active stays empty : the agent play
 ## matches no host and runs no task on the AD hosts.

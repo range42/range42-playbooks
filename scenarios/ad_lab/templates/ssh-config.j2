@@ -68,7 +68,7 @@ Host r42.ad-client01
 #
 # Linux guest, same user and key as the other VMs. The dashboard (tcp 443) goes through the
 # jump host, for example :
-#   ssh -N -L 18443:192.168.142.204:443 px.{{ INFRASTRUCTURE_CODENAME }}.jumper
+#   ssh -N -o ExitOnForwardFailure=yes -L 18443:192.168.142.204:443 px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 # then open https://127.0.0.1:18443 (user admin).
 #
 

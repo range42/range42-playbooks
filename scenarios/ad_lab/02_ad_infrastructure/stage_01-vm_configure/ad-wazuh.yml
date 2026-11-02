@@ -10,7 +10,8 @@
 ## Declared only : arming stays FIREWALL_ARM_VMS (stage_04). Least privilege, so NOT the bundle
 ## firewall.baseline.wazuh (22/443/1514/1515/55000 from any source) :
 ##   - tcp 1514 and 1515 : from the two agents only, 192.168.151.201/32 and 192.168.151.202/32.
-##     Enrollment on 1515 has no password : this source list is its only restriction.
+##     Enrollment on 1515 has no password : this source list is its only restriction, and it
+##     filters only once armed with the Proxmox datacenter firewall enabled.
 ##   - tcp 443 (dashboard) : from 192.168.142.1/32 only, the node address on net142 from which the
 ##     jump-host forwards arrive.
 ##   - tcp 22 : the ssh accept of every scenario VM, _firewall/stage_03 (manifest + running VMs).

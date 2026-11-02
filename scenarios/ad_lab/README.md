@@ -131,8 +131,8 @@ What the deploy declares on the Proxmox per-NIC firewall (rules only, inert unti
 - ad-wazuh01 (1204), `INSTALL_WAZUH=YES` only : see "Wazuh (optional)".
 
 The source `192.168.151.0/24` covers the domain members. `192.168.151.1` is the node itself, from
-which the jump-host forwards below arrive: RDP accepts only that address. The armed state of this
-rule set is not tested yet.
+which the jump-host forwards below arrive: RDP accepts only that address. The armed state of the
+AD and RDP accepts above is not tested yet ; the Wazuh accepts are (see "Measured results").
 
 **Arming needs the datacenter firewall.** `FIREWALL_ARM_VMS=YES` runs `firewall.enable.vms`,
 which sets the guest option `enable: 1` and `firewall=1` on net0. Proxmox applies no VM rule
@@ -245,7 +245,7 @@ only, inert until armed). Not `firewall.baseline.wazuh`, which accepts tcp 22, 4
 No tcp 55000 : the agents enroll on 1515 and do not call the manager API.
 
 **Isolation** : the admin LAN is isolated from `net151` only when the firewall is armed
-(`FIREWALL_ARM_VMS=YES`). Unarmed, the node routes freely between `net151` and `net142` : every
+(`FIREWALL_ARM_VMS=YES`) and the Proxmox datacenter firewall is enabled (see "Firewall"). Unarmed, the node routes freely between `net151` and `net142` : every
 host of `net151`, a trainee session on ad-client01 included, reaches every port that ufw opens
 on the manager.
 Inside the VM, `admin/software.install.wazuh` opens tcp 22, 443, 1514, 1515 and 55000 to any
@@ -271,8 +271,8 @@ the deployer : the browser does not trust it and warns.
 ### Measured results
 
 Wazuh 4.14.4 manager and agents. The deploys with the flag ran with `BASELINE_INSTALL_NTP=NO`
-(outbound udp 123 was blocked on that network) ; the armed checks ran with the Proxmox
-datacenter firewall enabled.
+(outbound udp 123 was blocked on that network) and `AD_DC_DNS_FORWARDERS` set to a reachable
+resolver ; the armed checks ran with the Proxmox datacenter firewall enabled.
 
 - **Agent hosts** : `/var/ossec/bin/agent_control -l` lists `ad-dc01` (Windows Server 2025
   Standard Evaluation, build 26100) and `ad-client01` (Windows 11 Enterprise Evaluation,
@@ -280,7 +280,7 @@ datacenter firewall enabled.
   systems ; the agent enrolls and reports on it.
 - **Failed logon** : a network logon (type 3) of `RANGE42\bob` with a wrong password on
   ad-client01 raised rule 60122 (level 5, "Logon Failure - Unknown user or bad password",
-  Windows event 4625) about 10 s later.
+  Windows event 4625) about 4 s after the logon (alert timestamp minus logon timestamp).
 - **Kerberos** : ad-dc01 sends Windows event 4769 (service ticket), alerted by rule 60106
   (level 3). Event 4768 was not checked.
 - **Second deploy** : with `INSTALL_WAZUH=YES`, the second run reports `changed=0` on ad-dc01,
