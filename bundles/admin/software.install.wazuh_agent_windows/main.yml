@@ -1,0 +1,27 @@
+---
+# ============================================================================
+# bundles/admin/software.install.wazuh_agent_windows/main.yml
+# ============================================================================
+# Thin bundle: install the Wazuh agent on Windows hosts and enroll them on a manager, via the
+# catalog role `software.install.wazuh_agent_windows` (pinned MSI checked with SHA-256,
+# win_package, service WazuhSvc running and automatic). Companion of
+# bundles/admin/software.install.wazuh/ (the server). The Linux agent is
+# bundles/admin/software.install.wazuh_agent/.
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP      ansible group to target (Windows hosts)
+#   WAZUH_MANAGER     address of the manager
+#   WAZUH_AGENT_NAME  name each agent enrolls with ; per host, e.g. a template on inventory_hostname
+# OPTIONAL caller vars:
+#   WAZUH_REGISTRATION_SERVER  (def "" in the role = WAZUH_MANAGER) enrollment server, tcp 1515
+#
+# The caller passes them via -e or the import vars: (play scope) ; the role reads them directly.
+# No become, no fact gathering. No secret : the bundle loads no vault. The manager must accept
+# enrollment without a password : restrict tcp 1514/1515 of the manager to the agents.
+# ============================================================================
+
+- name: Install the Wazuh agent on the Windows hosts
+  hosts: "{{ TARGET_GROUP }}"
+  gather_facts: false
+  roles:
+    - role: software.install.wazuh_agent_windows
