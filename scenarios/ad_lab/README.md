@@ -200,8 +200,8 @@ Kerberos attempt with Remmina 1.4.43 / FreeRDP 3.32 ; cause not established.
 The Windows templates keep `cpu host` (the VMs see VMX) but have VBS, HVCI and Credential Guard
 turned off in the registry (the `bcdedit` hypervisor setting of the build does not reach the
 clones). Under nested virtualisation a Windows 11 clone that
-launches its hypervisor at boot stayed on the boot spinner for hours. The lab posture without
-Credential Guard is intended : it keeps credentials in the LSASS memory for the exercises. Details
+launches its hypervisor at boot stayed on the boot spinner for hours. This scenario runs without
+Credential Guard on purpose : it keeps credentials in the LSASS memory for the exercises. Details
 and measurements : `bundles/proxmox/template.build.windows/README.md`, "Nested virtualisation".
 
 ## Usage
