@@ -204,6 +204,28 @@ launches its hypervisor at boot stayed on the boot spinner for hours. This scena
 Credential Guard on purpose : it keeps credentials in the LSASS memory for the exercises. Details
 and measurements : `bundles/proxmox/template.build.windows/README.md`, "Nested virtualisation".
 
+## Known issues
+
+### A VM start hangs in the firmware
+
+Symptom : a VM start stays on a black console. Proxmox shows 0 bytes read from disk and a CPU
+load of 0. The QEMU monitor shows CPU 0 in System Management Mode (`info registers` : `SMM=1`).
+The hang is intermittent. It was seen on `ad-dc01`, a clone of the Windows Server 2025 template
+(OVMF, `efitype 4m`, Secure Boot keys pre-enrolled, TPM v2, q35, `cpu host`), on Proxmox VE 9.2
+nested in VMware Workstation : twice on the first start of a fresh clone, once on a cold start
+after a Proxmox reboot. The two hangs after a fresh clone lasted more than 95 minutes and more
+than 5 minutes, and `qm reset` ended both. The hang after the Proxmox reboot ended alone after
+about 2.5 minutes.
+
+Workaround : stage_00 sets `global_vm_firmware_stall_reset_after: 240` on both VMs. When the
+play starts a VM and the VM reads 0 bytes from disk during 4 minutes of uptime, the play resets
+the VM through the Proxmox API (once, `global_vm_firmware_stall_max_resets`) and prints one line
+with the VM id, the uptime and the reset number. The reset task reports `changed`. When the VM
+still reads nothing after the second window, the play fails. The play never resets a VM that
+was already running. Details : the header of `bundles/proxmox/vm.bootstrap/main.yml`.
+
+This is a workaround, not a fix : the cause of the hang is not established.
+
 ## Usage
 
 ```bash

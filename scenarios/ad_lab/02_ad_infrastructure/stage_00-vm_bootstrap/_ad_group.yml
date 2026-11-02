@@ -24,6 +24,11 @@
 # holds the Proxmox lock while it copies the disk. On a single-disk node, the clone of 9250 took
 # 14 min 13 s and the clone of 9251 took 19 min 15 s, beyond the default budget of 5 min.
 #
+# global_vm_firmware_stall_reset_after 240 (4 min) : workaround, the cause is not established.
+# A start of the Windows Server 2025 clone can hang in the OVMF firmware : black console,
+# 0 bytes read from disk. A reset ended the two long hangs. One hang ended alone after about
+# 2.5 min, hence 4 min before the reset. See the README, section "Known issues".
+#
 # Host names stay at most 15 characters (NetBIOS limit, checked by the template bundle).
 #
 
@@ -42,6 +47,7 @@
     global_vm_ssh_wait_retries:   180
     global_vm_cloudinit_wait_retries: 150
     global_vm_clone_unlock_retries: 360
+    global_vm_firmware_stall_reset_after: 240
 
 - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
   vars:
@@ -59,5 +65,6 @@
     global_vm_ssh_wait_retries:   180
     global_vm_cloudinit_wait_retries: 150
     global_vm_clone_unlock_retries: 360
+    global_vm_firmware_stall_reset_after: 240
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
