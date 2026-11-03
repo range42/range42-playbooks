@@ -1,0 +1,53 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "admin",
+  "bundle": "admin/software.install.ad_domain_controller",
+  "description": "Promote a Windows Server host to the first domain controller of a new Active Directory forest, with DNS and idempotent DNS forwarders",
+  "optional": false,
+  "params": [
+    {
+      "name": "TARGET_GROUP",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Ansible inventory group the play targets (used in hosts) - one Windows Server host"
+    },
+    {
+      "name": "AD_DC_DOMAIN",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "DNS name of the new domain (at least two labels) ; read directly by the role from play/extra-vars scope"
+    },
+    {
+      "name": "AD_DC_NETBIOS",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "NetBIOS name of the domain, 1 to 15 letters, digits or hyphens ; read directly by the role"
+    },
+    {
+      "name": "AD_DC_DSRM_PASSWORD",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Directory Services Restore Mode password (secret) - pass a vault variable ; read directly by the role"
+    },
+    {
+      "name": "AD_DC_BUILTIN_ADMIN_PASSWORD",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Password set on the built-in Administrator (RID 500) before the promotion, then the domain Administrator password (secret) - pass a vault variable ; read directly by the role"
+    },
+    {
+      "name": "AD_DC_DNS_FORWARDERS",
+      "type": "list",
+      "items": "string",
+      "required": false,
+      "default_where": "role-defaults",
+      "description": "IPv4 addresses the DNS server forwards external names to ; read directly by the role"
+    }
+  ]
+}

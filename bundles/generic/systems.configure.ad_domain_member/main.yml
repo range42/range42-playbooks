@@ -1,0 +1,27 @@
+---
+# ============================================================================
+# bundles/generic/systems.configure.ad_domain_member/main.yml
+# ============================================================================
+# Thin bundle: join Windows hosts to an existing Active Directory domain, via the catalog role
+# `systems.configure.ad_domain_member` (DNS to the domain controller, join, reboot, checks).
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP             ansible group to target (Windows hosts)
+#   AD_MEMBER_DOMAIN         DNS name of the domain
+#   AD_MEMBER_DC_IP          IPv4 address of a domain controller serving the domain DNS
+#   AD_MEMBER_JOIN_USER      account allowed to join computers
+#   AD_MEMBER_JOIN_PASSWORD  its password (secret - pass a vault variable)
+# OPTIONAL caller vars:
+#   AD_MEMBER_OU             (def "" in the role = default Computers container)
+#
+# The caller passes them via -e or the import vars: (play scope) ; the role reads them directly.
+# The scenario vault is loaded here so that the caller can pass vault variables by name.
+# ============================================================================
+
+- name: Join the active directory domain
+  hosts: "{{ TARGET_GROUP }}"
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  roles:
+    - role: systems.configure.ad_domain_member

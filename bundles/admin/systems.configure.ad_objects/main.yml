@@ -1,0 +1,27 @@
+---
+# ============================================================================
+# bundles/admin/systems.configure.ad_objects/main.yml
+# ============================================================================
+# Thin bundle: create the OUs, groups and users of an Active Directory domain on one of its domain
+# controllers, via the catalog role `systems.configure.ad_objects`. Run it after
+# software.install.ad_domain_controller.
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP         ansible group to target (a domain controller)
+# OPTIONAL caller vars (all def [] in the role - nothing is created):
+#   AD_OBJECTS_OUS       list of {name, path}
+#   AD_OBJECTS_GROUPS    list of {name, path, scope}
+#   AD_OBJECTS_USERS     list of {name, password, path, groups, display_name} ; password is a
+#                        secret - pass a vault variable
+#
+# The caller passes them via -e or the import vars: (play scope) ; the role reads them directly.
+# The scenario vault is loaded here so that the caller can pass vault variables by name.
+# ============================================================================
+
+- name: Create the active directory objects
+  hosts: "{{ TARGET_GROUP }}"
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  roles:
+    - role: systems.configure.ad_objects

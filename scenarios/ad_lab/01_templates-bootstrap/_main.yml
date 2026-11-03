@@ -1,0 +1,22 @@
+---
+##
+## 01 - template bootstrap
+##
+## Idempotent template provisioning : the two Windows templates of this scenario, built unattended
+## from the Microsoft evaluation ISOs by bundles/proxmox/template.build.windows :
+##   - win2025 -> 9250 template-vm-win2025-02-4g-64g (ad-dc01)
+##   - win11   -> 9251 template-vm-win11-02-4g-64g   (ad-client01)
+##
+## A template that already exists is skipped, so a rerun of the scenario does not rebuild them.
+## The first build takes 30 minutes to more than one hour per template : see the bundle README,
+## section "Operations".
+##
+## No cloud_init_image.download.all here : it fetches the Linux cloud images and the Ubuntu
+## snippets, which no template of this scenario uses.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/template.build.windows/main.yml"
+  vars:
+    templates_whitelist: ["win2025", "win11"]
+    #### the build NIC needs internet (Windows 11 downloads the OpenSSH server) : net140 has SNAT
+    template_net_bridge: "net140"

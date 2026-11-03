@@ -1,0 +1,101 @@
+#
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#### #### #### #### ad_lab - 02_ad_infrastructure - stage_00 - domain controller + domain member #### #### #### ####
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+#
+# The two Windows guests ARE the workload of this scenario : always created, no flag.
+#
+#   - ad-dc01     (1201, 192.168.151.201, net151, template 9250) : Windows Server 2025, future DC
+#   - ad-client01 (1202, 192.168.151.202, net151, template 9251) : Windows 11, future domain member
+#
+# The DC block comes first. The client resolves through the DC from its first boot
+# (global_vm_ci_dns_ips) : it only needs it at the join, in stage_01, after the promotion.
+#
+# global_vm_ssh_wait_retries 180 (5 s apart, plus up to 5 s of connect timeout each : at least
+# 15 min, 25 min measured when SSH never answers) : the first boot of a Windows clone after
+# sysprep takes up to about 15 minutes before SSH answers under nested virtualisation. See
+# bundles/proxmox/template.build.windows/README.md, section "Clone contract".
+#
+# global_vm_cloudinit_wait_retries 150 (at least 10 s apart : at least 25 min) : the hostname
+# reboot that cloudbase-init triggers took 16 min on one Windows 11 clone, more than the
+# default budget of 60.
+#
+# global_vm_clone_unlock_retries 360 (5 s apart : 30 min) : the full clone of a 64 GiB template
+# holds the Proxmox lock while it copies the disk. On a single-disk node, the clone of 9250 took
+# 14 min 13 s and the clone of 9251 took 19 min 15 s, beyond the default budget of 5 min.
+#
+# global_vm_firmware_stall_reset_after 240 (4 min) : workaround, the cause is not established.
+# A start of the Windows Server 2025 clone can hang in the OVMF firmware : black console,
+# 0 bytes read from disk. A reset ended the two long hangs. One hang ended alone after about
+# 2.5 min, hence 4 min before the reset. No firmware hang was recorded on the Windows 11 clone,
+# but the template bundle creates both templates with the same qm create command (OVMF,
+# efitype 4m, pre-enrolled Secure Boot keys, TPM v2) and the cause is not established : the
+# workaround covers both VMs. See the README, section "Known issues".
+#
+# Host names stay at most 15 characters (NetBIOS limit, checked by the template bundle).
+#
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "ad-dc01"
+    global_vm_ssh_name:    "r42.ad-dc01"
+    global_vm_id:          1201
+    global_vm_description: "ad_lab - Windows Server 2025 domain controller"
+    global_vm_tag_name:    "ad-lab"
+    global_vm_ci_ip:       "192.168.151.201"
+    global_template_vm_id: 9250
+    global_template_name:  "template-vm-win2025-02-4g-64g - 9250"
+    global_vm_net_virtio_bridge:  "net151"
+    global_vm_ci_ip_gw:           "192.168.151.1"
+    global_vm_ssh_wait_retries:   180
+    global_vm_cloudinit_wait_retries: 150
+    global_vm_clone_unlock_retries: 360
+    global_vm_firmware_stall_reset_after: 240
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  vars:
+    global_vm_name:        "ad-client01"
+    global_vm_ssh_name:    "r42.ad-client01"
+    global_vm_id:          1202
+    global_vm_description: "ad_lab - Windows 11 domain member"
+    global_vm_tag_name:    "ad-lab"
+    global_vm_ci_ip:       "192.168.151.202"
+    global_template_vm_id: 9251
+    global_template_name:  "template-vm-win11-02-4g-64g - 9251"
+    global_vm_net_virtio_bridge:  "net151"
+    global_vm_ci_ip_gw:           "192.168.151.1"
+    global_vm_ci_dns_ips:         "192.168.151.201"
+    global_vm_ssh_wait_retries:   180
+    global_vm_cloudinit_wait_retries: 150
+    global_vm_clone_unlock_retries: 360
+    global_vm_firmware_stall_reset_after: 240
+
+#
+# OPTIONAL, INSTALL_WAZUH=YES only : the Wazuh manager on the admin LAN net142, as in demo_lab.
+#
+#   - ad-wazuh01 (1204, 192.168.142.204, net142, template 9232) : Linux, Wazuh all-in-one
+#
+# DNS : the first address of AD_DC_DNS_FORWARDERS (default 1.1.1.1), the resolvers the DC
+# forwards to. A network that blocks 1.1.1.1 needs one override for both VMs.
+#
+# global_vm_clone_unlock_retries 360 (5 s apart : 30 min) : 9232 is a 64 GiB template too, see
+# the Windows clone times above. Only a budget : a faster clone ends sooner.
+#
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/proxmox/vm.bootstrap/main.yml"
+  when: INSTALL_WAZUH | default("NO") | upper == "YES"
+  vars:
+    global_vm_name:        "ad-wazuh01"
+    global_vm_ssh_name:    "r42.ad-wazuh01"
+    global_vm_id:          1204
+    global_vm_description: "ad_lab - Wazuh manager (optional, INSTALL_WAZUH)"
+    global_vm_tag_name:    "ad-lab"
+    global_vm_ci_ip:       "192.168.142.204"
+    global_template_vm_id: 9232
+    global_template_name:  "template-vm-medium-02-8g-64g - 9232"
+    global_vm_net_virtio_bridge:  "net142"
+    global_vm_ci_ip_gw:           "192.168.142.1"
+    global_vm_ci_dns_ips:         "{{ AD_DC_DNS_FORWARDERS | default(['1.1.1.1']) | first }}"
+    global_vm_clone_unlock_retries: 360
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####

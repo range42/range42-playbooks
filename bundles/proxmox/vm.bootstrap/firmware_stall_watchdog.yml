@@ -1,0 +1,64 @@
+---
+# Firmware stall watchdog, one window per loop item (included by main.yml, see the task comment
+# there). vm_bootstrap_fw_window counts from 0 ; the last window is the one after the last reset.
+# A window ends at the first disk read or when the VM uptime reaches vm_bootstrap_fw_deadline.
+# An API error, or a VM whose uptime stops growing, exhausts the retries and fails the play
+# without a reset.
+
+- name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG - WAIT FOR A DISK READ
+  when: not (vm_bootstrap_fw_reading | bool)
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ global_vm_id }}/status/current"
+    method: GET
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+    validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+    ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+    status_code: 200
+  register: vm_bootstrap_fw_poll
+  until: >-
+    vm_bootstrap_fw_poll.json.data.diskread | default(0) | int > 0
+    or vm_bootstrap_fw_poll.json.data.uptime | default(0) | int >= vm_bootstrap_fw_deadline | int
+  retries: "{{ ((global_vm_firmware_stall_reset_after | int) / 10) | round(0, 'ceil') | int + 6 }}"   # x 10 s, 1 min margin
+  delay: 10
+  changed_when: false
+  no_log: true
+
+- name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG - RECORD THE RESULT
+  when: not (vm_bootstrap_fw_reading | bool)
+  ansible.builtin.set_fact:
+    vm_bootstrap_fw_reading: "{{ vm_bootstrap_fw_poll.json.data.diskread | int > 0 }}"
+    vm_bootstrap_fw_uptime: "{{ vm_bootstrap_fw_poll.json.data.uptime | int }}"
+    vm_bootstrap_fw_diskread: "{{ vm_bootstrap_fw_poll.json.data.diskread | int }}"
+    vm_bootstrap_fw_deadline: "{{ vm_bootstrap_fw_poll.json.data.uptime | int + global_vm_firmware_stall_reset_after | int }}"
+
+- name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG - GIVE UP
+  when:
+    - not (vm_bootstrap_fw_reading | bool)
+    - vm_bootstrap_fw_window | int >= global_vm_firmware_stall_max_resets | default(1) | int
+  ansible.builtin.fail:
+    msg: >-
+      vm {{ global_vm_id }} : firmware stall, still 0 bytes read from disk after
+      {{ vm_bootstrap_fw_window }} reset(s), uptime {{ vm_bootstrap_fw_uptime }} s.
+      Workaround exhausted, cause not established.
+
+- name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG - REPORT THE RESET
+  when: not (vm_bootstrap_fw_reading | bool)
+  ansible.builtin.debug:
+    msg: >-
+      vm {{ global_vm_id }} : firmware stall workaround, reset {{ vm_bootstrap_fw_window | int + 1 }}
+      of {{ global_vm_firmware_stall_max_resets | default(1) }}, uptime {{ vm_bootstrap_fw_uptime }} s,
+      diskread {{ vm_bootstrap_fw_diskread }} B
+
+- name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG - RESET VM
+  when: not (vm_bootstrap_fw_reading | bool)
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ global_vm_id }}/status/reset"
+    method: POST
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+    validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+    ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+    status_code: 200
+  changed_when: true
+  no_log: true

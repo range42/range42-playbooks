@@ -1,0 +1,51 @@
+{
+  "_generated": "DO NOT EDIT - generated from bundle_parameters.src.yml by _tools/generate-bundle-params.py",
+  "tier": "admin",
+  "bundle": "admin/software.install.wazuh_agent_windows",
+  "description": "Install the Wazuh agent on Windows hosts from a pinned MSI (SHA-256 checked) and enroll them on the Wazuh manager",
+  "optional": true,
+  "install_flag": "INSTALL_WAZUH",
+  "params": [
+    {
+      "name": "TARGET_GROUP",
+      "target": true,
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Ansible inventory group the play targets (used in hosts) - Windows hosts"
+    },
+    {
+      "name": "WAZUH_MANAGER",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Address (IPv4 or DNS name) of the Wazuh manager the agents report to on tcp 1514 ; read directly by the role"
+    },
+    {
+      "name": "WAZUH_AGENT_NAME",
+      "type": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "Name each agent enrolls with, per host (for example a template on inventory_hostname) ; read directly by the role"
+    },
+    {
+      "name": "WAZUH_REGISTRATION_SERVER",
+      "type": "string",
+      "required": false,
+      "default_where": "role-defaults",
+      "description": "Enrollment server on tcp 1515 ; empty means WAZUH_MANAGER ; read directly by the role"
+    },
+    {
+      "name": "infrastructure_wazuh_authd_password",
+      "renamed_to": [
+        "WAZUH_REGISTRATION_PASSWORD"
+      ],
+      "type": "string",
+      "required": false,
+      "from_vault": true,
+      "default": "",
+      "default_where": "bundle-inline",
+      "description": "Agent enrollment password, the one the server bundle sets on the manager ; resolved from the scenario vault at runtime (never stored, never rendered) and passed to the role as WAZUH_REGISTRATION_PASSWORD. Absent from the vault = empty = enrollment without password, which only a manager without use_password accepts."
+    }
+  ]
+}

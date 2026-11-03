@@ -1,0 +1,41 @@
+all:
+  children:
+    range42_infrastructure:
+      children:
+        ####
+
+        # The Windows guests. The connection stays ssh (OpenSSH server baked in the templates) ;
+        # the shell is PowerShell, and alice is the account cloudbase-init gives the deployer key to.
+        r42_ad_windows:
+          vars:
+            ansible_shell_type: powershell
+            ansible_user: alice
+          children:
+            r42_ad_dc:
+              hosts:
+                r42.ad-dc01:
+            r42_ad_clients:
+              hosts:
+                r42.ad-client01:
+
+        ####
+
+        # The optional Wazuh manager (INSTALL_WAZUH=YES only), Linux. Connection : ssh, user and
+        # key from the ssh-config, as for the other VMs. Without the flag the VM does not exist ;
+        # every play that targets it carries the flag.
+        r42_ad_wazuh:
+          hosts:
+            r42.ad-wazuh01:
+
+        ####
+
+        proxmox:
+          hosts:
+            {{ INFRASTRUCTURE_CODENAME }}:
+              ansible_host: {{ INFRASTRUCTURE_PROXMOX_ADDRESS | mandatory }}:8006
+              ansible_connection: local
+              ansible_python_interpreter: /usr/bin/python3
+
+        proxmox_cli:
+          hosts:
+            {{ INFRASTRUCTURE_CODENAME }}-cli:

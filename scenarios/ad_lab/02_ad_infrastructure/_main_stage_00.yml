@@ -1,0 +1,11 @@
+---
+##
+## 02 - ad infrastructure - stage_00 (vm_bootstrap)
+##
+## Structure : stage_00 unit imported by top-level main.yml ; split kept so global stage ordering (all stage_00 before all stage_01) stays editable.
+##
+## Clones, configures and starts ad-dc01 (1201) and ad-client01 (1202) on net151 through the
+## shared bundle bundles/proxmox/vm.bootstrap, then waits for SSH and the end of cloudbase-init.
+##
+
+- import_playbook: ./stage_00-vm_bootstrap/_ad_group.yml

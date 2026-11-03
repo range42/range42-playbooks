@@ -1,0 +1,8 @@
+##
+## Arm the tap-side firewall on EVERY deployed VM of the scenario (manifest intersected with
+## what the node runs). OPT-IN: -e FIREWALL_ARM_VMS=YES - default NO keeps the operator
+## statu quo, a replay never re-arms what was disarmed by hand. The arming bundle posts and
+## verifies the ssh accept itself and refuses to arm a guest it would cut.
+##
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.enable.vms/main.yml"
+  when: FIREWALL_ARM_VMS | default("NO") | upper == "YES"

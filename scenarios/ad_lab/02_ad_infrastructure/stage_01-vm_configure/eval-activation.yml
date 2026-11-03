@@ -1,0 +1,13 @@
+##
+## eval-activation - online activation of the evaluation editions on both ad_lab VMs
+##
+## Runs AFTER ad-dc.yml and ad-client.yml : the client's only DNS server is the DC, which resolves
+## the Microsoft activation hosts only once its DNS forwarder exists. A clone that is not activated
+## is shut down by wlms.exe 60 minutes after each boot (README, "Evaluation editions").
+## Attempts and delay : role defaults (WIN_EVAL_ACTIVATION_RETRIES 10, WIN_EVAL_ACTIVATION_DELAY 60 s),
+## overridable with -e.
+##
+
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/generic/systems.configure.windows_eval_activation/main.yml"
+  vars:
+    TARGET_GROUP: "r42_ad_windows"

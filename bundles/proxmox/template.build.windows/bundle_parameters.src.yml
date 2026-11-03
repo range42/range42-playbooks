@@ -1,0 +1,155 @@
+---
+bundle: proxmox/template.build.windows
+
+description: Builds the Windows Server 2025 and Windows 11 VM templates on a Proxmox hypervisor, fully unattended (download ISOs, install, sysprep, convert)
+
+optional: false
+
+params:
+  - name: templates_whitelist
+    type: list
+    required: false
+    default_where: bundle-inline
+    default: "[]"
+    items: "short code string - win2025 or win11"
+    description: Subset of template codes to build - empty means build both
+
+  - name: template_net_bridge
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "net140"
+    description: Bridge or SDN vnet of the build NIC - must reach the internet (Windows 11 downloads the OpenSSH server, evaluation activation)
+
+  - name: template_subnet_octet
+    type: int
+    required: false
+    default_where: bundle-inline
+    default: 140
+    description: Third octet of the static build IP 192.168.<octet>.250 (win2025) and .251 (win11), gateway .1 - pair it with template_net_bridge
+
+  - name: win2025_iso_url
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "https://go.microsoft.com/fwlink/?linkid=2345730&clcid=0x409&culture=en-us&country=us"
+    description: Download URL of the Windows Server 2025 evaluation ISO (Microsoft Evaluation Center link, redirects to the current build)
+
+  - name: win2025_iso_name
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "windows-server-2025-eval-en-us.iso"
+    description: File name of the Windows Server 2025 ISO on the local ISO store - an existing file is used as is, not downloaded again
+
+  - name: win2025_image_index
+    type: int
+    required: false
+    default_where: bundle-inline
+    default: 2
+    description: Index of the install.wim image to install - 2 is Standard Evaluation with Desktop Experience on the measured ISO
+
+  - name: win2025_virtio_dir
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "2k25"
+    description: virtio-win driver directory used for Windows Server 2025 - fallback 2k22
+
+  - name: win11_iso_url
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "https://go.microsoft.com/fwlink/?LinkId=2382600&clcid=0x409&culture=en-us&country=us"
+    description: Download URL of the Windows 11 Enterprise evaluation ISO (Microsoft Evaluation Center link, redirects to the current build)
+
+  - name: win11_iso_name
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "windows-11-enterprise-eval-en-us.iso"
+    description: File name of the Windows 11 ISO on the local ISO store - an existing file is used as is, not downloaded again
+
+  - name: win11_image_index
+    type: int
+    required: false
+    default_where: bundle-inline
+    default: 1
+    description: Index of the install.wim image to install - 1 is Enterprise Evaluation on the measured ISO
+
+  - name: win11_virtio_dir
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "w11"
+    description: virtio-win driver directory used for Windows 11 - fallback 2k25 or 2k22
+
+  - name: virtio_win_iso_url
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/virtio-win-0.1.271-1/virtio-win-0.1.271.iso"
+    description: Download URL of the virtio-win ISO (drivers, guest tools, QEMU guest agent)
+
+  - name: virtio_win_iso_name
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "virtio-win-0.1.271.iso"
+    description: File name of the virtio-win ISO on the local ISO store
+
+  - name: virtio_win_iso_sha256
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "bbe6166ad86a490caefad438fef8aa494926cb0a1b37fa1212925cfd81656429"
+    description: sha256 of the virtio-win ISO (measured on virtio-win-0.1.271.iso, 726501376 bytes) - the build fails on a mismatch
+
+  - name: cloudbase_init_msi_url
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "https://cloudbase.it/downloads/CloudbaseInitSetup_Stable_x64.msi"
+    description: Download URL of the cloudbase-init MSI - the download must match cloudbase_init_msi_sha256
+
+  - name: cloudbase_init_msi_sha256
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "0e7fa42e0cbc0ce7657f85730b0c6cc7afc4087a3639df0ff51a721a0be19bd5"
+    description: sha256 of the cloudbase-init MSI (measured on CloudbaseInitSetup_1_1_8_x64.msi, 64843776 bytes) - the build fails on a mismatch
+
+  - name: win_timezone
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "W. Europe Standard Time"
+    description: Windows time zone id of the templates
+
+  - name: win_build_dns
+    type: string
+    required: false
+    default_where: bundle-inline
+    default: "1.1.1.1"
+    description: DNS server of the build VM
+
+  - name: win_build_timeout_min
+    type: int
+    required: false
+    default_where: bundle-inline
+    default: 150
+    description: Minutes to wait for a template VM to shut down after sysprep before the run fails (the VM is left running for inspection)
+
+  - name: win_download_timeout_min
+    type: int
+    required: false
+    default_where: bundle-inline
+    default: 120
+    description: Minutes to wait for the ISO downloads of the Proxmox node
+
+  - name: win_bootkey_seconds
+    type: int
+    required: false
+    default_where: bundle-inline
+    default: 900
+    description: Maximum seconds during which ENTER is sent to the VM after start, to pass the UEFI boot-from-CD prompt (stops once Windows Setup reads the CD)
