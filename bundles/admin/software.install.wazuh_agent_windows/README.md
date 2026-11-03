@@ -3,7 +3,7 @@
 Thin bundle: invokes the catalog role `software.install.wazuh_agent_windows` on a target group of
 Windows hosts : downloads the pinned Wazuh agent MSI (4.14.4) to `%TEMP%` of the connection
 account, checks its SHA-256, installs it with `WAZUH_MANAGER`, `WAZUH_REGISTRATION_SERVER`,
-`WAZUH_AGENT_NAME` and `WAZUH_REGISTRATION_PASSWORD`, and keeps the service `WazuhSvc` running with start type automatic. No
+`WAZUH_AGENT_NAME` and, when the vault has the key, `WAZUH_REGISTRATION_PASSWORD`, and keeps the service `WazuhSvc` running with start type automatic. No
 `become`, no fact gathering. The Linux agent is `admin/software.install.wazuh_agent`, the server
 `admin/software.install.wazuh`.
 
@@ -19,8 +19,9 @@ manager without `use_password` refuses an agent that sends a password (wazuh-aut
 `src/os_auth/auth.c`) : the vault key and the server bundle go together.
 
 The role installs the MSI with `no_log: true` : the password is not in the Ansible output, but it
-is on the `msiexec` command line while the installer runs, and the agent may keep it on disk after
-the install (not verified, see the role README).
+is on the `msiexec` command line while the installer runs. The agent keeps it on disk after the
+install, in `C:\Program Files (x86)\ossec-agent\authd.pass`, readable only by `SYSTEM` and
+`Administrators` (agent 4.14.4, see the role README).
 
 ## Example call-site
 

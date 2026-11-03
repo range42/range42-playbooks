@@ -230,9 +230,11 @@ agent, and runs no Wazuh task on the AD hosts.
 - **Enrollment password** : the server bundle makes the manager require the vault password
   `infrastructure_wazuh_authd_password` on tcp 1515 (authd `use_password`). The agent bundle
   passes the same vault key to the MSI as `WAZUH_REGISTRATION_PASSWORD`, with `no_log` ; a vault
-  without that key gives no password, which only a manager without `use_password` accepts. The agent may keep the
-  password on disk after the install (not verified, see the catalog role README) : then whoever
-  controls ad-dc01 or ad-client01 can read it and enroll other agents from that host.
+  without that key gives no password, which only a manager without `use_password` accepts. The agent keeps the
+  password on disk after the install, in `C:\Program Files (x86)\ossec-agent\authd.pass`, readable
+  only by `SYSTEM` and `Administrators` (agent 4.14.4) : a domain user without administrator rights
+  cannot read it, but an administrator of ad-dc01 or ad-client01 can, and can enroll other agents
+  from that host.
 - **API users** : the server bundle replaces the upstream default passwords of the manager API
   users `wazuh` and `wazuh-wui` with the vault keys `infrastructure_wazuh_api_password` and
   `infrastructure_wazuh_wui_password`, and checks that the defaults are refused.
@@ -282,9 +284,9 @@ the deployer : the browser does not trust it and warns.
 
 ### Measured results
 
-Wazuh 4.14.4 manager and agents. These results were measured before the enrollment password,
-the API user passwords and the source-restricted ufw rules existed ; they were not measured
-again since. The deploys with the flag ran with `BASELINE_INSTALL_NTP=NO`
+Wazuh 4.14.4 manager and agents. The items below were measured before the enrollment password,
+the API user passwords and the source-restricted ufw rules existed, except the last one, measured
+on a from-empty deploy with them. The deploys with the flag ran with `BASELINE_INSTALL_NTP=NO`
 (outbound udp 123 was blocked on that network) and `AD_DC_DNS_FORWARDERS` set to a reachable
 resolver ; the armed checks ran with the Proxmox datacenter firewall enabled.
 
@@ -304,6 +306,13 @@ resolver ; the armed checks ran with the Proxmox datacenter firewall enabled.
 - **Armed** (`FIREWALL_ARM_VMS=YES`) : both agents return `Active` after a restart of
   `WazuhSvc` ; tcp 1515 from the node (192.168.142.1) gets no answer (dropped) ; tcp 443
   from ad-client01 does not connect ; the dashboard answers through the jump-host forward (HTTP 302 to its login page).
+- **With the enrollment password and the ufw sources** (unarmed, from empty) : both agents
+  `Active` ; one 4625 alert about 10 s after the failed logon ; on the manager, the API answers
+  401 for `wazuh:wazuh` and `wazuh-wui:wazuh-wui` and 200 for the vault passwords ; from the
+  node, tcp 55000 does not connect and only 443 is open ; from ad-client01, tcp 1514 and 1515
+  connect, 55000 and 443 do not ; ufw allows 22 from any source, 443 from the node and
+  1514:1515 from the two agent addresses ; the second run adds no changed task to the ones listed
+  above.
 
 ## Evaluation editions
 
