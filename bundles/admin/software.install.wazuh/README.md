@@ -61,12 +61,17 @@ Each play loads the scenario's vault from
 `range42-context init` generates them. A workspace created before the last three existed lacks
 them : the preflight tasks (first tasks of the first play) stop the run before the bundle
 changes anything, and name the missing key. They run on the manager host, not on localhost, so
-that a run with `--limit` cannot skip them. Recreate the
+that a run with `--limit` cannot skip them ; they are tagged `always`, so that a run with
+`--tags` cannot skip them either. Recreate the
 workspace, or add the keys with `ansible-vault edit` (20 to 64 characters of `a-z A-Z 0-9 - _`
 with an upper case letter, a lower case letter, a digit and a `-` or `_`).
 
 The tasks that handle a vault value or an API token run with `no_log: true` : the API calls,
-the passwords tool and the authd password file (vendored task).
+the passwords tool and the authd password file (vendored task). One exception : the vendored
+dashboard task "Configure Wazuh Dashboard Plugin" writes the `wazuh-wui` password into
+`/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml` without `no_log`. The default output
+and `-v` do not show the file content, but `--diff` does. The file has owner and group
+`wazuh-dashboard` and mode 0751 : only that user and that group can read it.
 
 ## A manager that is already running
 
