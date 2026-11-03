@@ -2,16 +2,18 @@
 ## ad-wazuh - the optional Wazuh manager on ad-wazuh01 (1204, 192.168.142.204), INSTALL_WAZUH=YES
 ##
 ## Same tier as admin-wazuh in demo_lab : the Linux baseline the server bundle needs (packages,
-## ufw with ssh), then bundles/admin/software.install.wazuh unchanged (ufw rules in the VM,
-## indexer, dashboard, manager, filebeat-oss, admin password from the vault). The Windows agents
-## come last in main.yml : see _finalize-ad_wazuh_agents.yml.
+## ufw with ssh), then bundles/admin/software.install.wazuh (ufw rules in the VM from the sources
+## below, indexer, dashboard, manager with the enrollment password, API user passwords and admin
+## password from the vault). The Windows agents come last in main.yml : see
+## _finalize-ad_wazuh_agents.yml.
 ##
 ## The Proxmox accepts of the manager live here, gated like the install (see _firewall/README.md).
 ## Declared only : arming stays FIREWALL_ARM_VMS (stage_04). Least privilege, so NOT the bundle
 ## firewall.baseline.wazuh (22/443/1514/1515/55000 from any source) :
 ##   - tcp 1514 and 1515 : from the two agents only, 192.168.151.201/32 and 192.168.151.202/32.
-##     Enrollment on 1515 has no password : this source list is its only restriction, and it
-##     filters only once armed with the Proxmox datacenter firewall enabled.
+##     Enrollment on 1515 requires the vault password. ufw in the VM applies the same source
+##     list, armed or not ; these accepts filter only once armed with the Proxmox datacenter
+##     firewall enabled.
 ##   - tcp 443 (dashboard) : from 192.168.142.1/32 only, the node address on net142 from which the
 ##     jump-host forwards arrive.
 ##   - tcp 22 : the ssh accept of every scenario VM, _firewall/stage_03 (manifest + running VMs).
@@ -70,3 +72,10 @@
   vars:
     global_vm_ssh_name: "r42.ad-wazuh01"
     global_vm_ci_ip:    "192.168.142.204"
+    ## ufw on the manager, the same sources as the Proxmox accepts above : tcp 1514-1515 from
+    ## the two agent hosts, tcp 443 from the node (jump-host forward)
+    wazuh_agent_sources:
+      - "192.168.151.201"
+      - "192.168.151.202"
+    wazuh_dashboard_sources:
+      - "192.168.142.1"
