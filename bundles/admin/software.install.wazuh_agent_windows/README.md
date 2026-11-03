@@ -2,17 +2,25 @@
 
 Thin bundle: invokes the catalog role `software.install.wazuh_agent_windows` on a target group of
 Windows hosts : downloads the pinned Wazuh agent MSI (4.14.4) to `%TEMP%` of the connection
-account, checks its SHA-256, installs it with `WAZUH_MANAGER`, `WAZUH_REGISTRATION_SERVER` and
-`WAZUH_AGENT_NAME`, and keeps the service `WazuhSvc` running with start type automatic. No
+account, checks its SHA-256, installs it with `WAZUH_MANAGER`, `WAZUH_REGISTRATION_SERVER`,
+`WAZUH_AGENT_NAME` and `WAZUH_REGISTRATION_PASSWORD`, and keeps the service `WazuhSvc` running with start type automatic. No
 `become`, no fact gathering. The Linux agent is `admin/software.install.wazuh_agent`, the server
 `admin/software.install.wazuh`.
 
 Caller vars: `TARGET_GROUP`, `WAZUH_MANAGER`, `WAZUH_AGENT_NAME` (required) ;
-`WAZUH_REGISTRATION_SERVER` (def `""` = `WAZUH_MANAGER`). No secret, no vault. Details : the role
-README in range42-catalog.
+`WAZUH_REGISTRATION_SERVER` (def `""` = `WAZUH_MANAGER`). Details : the role README in
+range42-catalog.
 
-Enrollment uses no password : any host that reaches tcp 1515 of the manager can enroll an agent.
-Restrict tcp 1514 and 1515 of the manager to the agent addresses with a network firewall.
+Vault : the bundle reads `$RANGE42_ACTIVE_CONFIG_DIR/secrets/default_vault.yml` and passes
+`infrastructure_wazuh_authd_password` as `WAZUH_REGISTRATION_PASSWORD`, the enrollment password
+the server bundle sets on the manager (authd `use_password`). Without that key the password is
+empty and the agent enrolls without one : only a manager without `use_password` accepts it. A
+manager without `use_password` refuses an agent that sends a password (wazuh-authd 4.14.4,
+`src/os_auth/auth.c`) : the vault key and the server bundle go together.
+
+The role installs the MSI with `no_log: true` : the password is not in the Ansible output, but it
+is on the `msiexec` command line while the installer runs, and the agent may keep it on disk after
+the install (not verified, see the role README).
 
 ## Example call-site
 

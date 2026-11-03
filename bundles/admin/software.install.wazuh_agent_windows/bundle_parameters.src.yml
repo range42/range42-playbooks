@@ -32,3 +32,12 @@ params:
     required: false
     default_where: role-defaults
     description: Enrollment server on tcp 1515 ; empty means WAZUH_MANAGER ; read directly by the role
+
+  - name: infrastructure_wazuh_authd_password
+    renamed_to: [WAZUH_REGISTRATION_PASSWORD]
+    type: string
+    required: false
+    from_vault: true
+    default: ""
+    default_where: bundle-inline
+    description: Agent enrollment password, the one the server bundle sets on the manager ; resolved from the scenario vault at runtime (never stored, never rendered) and passed to the role as WAZUH_REGISTRATION_PASSWORD. Absent from the vault = empty = enrollment without password, which only a manager without use_password accepts.

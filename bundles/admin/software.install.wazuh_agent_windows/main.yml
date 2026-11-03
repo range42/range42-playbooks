@@ -16,12 +16,22 @@
 #   WAZUH_REGISTRATION_SERVER  (def "" in the role = WAZUH_MANAGER) enrollment server, tcp 1515
 #
 # The caller passes them via -e or the import vars: (play scope) ; the role reads them directly.
-# No become, no fact gathering. No secret : the bundle loads no vault. The manager must accept
-# enrollment without a password : restrict tcp 1514/1515 of the manager to the agents.
+# No become, no fact gathering.
+#
+# Secret : the enrollment password WAZUH_REGISTRATION_PASSWORD is the vault key
+# infrastructure_wazuh_authd_password, the one the server bundle sets on the manager (authd
+# use_password). A vault without the key gives an empty password : the agent enrolls without one,
+# which only a manager without use_password accepts. A manager without use_password refuses an
+# agent that sends a password (wazuh-authd) : keep the vault key and the server bundle in step.
+# The role installs with no_log.
 # ============================================================================
 
 - name: Install the Wazuh agent on the Windows hosts
   hosts: "{{ TARGET_GROUP }}"
   gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    WAZUH_REGISTRATION_PASSWORD: "{{ infrastructure_wazuh_authd_password | default('') }}"
   roles:
     - role: software.install.wazuh_agent_windows
