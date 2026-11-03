@@ -14,3 +14,15 @@
   vars:
     global_vm_ssh_name: "r42.admin-wazuh"
     global_vm_ci_ip:    "192.168.142.110"
+    ## ufw on the manager : tcp 1514-1515 from every host that
+    ## ../_build_wazuh_clients_active_group.yml can add, tcp 443 from the node (jump-host forward)
+    wazuh_agent_sources:
+      - "192.168.142.104"
+      - "192.168.142.105"
+      - "192.168.142.106"
+      - "192.168.142.107"
+      - "192.168.142.108"
+      - "192.168.142.109"
+      - "192.168.142.111"
+    wazuh_dashboard_sources:
+      - "192.168.142.1"

@@ -11,6 +11,13 @@
 #   - global_vm_ci_ip      : IP of the wazuh server the agents will report to
 #                            (e.g. "192.168.142.100")
 #
+# Enrollment : the agent enrolls itself at its first start (the <enrollment>
+# block of ossec.conf, enabled by default in the vendored ansible-wazuh-agent
+# role) on tcp 1515 of the manager, with the password the role writes to
+# /var/ossec/etc/authd.pass (owner wazuh, mode 0640). The password is the vault
+# key infrastructure_wazuh_authd_password ; the server bundle sets the same one
+# on the manager. The agents do not call the manager API (tcp 55000).
+#
 # Example call-site (in scenarios/<scenario>/02_admin_infrastructure/_main.yml) :
 #
 #   - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.wazuh_agent/main.yml"
@@ -25,17 +32,35 @@
 - hosts: "{{ wazuh_clients_group }}"
   become: yes
   become_user: root
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+
+  pre_tasks:
+    ## only the key name is printed, never the value ; run_once in the agent play (not a
+    ## localhost play) so that a run with --limit cannot skip it
+    - name: "wazuh agent - preflight : the enrollment password is in the vault"
+      ansible.builtin.assert:
+        that:
+          - infrastructure_wazuh_authd_password | default('') | string | length > 0
+          - "'REPLACE_ME' not in (infrastructure_wazuh_authd_password | default('') | string)"
+        fail_msg: >-
+          vault key infrastructure_wazuh_authd_password is missing, empty or a REPLACE_ME
+          placeholder in {{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml.
+          A workspace created before this key existed lacks it : recreate the workspace with
+          range42-context init, or add the key with ansible-vault edit (the same value the
+          manager uses).
+        quiet: true
+      run_once: true
+
   roles:
     - software.install.wazuh-agent
 
   vars:
     WAZUH_SERVER_IP: "{{ global_vm_ci_ip }}"
+    authd_pass: "{{ infrastructure_wazuh_authd_password }}"
     wazuh_managers:
       - address: "{{ WAZUH_SERVER_IP }}"
         port: 1514
         protocol: tcp
-        api_port: 55000
-        api_proto: "https"
-        api_user: wazuh
         max_retries: 5
         retry_interval: 5

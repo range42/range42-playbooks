@@ -31,6 +31,55 @@
       "from_vault": true,
       "default_where": "none",
       "description": "Wazuh admin password, resolved from the scenario vault at runtime (never stored, never rendered)."
+    },
+    {
+      "name": "wazuh_agent_sources",
+      "type": "list",
+      "items": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "IPv4 addresses or CIDRs (/8 to /32) of the agent hosts ; ufw on the manager accepts tcp 1514-1515 (events, enrollment) from them only. The preflight refuses an empty list, all, any and /0."
+    },
+    {
+      "name": "wazuh_dashboard_sources",
+      "type": "list",
+      "items": "string",
+      "required": true,
+      "default_where": "none",
+      "description": "IPv4 addresses or CIDRs (/8 to /32) the operators reach the dashboard from ; ufw on the manager accepts tcp 443 from them only."
+    },
+    {
+      "name": "wazuh_api_sources",
+      "type": "list",
+      "items": "string",
+      "required": false,
+      "default": [],
+      "default_where": "bundle-inline",
+      "description": "IPv4 addresses or CIDRs (/8 to /32) allowed to call the manager API on tcp 55000 ; empty = none (the dashboard and the bundle call it on 127.0.0.1, the agents enroll on 1515)."
+    },
+    {
+      "name": "infrastructure_wazuh_authd_password",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Agent enrollment password (authd use_password, tcp 1515), resolved from the scenario vault at runtime (never stored, never rendered)."
+    },
+    {
+      "name": "infrastructure_wazuh_api_password",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Password the bundle sets for the manager API user wazuh (replaces the upstream default), resolved from the scenario vault at runtime (never stored, never rendered)."
+    },
+    {
+      "name": "infrastructure_wazuh_wui_password",
+      "type": "string",
+      "required": true,
+      "from_vault": true,
+      "default_where": "none",
+      "description": "Password the bundle sets for the manager API user wazuh-wui, which the dashboard uses (replaces the upstream default), resolved from the scenario vault at runtime (never stored, never rendered)."
     }
   ]
 }
