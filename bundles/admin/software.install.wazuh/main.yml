@@ -1,15 +1,42 @@
 # ============================================================================
 # bundles/admin/software.install.wazuh/main.yml
 # ============================================================================
-# Wazuh server stack install playbook : firewall, indexer, dashboard,
-# manager + filebeat-oss, passwords-tool. Companion to
+# Wazuh server stack install playbook : preflight + firewall, indexer, dashboard,
+# manager + filebeat-oss, api user passwords, passwords-tool. Companion to
 # bundles/admin/software.install.wazuh_agent/ which installs the agent on
 # wazuh client hosts.
 #
 # REQUIRED vars (passed by the calling scenario via import_playbook `vars:`) :
-#   - global_vm_ssh_name   : inventory hostname for the wazuh server VM
-#                            (e.g. "r42.admin-wazuh")
-#   - global_vm_ci_ip      : IP of the wazuh server (e.g. "192.168.142.100")
+#   - global_vm_ssh_name      : inventory hostname for the wazuh server VM
+#                               (e.g. "r42.admin-wazuh")
+#   - global_vm_ci_ip         : IP of the wazuh server (e.g. "192.168.142.100")
+#   - wazuh_agent_sources     : IPv4 addresses or CIDRs of the agent hosts
+#                               (tcp 1514 events, tcp 1515 enrollment)
+#   - wazuh_dashboard_sources : IPv4 addresses or CIDRs the operators reach the
+#                               dashboard from (tcp 443)
+# OPTIONAL :
+#   - wazuh_api_sources       : IPv4 addresses or CIDRs allowed to call the
+#                               manager API (tcp 55000) ; default [] = none
+#
+# Ports opened by ufw on the manager, and why :
+#   - tcp 22         any source        deploy and operator SSH (SSH baseline)
+#   - tcp 443        dashboard sources the dashboard, for the operators
+#   - tcp 1514-1515  agent sources     agent events (1514), enrollment (1515)
+#   - tcp 55000      api sources       the manager API ; closed by default :
+#                                      the dashboard and this bundle call it
+#                                      on 127.0.0.1, the agents enroll on 1515
+# Every other inbound port is denied (ufw default deny). Each source must be an
+# IPv4 address or a CIDR of /8 to /32 : "all", "any" and /0 are refused.
+#
+# Secrets, from the workspace vault (the preflight tasks fail without them) :
+#   - infrastructure_wazuh_admin_password : dashboard / indexer user admin
+#   - infrastructure_wazuh_authd_password : agent enrollment password (authd
+#                                           use_password, tcp 1515)
+#   - infrastructure_wazuh_api_password   : api user wazuh
+#   - infrastructure_wazuh_wui_password   : api user wazuh-wui (the dashboard)
+# A manager installed from scratch accepts the api users with the upstream
+# default passwords : the "api user passwords" play replaces them, then checks
+# that the defaults are refused.
 #
 # Vault loading :
 #   The bundle reads the scenario's vault from `$RANGE42_ACTIVE_CONFIG_DIR`,
@@ -21,38 +48,78 @@
 #   - import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/admin/software.install.wazuh/main.yml"
 #     when: INSTALL_WAZUH | default("YES") | upper == "YES"
 #     vars:
-#       global_vm_ssh_name:    "r42.admin-wazuh"
-#       global_vm_ci_ip:       "192.168.142.100"
+#       global_vm_ssh_name:      "r42.admin-wazuh"
+#       global_vm_ci_ip:         "192.168.142.100"
+#       wazuh_agent_sources:     ["192.168.142.112", "192.168.144.170"]
+#       wazuh_dashboard_sources: ["192.168.142.1"]
 #
 # ============================================================================
 
 
+## preflight in pre_tasks of the first play on the manager, not in a localhost play : a run
+## with --limit (the devkit scripts pass -l all) skips the implicit localhost, not this host.
 - name: configure firewall - wazuh server
   become: true
   hosts: "{{ global_vm_ssh_name }}"
-  roles:
-    - software.configure.firewalls
   vars_files:
     - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  pre_tasks:
+    ## only the key names are printed, never a value
+    - name: "wazuh server - preflight : required vault keys are set"
+      ansible.builtin.assert:
+        that:
+          - lookup('vars', item, default='') | string | length > 0
+          - "'REPLACE_ME' not in (lookup('vars', item, default='') | string)"
+        fail_msg: >-
+          vault key {{ item }} is missing, empty or a REPLACE_ME placeholder in
+          {{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml.
+          A workspace created before this key existed lacks it : recreate the workspace with
+          range42-context init, or add the key with ansible-vault edit (a password of 20 to 64
+          characters of a-z A-Z 0-9 - _ with an upper case letter, a lower case letter, a digit
+          and a - or _).
+        quiet: true
+      run_once: true
+      loop:
+        - infrastructure_wazuh_admin_password
+        - infrastructure_wazuh_authd_password
+        - infrastructure_wazuh_api_password
+        - infrastructure_wazuh_wui_password
+
+    - name: "wazuh server - preflight : the firewall sources are explicit"
+      ansible.builtin.assert:
+        that:
+          - wazuh_agent_sources is defined
+          - wazuh_agent_sources is sequence and wazuh_agent_sources is not string
+          - wazuh_agent_sources | length > 0
+          - wazuh_agent_sources | reject('match', _wz_source_re) | list | length == 0
+          - wazuh_dashboard_sources is defined
+          - wazuh_dashboard_sources is sequence and wazuh_dashboard_sources is not string
+          - wazuh_dashboard_sources | length > 0
+          - wazuh_dashboard_sources | reject('match', _wz_source_re) | list | length == 0
+          - wazuh_api_sources | default([]) is sequence and wazuh_api_sources | default([]) is not string
+          - wazuh_api_sources | default([]) | reject('match', _wz_source_re) | list | length == 0
+        fail_msg: >-
+          wazuh_agent_sources and wazuh_dashboard_sources must be non-empty lists, and
+          wazuh_api_sources a list (default empty), of IPv4 addresses or CIDRs of /8 to /32 ;
+          "all", "any" and /0 are refused. Set them at the import_playbook call-site.
+        quiet: true
+      run_once: true
+
+  roles:
+    - software.configure.firewalls
   vars:
-    firewall_rules:
-      - ip: "all"
-        port: 22
-        protocol: "tcp"
-      - ip: "all"
-        port: 443
-        protocol: "tcp"
-      - ip: "all"
-        port: 1515
-        protocol: "tcp"
-      - ip: "all"
-        port: 1514
-        protocol: "tcp"
-      ## the agents call the manager api on 55000 (api_port in the agent bundle) ;
-      ## without it, enrollment from another segment is silently blocked.
-      - ip: "all"
-        port: 55000
-        protocol: "tcp"
+    ## an IPv4 address, or a CIDR of /8 to /32
+    _wz_source_re: '^([0-9]{1,3}[.]){3}[0-9]{1,3}(/([89]|[12][0-9]|3[0-2]))?$'
+    ## ssh stays open to any source (SSH baseline) ; the other ports only to their sources.
+    ## The agents enroll on 1515 (authd, with the vault password) : they do not need 55000.
+    firewall_rules: >-
+      {{ [{'ip': 'all', 'port': '22', 'protocol': 'tcp'}]
+         + (wazuh_dashboard_sources | map('community.general.dict_kv', 'ip')
+            | map('combine', {'port': '443', 'protocol': 'tcp'}) | list)
+         + (wazuh_agent_sources | map('community.general.dict_kv', 'ip')
+            | map('combine', {'port': '1514:1515', 'protocol': 'tcp'}) | list)
+         + (wazuh_api_sources | default([]) | map('community.general.dict_kv', 'ip')
+            | map('combine', {'port': '55000', 'protocol': 'tcp'}) | list) }}
 
 # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -119,6 +186,14 @@
         name: node-1
         ip: "{{ WAZUH_SERVER_IP }}"
         role: indexer
+    ## the dashboard calls the manager api as wazuh-wui, with the vault password the
+    ## "api user passwords" play sets (upstream default : wazuh-wui / wazuh-wui)
+    wazuh_api_credentials:
+      - id: "default"
+        url: "https://127.0.0.1"
+        port: 55000
+        username: "wazuh-wui"
+        password: "{{ infrastructure_wazuh_wui_password }}"
 
 # # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
@@ -129,6 +204,26 @@
   vars:
     WAZUH_SERVER_IP: "{{ global_vm_ci_ip }}"
     local_certs_path: "/tmp/certificates/"
+    ## enrollment (authd, tcp 1515) requires the vault password. Upstream defaults of the
+    ## vendored ansible-wazuh-manager role, except use_password ('no' upstream).
+    authd_pass: "{{ infrastructure_wazuh_authd_password }}"
+    wazuh_manager_authd:
+      enable: true
+      port: 1515
+      use_source_ip: 'no'
+      force:
+        enabled: 'yes'
+        key_mismatch: 'yes'
+        disconnected_time: '1h'
+        after_registration_time: '1h'
+      purge: 'yes'
+      use_password: 'yes'
+      ciphers: 'HIGH:!ADH:!EXP:!MD5:!RC4:!3DES:!CAMELLIA:@STRENGTH'
+      ssl_agent_ca: null
+      ssl_verify_host: 'no'
+      ssl_manager_cert: 'sslmanager.cert'
+      ssl_manager_key: 'sslmanager.key'
+      ssl_auto_negotiate: 'no'
 
   roles:
     - role: software.install.wazuh-manager
@@ -161,6 +256,101 @@
 
 # # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
+## The manager api (tcp 55000) ships with the users wazuh / wazuh and wazuh-wui / wazuh-wui,
+## both administrators. Replace both passwords with the vault values, on 127.0.0.1 of the
+## manager. A second run logs in with the vault password and changes nothing.
+## no_log on every call : they carry passwords, and the responses carry tokens.
+- name: wazuh server - api user passwords
+  hosts: "{{ global_vm_ssh_name }}"
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  vars:
+    _wz_api: "https://127.0.0.1:55000"
+    _wz_new_passwords:
+      wazuh: "{{ infrastructure_wazuh_api_password }}"
+      wazuh-wui: "{{ infrastructure_wazuh_wui_password }}"
+  tasks:
+    - name: WAZUH API - log in with the vault passwords
+      ansible.builtin.uri:
+        url: "{{ _wz_api }}/security/user/authenticate"
+        method: POST
+        url_username: "{{ item }}"
+        url_password: "{{ _wz_new_passwords[item] }}"
+        force_basic_auth: true
+        validate_certs: false
+        status_code: [200, 401]
+      loop: [wazuh, wazuh-wui]
+      register: _wz_login_vault
+      no_log: true
+
+    ## a failure here (output censored) : the wazuh password is neither the vault value nor the
+    ## upstream default ; set it by hand (README, "A manager that is already running")
+    - name: WAZUH API - log in as wazuh with the upstream default password (fails if neither works)
+      ansible.builtin.uri:
+        url: "{{ _wz_api }}/security/user/authenticate"
+        method: POST
+        url_username: wazuh
+        url_password: wazuh
+        force_basic_auth: true
+        validate_certs: false
+        status_code: 200
+      register: _wz_login_default
+      no_log: true
+      when: _wz_login_vault.results[0].status == 401
+
+    ## the wazuh token : the vault password when it is already set, else the default
+    - name: WAZUH API - list the users
+      ansible.builtin.uri:
+        url: "{{ _wz_api }}/security/users"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ _wz_token }}"
+        validate_certs: false
+        status_code: 200
+      vars:
+        _wz_token: "{{ (_wz_login_default.json if _wz_login_vault.results[0].status == 401
+                        else _wz_login_vault.results[0].json).data.token }}"
+      register: _wz_users
+      no_log: true
+      when: _wz_login_vault.results | selectattr('status', 'equalto', 401) | list | length > 0
+
+    ## wazuh-wui first, wazuh last : changing the wazuh password revokes the wazuh token
+    - name: WAZUH API - set the vault passwords of the users that still have another one
+      ansible.builtin.uri:
+        url: "{{ _wz_api }}/security/users/{{ _wz_user_id }}"
+        method: PUT
+        headers:
+          Authorization: "Bearer {{ _wz_token }}"
+        body_format: json
+        body:
+          password: "{{ _wz_new_passwords[item.item] }}"
+        validate_certs: false
+        status_code: 200
+      vars:
+        _wz_token: "{{ (_wz_login_default.json if _wz_login_vault.results[0].status == 401
+                        else _wz_login_vault.results[0].json).data.token }}"
+        _wz_user_id: "{{ (_wz_users.json.data.affected_items
+                          | selectattr('username', 'equalto', item.item) | first).id }}"
+      loop: "{{ _wz_login_vault.results | reverse | list }}"
+      when: item.status == 401
+      changed_when: true
+      no_log: true
+
+    - name: WAZUH API - the upstream default passwords are refused
+      ansible.builtin.uri:
+        url: "{{ _wz_api }}/security/user/authenticate"
+        method: POST
+        url_username: "{{ item }}"
+        url_password: "{{ item }}"
+        force_basic_auth: true
+        validate_certs: false
+        status_code: 401
+      loop: [wazuh, wazuh-wui]
+      no_log: true
+
+# # #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
 - name: EXEC wazuh-passwords-tool.sh - if CHANGE_WAZUH_PASSWORD is true
   hosts: "{{ global_vm_ssh_name }}"
   become: yes
@@ -184,4 +374,5 @@
       retries: 2
       delay: 15
       until: password_output.rc == 0
-      no_log: false
+      ## the command line carries the admin password : keep it out of the output
+      no_log: true
