@@ -227,8 +227,15 @@ agent, and runs no Wazuh task on the AD hosts.
   on tcp 1515 of 192.168.142.204 and reports on tcp 1514. The agent configuration is the one of
   the MSI : the Security, System and Application event channels, no Sysmon, no change of the audit
   policy.
-- **Enrollment has no password**, as in every scenario : any host that reaches tcp 1515 of the
-  manager can enroll an agent. The Proxmox accepts below restrict it, once armed.
+- **Enrollment password** : the server bundle makes the manager require the vault password
+  `infrastructure_wazuh_authd_password` on tcp 1515 (authd `use_password`). The agent bundle
+  passes the same vault key to the MSI as `WAZUH_REGISTRATION_PASSWORD`, with `no_log` ; a vault
+  without that key gives no password, which only a manager without `use_password` accepts. The agent may keep the
+  password on disk after the install (not verified, see the catalog role README) : then whoever
+  controls ad-dc01 or ad-client01 can read it and enroll other agents from that host.
+- **API users** : the server bundle replaces the upstream default passwords of the manager API
+  users `wazuh` and `wazuh-wui` with the vault keys `infrastructure_wazuh_api_password` and
+  `infrastructure_wazuh_wui_password`, and checks that the defaults are refused.
 - **Workspace** : `range42-context init` renders the inventory (`r42.ad-wazuh01`, group
   `r42_ad_wazuh`) and the SSH config from `templates/`. A workspace created before ad-wazuh01
   existed lacks both : recreate it before the first deploy with the flag.
@@ -240,7 +247,7 @@ only, inert until armed). Not `firewall.baseline.wazuh`, which accepts tcp 22, 4
 | Port | Source | Why |
 |---|---|---|
 | tcp 1514 | `192.168.151.201/32`, `192.168.151.202/32` | agent events |
-| tcp 1515 | `192.168.151.201/32`, `192.168.151.202/32` | agent enrollment, without password |
+| tcp 1515 | `192.168.151.201/32`, `192.168.151.202/32` | agent enrollment, with the vault password |
 | tcp 443 | `192.168.142.1/32` | dashboard ; the jump-host forward arrives from the node address on `net142` |
 | tcp 22 | as for every VM : `firewall.baseline.ssh_all_vms`, any source (see "Firewall") | deploy and operator SSH |
 
@@ -250,10 +257,12 @@ No tcp 55000 : the agents enroll on 1515 and do not call the manager API.
 (`FIREWALL_ARM_VMS=YES`) and the Proxmox datacenter firewall is enabled (see "Firewall").
 Unarmed, the node routes freely between `net151` and `net142` : every
 host of `net151`, a trainee session on ad-client01 included, reaches every port that ufw opens
-on the manager.
-Inside the VM, `admin/software.install.wazuh` opens tcp 22, 443, 1514, 1515 and 55000 to any
-source in ufw : the Proxmox accepts above are the only source restriction, and they filter only
-with the datacenter firewall enabled (see "Firewall").
+on the manager to its address.
+Inside the VM, ufw (`admin/software.install.wazuh`, default deny) accepts tcp 1514-1515 only from
+`192.168.151.201` and `192.168.151.202`, tcp 443 only from `192.168.142.1`, tcp 22 from any
+source, and closes tcp 55000. These rules apply armed or not. ad-client01 is an agent host : it
+reaches tcp 1514-1515, and enrolling there needs the password. The Proxmox accepts above are a
+second layer, active only once armed with the datacenter firewall enabled (see "Firewall").
 
 Dashboard, from the deployer (or any host with the workspace SSH config) :
 
@@ -273,7 +282,9 @@ the deployer : the browser does not trust it and warns.
 
 ### Measured results
 
-Wazuh 4.14.4 manager and agents. The deploys with the flag ran with `BASELINE_INSTALL_NTP=NO`
+Wazuh 4.14.4 manager and agents. These results were measured before the enrollment password,
+the API user passwords and the source-restricted ufw rules existed ; they were not measured
+again since. The deploys with the flag ran with `BASELINE_INSTALL_NTP=NO`
 (outbound udp 123 was blocked on that network) and `AD_DC_DNS_FORWARDERS` set to a reachable
 resolver ; the armed checks ran with the Proxmox datacenter firewall enabled.
 
@@ -362,7 +373,8 @@ The deploy first runs `_preflight.yml` : it stops before any change when the wor
 `default_ad_dsrm_password`, `default_windows_builtin_admin_password` or
 `default_trainee_vm_ci_password` (workspace created before the bootstrapper generated them ;
 recreate it with `range42-context init`). With `INSTALL_WAZUH=YES` it checks
-`infrastructure_wazuh_admin_password` too.
+`infrastructure_wazuh_admin_password` too. The server bundle checks the other Wazuh vault keys
+itself, before it changes anything on ad-wazuh01.
 
 ## Operator access
 
