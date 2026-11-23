@@ -5,7 +5,7 @@
 #
 # The two Windows guests ARE the workload of this scenario : always created, no flag.
 #
-#   - ad-dc01     (1201, 192.168.151.201, net151, template 9250) : Windows Server 2025, future DC
+#   - ad-dc01     (1201, 192.168.152.201, net152, template 9250) : Windows Server 2025, future DC
 #   - ad-client01 (1202, 192.168.151.202, net151, template 9251) : Windows 11, future domain member
 #
 # The DC block comes first. The client resolves through the DC from its first boot
@@ -42,11 +42,11 @@
     global_vm_id:          1201
     global_vm_description: "ad_lab - Windows Server 2025 domain controller"
     global_vm_tag_name:    "ad-lab"
-    global_vm_ci_ip:       "192.168.151.201"
+    global_vm_ci_ip:       "192.168.152.201"
     global_template_vm_id: 9250
     global_template_name:  "template-vm-win2025-02-4g-64g - 9250"
-    global_vm_net_virtio_bridge:  "net151"
-    global_vm_ci_ip_gw:           "192.168.151.1"
+    global_vm_net_virtio_bridge:  "net152"
+    global_vm_ci_ip_gw:           "192.168.152.1"
     global_vm_ssh_wait_retries:   180
     global_vm_cloudinit_wait_retries: 150
     global_vm_clone_unlock_retries: 360
@@ -64,7 +64,7 @@
     global_template_name:  "template-vm-win11-02-4g-64g - 9251"
     global_vm_net_virtio_bridge:  "net151"
     global_vm_ci_ip_gw:           "192.168.151.1"
-    global_vm_ci_dns_ips:         "192.168.151.201"
+    global_vm_ci_dns_ips:         "192.168.152.201"
     global_vm_ssh_wait_retries:   180
     global_vm_cloudinit_wait_retries: 150
     global_vm_clone_unlock_retries: 360

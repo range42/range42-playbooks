@@ -5,7 +5,7 @@
 ## the hosts, and the manager (ad-wazuh.yml) must answer before an agent enrolls.
 ##
 ## Each agent enrolls on 192.168.142.204 tcp 1515 with the vault enrollment password (the bundle
-## passes it to the role) and reports on tcp 1514, routed from net151 through the node. Its name
+## passes it to the role) and reports on tcp 1514, routed from net152 and net151 through the node. Its name
 ## is the host name (the inventory name without "r42."). ufw on the manager admits tcp 1514-1515
 ## from these two sources only ; the Proxmox accepts on 1204 do the same once armed with the
 ## datacenter firewall enabled : see ad-wazuh.yml.

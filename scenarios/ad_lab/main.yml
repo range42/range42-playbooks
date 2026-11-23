@@ -4,15 +4,15 @@
 ##
 ## Structure : multi-level _main + _main_stage_NN per tier - flexible global stage interleaving across tiers without rewriting per-tier plays.
 ##
-## Active Directory lab on net151 :
-##   - ad-dc01     (192.168.151.201, VMID 1201, template 9250) - Windows Server 2025, domain controller
+## Active Directory lab, server LAN net152 and client LAN net151 :
+##   - ad-dc01     (192.168.152.201, VMID 1201, template 9250) - Windows Server 2025, domain controller
 ##                 of range42.lab (NetBIOS RANGE42), DNS server of the domain
 ##   - ad-client01 (192.168.151.202, VMID 1202, template 9251) - Windows 11, member of range42.lab
 ##   - ad-wazuh01  (192.168.142.204, VMID 1204, template 9232) - optional (INSTALL_WAZUH=YES) :
 ##                 Wazuh manager on the admin LAN net142, agents on both Windows VMs
 ##
 ## Global stage discipline (mirror of misp_lab / kunai_lab) :
-##   1. 00_sdn_bootstrap                       create the vnets (net140, net151 ; net142 with
+##   1. 00_sdn_bootstrap                       create the vnets (net140, net151, net152 ; net142 with
 ##                                             INSTALL_WAZUH=YES) when missing
 ##   2. 01_templates-bootstrap                 build the Windows templates (9250, 9251) when missing ;
 ##                                             the Linux template 9232 must already exist

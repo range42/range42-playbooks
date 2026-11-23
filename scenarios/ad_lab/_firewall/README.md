@@ -29,5 +29,6 @@ would refuse.
 One exception: `stage_02-post_vm_bootstrap.ad_rules.yml`, the Active Directory accepts, not gated
 (both VMs are the workload). It imports `firewall.baseline.ad_domain_controller` for ad-dc01 and
 declares tcp 3389 (RDP) on ad-dc01 and ad-client01 in one local task. The AD rules accept only
-192.168.151.0/24, the network of the domain members. The RDP rules accept only 192.168.151.1/32,
-the node address from which the jump-host forwards arrive.
+192.168.151.0/24, the client LAN of the domain members. The RDP rules accept only the node address
+on each guest's LAN, from which the jump-host forwards arrive: 192.168.152.1/32 for ad-dc01 (server
+LAN net152), 192.168.151.1/32 for ad-client01 (client LAN net151).

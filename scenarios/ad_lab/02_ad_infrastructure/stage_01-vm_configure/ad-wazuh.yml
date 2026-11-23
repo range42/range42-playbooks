@@ -10,7 +10,7 @@
 ## The Proxmox accepts of the manager live here, gated like the install (see _firewall/README.md).
 ## Declared only : arming stays FIREWALL_ARM_VMS (stage_04). Least privilege, so NOT the bundle
 ## firewall.baseline.wazuh (22/443/1514/1515/55000 from any source) :
-##   - tcp 1514 and 1515 : from the two agents only, 192.168.151.201/32 and 192.168.151.202/32.
+##   - tcp 1514 and 1515 : from the two agents only, 192.168.152.201/32 and 192.168.151.202/32.
 ##     Enrollment on 1515 requires the vault password. ufw in the VM applies the same source
 ##     list, armed or not ; these accepts filter only once armed with the Proxmox datacenter
 ##     firewall enabled.
@@ -50,9 +50,9 @@
         vm_fw_source: "{{ _adwz_it.source }}"
         vm_fw_comment: "range42 ad_lab wazuh"
       loop:
-        - { port: "1514", source: "192.168.151.201/32" }
+        - { port: "1514", source: "192.168.152.201/32" }
         - { port: "1514", source: "192.168.151.202/32" }
-        - { port: "1515", source: "192.168.151.201/32" }
+        - { port: "1515", source: "192.168.152.201/32" }
         - { port: "1515", source: "192.168.151.202/32" }
         - { port: "443",  source: "192.168.142.1/32" }
       loop_control:
@@ -75,7 +75,7 @@
     ## ufw on the manager, the same sources as the Proxmox accepts above : tcp 1514-1515 from
     ## the two agent hosts, tcp 443 from the node (jump-host forward)
     wazuh_agent_sources:
-      - "192.168.151.201"
+      - "192.168.152.201"
       - "192.168.151.202"
     wazuh_dashboard_sources:
       - "192.168.142.1"

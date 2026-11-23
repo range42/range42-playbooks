@@ -39,7 +39,7 @@ Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
     Port 22
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-#                                      AD LAB (net151)
+#                       AD LAB (servers net152, clients net151)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 #
 # Windows guests : OpenSSH server, default shell PowerShell, key-only authentication.
@@ -49,7 +49,7 @@ Host px.{{ INFRASTRUCTURE_CODENAME }}.jumper
 #
 
 Host r42.ad-dc01
-    Hostname 192.168.151.201
+    Hostname 192.168.152.201
     User alice
     IdentityFile {{ DEPLOYER_CLI__DST_SSH_KEYS_BACKEND_DEST_DIR }}/r42.{{ INFRASTRUCTURE_CODENAME }}-{{ INFRASTRUCTURE_SCENARIO }}-deployer-key_alice
     Port 22

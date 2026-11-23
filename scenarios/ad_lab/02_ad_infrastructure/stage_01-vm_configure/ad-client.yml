@@ -10,6 +10,6 @@
   vars:
     TARGET_GROUP: "r42_ad_clients"
     AD_MEMBER_DOMAIN: "{{ ad_lab_domain | default('range42.lab') }}"
-    AD_MEMBER_DC_IP: "192.168.151.201"
+    AD_MEMBER_DC_IP: "192.168.152.201"
     AD_MEMBER_JOIN_USER: "Administrator@{{ ad_lab_domain | default('range42.lab') }}"
     AD_MEMBER_JOIN_PASSWORD: "{{ default_windows_builtin_admin_password }}"

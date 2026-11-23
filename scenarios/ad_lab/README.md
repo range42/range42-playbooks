@@ -2,8 +2,9 @@
 
 Active Directory scenario: one **Windows Server 2025 domain controller** for the domain
 `range42.lab` (NetBIOS `RANGE42`), with the DNS server of the domain, and one **Windows 11
-Enterprise client** joined to that domain. Both run on the SDN vnet `net151` and are reached over
-OpenSSH with a PowerShell shell.
+Enterprise client** joined to that domain. As in a real network, the server and the client are on
+different LANs: the DC on the server LAN `net152`, the client on the client LAN `net151`. The node
+routes between them. Both are reached over OpenSSH with a PowerShell shell.
 
 The two Windows VMs ARE the workload of this scenario: always deployed. One optional component,
 off by default: a Wazuh manager on an admin LAN with the Wazuh agent on both Windows VMs
@@ -12,13 +13,15 @@ off by default: a Wazuh manager on an admin LAN with the Wazuh agent on both Win
 ## Network architecture
 
 ```
-Proxmox host (holds 192.168.151.1 and 192.168.142.1, routes, SNAT to the outside)
+Proxmox host (holds 192.168.152.1, 192.168.151.1 and 192.168.142.1, routes, SNAT to the outside)
  |
  +-- net140  192.168.140.0/24  templating (build of 9250 and 9251 only)
  |
- +-- net151  192.168.151.0/24  ad_lab
+ +-- net152  192.168.152.0/24  ad_lab server LAN
  |     +-- ad-dc01      .201  (VMID 1201)  domain controller, DNS of range42.lab
- |     +-- ad-client01  .202  (VMID 1202)  domain member, DNS = 192.168.151.201
+ |
+ +-- net151  192.168.151.0/24  ad_lab client LAN
+ |     +-- ad-client01  .202  (VMID 1202)  domain member, DNS = 192.168.152.201
  |
  +-- net142  192.168.142.0/24  admin LAN, INSTALL_WAZUH=YES only, shared with other scenarios
        +-- ad-wazuh01   .204  (VMID 1204)  Wazuh manager (indexer, dashboard, manager)
@@ -26,14 +29,15 @@ Proxmox host (holds 192.168.151.1 and 192.168.142.1, routes, SNAT to the outside
 
 All vnets have SNAT on. The Windows 11 template build downloads the OpenSSH server through
 `net140`, the evaluation editions must activate online (see "Evaluation editions"), and the
-Wazuh manager downloads its packages. The node routes between `net151` and `net142` without
-address translation : the manager sees the agents with their own addresses.
+Wazuh manager downloads its packages. The node routes between `net152`, `net151` and `net142`
+without address translation : the DC sees the client, and the manager sees the agents, with their
+own addresses.
 
 ## VM details
 
 | VM name | VM ID | IP | vnet | Template | Role |
 |---|---|---|---|---|---|
-| ad-dc01 | 1201 | 192.168.151.201 | `net151` | template-vm-win2025-02-4g-64g (9250) | domain controller, DNS server |
+| ad-dc01 | 1201 | 192.168.152.201 | `net152` | template-vm-win2025-02-4g-64g (9250) | domain controller, DNS server |
 | ad-client01 | 1202 | 192.168.151.202 | `net151` | template-vm-win11-02-4g-64g (9251) | domain member |
 | ad-wazuh01 | 1204 | 192.168.142.204 | `net142` | template-vm-medium-02-8g-64g (9232) | Wazuh manager, `INSTALL_WAZUH=YES` only |
 
@@ -79,7 +83,7 @@ fails.
 
 1. `_firewall` stages 00 and 01: firewall status report, management access on the datacenter and
    node chains (rules only).
-2. `00_sdn_bootstrap`: creates `net140` and `net151` when missing, never deletes. With
+2. `00_sdn_bootstrap`: creates `net140`, `net151` and `net152` when missing, never deletes. With
    `INSTALL_WAZUH=YES`, `net142` too.
 3. `01_templates-bootstrap`: builds templates 9250 and 9251 when missing ; existing templates are
    skipped.
@@ -127,13 +131,14 @@ What the deploy declares on the Proxmox per-NIC firewall (rules only, inert unti
 
 - ad-dc01 (1201): `firewall.baseline.ad_domain_controller` - tcp 53, 88, 135, 139, 389, 445,
   464, 636, 3268, 3269, 9389 and 49152:65535 (RPC dynamic range), udp 53, 88, 123, 137, 138, 389,
-  464, each from `192.168.151.0/24` only ;
-- ad-dc01 and ad-client01: tcp 3389 (RDP) from `192.168.151.1/32` only ;
+  464, each from `192.168.151.0/24` (the client LAN) only ;
+- ad-dc01: tcp 3389 (RDP) from `192.168.152.1/32` only ; ad-client01: tcp 3389 from `192.168.151.1/32` only ;
 - every VM of the scenario that runs: the SSH accept of `firewall.baseline.ssh_all_vms` ;
 - ad-wazuh01 (1204), `INSTALL_WAZUH=YES` only : see "Wazuh (optional)".
 
-The source `192.168.151.0/24` covers the domain members. `192.168.151.1` is the node itself, from
-which the jump-host forwards below arrive: RDP accepts only that address. The armed state of the
+The source `192.168.151.0/24` covers the domain members. `192.168.152.1` and `192.168.151.1` are the
+node itself on each LAN, from which the jump-host forwards below arrive: RDP accepts only the node
+address of the guest's own LAN. The armed state of the
 AD and RDP accepts above is not tested yet ; the Wazuh accepts are (see "Measured results").
 
 **Arming needs the datacenter firewall.** `FIREWALL_ARM_VMS=YES` runs `firewall.enable.vms`,
@@ -157,7 +162,7 @@ Accounts that can log on:
 
 | VM | Accounts | Why |
 |---|---|---|
-| ad-dc01 (192.168.151.201) | `RANGE42\alice`, `RANGE42\Administrator` | administrators of the domain (built-in `Administrators`) ; on a DC the RDP log-on right is granted to Administrators only |
+| ad-dc01 (192.168.152.201) | `RANGE42\alice`, `RANGE42\Administrator` | administrators of the domain (built-in `Administrators`) ; on a DC the RDP log-on right is granted to Administrators only |
 | ad-client01 (192.168.151.202) | `RANGE42\bob` | member of the local group "Remote Desktop Users" (the deploy adds it) |
 | ad-client01 | `RANGE42\Administrator` | member of `Domain Admins`, which is in the local Administrators group of the client |
 | ad-client01 | `AD-CLIENT01\alice` (local account, `.\alice`) | local administrator from the template |
@@ -171,16 +176,16 @@ Two paths reach tcp 3389:
 
 - **Direct route, while the Proxmox firewall is not armed.** The Proxmox firewall rules are
   declared but not armed (see "Firewall"), so the Proxmox firewall does not filter tcp 3389. An
-  RDP client on a host with a route to `192.168.151.0/24` through the node connects directly to
-  `192.168.151.201:3389` or `192.168.151.202:3389`.
-- **Port forward through the jump host.** The forwarded connection leaves the node from
-  `192.168.151.1`, the only source that the declared RDP rule allows once the firewall is armed
-  (armed state not tested yet). Use this path from a host without a route to `192.168.151.0/24`,
-  and after arming:
+  RDP client on a host with a route to `192.168.152.0/24` and `192.168.151.0/24` through the node
+  connects directly to `192.168.152.201:3389` or `192.168.151.202:3389`.
+- **Port forward through the jump host.** The forwarded connection leaves the node from its
+  address on the guest's LAN (`192.168.152.1` or `192.168.151.1`), the only source that the
+  declared RDP rule allows once the firewall is armed (armed state not tested yet). Use this path
+  from a host without a route to the lab LANs, and after arming:
 
 ```bash
 ssh -N -L 13389:192.168.151.202:3389 px.<codename>.jumper   # ad-client01
-ssh -N -L 13390:192.168.151.201:3389 px.<codename>.jumper   # ad-dc01
+ssh -N -L 13390:192.168.152.201:3389 px.<codename>.jumper   # ad-dc01
 # RDP client -> localhost:13389 or localhost:13390
 ```
 
@@ -248,20 +253,20 @@ only, inert until armed). Not `firewall.baseline.wazuh`, which accepts tcp 22, 4
 
 | Port | Source | Why |
 |---|---|---|
-| tcp 1514 | `192.168.151.201/32`, `192.168.151.202/32` | agent events |
-| tcp 1515 | `192.168.151.201/32`, `192.168.151.202/32` | agent enrollment, with the vault password |
+| tcp 1514 | `192.168.152.201/32`, `192.168.151.202/32` | agent events |
+| tcp 1515 | `192.168.152.201/32`, `192.168.151.202/32` | agent enrollment, with the vault password |
 | tcp 443 | `192.168.142.1/32` | dashboard ; the jump-host forward arrives from the node address on `net142` |
 | tcp 22 | as for every VM : `firewall.baseline.ssh_all_vms`, any source (see "Firewall") | deploy and operator SSH |
 
 No tcp 55000 : the agents enroll on 1515 and do not call the manager API.
 
-**Isolation** : the admin LAN is isolated from `net151` only when the firewall is armed
+**Isolation** : the admin LAN is isolated from `net152` and `net151` only when the firewall is armed
 (`FIREWALL_ARM_VMS=YES`) and the Proxmox datacenter firewall is enabled (see "Firewall").
-Unarmed, the node routes freely between `net151` and `net142` : every
-host of `net151`, a trainee session on ad-client01 included, reaches every port that ufw opens
+Unarmed, the node routes freely between `net152`, `net151` and `net142` : every
+host of these LANs, a trainee session on ad-client01 included, reaches every port that ufw opens
 on the manager to its address.
 Inside the VM, ufw (`admin/software.install.wazuh`, default deny) accepts tcp 1514-1515 only from
-`192.168.151.201` and `192.168.151.202`, tcp 443 only from `192.168.142.1`, tcp 22 from any
+`192.168.152.201` and `192.168.151.202`, tcp 443 only from `192.168.142.1`, tcp 22 from any
 source, and closes tcp 55000. These rules apply armed or not. ad-client01 is an agent host : it
 reaches tcp 1514-1515, and enrolling there needs the password. The Proxmox accepts above are a
 second layer, active only once armed with the datacenter firewall enabled (see "Firewall").
@@ -323,7 +328,7 @@ resolver ; the armed checks ran with the Proxmox datacenter firewall enabled.
   day later, and `wlms.exe` (Windows Licensing Monitoring Service) shuts the VM down 60 minutes
   after each boot (System event 1074 by `wlms.exe`, WLMS event 101).
 - The DNS path of the client to the Microsoft activation hosts is the DC : the only DNS server of
-  ad-client01 is 192.168.151.201, which resolves external names through its forwarder `1.1.1.1`.
+  ad-client01 is 192.168.152.201, which resolves external names through its forwarder `1.1.1.1`.
   Measured on an earlier deploy : the first-boot activation of the client failed with event 8200
   `hr=0x80072EE7` (name not resolved) because the DC did not resolve external names at that moment
   (before the DC role had set its forwarder), and the client shut down 60 minutes
@@ -333,7 +338,7 @@ resolver ; the armed checks ran with the Proxmox datacenter firewall enabled.
   default), after the DC has its forwarder. When no attempt succeeds, it fails with the `hr=0x...`
   code of the last SPP event 8200, or says that no event 8200 was found. A rerun on activated VMs
   reports `ok`.
-- Keep SNAT on `net151` : the activation needs outbound HTTPS.
+- Keep SNAT on `net152` and `net151` : the activation needs outbound HTTPS.
 
 ## Nested virtualisation
 
@@ -392,7 +397,7 @@ From the deployer, in a shell where the ad_lab workspace is active (`range42-con
 
 ```bash
 range42-context ssh-reload           # load the workspace SSH keys into ssh-agent
-range42-context ssh ad-dc01          # PowerShell session as alice on 192.168.151.201
+range42-context ssh ad-dc01          # PowerShell session as alice on 192.168.152.201
 range42-context ssh ad-client01      # PowerShell session as alice on 192.168.151.202
 range42-context ssh ad-wazuh01       # INSTALL_WAZUH=YES : shell as alice on 192.168.142.204
 range42-context show-vault           # the generated passwords (alice, Administrator, bob, DSRM, Wazuh admin)
@@ -436,7 +441,7 @@ The other accounts and the DC forward are in "RDP through the jump host".
 ```
 ad_lab/
   main.yml / main_vms_only.yml
-  00_sdn_bootstrap/_main.yml                     net140 + net151 (+ net142 with INSTALL_WAZUH)
+  00_sdn_bootstrap/_main.yml                     net140 + net151 + net152 (+ net142 with INSTALL_WAZUH)
   01_templates-bootstrap/_main.yml               template.build.windows (win2025, win11)
   02_ad_infrastructure/
     _main.yml                                    devkit-only wrapper

@@ -4,8 +4,11 @@
 ##
 ## RUNS BEFORE EVERYTHING ELSE, and the order is not a preference : net140 is the templating
 ## network, and the Windows 11 template build downloads the OpenSSH server there, so without a live
-## SNAT rule the build fails. net151 keeps SNAT on as well : the evaluation editions must activate
-## online within 10 days of the first boot.
+## SNAT rule the build fails. net151 and net152 keep SNAT on as well : the evaluation editions must
+## activate online within 10 days of the first boot.
+##
+## The domain controller and the client are on DIFFERENT LANs, as in a real network : net152 holds the
+## servers, net151 the clients. The node routes between them.
 ##
 ## CREATES, NEVER DELETES. The bundle looks each object up and writes only what is missing, so a
 ## second run is a no-op. A vnet name is GLOBAL TO THE CLUSTER - deleting one here would take away
@@ -27,7 +30,8 @@
       ansible.builtin.set_fact:
         _sdn_vnets:
           - { vnet: "net140", subnet: "192.168.140.0/24", gateway: "192.168.140.1", snat: true }   # templating, OpenSSH download
-          - { vnet: "net151", subnet: "192.168.151.0/24", gateway: "192.168.151.1", snat: true }   # ad-dc01, ad-client01 (evaluation activation)
+          - { vnet: "net151", subnet: "192.168.151.0/24", gateway: "192.168.151.1", snat: true }   # client LAN : ad-client01 (evaluation activation)
+          - { vnet: "net152", subnet: "192.168.152.0/24", gateway: "192.168.152.1", snat: true }   # server LAN : ad-dc01 (evaluation activation)
 
     ## The admin LAN of the optional Wazuh manager, as in demo_lab. net142 is shared with other
     ## scenarios : the bundle creates it when it is missing, and the declaration below is the one
