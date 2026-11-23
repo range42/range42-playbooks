@@ -3,6 +3,8 @@
 # vm.bootstrap - shared per-VM stage_00 playbook
 #
 #   clone template -> wait proxmox unlock -> set tag -> set cloudinit -> start VM -> wait openssh + cloudinit
+#   (optional firmware stall watchdog after start VM : see global_vm_firmware_stall_reset_after)
+#   (set cloudinit is skipped on a running VM whose config already matches : see the task comment)
 #
 # Required vars (passed by the call-site - per-VM block) :
 #   global_vm_id                  proxmox vm id of the new VM
@@ -19,6 +21,14 @@
 #   global_template_name          template human label (default '' - used in task names)
 #   global_vm_ci_dns_ips          cloud-init DNS (default '1.1.1.1')
 #   global_vm_ci_netmask          cloud-init netmask (default '24')
+#   global_vm_ssh_wait_retries    SSH wait retries, 5 s apart (default 60 ; Windows clones : 180)
+#   global_vm_cloudinit_wait_retries  Windows cloudbase-init wait retries, at least 10 s apart (default 60)
+#   global_vm_clone_unlock_retries    post-clone lock wait retries, 5 s apart (default 60 = 5 min ;
+#                                     a full clone of a 64 GiB template can take longer)
+#   global_vm_firmware_stall_reset_after  firmware stall watchdog window in seconds (default 0 = disabled) :
+#                                     when this play started the VM and the VM reads 0 bytes from disk
+#                                     during the window, reset the VM through the API and watch again
+#   global_vm_firmware_stall_max_resets   resets before the watchdog fails the play (default 1)
 #
 # Cloud-init credentials come from the scenario vault, with the same fall-back as before :
 #   vm_ci_user      = default_admin_vm_ci_user      | default('alice')
@@ -61,7 +71,7 @@
         - vm_bootstrap_clone_lock.json.data is defined
         - vm_bootstrap_clone_lock.json.data is mapping
         - vm_bootstrap_clone_lock.json.data.lock is not defined
-      retries: 60                # 60 x 5s = 5 min max safety
+      retries: "{{ global_vm_clone_unlock_retries | default(60) }}"   # x 5 s ; default 5 min
       delay: 5
       changed_when: false
       no_log: true
@@ -74,7 +84,39 @@
         vm_id: "{{ global_vm_id }}"
         vm_tag_name: "{{ global_vm_tag_name }}"
 
+    # The controller action cloudinit_set_variables hard-stops a running VM before it writes the
+    # config. On a rerun, skip it when the VM is running and its cloud-init fields and net0 bridge
+    # already have the requested values. Proxmox masks cipassword on read, so a password-only
+    # change is not detected: stop the VM first to apply it.
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - READ VM STATUS
+      ansible.builtin.uri:
+        url: "https://{{ proxmox_api_host }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ global_vm_id }}/status/current"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_api_user }}!{{ proxmox_api_token_id }}={{ proxmox_api_token_secret }}"
+        validate_certs: "{{ proxmox_api_validate_certs | default(false) }}"
+        ca_path: "{{ lookup('env', 'RANGE42_PROXMOX_CA_FILE') | default(omit, true) }}"
+        status_code: 200
+      register: vm_bootstrap_status
+      changed_when: false
+      no_log: true
+
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - COMPARE RUNNING CONFIG WITH THE REQUESTED ONE
+      vars:
+        _cfg: "{{ vm_bootstrap_clone_lock.json.data }}"
+        _want_ipconfig0: "ip={{ global_vm_ci_ip }}/{{ global_vm_ci_netmask | default('24') }},gw={{ global_vm_ci_ip_gw }}"
+        _want_sshkeys: "{{ default_admin_vm_ci_ssh_key | default('') | trim | urlencode | replace('/', '%2F') }}"
+      ansible.builtin.set_fact:
+        vm_bootstrap_ci_unchanged: >-
+          {{ vm_bootstrap_status.json.data.status | default('') == 'running'
+             and _cfg.ciuser | default('') == (default_admin_vm_ci_user | default('alice'))
+             and _cfg.nameserver | default('') == (global_vm_ci_dns_ips | default('1.1.1.1'))
+             and _cfg.ipconfig0 | default('') == _want_ipconfig0
+             and _cfg.sshkeys | default('') == _want_sshkeys
+             and (_cfg.net0 | default('') | regex_findall('bridge=([^,]+)') | first | default('')) == global_vm_net_virtio_bridge }}
+
     - name: VM BOOTSTRAP - "{{ global_vm_name }}" - SET CLOUDINIT VARIABLES
+      when: not (vm_bootstrap_ci_unchanged | bool)
       include_role:
         name: range42-ansible_roles-proxmox_controller
       vars:
@@ -96,6 +138,28 @@
         proxmox_vm_action: "vm_start"
         vm_id: "{{ global_vm_id }}"
 
+    # Workaround, not a fix : the start of an OVMF VM (a fresh clone, or a cold start) can hang
+    # in the firmware (black console, 0 bytes read from disk) and a reset ended the long hangs.
+    # The cause is not established. The watchdog runs only when the VM was not running before
+    # this play (READ VM STATUS), so it never resets a VM that was already running. Each reset
+    # prints one line and reports changed.
+    - name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG
+      when:
+        - global_vm_firmware_stall_reset_after | default(0) | int > 0
+        - vm_bootstrap_status.json.data.status | default('') != 'running'
+      block:
+
+        - name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG - INIT
+          ansible.builtin.set_fact:
+            vm_bootstrap_fw_reading: false
+            vm_bootstrap_fw_deadline: "{{ global_vm_firmware_stall_reset_after | int }}"   # VM uptime, s
+
+        - name: VM BOOTSTRAP - "{{ global_vm_name }}" - FIRMWARE STALL WATCHDOG - WATCH
+          ansible.builtin.include_tasks: firmware_stall_watchdog.yml
+          loop: "{{ range(0, (global_vm_firmware_stall_max_resets | default(1) | int) + 1) | list }}"
+          loop_control:
+            loop_var: vm_bootstrap_fw_window
+
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 - hosts: "{{ global_vm_ssh_name }}"
@@ -106,6 +170,8 @@
   vars:
     deployer_cli_user_ssh_known_hosts: "{{ deployer_cli_user_ssh_known_hosts }}"
     ARG_vm_ssh_name: "{{ global_vm_ssh_name }}"
+    ssh_wait_retries: "{{ global_vm_ssh_wait_retries | default(60) }}"
+    cloudinit_wait_retries: "{{ global_vm_cloudinit_wait_retries | default(60) }}"
 
     requested_tasks:
       - wait/openssh_server/is_reachable.yml

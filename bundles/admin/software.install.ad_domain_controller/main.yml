@@ -1,0 +1,28 @@
+---
+# ============================================================================
+# bundles/admin/software.install.ad_domain_controller/main.yml
+# ============================================================================
+# Thin bundle: promote a Windows Server host to the first domain controller of a new Active
+# Directory forest (DNS included), via the catalog role `software.install.ad_domain_controller`.
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP                  ansible group to target (one Windows Server host)
+#   AD_DC_DOMAIN                  DNS name of the new domain
+#   AD_DC_NETBIOS                 NetBIOS name of the domain (at most 15 characters)
+#   AD_DC_DSRM_PASSWORD           DSRM password (secret - pass a vault variable)
+#   AD_DC_BUILTIN_ADMIN_PASSWORD  built-in Administrator password, then domain Administrator
+#                                 password (secret - pass a vault variable)
+# OPTIONAL caller vars:
+#   AD_DC_DNS_FORWARDERS          (def ["1.1.1.1"] in the role)
+#
+# The caller passes them via -e or the import vars: (play scope) ; the role reads them directly.
+# The scenario vault is loaded here so that the caller can pass vault variables by name.
+# ============================================================================
+
+- name: Promote the first domain controller of a new forest
+  hosts: "{{ TARGET_GROUP }}"
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'RANGE42_ACTIVE_CONFIG_DIR') }}/secrets/default_vault.yml"
+  roles:
+    - role: software.install.ad_domain_controller

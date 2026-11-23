@@ -1,0 +1,6 @@
+##
+## The operator's own path protected BEFORE any arming decision: accept 22 + 8006 on the
+## datacenter chain AND the node chain. Rules-only - never a switch - idempotent, inert
+## while the dc stays off.
+##
+- import_playbook: "{{ lookup('env', 'RANGE42_BUNDLE_DIR') }}/firewall/in_proxmox/firewall.baseline.management_access/main.yml"

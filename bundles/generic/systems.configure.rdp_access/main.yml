@@ -1,0 +1,22 @@
+---
+# ============================================================================
+# bundles/generic/systems.configure.rdp_access/main.yml
+# ============================================================================
+# Thin bundle: enable Remote Desktop on Windows hosts, via the catalog role
+# `systems.configure.rdp_access` (fDenyTSConnections 0, firewall rule group "Remote Desktop",
+# TermService running, RDP_USERS added to "Remote Desktop Users").
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP   ansible group to target (Windows hosts)
+# OPTIONAL caller vars:
+#   RDP_USERS      (def [] in the role) accounts to add to "Remote Desktop Users"
+#
+# The caller passes them via -e or the import vars: (play scope) ; the role reads them directly.
+# No secret : the bundle loads no vault.
+# ============================================================================
+
+- name: Enable Remote Desktop on the Windows hosts
+  hosts: "{{ TARGET_GROUP }}"
+  gather_facts: false
+  roles:
+    - role: systems.configure.rdp_access

@@ -1,0 +1,23 @@
+---
+# ============================================================================
+# bundles/generic/systems.configure.windows_eval_activation/main.yml
+# ============================================================================
+# Thin bundle: activate Windows evaluation editions online, via the catalog role
+# `systems.configure.windows_eval_activation` (slmgr.vbs /ato with retries, fail with the
+# activation error code when it never succeeds).
+#
+# REQUIRED caller vars:
+#   TARGET_GROUP                  ansible group to target (Windows hosts)
+# OPTIONAL caller vars:
+#   WIN_EVAL_ACTIVATION_RETRIES   (def 10 in the role) attempts after the first one
+#   WIN_EVAL_ACTIVATION_DELAY     (def 60 in the role) seconds between two attempts
+#
+# The caller passes them via -e or the import vars: (play scope) ; the role reads them directly.
+# No secret : the bundle loads no vault.
+# ============================================================================
+
+- name: Activate the Windows evaluation editions
+  hosts: "{{ TARGET_GROUP }}"
+  gather_facts: false
+  roles:
+    - role: systems.configure.windows_eval_activation
