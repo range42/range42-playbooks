@@ -3,11 +3,11 @@
 # PROXMOX INIT INFRASTRUCTURE - ADMIN-SERVICES-LAB VM
 #
 #   hostname : admin-all-services-lab
-#   vm_id    : 1187
+#   vm_id    : 1189
 #   cpu core : 2
 #   ram      : 8g
 #   disk     : 64g
-#   ip       : 192.168.142.187
+#   ip       : 192.168.142.189
 #   bridge   : net142
 #
 #   template : template-vm-medium-02-8g-64g - id : 9232
