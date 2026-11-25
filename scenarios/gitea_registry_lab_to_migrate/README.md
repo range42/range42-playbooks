@@ -115,7 +115,7 @@ range42-context delete            # same as delete-vms here (template 9232 is sh
 
 | Stage | Purpose |
 |---|---|
-| `01_init_proxmox/` | Download Ubuntu noble cloud-init image + create template 9232 (`template-vm-medium-02-8g-64g`). Idempotent : skips if already present from another scenario. |
+| `01_templates-bootstrap/_main.yml` | Build template 9232 (`medium-02`) via the shared templates bundle. Idempotent. |
 | `02_gitea_registry_lab_infrastructure/stage_00/gitea_registry_lab_vm.yml` | VM clone from template 9232 + cloud-init + start + wait-for-SSH. |
 | `02_gitea_registry_lab_infrastructure/stage_01/_r42_gitea_registry_lab_group.yml` | Docker baseline + zsh dotfiles + firewall (port 22 only). |
 
@@ -144,7 +144,7 @@ gitea_registry_lab/
   gitea_registry_lab.delete_vms_only.sh         VM teardown
   gitea_registry_lab.delete_all.sh              VM + template teardown
   gitea_registry_lab.reset.setup.sh             teardown + deploy
-  01_init_proxmox/                              Ubuntu noble cloud-init image + template 9232
+  01_templates-bootstrap/                       shared templates bundle import (template 9232)
   02_gitea_registry_lab_infrastructure/         single-VM stages 00 + 01
   templates/                                    scenario-level templates (inventory, vars, ssh-config, vault example)
 ```

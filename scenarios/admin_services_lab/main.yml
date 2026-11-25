@@ -18,9 +18,7 @@
 
 - import_playbook: ./00_sdn_bootstrap/_main.yml
 
-- import_playbook: ./01_init_proxmox/templates/_main_download_cloudinit_files.yml
-
-- import_playbook: ./01_init_proxmox/templates/ubuntu_noble/_main_ubuntu_noble.yml
+- import_playbook: ./01_templates-bootstrap/_main.yml
 
 - import_playbook: ./02_admin_services_lab_infrastructure/stage_00/admin_services_lab_vm.yml
   vars:

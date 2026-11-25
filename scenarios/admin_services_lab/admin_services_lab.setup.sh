@@ -3,7 +3,7 @@
 ##
 ## admin_services_lab.setup.sh - full provisioning (template + VM + stacks)
 ##
-## Runs main.yml : 01_init_proxmox (idempotent) + VM clone + Docker baseline + OAuth stacks.
+## Runs main.yml : 01_templates-bootstrap (idempotent) + VM clone + Docker baseline + OAuth stacks.
 ## Set environment first with: range42-context use <codename> admin_services_lab
 ##
 
