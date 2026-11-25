@@ -47,7 +47,8 @@
     - "../../secrets/default_vault.yml"
 
   vars:
-    _client_user: "{{ default_admin_vm_ci_user | default('alice') }}"
+    # the human account created by _student_user.yml (alice is the deploy user only)
+    _client_user: "student"
     _key_path: "/home/{{ _client_user }}/.ssh/id_ed25519_gitea"
     _gitea_ip: "{{ gitea_server_ip | default('192.168.142.183') }}"
     _gitea_api_base: "{{ hostvars['r42.admin-gitea-standalone']._gitea_protocol }}://{{ _gitea_ip }}:{{ hostvars['r42.admin-gitea-standalone']._gitea_http_port }}"

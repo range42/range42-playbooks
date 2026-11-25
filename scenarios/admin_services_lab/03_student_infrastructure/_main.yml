@@ -27,6 +27,9 @@
 
 - import_playbook: ./stage_01/_r42_student_gitea_client_group.yml
 
+# human user `student` (per-VM key) - must exist before the SSH-cycle playbook below
+- import_playbook: ./stage_01/_student_user.yml
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - import_playbook: ./stage_01/student_gitea_client_01.yml

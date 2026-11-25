@@ -23,8 +23,8 @@ INFRASTRUCTURE_SCENARIO: "admin_services_lab"
 context_auto_generate_ssh_keys: "YES"
 context_auto_generate_vm_passwords: "YES"
 
-# no student extras (single-VM admin scenario)
-student_additionnal_keys_count: 0
+# one extra student key (bob_1) per student VM - see student_key_index in the inventory
+student_additional_keys_count: 1
 
 
 #### CLOUD-INIT USERNAMES ####

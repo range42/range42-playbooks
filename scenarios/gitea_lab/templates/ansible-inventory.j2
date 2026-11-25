@@ -13,6 +13,8 @@ all:
         r42_gitea_client_group:
           hosts:
             r42.student-gitea-client-01:
+              # selects the per-VM student key (ssh_key_student_user_extra_<N>_pub_key)
+              student_key_index: 1
 
         ####
 
