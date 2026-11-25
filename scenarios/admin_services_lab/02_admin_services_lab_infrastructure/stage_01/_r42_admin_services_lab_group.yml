@@ -137,6 +137,15 @@
   ##
 
   tasks:
+    # The reload below recreates gitea. If the provisioner is still running, its API
+    # calls are reset (curl 56) and the org / sample-repo seeding is left incomplete.
+    - name: wait for Gitea provisioner to finish before recreating gitea
+      ansible.builtin.command:
+        cmd: docker wait gitea-provisioner
+      changed_when: false
+      register: _gitea_prov_exit
+      failed_when: _gitea_prov_exit.rc != 0 or _gitea_prov_exit.stdout | trim != '0'
+
     - name: configure Gitea .env — domain (VM IP for HTTPS cert SAN)
       ansible.builtin.lineinfile:
         path: /home/alice/gitea/.env
