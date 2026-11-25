@@ -25,9 +25,9 @@
   vars:
     _client_user: "{{ default_admin_vm_ci_user | default('alice') }}"
     _key_path: "/home/{{ _client_user }}/.ssh/id_ed25519_gitea"
-    _gitea_api_base: "{{ gitea_protocol | default('https') }}://{{ gitea_server_ip | default('192.168.142.187') }}:{{ gitea_port | default(3000) }}"
+    _gitea_api_base: "{{ gitea_protocol | default('https') }}://{{ gitea_server_ip | default('192.168.142.189') }}:{{ gitea_port | default(3000) }}"
     _gitea_ssh_port: "{{ gitea_ssh_port | default(2222) }}"
-    _gitea_ip: "{{ gitea_server_ip | default('192.168.142.187') }}"
+    _gitea_ip: "{{ gitea_server_ip | default('192.168.142.189') }}"
     _gitea_user: "{{ gitea_target_user | default('team-blue-user-01') }}"
 
   tasks:

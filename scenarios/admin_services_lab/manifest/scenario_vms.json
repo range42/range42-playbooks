@@ -3,9 +3,9 @@
   "version": 1,
   "vms": [
     {
-      "vm_id": 1187,
+      "vm_id": 1189,
       "vm_name": "admin-all-services-lab",
-      "ip": "192.168.142.187",
+      "ip": "192.168.142.189",
       "role": "admin",
       "bridge": "net142"
     },
