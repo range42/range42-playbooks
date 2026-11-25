@@ -40,3 +40,6 @@
       - ip: "all"
         port: 22
         protocol: "tcp"
+
+# human user `student` (per-VM key) - must exist before the cross-tier SSH-cycle FINALIZE
+- import_playbook: ./stage_01-vm_configure/_student_user.yml
