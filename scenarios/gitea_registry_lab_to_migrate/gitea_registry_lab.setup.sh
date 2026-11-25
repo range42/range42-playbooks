@@ -3,7 +3,7 @@
 ##
 ## gitea_registry_lab.setup.sh - full provisioning (template + VM)
 ##
-## Runs main.yml : 01_init_proxmox (idempotent) + VM clone + Docker baseline.
+## Runs main.yml : 01_templates-bootstrap (idempotent) + VM clone + Docker baseline.
 ## Set environment first with: range42-context use <codename> gitea_registry_lab
 ##
 
